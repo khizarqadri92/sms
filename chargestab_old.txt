@@ -1,0 +1,153 @@
+function ChargesTab() {
+  const { can } = useAuth();
+  const [charges,  setCharges]  = useState([]);
+  const [classes,  setClasses]  = useState([]);
+  const [years,    setYears]    = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editItem, setEditItem] = useState(null);
+  const [saving,   setSaving]   = useState(false);
+  const [success,  setSuccess]  = useState("");
+  const [error,    setError]    = useState("");
+  const [form,     setForm]     = useState({
+    name:"", amount:"", charge_type:"monthly", apply_month:"",
+    apply_year:"", class_id:"", academic_year_id:"", description:""
+  });
+
+  const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+  useEffect(() => {
+    Promise.all([
+      financeApi.getFeeCharges(),
+      academicsApi.getClasses(),
+      academicsApi.getYears(),
+    ]).then(([r1, r2, r3]) => {
+      setCharges(r1.data.data || []);
+      setClasses(r2.data.data || []);
+      setYears(r3.data.data  || []);
+    }).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
+  const openCreate = () => { setEditItem(null); setForm({ name:"", amount:"", charge_type:"monthly", apply_month:"", apply_year:"", class_id:"", academic_year_id:"", description:"" }); setShowForm(true); };
+  const openEdit   = (c) => { setEditItem(c); setForm({ name:c.name, amount:c.amount, charge_type:c.charge_type, apply_month:c.apply_month||"", apply_year:c.apply_year||"", class_id:c.class_id||"", academic_year_id:c.academic_year_id||"", description:c.description||"" }); setShowForm(true); };
+
+  const handleSave = async e => {
+    e.preventDefault(); setSaving(true); setError("");
+    try {
+      if (editItem) await financeApi.updateFeeCharge(editItem.id, form);
+      else          await financeApi.createFeeCharge(form);
+      setSuccess(editItem ? "Charge updated." : "Charge created.");
+      setShowForm(false);
+      const r = await financeApi.getFeeCharges();
+      setCharges(r.data.data || []);
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err) { setError(err.response?.data?.message || "Failed to save."); }
+    finally { setSaving(false); }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Delete this charge?")) return;
+    try {
+      await financeApi.deleteFeeCharge(id);
+      setCharges(charges.filter(c => c.id !== id));
+    } catch { setError("Failed to delete."); }
+  };
+
+  if (loading) return <div className="loading-state">Loading...</div>;
+
+  return (
+    <div>
+      {success && <div className="alert alert-success">{success}</div>}
+      {error   && <div className="alert alert-error">{error}</div>}
+      <div className="page-header" style={{ marginBottom:16 }}>
+        <h2 style={{ fontSize:16, fontWeight:700 }}>Extra Charges</h2>
+        {can("finance.manage") && <button className="btn btn-primary" onClick={openCreate}>+ Add Charge</button>}
+      </div>
+
+      {showForm && (
+        <div className="section-card" style={{ marginBottom:16 }}>
+          <div className="section-card-header"><span className="section-card-title">{editItem ? "Edit Charge" : "New Charge"}</span></div>
+          <form onSubmit={handleSave}>
+            <div className="form-grid">
+              <div className="form-group">
+                <label className="form-label">Charge Name *</label>
+                <input className="form-control" value={form.name} onChange={e => setForm({...form, name:e.target.value})} required placeholder="e.g. Sports Fee, Library Fee" />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Amount (Rs.) *</label>
+                <input className="form-control" type="number" value={form.amount} onChange={e => setForm({...form, amount:e.target.value})} required min="0" step="0.01" />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Charge Type *</label>
+                <select className="form-control" value={form.charge_type} onChange={e => setForm({...form, charge_type:e.target.value})}>
+                  <option value="monthly">Monthly (every month)</option>
+                  <option value="one_time">One Time (specific month)</option>
+                  <option value="termly">Termly (every 3 months)</option>
+                </select>
+              </div>
+              {form.charge_type === "one_time" && (
+                <>
+                  <div className="form-group">
+                    <label className="form-label">Apply Month</label>
+                    <select className="form-control" value={form.apply_month} onChange={e => setForm({...form, apply_month:e.target.value})}>
+                      <option value="">Select month</option>
+                      {MONTHS.map((m,i) => <option key={i+1} value={i+1}>{m}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Apply Year</label>
+                    <input className="form-control" type="number" value={form.apply_year} onChange={e => setForm({...form, apply_year:e.target.value})} placeholder="e.g. 2026" />
+                  </div>
+                </>
+              )}
+              <div className="form-group">
+                <label className="form-label">Apply to Class (leave blank for all)</label>
+                <select className="form-control" value={form.class_id} onChange={e => setForm({...form, class_id:e.target.value})}>
+                  <option value="">All Classes</option>
+                  {classes.map(c => <option key={c.id} value={c.id}>{c.name}{c.section ? " (" + c.section + ")" : ""}</option>)}
+                </select>
+              </div>
+              <div className="form-group form-grid-full">
+                <label className="form-label">Description</label>
+                <input className="form-control" value={form.description} onChange={e => setForm({...form, description:e.target.value})} placeholder="Optional description" />
+              </div>
+            </div>
+            <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+              <button type="button" className="btn btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
+              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Saving..." : editItem ? "Update" : "Create"}</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {charges.length === 0 ? <div className="empty-state">No extra charges configured.</div> : (
+        <div className="table-container">
+          <table className="table">
+            <thead><tr><th>Name</th><th>Amount</th><th>Type</th><th>Applies To</th><th>Status</th>{can("finance.manage") && <th>Actions</th>}</tr></thead>
+            <tbody>
+              {charges.map(c => (
+                <tr key={c.id}>
+                  <td><strong>{c.name}</strong>{c.description && <div style={{ fontSize:11, color:"#94a3b8" }}>{c.description}</div>}</td>
+                  <td>Rs. {Number(c.amount).toLocaleString()}</td>
+                  <td>
+                    <span className={\adge \\} style={{ textTransform:"capitalize" }}>
+                      {c.charge_type === "one_time" ? \One Time ? \ \\ : c.charge_type}
+                    </span>
+                  </td>
+                  <td style={{ fontSize:12 }}>{c.class_name ? c.class_name + (c.class_section ? " (" + c.class_section + ")" : "") : "All Classes"}</td>
+                  <td><span className={\adge \\}>{c.is_active ? "Active" : "Inactive"}</span></td>
+                  {can("finance.manage") && (
+                    <td style={{ display:"flex", gap:5 }}>
+                      <button className="btn btn-ghost btn-xs" onClick={() => openEdit(c)}>Edit</button>
+                      <button className="btn btn-danger btn-xs" onClick={() => handleDelete(c.id)}>Delete</button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}

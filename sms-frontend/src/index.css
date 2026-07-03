@@ -1,0 +1,71 @@
+﻿@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: #f1f5f9;
+  color: #374151;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { text-decoration: none; color: inherit; }
+button { cursor: pointer; font-family: inherit; }
+input, select, textarea { font-family: inherit; }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: #f1f5f9; }
+::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+/* ── Theme CSS variables ─────────────────────────────────────── */
+:root {
+  --theme-nav:           #1e293b;
+  --theme-nav-dark:      #0f172a;
+  --theme-primary:       #2563eb;
+  --theme-primary-dark:  #1d4ed8;
+  --theme-primary-light: #eff6ff;
+  --theme-primary-border:#bfdbfe;
+  --theme-hero:          linear-gradient(135deg, #1e40af 0%, #3730a3 60%, #1e3a8a 100%);
+  --theme-active:        #2563eb;
+}
+
+/* Apply theme to buttons */
+.btn-primary {
+  background: var(--theme-primary, #2563eb) !important;
+  border-color: var(--theme-primary, #2563eb) !important;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--theme-primary-dark, #1d4ed8) !important;
+  border-color: var(--theme-primary-dark, #1d4ed8) !important;
+}
+
+.tab-btn.active {
+  color: var(--theme-primary, #2563eb) !important;
+}
+
+.badge-primary {
+  background: var(--theme-primary-light, #eff6ff) !important;
+  color: var(--theme-primary, #2563eb) !important;
+  border-color: var(--theme-primary-border, #bfdbfe) !important;
+}
+
+.form-control:focus {
+  border-color: var(--theme-primary, #2563eb) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-primary, #2563eb) 15%, transparent) !important;
+}
+
+.subnav-link.active {
+  color: var(--theme-primary, #2563eb) !important;
+  border-bottom-color: var(--theme-primary, #2563eb) !important;
+}
+
+.topnav-link.active {
+  background: var(--theme-primary, #2563eb) !important;
+}
+
+.profile-avatar {
+  background: linear-gradient(135deg, var(--theme-primary, #2563eb), #93c5fd) !important;
+}

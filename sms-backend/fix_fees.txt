@@ -1,0 +1,31 @@
+﻿    import psycopg2.extras
+    from app.db.connection import get_db
+    db  = get_db()
+    cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("""
+        SELECT fi.id, fi.amount, fi.net_amount, fi.discount, fi.fine,
+               fi.status, fi.due_date, fi.issued_at, fi.notes,
+               fs.name AS structure_name,
+               COALESCE((SELECT SUM(p.amount_paid) FROM payments p
+                         WHERE p.invoice_id = fi.id), 0) AS paid_amount
+        FROM fee_invoices fi
+        LEFT JOIN fee_structures fs ON fs.id = fi.fee_structure_id
+        WHERE fi.student_id = %s
+        ORDER BY fi.issued_at DESC
+    """, (id,))
+    invoices = [dict(r) for r in cur.fetchall()]
+    cur.execute("""
+        SELECT COUNT(*) AS total_invoices,
+               COALESCE(SUM(net_amount), 0) AS total_billed,
+               COALESCE(SUM(CASE WHEN status = 'paid' THEN net_amount ELSE 0 END), 0) AS total_paid,
+               COALESCE(SUM(CASE WHEN status IN ('unpaid','partial','overdue') THEN net_amount ELSE 0 END), 0) AS total_due,
+               COUNT(CASE WHEN status = 'overdue' THEN 1 END) AS overdue_count,
+               %s AS student_id
+        FROM fee_invoices WHERE student_id = %s
+    """, (id, id))
+    summary = dict(cur.fetchone())
+    summary["total_billed"] = float(summary["total_billed"])
+    summary["total_paid"]   = float(summary["total_paid"])
+    summary["total_due"]    = float(summary["total_due"])
+    summary["invoices"]     = invoices
+    return success(data=summary)
