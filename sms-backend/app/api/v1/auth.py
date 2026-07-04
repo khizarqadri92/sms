@@ -47,6 +47,41 @@ def refresh():
     return success(data={"access_token": access_token})
 
 
+@bp.post("/verify-password")
+@jwt_required()
+def verify_password():
+    body = request.get_json() or {}
+    password = body.get("password", "")
+    if not password:
+        return error("password is required.", 400)
+    user_id = int(get_jwt_identity())
+    from app.db.connection import get_db
+    import psycopg2.extras, bcrypt
+    db = get_db()
+    cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM sp_get_user_password_hash(%s::integer)", (user_id,))
+    row = cur.fetchone()
+    password_matches = bool(row) and bcrypt.checkpw(password.encode(), row["password_hash"].encode())
+
+    cur.execute("SELECT * FROM sp_record_password_attempt(%s::integer, %s::boolean)", (user_id, password_matches))
+    result = cur.fetchone()
+    db.commit()
+
+    if result["is_locked"]:
+        from flask import jsonify
+        locked_until_iso = result["locked_until"].isoformat() if result["locked_until"] else None
+        return jsonify({
+            "status": "error",
+            "message": "Account locked due to too many failed attempts. Please wait before trying again.",
+            "data": {"locked_until": locked_until_iso}
+        }), 403
+
+    if not password_matches:
+        return error("Incorrect password. " + str(result["attempts_remaining"]) + " attempt(s) remaining.", 400)
+
+    return success(message="Verified.")
+
+
 @bp.get("/me")
 @jwt_required()
 def me():

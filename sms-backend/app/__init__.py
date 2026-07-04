@@ -90,6 +90,7 @@ def create_app(env=None):
     from app.api.v1.discipline   import bp as discipline_bp
     from app.api.v1.config       import bp as config_bp
     from app.api.v1.exams        import bp as exams_bp
+    from app.api.v1.library      import bp as library_bp
     from app.api.v1.leave_setup  import bp as leave_setup_bp
 
     prefix = "/api/v1"
@@ -116,6 +117,7 @@ def create_app(env=None):
     app.register_blueprint(discipline_bp,    url_prefix=f"{prefix}/discipline")
     app.register_blueprint(config_bp,        url_prefix=f"{prefix}/config")
     app.register_blueprint(exams_bp,         url_prefix=f"{prefix}/exams")
+    app.register_blueprint(library_bp,       url_prefix=f"{prefix}/library")
     app.register_blueprint(leave_setup_bp,   url_prefix=f"{prefix}/leave-setup")
     app.register_blueprint(notifications_bp, url_prefix=f"{prefix}/notifications")
 

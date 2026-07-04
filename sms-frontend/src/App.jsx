@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./auth/AuthContext";
+import IdleLock         from "./auth/IdleLock";
 import PrivateRoute     from "./auth/PrivateRoute";
 import RoleLayout       from "./layouts/RoleLayout";
 import Login            from "./pages/Login";
@@ -45,6 +46,9 @@ import MarksHistory     from "./pages/MarksHistory";
 import WithdrawalHistory from "./pages/WithdrawalHistory";
 import HRDashboard      from "./pages/HRDashboard";
 import LibrarianDashboard   from "./pages/LibrarianDashboard";
+import LibraryCatalog       from "./pages/LibraryCatalog";
+import LibraryMembers       from "./pages/LibraryMembers";
+import LibraryIssueReturn   from "./pages/LibraryIssueReturn";
 import ProcurementDashboard from "./pages/ProcurementDashboard";
 import LeaveApproval from "./pages/LeaveApproval";
 import LeaveSetup    from "./pages/LeaveSetup";
@@ -58,6 +62,7 @@ export default function App() {
   return (
     <ThemeProvider>
     <AuthProvider>
+      <IdleLock />
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
@@ -191,6 +196,9 @@ export default function App() {
                     <Route path="/leaves"         element={<PrivateRoute><RoleLayout><Leaves /></RoleLayout></PrivateRoute>} />
           <Route path="/syllabus"       element={<PrivateRoute><RoleLayout><Syllabus /></RoleLayout></PrivateRoute>} />
           <Route path="/library"        element={<PrivateRoute><RoleLayout><LibrarianDashboard /></RoleLayout></PrivateRoute>} />
+          <Route path="/library/catalog" element={<PrivateRoute permission="library.view"><RoleLayout><LibraryCatalog /></RoleLayout></PrivateRoute>} />
+          <Route path="/library/members" element={<PrivateRoute permission="library.manage"><RoleLayout><LibraryMembers /></RoleLayout></PrivateRoute>} />
+          <Route path="/library/issue-return" element={<PrivateRoute permission="library.issue"><RoleLayout><LibraryIssueReturn /></RoleLayout></PrivateRoute>} />
           <Route path="/withdrawal"         element={<PrivateRoute><RoleLayout><Withdrawal /></RoleLayout></PrivateRoute>} />
           <Route path="/attendance-report"  element={<PrivateRoute permission="attendance.view"><RoleLayout><AttendanceReport /></RoleLayout></PrivateRoute>} />
           <Route path="/discipline"          element={<PrivateRoute permission="discipline.view"><RoleLayout><Discipline /></RoleLayout></PrivateRoute>} />

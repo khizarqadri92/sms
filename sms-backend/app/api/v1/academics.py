@@ -1,4 +1,4 @@
-﻿from flask import Blueprint, request
+from flask import Blueprint, request
 from app.middleware.jwt_guard import jwt_required_custom
 from app.middleware.rbac import require_permission
 from app.utils.response import success, error
@@ -163,21 +163,7 @@ def update_class(id):
 
 
 
-@bp.get("/classes/<int:class_id>/subjects")
-@jwt_required_custom
-def list_class_subjects(class_id):
-    from app.db.connection import get_db
-    import psycopg2.extras
-    db = get_db()
-    cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("""
-        SELECT cs.id, cs.subject_id, s.name, s.code
-        FROM class_subjects cs
-        JOIN subjects s ON s.id=cs.subject_id
-        WHERE cs.class_id=%s ORDER BY s.name
-    """, (class_id,))
-    from app.utils.response import success
-    return success(data=[dict(r) for r in cur.fetchall()])
+
 
 
 @bp.delete("/classes/<int:id>")

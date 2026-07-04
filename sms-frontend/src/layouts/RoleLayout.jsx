@@ -224,9 +224,12 @@ const NAV = {
       { label:"Calendar",   path:"/calendar",  perm:"calendar.view"  },
     ]},
     { label:"Library",  cat:"Library",  items:[
-      { label:"Library",    path:"/library",   perm:"library.view"   },
-      { label:"Students",   path:"/students",  perm:"students.view"  },
-      { label:"Withdrawal", path:"/withdrawal", perm:"withdrawal.clear" },
+      { label:"Dashboard",    path:"/library",             perm:"library.view" },
+      { label:"Catalog",      path:"/library/catalog",     perm:"library.view" },
+      { label:"Issue/Return", path:"/library/issue-return", perm:"library.issue" },
+      { label:"Members",      path:"/library/members",     perm:"library.manage" },
+      { label:"Students",     path:"/students",  perm:"students.view"  },
+      { label:"Withdrawal",   path:"/withdrawal", perm:"withdrawal.clear" },
     ]},
     { label:"System",   cat:"System",   items:[
       { label:"Settings",   path:"/settings",  perm:"settings.view"  },
@@ -325,6 +328,7 @@ const SUBNAV = {
     { label:"Fee Settings",   sub:"fee_settings" },
     { label:"School Timing",     sub:"school_timing"     },
     { label:"Attendance Config", sub:"attendance_config" },
+    { label:"Account Settings",  sub:"account_settings"  },
   ],
   "/my-fees": [
     { label:"My Fees",   sub:"fees"    },
@@ -407,6 +411,13 @@ function buildHeroStats(role, s) {
         { label:"Enrollment No", value: s.enrollment_no  || "—" },
         { label:"Academic Year", value: s.academic_year  || "2025-2026" },
         { label:"Status",        value: (s.student_status||"active").charAt(0).toUpperCase()+(s.student_status||"active").slice(1) },
+      ];
+    case "librarian":
+      return [
+        { label:"Total Books",       value: s.lib_total_books },
+        { label:"Available Copies",  value: s.lib_available_copies },
+        { label:"Issued Today",      value: s.lib_issued_today },
+        { label:"Overdue Books",     value: s.lib_overdue_count, warn: s.lib_overdue_count > 0 },
       ];
     default:
       return [

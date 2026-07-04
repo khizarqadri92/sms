@@ -126,6 +126,19 @@ def get_stats():
         academic_year  = stu_row["academic_year"] or "2025-2026"
 
     # Parent-specific stats
+    # ── Library ───────────────────────────────────────────────────────────────
+    lib_total_books = lib_issued_today = lib_overdue_count = lib_available_copies = 0
+    try:
+        cur.execute("SELECT * FROM vw_library_dashboard")
+        lib_row = cur.fetchone()
+        if lib_row:
+            lib_total_books      = lib_row["total_books"]
+            lib_issued_today     = lib_row["issued_today"]
+            lib_overdue_count    = lib_row["overdue_count"]
+            lib_available_copies = lib_row["available_copies"]
+    except Exception:
+        pass
+
     return success(data={
         # School-wide
         "total_students":      total_students,
@@ -136,6 +149,11 @@ def get_stats():
         # Finance
         "overdue_fees":        overdue_fees,
         "collected_month":     float(collected_month),
+        # Library
+        "lib_total_books":      lib_total_books,
+        "lib_issued_today":     lib_issued_today,
+        "lib_overdue_count":    lib_overdue_count,
+        "lib_available_copies": lib_available_copies,
         # School-wide attendance
         "attendance_pct":      school_att_pct,
         "attendance_present":  school_att_present,

@@ -5,6 +5,7 @@ const authApi = {
   logout:  ()            => client.post("/auth/logout"),
   refresh: ()            => client.post("/auth/refresh"),
   me:      ()            => client.get("/auth/me"),
+  verifyPassword: (password) => client.post("/auth/verify-password", { password }),
 };
 
 export default authApi;
