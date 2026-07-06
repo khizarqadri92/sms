@@ -1,6 +1,7 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import studentsApi from "../api/studentsApi";
 import financeApi  from "../api/financeApi";
+import InvoiceTimelineModal from "../components/InvoiceTimelineModal";
 
 const fmtInvoiceMonth = (my) => {
   if (!my) return "";
@@ -27,6 +28,7 @@ export default function MyFees() {
   const [showPayment, setShowPayment] = useState(null);
   const [success,     setSuccess]     = useState("");
   const [tab,         setTab]         = useState("fees");
+  const [timelineInvoiceId, setTimelineInvoiceId] = useState(null);
 
   useEffect(() => {
     const handler = e => {
@@ -117,7 +119,8 @@ export default function MyFees() {
                     <th>Fee</th>
                     <th>Amount</th>
                     <th>Discount</th>
-                    <th>Net Amount</th>
+                    <th>Fine</th>
+                    <th>Gross Amount</th>
                     <th>Paid</th>
                     <th>Balance</th>
                     <th>Due Date</th>
@@ -139,6 +142,7 @@ export default function MyFees() {
                         </td>
                         <td>Rs. {Number(inv.amount).toLocaleString()}</td>
                         <td style={{ color:"#16a34a" }}>{inv.discount > 0 ? "- Rs. " + Number(inv.discount).toLocaleString() : "N/A"}</td>
+                        <td style={{ color: inv.fine > 0 ? "#dc2626" : "#94a3b8" }}>{inv.fine > 0 ? "+ Rs. " + Number(inv.fine).toLocaleString() : "N/A"}</td>
                         <td><strong>Rs. {Number(inv.net_amount).toLocaleString()}</strong></td>
                         <td style={{ color:"#16a34a" }}>Rs. {Number(inv.paid_amount || 0).toLocaleString()}</td>
                         <td style={{ color:"#dc2626", fontWeight:700 }}>Rs. {Number(balance).toLocaleString()}</td>
@@ -189,7 +193,7 @@ export default function MyFees() {
                 </thead>
                 <tbody>
                   {paid.map(inv => (
-                    <tr key={inv.id}>
+                    <tr key={inv.id} onClick={() => setTimelineInvoiceId(inv.id)} style={{ cursor: "pointer" }}>
                       <td>
                         <strong>{inv.structure_name || "Invoice"}</strong>
                         <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
@@ -199,7 +203,7 @@ export default function MyFees() {
                       <td style={{ color:"#16a34a", fontWeight:700 }}>Rs. {Number(inv.net_amount).toLocaleString()}</td>
                       <td style={{ fontSize:12, color:"#64748b" }}>{new Date(inv.issued_at).toLocaleDateString("en-US")}</td>
                       <td>
-                      <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+                      <div style={{ display:"flex", gap:6, alignItems:"center" }} onClick={e => e.stopPropagation()}>
                         <span className="badge badge-success">Paid</span>
                         <button className="btn btn-ghost btn-sm" onClick={() => downloadInvoice(inv.id)}>Download</button>
                       </div>
@@ -211,6 +215,14 @@ export default function MyFees() {
             </div>
           )}
         </div>
+      )}
+
+      {timelineInvoiceId && (
+        <InvoiceTimelineModal
+          studentId={summary.studentId}
+          invoiceId={timelineInvoiceId}
+          onClose={() => setTimelineInvoiceId(null)}
+        />
       )}
 
       {showPayment && (

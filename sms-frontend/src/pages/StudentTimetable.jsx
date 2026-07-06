@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthContext";
 import academicsApi from "../api/academicsApi";
 import studentsApi  from "../api/studentsApi";
@@ -55,7 +55,7 @@ export default function StudentTimetable() {
       <div className="page-header" style={{ marginBottom:16 }}>
         <div>
           <h1 className="page-heading">My Timetable</h1>
-          {classInfo && <span style={{ fontSize:13, color:"#64748b" }}>Class: {classInfo.class_name || "—"}</span>}
+          {classInfo && <span style={{ fontSize:13, color:"#64748b" }}>Class: {classInfo.class_name || "—"}{classInfo.section ? " (" + classInfo.section + ")" : ""}</span>}
         </div>
       </div>
 

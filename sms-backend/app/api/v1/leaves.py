@@ -1,4 +1,4 @@
-﻿from flask import Blueprint, request
+from flask import Blueprint, request
 from flask_jwt_extended import get_jwt_identity, get_jwt
 from app.middleware.jwt_guard import jwt_required_custom
 from app.middleware.rbac import require_permission
@@ -103,7 +103,7 @@ def get_my_children():
     cur.execute("""
         SELECT s.id, s.enrollment_no,
                s.first_name || ' ' || s.last_name AS name,
-               c.name AS class_name
+               c.name AS class_name, c.section AS class_section
         FROM students s
         JOIN classes c ON c.id = s.class_id
         WHERE s.parent_id = %s AND s.status = 'active'

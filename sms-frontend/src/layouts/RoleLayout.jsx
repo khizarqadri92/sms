@@ -32,6 +32,32 @@ const NAV = {
     { label:"Finance",    cat:"Finance",    items:[
       { label:"Finance",   path:"/finance"   },
     ]},
+    { label:"Management", cat:"Management", items:[
+      { label:"Dashboard",    path:"/library",             perm:"library.view" },
+      { label:"Catalog",      path:"/library/catalog",     perm:"library.view" },
+      { label:"Issue/Return", path:"/library/issue-return", perm:"library.issue" },
+      { label:"Members",      path:"/library/members",     perm:"library.manage" },
+      { label:"Damaged Books", path:"/library/damaged",     perm:"library.manage" },
+      { label:"Lost Books",    path:"/library/lost",       perm:"library.manage" },
+      { label:"Inventory",     path:"/library/inventory",  perm:"library.manage" },
+      { label:"Pending Fines", path:"/library/fines",      perm:"library.issue" },
+      { label:"Fine History",  path:"/library/fine-history", perm:"library.issue" },
+    ]},
+    { label:"Setup",      cat:"Setup",      items:[
+      { label:"Library Settings", path:"/library/settings",    perm:"library.manage" },
+      { label:"Authors",          path:"/library/authors",     perm:"library.manage" },
+      { label:"Publishers",       path:"/library/publishers",  perm:"library.manage" },
+      { label:"Categories",       path:"/library/categories",  perm:"library.manage" },
+    ]},
+    { label:"Procurement", cat:"Procurement", items:[
+      { label:"Vendors",      path:"/procurement/vendors", perm:"procurement.view" },
+      { label:"Item Master",  path:"/procurement/items",   perm:"procurement.view" },
+      { label:"Item Categories", path:"/procurement/item-categories", perm:"procurement.manage" },
+      { label:"Requisitions Pipeline", path:"/procurement/pipeline", perm:"procurement.view" },
+      { label:"Purchase Orders", path:"/procurement/purchase-orders", perm:"procurement.view" },
+      { label:"Departments",  path:"/procurement/departments", perm:"procurement.manage" },
+      { label:"Approval Rules", path:"/procurement/approval-rules", perm:"procurement.manage" },
+    ]},
     { label:"Reports",    cat:"Reports",    items:[
       { label:"Attendance",  path:"/admin-attendance"          },
       { label:"By Teacher", path:"/teacher-attendance-report", parent:"/admin-attendance" },
@@ -44,6 +70,10 @@ const NAV = {
       { label:"Announcements",    path:"/announcements"  },
       { label:"Leave Setup",      path:"/leave-setup"    },
       { label:"Workflow Config",  path:"/workflow-config" },
+    ]},
+    { label:"Purchase Requests", cat:"Purchase Requests", items:[
+      { label:"My Requisitions",    path:"/procurement/my-requisitions",     perm:null },
+      { label:"Pending Approvals",  path:"/procurement/pending-approvals",   perm:null },
     ]},
   ],
   admin: [
@@ -71,6 +101,10 @@ const NAV = {
       { label:"Leave Setup",      path:"/leave-setup"    },
       { label:"Workflow Config",  path:"/workflow-config" },
       { label:"Announcements",    path:"/announcements"  },
+    ]},
+    { label:"Purchase Requests", cat:"Purchase Requests", items:[
+      { label:"My Requisitions",    path:"/procurement/my-requisitions",     perm:null },
+      { label:"Pending Approvals",  path:"/procurement/pending-approvals",   perm:null },
     ]},
   ],
   principal: [
@@ -102,6 +136,10 @@ const NAV = {
       { label:"Locked Students", path:"/locked-students" },
       { label:"Fee Report", path:"/fee-report" },
     ]},
+    { label:"Purchase Requests", cat:"Purchase Requests", items:[
+      { label:"My Requisitions",    path:"/procurement/my-requisitions",     perm:null },
+      { label:"Pending Approvals",  path:"/procurement/pending-approvals",   perm:null },
+    ]},
   ],
   academic_coordinator: [
     { label:"General",    cat:"General",    items:[
@@ -125,6 +163,10 @@ const NAV = {
       { label:"By Student", path:"/student-attendance-report", parent:"/admin-attendance"  },
       { label:"Locked Students", path:"/locked-students" },
       { label:"Fee Report", path:"/fee-report" },
+    ]},
+    { label:"Purchase Requests", cat:"Purchase Requests", items:[
+      { label:"My Requisitions",    path:"/procurement/my-requisitions",     perm:null },
+      { label:"Pending Approvals",  path:"/procurement/pending-approvals",   perm:null },
     ]},
   ],
   teacher: [
@@ -158,6 +200,10 @@ const NAV = {
       { label:"Attendance Report", path:"/attendance-report" },
       { label:"Fee Report", path:"/fee-report" },
     ]},
+    { label:"Purchase Requests", cat:"Purchase Requests", items:[
+      { label:"My Requisitions",    path:"/procurement/my-requisitions",     perm:null },
+      { label:"Pending Approvals",  path:"/procurement/pending-approvals",   perm:null },
+    ]},
   ],
   finance_officer: [
     { label:"General",    cat:"General",    items:[
@@ -172,6 +218,10 @@ const NAV = {
     ]},
     { label:"Reports",    cat:"Reports",    items:[
       { label:"Fee Report", path:"/fee-report" },
+    ]},
+    { label:"Purchase Requests", cat:"Purchase Requests", items:[
+      { label:"My Requisitions",    path:"/procurement/my-requisitions",     perm:null },
+      { label:"Pending Approvals",  path:"/procurement/pending-approvals",   perm:null },
     ]},
   ],
   parent: [
@@ -217,22 +267,41 @@ const NAV = {
     { label:"System",   cat:"System",   items:[
       { label:"Settings",       path:"/settings",       perm:"settings.view"  },
     ]},
+    { label:"Purchase Requests", cat:"Purchase Requests", items:[
+      { label:"My Requisitions",    path:"/procurement/my-requisitions",     perm:null },
+      { label:"Pending Approvals",  path:"/procurement/pending-approvals",   perm:null },
+    ]},
   ],
   librarian: [
     { label:"General",  cat:"General",  items:[
       { label:"Dashboard",  path:"/dashboard", perm:null             },
       { label:"Calendar",   path:"/calendar",  perm:"calendar.view"  },
     ]},
-    { label:"Library",  cat:"Library",  items:[
+    { label:"Management", cat:"Management", items:[
       { label:"Dashboard",    path:"/library",             perm:"library.view" },
       { label:"Catalog",      path:"/library/catalog",     perm:"library.view" },
       { label:"Issue/Return", path:"/library/issue-return", perm:"library.issue" },
       { label:"Members",      path:"/library/members",     perm:"library.manage" },
+      { label:"Damaged Books", path:"/library/damaged",     perm:"library.manage" },
+      { label:"Lost Books",    path:"/library/lost",       perm:"library.manage" },
+      { label:"Inventory",     path:"/library/inventory",  perm:"library.manage" },
+      { label:"Pending Fines", path:"/library/fines",      perm:"library.issue" },
+      { label:"Fine History",  path:"/library/fine-history", perm:"library.issue" },
       { label:"Students",     path:"/students",  perm:"students.view"  },
       { label:"Withdrawal",   path:"/withdrawal", perm:"withdrawal.clear" },
     ]},
+    { label:"Setup",      cat:"Setup",      items:[
+      { label:"Library Settings", path:"/library/settings",    perm:"library.manage" },
+      { label:"Authors",          path:"/library/authors",     perm:"library.manage" },
+      { label:"Publishers",       path:"/library/publishers",  perm:"library.manage" },
+      { label:"Categories",       path:"/library/categories",  perm:"library.manage" },
+    ]},
     { label:"System",   cat:"System",   items:[
       { label:"Settings",   path:"/settings",  perm:"settings.view"  },
+    ]},
+    { label:"Purchase Requests", cat:"Purchase Requests", items:[
+      { label:"My Requisitions",    path:"/procurement/my-requisitions",     perm:null },
+      { label:"Pending Approvals",  path:"/procurement/pending-approvals",   perm:null },
     ]},
   ],
   procurement: [
@@ -240,11 +309,22 @@ const NAV = {
       { label:"Dashboard",    path:"/dashboard",    perm:null                  },
       { label:"Calendar",     path:"/calendar",     perm:"calendar.view"       },
     ]},
-    { label:"Procurement",  cat:"Procurement",  items:[
+    { label:"Management",  cat:"Management",  items:[
       { label:"Procurement",  path:"/procurement",  perm:"procurement.view"    },
+      { label:"Vendors",      path:"/procurement/vendors", perm:"procurement.view" },
+      { label:"Item Master",  path:"/procurement/items",   perm:"procurement.view" },
+      { label:"Item Categories", path:"/procurement/item-categories", perm:"procurement.manage" },
+      { label:"Requisitions Pipeline", path:"/procurement/pipeline", perm:"procurement.view" },
+      { label:"Purchase Orders", path:"/procurement/purchase-orders", perm:"procurement.view" },
+      { label:"Departments",  path:"/procurement/departments", perm:"procurement.manage" },
+      { label:"Approval Rules", path:"/procurement/approval-rules", perm:"procurement.manage" },
     ]},
     { label:"System",       cat:"System",       items:[
       { label:"Settings",     path:"/settings",     perm:"settings.view"       },
+    ]},
+    { label:"Purchase Requests", cat:"Purchase Requests", items:[
+      { label:"My Requisitions",    path:"/procurement/my-requisitions",     perm:null },
+      { label:"Pending Approvals",  path:"/procurement/pending-approvals",   perm:null },
     ]},
   ],
   student: [
@@ -581,8 +661,8 @@ export default function RoleLayout({ children }) {
   // Load school info
   const [schoolInfo, setSchoolInfo] = React.useState({ name:"SchoolMS", logo:null });
   React.useEffect(() => {
-    fetch(process.env.REACT_APP_API_URL + "/settings/category/school_info", {
-      headers: { Authorization: "Bearer " + localStorage.getItem("access_token") }
+    fetch(process.env.REACT_APP_API_URL + "/settings/school-info-public", {
+      headers: { Authorization: "Bearer " + sessionStorage.getItem("access_token") }
     }).then(r => r.json()).then(d => {
       const s = d.data || {};
       setSchoolInfo({ name: s.school_name || "SchoolMS", logo: s.school_logo || null });

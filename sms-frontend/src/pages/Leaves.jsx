@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { leavesApi } from "../api/leavesApi";
 import { useAuth } from "../auth/AuthContext";
 
@@ -112,7 +112,7 @@ export default function Leaves() {
       const baseUrl = process.env.REACT_APP_API_URL || "http://localhost:5000/api/v1";
       const r = await fetch(baseUrl + "/leaves/apply", {
         method: "POST",
-        headers: { Authorization: "Bearer " + localStorage.getItem("access_token") },
+        headers: { Authorization: "Bearer " + sessionStorage.getItem("access_token") },
         body: fd,
       });
       let data;
@@ -166,7 +166,7 @@ export default function Leaves() {
                   fontSize: 13, cursor: "pointer",
                 }}>
                   {child.name}
-                  <span style={{ fontSize: 11, marginLeft: 6, opacity: .7 }}>{child.class_name}</span>
+                  <span style={{ fontSize: 11, marginLeft: 6, opacity: .7 }}>{child.class_name}{child.class_section ? " (" + child.class_section + ")" : ""}</span>
                 </button>
               ))}
             </div>
@@ -177,7 +177,7 @@ export default function Leaves() {
       {/* Single child info bar */}
       {isParent && children.length === 1 && selectedChild && (
         <div style={{ marginBottom: 16, padding: "10px 16px", background: "#eff6ff", borderRadius: 8, border: "1px solid #bfdbfe", fontSize: 13, color: "#1e40af" }}>
-          Showing leaves for <strong>{selectedChild.name}</strong> - {selectedChild.class_name}
+          Showing leaves for <strong>{selectedChild.name}</strong> - {selectedChild.class_name}{selectedChild.class_section ? " (" + selectedChild.class_section + ")" : ""}
         </div>
       )}
 
@@ -415,7 +415,7 @@ export default function Leaves() {
               {detail.certificate_url && (
                 <div style={{ marginTop: 16 }}>
                   <button onClick={async () => {
-                    const r = await fetch(leavesApi.getCertUrl(detail.id), { headers: { Authorization: "Bearer " + localStorage.getItem("access_token") } });
+                    const r = await fetch(leavesApi.getCertUrl(detail.id), { headers: { Authorization: "Bearer " + sessionStorage.getItem("access_token") } });
                     const blob = await r.blob();
                     const url = URL.createObjectURL(blob);
                     window.open(url, "_blank");

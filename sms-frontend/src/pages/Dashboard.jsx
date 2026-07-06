@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthContext";
 import HRDashboard          from "./HRDashboard";
 import LibrarianDashboard    from "./LibrarianDashboard";
@@ -135,7 +135,7 @@ function ParentDashboard({ user }) {
               </div>
               <div>
                 <div style={{ fontWeight:700, fontSize:14 }}>{c.first_name} {c.last_name}</div>
-                <div style={{ fontSize:11, color:"#64748b" }}>{c.class_name}{c.section?" ("+c.section+")":""}</div>
+                <div style={{ fontSize:11, color:"#64748b" }}>{c.class_name}{c.class_section?" ("+c.class_section+")":""}</div>
               </div>
             </div>
             <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>

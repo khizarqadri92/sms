@@ -59,7 +59,7 @@ export default function IdleLock() {
   useEffect(() => {
     if (!user) return;
     const fetchTimeout = () => {
-      settingsApi.getByCategory("security")
+      settingsApi.getSecurityPublic()
         .then(r => {
           const val = parseInt(r.data.data?.idle_timeout_minutes, 10);
           if (val > 0) setTimeoutMinutes(val);

@@ -6,7 +6,7 @@ import diaryApi from "../api/diaryApi";
 const today = () => new Date().toISOString().split("T")[0];
 const API   = process.env.REACT_APP_API_URL || "http://localhost:5000/api/v1";
 
-function getToken() { return localStorage.getItem("access_token") || ""; }
+function getToken() { return sessionStorage.getItem("access_token") || ""; }
 
 async function createAssignmentWithFile(data, file) {
   const fd = new FormData();

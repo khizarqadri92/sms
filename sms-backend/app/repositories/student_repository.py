@@ -1,4 +1,4 @@
-﻿import psycopg2.extras
+import psycopg2.extras
 from typing import Dict, List, Optional
 from app.repositories.base_repository import BaseRepository
 from app.db.connection import get_db
@@ -66,7 +66,7 @@ class StudentRepository(BaseRepository):
         cur.execute("""
             SELECT s.id, s.enrollment_no, s.first_name, s.last_name,
                    s.gender, s.status, s.admission_date,
-                   c.name AS class_name, c.section, u.email
+                   c.name AS class_name, c.section AS class_section, u.email
             FROM students s
             JOIN users u ON u.id = s.user_id
             LEFT JOIN classes c ON c.id = s.class_id
@@ -194,7 +194,7 @@ class StudentRepository(BaseRepository):
         cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute("""
             SELECT s.id, s.enrollment_no, s.first_name, s.last_name,
-                   s.status, s.class_id, c.name AS class_name, c.section,
+                   s.status, s.class_id, c.name AS class_name, c.section AS class_section,
                    s.gender, s.date_of_birth
             FROM students s
             LEFT JOIN classes c ON c.id = s.class_id

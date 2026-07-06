@@ -171,7 +171,7 @@ def student_fees(id):
     from app.db.connection import get_db
     db  = get_db()
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    sql1 = ('SELECT fi.id, fi.amount, fi.net_amount, fi.discount, fi.fine, fi.status, fi.due_date, fi.issued_at, fi.notes, fi.month_year, COALESCE(fs.name, \'Tuition Fee\') AS structure_name, c.name AS class_name, c.section AS class_section, COALESCE((SELECT SUM(p.amount_paid) FROM payments p WHERE p.invoice_id = fi.id), 0) AS paid_amount, (SELECT p2.id FROM payments p2 WHERE p2.invoice_id = fi.id AND p2.is_verified = TRUE ORDER BY p2.paid_at DESC LIMIT 1) AS verified_payment_id FROM fee_invoices fi LEFT JOIN fee_structures fs ON fs.id = fi.fee_structure_id LEFT JOIN classes c ON c.id = fi.for_class_id WHERE fi.student_id = %s AND fi.status != \'cancelled\' ORDER BY fi.issued_at DESC')
+    sql1 = ('SELECT fi.id, fi.amount, fi.net_amount, fi.discount, fi.fine, fi.status, fi.due_date, fi.issued_at, fi.notes, fi.month_year, COALESCE(fs.name, \'Monthly Fee\') AS structure_name, c.name AS class_name, c.section AS class_section, COALESCE((SELECT SUM(p.amount_paid) FROM payments p WHERE p.invoice_id = fi.id), 0) AS paid_amount, (SELECT p2.id FROM payments p2 WHERE p2.invoice_id = fi.id AND p2.is_verified = TRUE ORDER BY p2.paid_at DESC LIMIT 1) AS verified_payment_id FROM fee_invoices fi LEFT JOIN fee_structures fs ON fs.id = fi.fee_structure_id LEFT JOIN classes c ON c.id = fi.for_class_id WHERE fi.student_id = %s AND fi.status != \'cancelled\' ORDER BY fi.issued_at DESC')
     cur.execute(sql1, (id,))
     invoices = [dict(r) for r in cur.fetchall()]
 
@@ -204,6 +204,47 @@ def student_fees(id):
     summary['total_due']    = float(summary['total_due'])
     summary['invoices']     = invoices
     return success(data=summary)
+
+
+@bp.get('/<int:id>/fees/<int:invoice_id>/timeline')
+@jwt_required_custom
+def invoice_timeline(id, invoice_id):
+    user_id = int(get_jwt_identity())
+    import psycopg2.extras
+    from app.db.connection import get_db
+    db  = get_db()
+    cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+    cur.execute("SELECT user_id, parent_id FROM students WHERE id = %s", (id,))
+    stu = cur.fetchone()
+    if not stu:
+        return error("Student not found.", 404)
+    if user_id != stu["user_id"] and user_id != stu["parent_id"]:
+        return error("You do not have permission to view this record.", 403)
+
+    cur.execute("""
+        SELECT fi.id, fi.invoice_no, fi.amount, fi.discount, fi.fine, fi.net_amount,
+               fi.status, fi.due_date, fi.issued_at,
+               c.name AS class_name, c.section AS class_section,
+               COALESCE(fs.name, 'Monthly Fee') AS structure_name
+        FROM fee_invoices fi
+        LEFT JOIN classes c ON c.id = fi.for_class_id
+        LEFT JOIN fee_structures fs ON fs.id = fi.fee_structure_id
+        WHERE fi.id = %s AND fi.student_id = %s
+    """, (invoice_id, id))
+    invoice = cur.fetchone()
+    if not invoice:
+        return error("Invoice not found.", 404)
+
+    cur.execute("""
+        SELECT id, amount_paid, method, reference, notes, paid_at, is_verified, verified_at
+        FROM payments WHERE invoice_id = %s ORDER BY paid_at ASC
+    """, (invoice_id,))
+    payments = [dict(r) for r in cur.fetchall()]
+
+    invoice = dict(invoice)
+    invoice["payments"] = payments
+    return success(data=invoice)
 
 
 @bp.put("/<int:id>/link-parent")

@@ -1,4 +1,4 @@
-﻿from flask import Blueprint, request
+from flask import Blueprint, request
 from flask_jwt_extended import get_jwt_identity
 from app.middleware.jwt_guard import jwt_required_custom
 from app.middleware.rbac import require_permission
@@ -25,7 +25,6 @@ def serialize(rows):
 # ── List announcements for current user ───────────────────────
 @bp.get("/")
 @jwt_required_custom
-@require_permission("announcement.view")
 def list_announcements():
     user_id = int(get_jwt_identity())
     cur = get_cur()
@@ -58,7 +57,6 @@ def list_announcements():
 # ── Unread count ───────────────────────────────────────────────
 @bp.get("/unread-count")
 @jwt_required_custom
-@require_permission("announcement.view")
 def unread_count():
     user_id = int(get_jwt_identity())
     cur = get_cur()
@@ -150,7 +148,6 @@ def delete_announcement(id):
 # ── Mark as read ───────────────────────────────────────────────
 @bp.post("/<int:id>/read")
 @jwt_required_custom
-@require_permission("announcement.view")
 def mark_read(id):
     user_id = int(get_jwt_identity())
     cur = get_cur(); db = get_db()

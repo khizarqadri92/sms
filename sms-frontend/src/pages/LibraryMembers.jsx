@@ -180,7 +180,7 @@ export default function LibraryMembers() {
                     <div style={{ fontSize: 11, color: "#94a3b8" }}>{m.email}</div>
                   </td>
                   <td>{m.library_card_no}</td>
-                  <td><span className="badge badge-primary" style={{ textTransform: "capitalize" }}>{m.member_type}</span></td>
+                  <td><span className="badge badge-primary" style={{ textTransform: "capitalize" }}>{(m.display_role || m.member_type).replace(/_/g, " ")}</span></td>
                   <td><span className={"badge " + (m.status === "active" ? "badge-success" : "badge-gray")} style={{ textTransform: "capitalize" }}>{m.status}</span></td>
                   <td>{m.books_currently_issued}</td>
                   <td>{m.max_books}</td>

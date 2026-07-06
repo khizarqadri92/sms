@@ -1,5 +1,64 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import JsBarcode from "jsbarcode";
 import libraryApi from "../api/libraryApi";
+
+function BarcodeCanvas({ value }) {
+  const canvasRef = useRef(null);
+  useEffect(() => {
+    if (canvasRef.current && value) {
+      try {
+        JsBarcode(canvasRef.current, value, { format: "CODE128", displayValue: false, height: 40, width: 1.5, margin: 4 });
+      } catch (e) {}
+    }
+  }, [value]);
+  return <canvas ref={canvasRef} />;
+}
+
+function PrintLabelsModal({ book, onClose }) {
+  const [copies, setCopies] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    libraryApi.getBook(book.id).then(r => setCopies(r.data.data.copies || [])).catch(() => {}).finally(() => setLoading(false));
+  }, [book.id]);
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} className="no-print-overlay">
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          .print-labels-area, .print-labels-area * { visibility: visible; }
+          .print-labels-area { position: absolute; top: 0; left: 0; width: 100%; }
+          .no-print { display: none !important; }
+        }
+      `}</style>
+      <div style={{ background: "#fff", borderRadius: 12, padding: 24, width: "100%", maxWidth: 700, maxHeight: "88vh", overflow: "auto" }} onClick={e => e.stopPropagation()}>
+        <div className="no-print" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <span style={{ fontWeight: 700, fontSize: 16 }}>Print Labels — {book.title}</span>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="btn btn-primary btn-sm" style={{ background: "#2563eb", color: "#ffffff", border: "none" }} onClick={() => window.print()}>Print</button>
+            <button className="btn btn-ghost btn-sm" onClick={onClose}>Close</button>
+          </div>
+        </div>
+
+        {loading ? (
+          <div className="loading-state">Loading copies...</div>
+        ) : (
+          <div className="print-labels-area" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+            {copies.map(c => (
+              <div key={c.id} style={{ border: "1px dashed #cbd5e1", borderRadius: 6, padding: 10, textAlign: "center" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 4, minHeight: 28 }}>{book.title}</div>
+                <BarcodeCanvas value={c.barcode} />
+                <div style={{ fontSize: 10, color: "#64748b", marginTop: 2 }}>{c.accession_no}</div>
+                <div style={{ fontSize: 9, color: "#94a3b8" }}>{book.shelf || "-"} / {book.rack || "-"}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function BookFormModal({ onClose, onSaved, categories, authors, publishers, editBook }) {
   const [form, setForm] = useState({
@@ -123,7 +182,10 @@ function BookFormModal({ onClose, onSaved, categories, authors, publishers, edit
 }
 
 function QuickAddModal({ kind, onClose, onSaved }) {
-  const [form, setForm] = useState({ name: "" });
+  const [form, setForm] = useState({
+    name: "", nationality: "", date_of_birth: "", bio: "",
+    address: "", contact_person: "", phone: "", email: "",
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -134,9 +196,24 @@ function QuickAddModal({ kind, onClose, onSaved }) {
     if (!form.name) { setError("Name is required."); return; }
     setSaving(true); setError("");
     try {
-      if (kind === "category") await libraryApi.createCategory({ name: form.name });
-      if (kind === "author") await libraryApi.createAuthor({ name: form.name });
-      if (kind === "publisher") await libraryApi.createPublisher({ name: form.name });
+      if (kind === "category") {
+        await libraryApi.createCategory({ name: form.name });
+      } else if (kind === "author") {
+        await libraryApi.createAuthor({
+          name: form.name,
+          nationality: form.nationality || null,
+          date_of_birth: form.date_of_birth || null,
+          bio: form.bio || null,
+        });
+      } else if (kind === "publisher") {
+        await libraryApi.createPublisher({
+          name: form.name,
+          address: form.address || null,
+          contact_person: form.contact_person || null,
+          phone: form.phone || null,
+          email: form.email || null,
+        });
+      }
       onSaved();
     } catch {
       setError("Failed to save.");
@@ -147,15 +224,54 @@ function QuickAddModal({ kind, onClose, onSaved }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
-      <div style={{ background: "#fff", borderRadius: 12, padding: 24, width: "100%", maxWidth: 380 }} onClick={e => e.stopPropagation()}>
+      <div style={{ background: "#fff", borderRadius: 12, padding: 24, width: "100%", maxWidth: 420, maxHeight: "85vh", overflow: "auto" }} onClick={e => e.stopPropagation()}>
         <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>Add {labels[kind]}</div>
         {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label className="form-label">Name *</label>
-            <input className="form-control" value={form.name} onChange={e => setForm({ name: e.target.value })} autoFocus />
+            <input className="form-control" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} autoFocus />
           </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+
+          {kind === "author" && (
+            <>
+              <div className="form-group">
+                <label className="form-label">Nationality</label>
+                <input className="form-control" value={form.nationality} onChange={e => setForm({ ...form, nationality: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Date of Birth</label>
+                <input className="form-control" type="date" value={form.date_of_birth} onChange={e => setForm({ ...form, date_of_birth: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Biography</label>
+                <textarea className="form-control" rows={3} value={form.bio} onChange={e => setForm({ ...form, bio: e.target.value })} />
+              </div>
+            </>
+          )}
+
+          {kind === "publisher" && (
+            <>
+              <div className="form-group">
+                <label className="form-label">Address</label>
+                <input className="form-control" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Contact Person</label>
+                <input className="form-control" value={form.contact_person} onChange={e => setForm({ ...form, contact_person: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Phone</label>
+                <input className="form-control" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Email</label>
+                <input className="form-control" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
+              </div>
+            </>
+          )}
+
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
             <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Saving..." : "Add"}</button>
           </div>
@@ -199,6 +315,82 @@ function AddCopiesModal({ book, onClose, onSaved }) {
             <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Adding..." : "Add Copies"}</button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+function ReserveModal({ book, onClose, onSaved }) {
+  const [query, setQuery] = useState("");
+  const [memberType, setMemberType] = useState("student");
+  const [results, setResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+  const [reservingId, setReservingId] = useState(null);
+  const [error, setError] = useState("");
+
+  const runSearch = () => {
+    setSearching(true); setError("");
+    libraryApi.getMembers({ search: query, member_type: memberType })
+      .then(r => setResults(r.data.data || []))
+      .catch(() => setError("Search failed."))
+      .finally(() => setSearching(false));
+  };
+
+  useEffect(() => { runSearch(); }, [memberType]);
+
+  const handleReserve = async (member) => {
+    setReservingId(member.member_id);
+    setError("");
+    try {
+      await libraryApi.placeReservation({ book_id: book.id, member_id: member.member_id });
+      onSaved();
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to place reservation.");
+    } finally {
+      setReservingId(null);
+    }
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
+      <div style={{ background: "#fff", borderRadius: 12, padding: 24, width: "100%", maxWidth: 480, maxHeight: "80vh", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+          <span style={{ fontWeight: 700, fontSize: 16 }}>Reserve Book</span>
+          <button className="btn btn-ghost btn-sm" onClick={onClose}>Close</button>
+        </div>
+        <div style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>{book.title} — currently unavailable</div>
+
+        <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+          <select className="form-control" style={{ maxWidth: 130 }} value={memberType} onChange={e => setMemberType(e.target.value)}>
+            <option value="student">Student</option>
+            <option value="teacher">Teacher</option>
+            <option value="staff">Staff</option>
+          </select>
+          <input className="form-control" placeholder="Search member" value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => e.key === "Enter" && runSearch()} />
+          <button className="btn btn-secondary btn-sm" onClick={runSearch}>Go</button>
+        </div>
+
+        {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}
+
+        <div style={{ overflow: "auto", flex: 1 }}>
+          {searching ? (
+            <div className="loading-state">Searching...</div>
+          ) : results.length === 0 ? (
+            <div className="empty-state">No matching members found.</div>
+          ) : (
+            results.map(m => (
+              <div key={m.member_id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: 8, borderBottom: "1px solid #f1f5f9" }}>
+                <div>
+                  <div style={{ fontSize: 13 }}>{m.first_name} {m.last_name}</div>
+                  <div style={{ fontSize: 11, color: "#94a3b8" }}>{m.library_card_no}</div>
+                </div>
+                <button className="btn btn-primary btn-xs" disabled={reservingId === m.member_id} onClick={() => handleReserve(m)}>
+                  {reservingId === m.member_id ? "Reserving..." : "Reserve"}
+                </button>
+              </div>
+            ))
+          )}
+        </div>
       </div>
     </div>
   );
@@ -270,6 +462,8 @@ export default function LibraryCatalog() {
   const [quickAdd, setQuickAdd] = useState(null);
   const [copiesModalBook, setCopiesModalBook] = useState(null);
   const [detailBookId, setDetailBookId] = useState(null);
+  const [reserveBook, setReserveBook] = useState(null);
+  const [printBook, setPrintBook] = useState(null);
 
   const fetchLookups = () => {
     libraryApi.getCategories().then(r => setCategories(r.data.data || [])).catch(() => {});
@@ -397,9 +591,13 @@ export default function LibraryCatalog() {
                       {b.available_copies} / {b.total_copies}
                     </span>
                   </td>
-                  <td style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <td style={{ display: "flex", gap: 6, flexWrap: "nowrap", whiteSpace: "nowrap" }}>
                     <button className="btn btn-ghost btn-xs" onClick={() => { setEditBook(b); setShowBookForm(true); }}>Edit</button>
                     <button className="btn btn-ghost btn-xs" onClick={() => setCopiesModalBook(b)}>+ Copies</button>
+                    {b.available_copies === 0 && (
+                      <button className="btn btn-secondary btn-xs" onClick={() => setReserveBook(b)}>Reserve</button>
+                    )}
+                    <button className="btn btn-secondary btn-xs" onClick={() => setPrintBook(b)}>Print Labels</button>
                     <button className="btn btn-danger btn-xs" onClick={() => handleDeactivate(b)}>Remove</button>
                   </td>
                 </tr>
@@ -438,6 +636,18 @@ export default function LibraryCatalog() {
 
       {detailBookId && (
         <BookDetailModal bookId={detailBookId} onClose={() => setDetailBookId(null)} />
+      )}
+
+      {reserveBook && (
+        <ReserveModal
+          book={reserveBook}
+          onClose={() => setReserveBook(null)}
+          onSaved={() => { setReserveBook(null); showToast("Reservation placed."); }}
+        />
+      )}
+
+      {printBook && (
+        <PrintLabelsModal book={printBook} onClose={() => setPrintBook(null)} />
       )}
     </div>
   );

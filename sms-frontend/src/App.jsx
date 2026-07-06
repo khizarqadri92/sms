@@ -49,6 +49,24 @@ import LibrarianDashboard   from "./pages/LibrarianDashboard";
 import LibraryCatalog       from "./pages/LibraryCatalog";
 import LibraryMembers       from "./pages/LibraryMembers";
 import LibraryIssueReturn   from "./pages/LibraryIssueReturn";
+import LibrarySettings      from "./pages/LibrarySettings";
+import LibraryAuthors       from "./pages/LibraryAuthors";
+import LibraryPublishers    from "./pages/LibraryPublishers";
+import LibraryCategories    from "./pages/LibraryCategories";
+import LibraryDamagedBooks  from "./pages/LibraryDamagedBooks";
+import LibraryPendingFines  from "./pages/LibraryPendingFines";
+import LibraryFineHistory   from "./pages/LibraryFineHistory";
+import LibraryLostBooks     from "./pages/LibraryLostBooks";
+import LibraryInventory     from "./pages/LibraryInventory";
+import Departments          from "./pages/Departments";
+import Vendors               from "./pages/Vendors";
+import Items                 from "./pages/Items";
+import ItemCategories        from "./pages/ItemCategories";
+import ApprovalRules         from "./pages/ApprovalRules";
+import MyRequisitions        from "./pages/MyRequisitions";
+import PendingApprovals      from "./pages/PendingApprovals";
+import ProcurementRequisitions from "./pages/ProcurementRequisitions";
+import PurchaseOrders        from "./pages/PurchaseOrders";
 import ProcurementDashboard from "./pages/ProcurementDashboard";
 import LeaveApproval from "./pages/LeaveApproval";
 import LeaveSetup    from "./pages/LeaveSetup";
@@ -199,6 +217,24 @@ export default function App() {
           <Route path="/library/catalog" element={<PrivateRoute permission="library.view"><RoleLayout><LibraryCatalog /></RoleLayout></PrivateRoute>} />
           <Route path="/library/members" element={<PrivateRoute permission="library.manage"><RoleLayout><LibraryMembers /></RoleLayout></PrivateRoute>} />
           <Route path="/library/issue-return" element={<PrivateRoute permission="library.issue"><RoleLayout><LibraryIssueReturn /></RoleLayout></PrivateRoute>} />
+          <Route path="/library/settings" element={<PrivateRoute permission="library.manage"><RoleLayout><LibrarySettings /></RoleLayout></PrivateRoute>} />
+          <Route path="/library/authors" element={<PrivateRoute permission="library.manage"><RoleLayout><LibraryAuthors /></RoleLayout></PrivateRoute>} />
+          <Route path="/library/publishers" element={<PrivateRoute permission="library.manage"><RoleLayout><LibraryPublishers /></RoleLayout></PrivateRoute>} />
+          <Route path="/library/categories" element={<PrivateRoute permission="library.manage"><RoleLayout><LibraryCategories /></RoleLayout></PrivateRoute>} />
+          <Route path="/library/damaged" element={<PrivateRoute permission="library.manage"><RoleLayout><LibraryDamagedBooks /></RoleLayout></PrivateRoute>} />
+          <Route path="/library/fines" element={<PrivateRoute permission="library.issue"><RoleLayout><LibraryPendingFines /></RoleLayout></PrivateRoute>} />
+          <Route path="/library/fine-history" element={<PrivateRoute permission="library.issue"><RoleLayout><LibraryFineHistory /></RoleLayout></PrivateRoute>} />
+          <Route path="/library/lost" element={<PrivateRoute permission="library.manage"><RoleLayout><LibraryLostBooks /></RoleLayout></PrivateRoute>} />
+          <Route path="/library/inventory" element={<PrivateRoute permission="library.manage"><RoleLayout><LibraryInventory /></RoleLayout></PrivateRoute>} />
+          <Route path="/procurement/departments" element={<PrivateRoute permission="procurement.manage"><RoleLayout><Departments /></RoleLayout></PrivateRoute>} />
+          <Route path="/procurement/vendors" element={<PrivateRoute permission="procurement.view"><RoleLayout><Vendors /></RoleLayout></PrivateRoute>} />
+          <Route path="/procurement/items" element={<PrivateRoute permission="procurement.view"><RoleLayout><Items /></RoleLayout></PrivateRoute>} />
+          <Route path="/procurement/item-categories" element={<PrivateRoute permission="procurement.manage"><RoleLayout><ItemCategories /></RoleLayout></PrivateRoute>} />
+          <Route path="/procurement/approval-rules" element={<PrivateRoute permission="procurement.manage"><RoleLayout><ApprovalRules /></RoleLayout></PrivateRoute>} />
+          <Route path="/procurement/my-requisitions" element={<PrivateRoute><RoleLayout><MyRequisitions /></RoleLayout></PrivateRoute>} />
+          <Route path="/procurement/pending-approvals" element={<PrivateRoute><RoleLayout><PendingApprovals /></RoleLayout></PrivateRoute>} />
+          <Route path="/procurement/pipeline" element={<PrivateRoute permission="procurement.view"><RoleLayout><ProcurementRequisitions /></RoleLayout></PrivateRoute>} />
+          <Route path="/procurement/purchase-orders" element={<PrivateRoute permission="procurement.view"><RoleLayout><PurchaseOrders /></RoleLayout></PrivateRoute>} />
           <Route path="/withdrawal"         element={<PrivateRoute><RoleLayout><Withdrawal /></RoleLayout></PrivateRoute>} />
           <Route path="/attendance-report"  element={<PrivateRoute permission="attendance.view"><RoleLayout><AttendanceReport /></RoleLayout></PrivateRoute>} />
           <Route path="/discipline"          element={<PrivateRoute permission="discipline.view"><RoleLayout><Discipline /></RoleLayout></PrivateRoute>} />

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { leavesApi } from "../api/leavesApi";
 import { useAuth } from "../auth/AuthContext";
 
@@ -178,7 +178,7 @@ export default function LeaveApproval() {
                     <div style={{ fontWeight: 600 }}>{lr.student_name}</div>
                     <div style={{ fontSize: 11, color: "var(--color-text-secondary)" }}>{lr.enrollment_no}</div>
                   </td>
-                  <td style={{ padding: "12px 14px", color: "var(--color-text-secondary)", fontSize: 13 }}>{lr.class_name}</td>
+                  <td style={{ padding: "12px 14px", color: "var(--color-text-secondary)", fontSize: 13 }}>{lr.class_name}{lr.class_section ? " (" + lr.class_section + ")" : ""}</td>
                   <td style={{ padding: "12px 14px", fontWeight: 500 }}>{lr.leave_type}</td>
                   <td style={{ padding: "12px 14px", color: "var(--color-text-secondary)" }}>{fmtDate(lr.from_date)}</td>
                   <td style={{ padding: "12px 14px", color: "var(--color-text-secondary)" }}>{fmtDate(lr.to_date)}</td>
@@ -222,7 +222,7 @@ export default function LeaveApproval() {
             <div style={{ padding: "20px 24px", flex: 1 }}>
               {[
                 { label: "Student",    value: detail.student_name + " (" + detail.enrollment_no + ")" },
-                { label: "Class",      value: detail.class_name },
+                { label: "Class",      value: detail.class_name + (detail.class_section ? " (" + detail.class_section + ")" : "") },
                 { label: "Leave Type", value: detail.leave_type },
                 { label: "From",       value: fmtDate(detail.from_date) },
                 { label: "To",         value: fmtDate(detail.to_date) },
@@ -242,7 +242,7 @@ export default function LeaveApproval() {
               {detail.certificate_url && (
                 <div style={{ marginTop: 14 }}>
                   <button onClick={async () => {
-                    const r = await fetch(leavesApi.getCertUrl(detail.id), { headers: { Authorization: "Bearer " + localStorage.getItem("access_token") } });
+                    const r = await fetch(leavesApi.getCertUrl(detail.id), { headers: { Authorization: "Bearer " + sessionStorage.getItem("access_token") } });
                     const blob = await r.blob();
                     const url = URL.createObjectURL(blob);
                     window.open(url, "_blank");

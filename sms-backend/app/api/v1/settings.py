@@ -113,6 +113,32 @@ def get_category_settings(cat):
     return success(data=data)
 
 
+@bp.get("/security-public")
+@jwt_required_custom
+def get_security_public_settings():
+    # Every logged-in user needs these values (idle lock, lockout) regardless
+    # of role, so this intentionally does not require settings.view.
+    db, cur = get_cur()
+    cur.execute("SELECT * FROM sp_get_settings_by_category(%s::varchar)", ("security",))
+    all_data = {r["key"]: r["value"] for r in cur.fetchall()}
+    allowed_keys = ("idle_timeout_minutes", "max_failed_attempts", "lockout_duration_minutes")
+    data = {k: v for k, v in all_data.items() if k in allowed_keys}
+    return success(data=data)
+
+
+@bp.get("/school-info-public")
+@jwt_required_custom
+def get_school_info_public():
+    # School name/logo appear in the header for every role, so this
+    # intentionally does not require settings.view either.
+    db, cur = get_cur()
+    cur.execute("SELECT * FROM sp_get_settings_by_category(%s::varchar)", ("school_info",))
+    all_data = {r["key"]: r["value"] for r in cur.fetchall()}
+    allowed_keys = ("school_name", "school_logo")
+    data = {k: v for k, v in all_data.items() if k in allowed_keys}
+    return success(data=data)
+
+
 @bp.post("/category/<string:cat>")
 @jwt_required_custom
 @require_permission("settings.manage")
