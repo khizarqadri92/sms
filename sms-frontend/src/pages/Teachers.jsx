@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import teachersApi from "../api/teachersApi";
@@ -46,11 +46,19 @@ export default function Teachers() {
   };
 
   const handleDeactivate = async (id) => {
-    if (!window.confirm("Deactivate this teacher?")) return;
+    if (!window.confirm("Deactivate this teacher? They will no longer be able to log in.")) return;
     try {
-      await teachersApi.update(id, { status:"inactive" });
+      await teachersApi.remove(id);
       fetchTeachers();
     } catch { setError("Failed to deactivate."); }
+  };
+
+  const handleReactivate = async (id) => {
+    if (!window.confirm("Reactivate this teacher? They will be able to log in again.")) return;
+    try {
+      await teachersApi.reactivate(id);
+      fetchTeachers();
+    } catch { setError("Failed to reactivate."); }
   };
 
   const handleCreate = async (e) => {
@@ -191,7 +199,13 @@ export default function Teachers() {
                   </td>
                   <td style={{ display:"flex", gap:5 }}>
                     <button className="btn btn-ghost btn-xs" onClick={() => navigate(`/teachers/${t.id}`)}>View →</button>
-                    {can("teachers.delete") && <button className="btn btn-danger btn-xs" onClick={() => handleDeactivate(t.id)}>Deactivate</button>}
+                    {can("teachers.delete") && (
+                      t.status === "active" ? (
+                        <button className="btn btn-danger btn-xs" onClick={() => handleDeactivate(t.id)}>Deactivate</button>
+                      ) : (
+                        <button className="btn btn-secondary btn-xs" onClick={() => handleReactivate(t.id)}>Activate</button>
+                      )
+                    )}
                   </td>
                 </tr>
               ))}

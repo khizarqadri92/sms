@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import procurementApi from "../api/procurementApi";
+import { useAuth } from "../auth/AuthContext";
+import workflowApi from "../api/workflowApi";
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "-";
 const fmtDateTime = (d) => d ? new Date(d).toLocaleString("en-US", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "-";
@@ -28,6 +30,21 @@ export default function RequisitionDetailModal({ requisitionId, onClose, onActed
   const [error, setError] = useState("");
   const [notes, setNotes] = useState("");
   const [acting, setActing] = useState(false);
+  const [wfStep, setWfStep] = useState(null);
+  const { user } = useAuth();
+  const userRoles = user?.roles || [];
+
+  const loadWfStep = async (prId) => {
+    try {
+      const r = await workflowApi.getInstance("procurement", "purchase_requisition", prId);
+      const steps = r.data.data?.steps || [];
+      const pending = steps.find(s => s.status === "pending" && (
+        s.assigned_to_id === user?.id ||
+        (s.assigned_role && userRoles.includes(s.assigned_role))
+      ));
+      setWfStep(pending || null);
+    } catch { setWfStep(null); }
+  };
 
   const fetchDetail = () => {
     setLoading(true);
@@ -38,6 +55,7 @@ export default function RequisitionDetailModal({ requisitionId, onClose, onActed
   };
 
   useEffect(() => { fetchDetail(); }, [requisitionId]);
+  useEffect(() => { if (requisitionId && user?.id) loadWfStep(requisitionId); }, [requisitionId, user?.id]);
 
   const handleAct = async (action) => {
     if (action === "reject" && !notes) {
@@ -72,6 +90,12 @@ export default function RequisitionDetailModal({ requisitionId, onClose, onActed
               </div>
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 <span className={"badge " + statusBadge(pr.status)} style={{ textTransform: "capitalize" }}>{pr.status.replace("_", " ")}</span>
+                {pr.workflow_steps && pr.workflow_steps.length > 0 && (
+                  <span style={{ fontSize: 12, marginLeft: 8, color: "#64748b" }}>
+                    {pr.workflow_steps.filter(s => s.status === "approved").length}/{pr.workflow_steps.length} steps done
+                    {pr.current_wf_step ? " · Now: " + pr.current_wf_step : " · Completed"}
+                  </span>
+                )}
                 <button className="btn btn-ghost btn-sm" onClick={onClose}>Close</button>
               </div>
             </div>
@@ -133,25 +157,33 @@ export default function RequisitionDetailModal({ requisitionId, onClose, onActed
               </table>
             </div>
 
-            {pr.approval_steps.length > 0 && (
+            {(pr.workflow_steps && pr.workflow_steps.length > 0 ? pr.workflow_steps : pr.approval_steps || []).length > 0 && (
               <>
                 <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>Approval Timeline</div>
                 <div style={{ position: "relative", paddingLeft: 24, marginBottom: 16 }}>
                   <div style={{ position: "absolute", left: 7, top: 6, bottom: 6, width: 2, background: "#e2e8f0" }} />
-                  {pr.approval_steps.map(step => {
-                    const color = step.status === "approved" ? "#16a34a" : step.status === "rejected" ? "#dc2626" : step.status === "skipped" ? "#94a3b8" : "#f59e0b";
+                  {(pr.workflow_steps && pr.workflow_steps.length > 0 ? pr.workflow_steps : pr.approval_steps || []).map((step, idx) => {
+                    const isEngine = !!(pr.workflow_steps && pr.workflow_steps.length > 0);
+                    const status = isEngine ? step.status : step.status;
+                    const color = status === "approved" ? "#16a34a" : status === "rejected" ? "#dc2626" : status === "skipped" ? "#94a3b8" : "#f59e0b";
+                    const stepName = isEngine ? step.step_name : ("Step " + step.step_order + ": " + roleLabel(step.approver_role));
+                    const stepNum = isEngine ? step.step_order : step.step_order;
                     return (
-                      <div key={step.id} style={{ position: "relative", marginBottom: 16 }}>
+                      <div key={idx} style={{ position: "relative", marginBottom: 16 }}>
                         <div style={{ position: "absolute", left: -24, top: 2, width: 14, height: 14, borderRadius: "50%", background: color, border: "3px solid #fff", boxShadow: "0 0 0 1px " + color }} />
                         <div style={{ fontWeight: 700, fontSize: 13 }}>
-                          Step {step.step_order}: {roleLabel(step.approver_role)}
-                          {step.resolved_approver_name && <span style={{ fontWeight: 400, color: "#64748b" }}> ({step.resolved_approver_name})</span>}
+                          Step {stepNum}: {stepName}
                         </div>
-                        <div style={{ fontSize: 12, color: "#64748b", marginTop: 2, textTransform: "capitalize" }}>{step.status}</div>
-                        {step.acted_by_name && (
+                        <div style={{ fontSize: 12, color: "#64748b", marginTop: 2, textTransform: "capitalize" }}>{status}</div>
+                        {isEngine && step.assigned_role && (
+                          <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>Assigned to: {step.assigned_role.replace(/_/g," ")}</div>
+                        )}
+                        {!isEngine && step.acted_by_name && (
                           <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>{step.acted_by_name} · {fmtDateTime(step.acted_at)}</div>
                         )}
-                        {step.notes && <div style={{ fontSize: 12, color: "#374151", marginTop: 4, fontStyle: "italic" }}>"{step.notes}"</div>}
+                        {isEngine && step.actioned_at && (
+                          <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>{fmtDateTime(step.actioned_at)}</div>
+                        )}
                       </div>
                     );
                   })}
@@ -166,8 +198,18 @@ export default function RequisitionDetailModal({ requisitionId, onClose, onActed
                   <textarea className="form-control" rows={2} value={notes} onChange={e => setNotes(e.target.value)} />
                 </div>
                 <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
-                  <button className="btn btn-danger" disabled={acting} onClick={() => handleAct("reject")}>Reject</button>
-                  <button className="btn btn-primary" disabled={acting} onClick={() => handleAct("approve")}>Approve</button>
+                  {wfStep && (
+                    <>
+                      {wfStep.can_reject !== false && (
+                        <button className="btn btn-danger" disabled={acting} onClick={() => handleAct("reject")}>
+                          {wfStep.reject_label || "Reject"}
+                        </button>
+                      )}
+                      <button className="btn btn-primary" disabled={acting} onClick={() => handleAct(wfStep.step_type)}>
+                        {wfStep.action_label || wfStep.step_name || "Approve"}
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             )}

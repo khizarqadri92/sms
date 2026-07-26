@@ -27,6 +27,16 @@ export function AuthProvider({ children }) {
     sessionStorage.setItem("user",          JSON.stringify(userData));
     setUser(userData);
     setPermissions(userData.permissions || []);
+    // Load per-user theme from backend after login
+    fetch("/api/v1/users/profile/theme", {
+      headers: { "Authorization": "Bearer " + access_token }
+    }).then(r => r.json()).then(data => {
+      const t = data?.data?.theme;
+      if (t) {
+        localStorage.setItem("sms_theme", t);
+        window.dispatchEvent(new CustomEvent("themeChanged", { detail: { theme: t } }));
+      }
+    }).catch(() => {});
     return userData;
   };
 

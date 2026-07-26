@@ -1,53 +1,52 @@
 """
-Route handler — thin layer only.
-Validate input → call service → return response.
-No business logic here.
+Native FastAPI router for Communication - migrated from app/api/v1/communication.py.
+The original was an unimplemented stub (all routes returned hardcoded
+placeholder responses with TODO comments, no real logic or DB access).
+This preserves that exact behavior - there was nothing functional to migrate.
 """
-from flask import Blueprint, request
-from app.middleware.jwt_guard import jwt_required_custom
-from app.middleware.rbac import require_permission
-from app.utils.response import success, error
 
-bp = Blueprint("communication", __name__)
+from fastapi import APIRouter, Depends
+from pydantic import BaseModel
+
+from app.fastapi_permissions import require_permission
+
+router = APIRouter()
 
 
-@bp.get("/")
-@jwt_required_custom
-@require_permission("communication.view")
-def list_all():
+def ok(data=None, message="Success"):
+    return {"status": "success", "message": message, "data": data}
+
+
+class CommunicationIn(BaseModel):
+    class Config:
+        extra = "allow"
+
+
+@router.get("/")
+def list_all(user_id: int = Depends(require_permission("communication.view"))):
     # TODO: call service
-    return success(data=[], message="communication list")
+    return ok(data=[], message="communication list")
 
 
-@bp.get("/<int:id>")
-@jwt_required_custom
-@require_permission("communication.view")
-def get_one(id):
+@router.get("/{id}")
+def get_one(id: int, user_id: int = Depends(require_permission("communication.view"))):
     # TODO: call service
-    return success(data={}, message="communication detail")
+    return ok(data={}, message="communication detail")
 
 
-@bp.post("/")
-@jwt_required_custom
-@require_permission("communication.create")
-def create():
-    body = request.get_json()
+@router.post("/")
+def create(body: CommunicationIn, user_id: int = Depends(require_permission("communication.create"))):
     # TODO: validate with schema, call service
-    return success(data={}, message="communication created", status=201)
+    return ok(data={}, message="communication created")
 
 
-@bp.put("/<int:id>")
-@jwt_required_custom
-@require_permission("communication.edit")
-def update(id):
-    body = request.get_json()
+@router.put("/{id}")
+def update(id: int, body: CommunicationIn, user_id: int = Depends(require_permission("communication.edit"))):
     # TODO: validate, call service
-    return success(data={}, message="communication updated")
+    return ok(data={}, message="communication updated")
 
 
-@bp.delete("/<int:id>")
-@jwt_required_custom
-@require_permission("communication.delete")
-def delete(id):
+@router.delete("/{id}")
+def delete(id: int, user_id: int = Depends(require_permission("communication.delete"))):
     # TODO: call service
-    return success(message="communication deleted")
+    return ok(message="communication deleted")

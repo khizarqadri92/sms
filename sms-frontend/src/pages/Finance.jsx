@@ -2383,7 +2383,7 @@ function ClassFeesTab() {
               {classFees.length > 0 && <span className="badge badge-primary" style={{ marginLeft:8 }}>Total: Rs. {totalFees.toLocaleString()}</span>}
             </span>
             {can("finance.manage") && availableTypes.length > 0 && (
-              <button className="btn btn-primary btn-sm" onClick={() => { setForm({ fee_type_id:"", amount:"" }); setShowForm(!showForm); }}>
+              <button className="btn btn-primary btn-sm" style={{color:"#fff"}} onClick={() => { setForm({ fee_type_id:"", amount:"" }); setShowForm(!showForm); }}>
                 + Add Fee
               </button>
             )}
@@ -2406,7 +2406,7 @@ function ClassFeesTab() {
               </div>
               <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
                 <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowForm(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary btn-sm" disabled={saving}>{saving ? "Saving..." : "Add Fee"}</button>
+                <button type="submit" className="btn btn-primary btn-sm" style={{color:"#fff"}} disabled={saving}>{saving ? "Saving..." : "Add Fee"}</button>
               </div>
             </form>
           )}

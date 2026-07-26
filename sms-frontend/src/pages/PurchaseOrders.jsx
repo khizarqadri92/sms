@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import procurementApi from "../api/procurementApi";
+import { useAutoOpenById } from "../hooks/useAutoOpenById";
 
 const statusBadge = (status) => ({
   draft: "badge-gray",
@@ -282,6 +283,7 @@ export default function PurchaseOrders() {
     { label: "Cancelled", value: "cancelled" },
   ];
 
+  useAutoOpenById(orders, (po) => setViewId(po.id));
   return (
     <div>
       <div className="page-header" style={{ marginBottom: 16 }}>

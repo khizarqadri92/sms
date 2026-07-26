@@ -28,12 +28,26 @@ import StudyMaterial     from "./pages/StudyMaterial";
 import Leaves        from "./pages/Leaves";
 import Syllabus       from "./pages/Syllabus";
 import Withdrawal        from "./pages/Withdrawal";
-import AttendanceReport  from "./pages/AttendanceReport";
+import StudentAttendance  from "./pages/StudentAttendance";
 import AdminAttendanceReport    from "./pages/AdminAttendanceReport";
 import Announcements          from "./pages/Announcements";
 import TeacherAttendanceReport  from "./pages/TeacherAttendanceReport";
 import StudentAttendanceReport  from "./pages/StudentAttendanceReport";
 import Discipline         from "./pages/Discipline";
+import HRStaff           from "./pages/HRStaff";
+import HRLeave           from "./pages/HRLeave";
+import AttendanceDashboard from "./pages/AttendanceDashboard";
+import PayrollSetup from "./pages/PayrollSetup";
+import PayrollGrades from "./pages/PayrollGrades";
+import PayrollAdjustments from "./pages/PayrollAdjustments";
+import PayrollDesignationGrades from "./pages/PayrollDesignationGrades";
+import PayrollTaxSlabs from "./pages/PayrollTaxSlabs";
+import PayrollRuns from "./pages/PayrollRuns";
+import EmployeeAttendance from "./pages/EmployeeAttendance";
+import StaffLeave        from "./pages/StaffLeave";
+import MyAttendance      from "./pages/MyAttendance";
+import MyProfile         from "./pages/MyProfile";
+import HRSetup           from "./pages/HRSetup";
 import ConfigPage        from "./pages/ConfigPage";
 import Exams            from "./pages/Exams";
 import Datesheet        from "./pages/Datesheet";
@@ -68,6 +82,11 @@ import PendingApprovals      from "./pages/PendingApprovals";
 import ProcurementRequisitions from "./pages/ProcurementRequisitions";
 import PurchaseOrders        from "./pages/PurchaseOrders";
 import ProcurementDashboard from "./pages/ProcurementDashboard";
+import WorkQueue from "./pages/WorkQueue";
+import WorkflowBuilder from "./pages/WorkflowBuilder";
+import GRN from "./pages/GRN";
+import Stock from "./pages/Stock";
+import VendorInvoices from "./pages/VendorInvoices";
 import LeaveApproval from "./pages/LeaveApproval";
 import LeaveSetup    from "./pages/LeaveSetup";
 import Notifications     from "./pages/Notifications";
@@ -124,9 +143,9 @@ export default function App() {
               <RoleLayout><Attendance /></RoleLayout>
             </PrivateRoute>
           }/>
-          <Route path="/attendance-report" element={
+          <Route path="/reports/student-attendance" element={
             <PrivateRoute permission="attendance.view">
-              <RoleLayout><AttendanceReport /></RoleLayout>
+              <RoleLayout><StudentAttendance /></RoleLayout>
             </PrivateRoute>
           }/>
           <Route path="/announcements" element={<PrivateRoute permission="settings.view"><RoleLayout><Announcements /></RoleLayout></PrivateRoute>} />
@@ -236,8 +255,22 @@ export default function App() {
           <Route path="/procurement/pipeline" element={<PrivateRoute permission="procurement.view"><RoleLayout><ProcurementRequisitions /></RoleLayout></PrivateRoute>} />
           <Route path="/procurement/purchase-orders" element={<PrivateRoute permission="procurement.view"><RoleLayout><PurchaseOrders /></RoleLayout></PrivateRoute>} />
           <Route path="/withdrawal"         element={<PrivateRoute><RoleLayout><Withdrawal /></RoleLayout></PrivateRoute>} />
-          <Route path="/attendance-report"  element={<PrivateRoute permission="attendance.view"><RoleLayout><AttendanceReport /></RoleLayout></PrivateRoute>} />
-          <Route path="/discipline"          element={<PrivateRoute permission="discipline.view"><RoleLayout><Discipline /></RoleLayout></PrivateRoute>} />
+          <Route path="/my-profile"          element={<PrivateRoute><RoleLayout><MyProfile /></RoleLayout></PrivateRoute>} />
+              <Route path="/staff-leave"         element={<PrivateRoute><RoleLayout><StaffLeave /></RoleLayout></PrivateRoute>} />
+              <Route path="/my-attendance"      element={<PrivateRoute><RoleLayout><MyAttendance /></RoleLayout></PrivateRoute>} />
+              <Route path="/hr/leave"            element={<PrivateRoute permission="hr.view"><RoleLayout><HRLeave /></RoleLayout></PrivateRoute>} />
+              <Route path="/hr/attendance"       element={<PrivateRoute permission="hr.view"><RoleLayout><AttendanceDashboard /></RoleLayout></PrivateRoute>} />
+              <Route path="/payroll/setup"       element={<PrivateRoute permission="payroll.view"><RoleLayout><PayrollSetup /></RoleLayout></PrivateRoute>} />
+              <Route path="/payroll/grades"       element={<PrivateRoute permission="payroll.view"><RoleLayout><PayrollGrades /></RoleLayout></PrivateRoute>} />
+              <Route path="/payroll/adjustments"   element={<PrivateRoute permission="payroll.view"><RoleLayout><PayrollAdjustments /></RoleLayout></PrivateRoute>} />
+              <Route path="/payroll/designation-grades" element={<PrivateRoute permission="payroll.view"><RoleLayout><PayrollDesignationGrades /></RoleLayout></PrivateRoute>} />
+              <Route path="/payroll/tax-slabs" element={<PrivateRoute permission="payroll.view"><RoleLayout><PayrollTaxSlabs /></RoleLayout></PrivateRoute>} />
+              <Route path="/payroll/runs" element={<PrivateRoute permission="payroll.edit"><RoleLayout><PayrollRuns /></RoleLayout></PrivateRoute>} />
+              <Route path="/reports/employee-attendance" element={<PrivateRoute permission="hr.view"><RoleLayout><EmployeeAttendance /></RoleLayout></PrivateRoute>} />
+              <Route path="/my-department-attendance" element={<PrivateRoute><RoleLayout><AttendanceDashboard /></RoleLayout></PrivateRoute>} />
+              <Route path="/hr/staff"            element={<PrivateRoute permission="hr.view"><RoleLayout><HRStaff /></RoleLayout></PrivateRoute>} />
+              <Route path="/hr/setup"            element={<PrivateRoute permission="hr.designations"><RoleLayout><HRSetup /></RoleLayout></PrivateRoute>} />
+              <Route path="/discipline"          element={<PrivateRoute permission="discipline.view"><RoleLayout><Discipline /></RoleLayout></PrivateRoute>} />
           <Route path="/workflow-config"     element={<PrivateRoute permission="settings.manage"><RoleLayout><ConfigPage /></RoleLayout></PrivateRoute>} />
           <Route path="/exams"               element={<PrivateRoute permission="exam.view"><RoleLayout><Exams /></RoleLayout></PrivateRoute>} />
           <Route path="/datesheet"           element={<PrivateRoute permission="exam.manage"><RoleLayout><Datesheet /></RoleLayout></PrivateRoute>} />
@@ -248,6 +281,11 @@ export default function App() {
           <Route path="/class-results"       element={<PrivateRoute permission="exam.view"><RoleLayout><ClassResults /></RoleLayout></PrivateRoute>} />
           <Route path="/marks-history"       element={<PrivateRoute permission="exam.marks"><RoleLayout><MarksHistory /></RoleLayout></PrivateRoute>} />
           <Route path="/withdrawal-history" element={<PrivateRoute><RoleLayout><WithdrawalHistory /></RoleLayout></PrivateRoute>} />
+          <Route path="/procurement/vendor-invoices" element={<PrivateRoute permission="procurement.view"><RoleLayout><VendorInvoices /></RoleLayout></PrivateRoute>} />
+          <Route path="/procurement/stock" element={<PrivateRoute permission="procurement.view"><RoleLayout><Stock /></RoleLayout></PrivateRoute>} />
+          <Route path="/procurement/grn" element={<PrivateRoute permission="procurement.view"><RoleLayout><GRN /></RoleLayout></PrivateRoute>} />
+          <Route path="/workflow-builder" element={<PrivateRoute><RoleLayout><WorkflowBuilder /></RoleLayout></PrivateRoute>} />
+          <Route path="/work-queue" element={<PrivateRoute><RoleLayout><WorkQueue /></RoleLayout></PrivateRoute>} />
           <Route path="/procurement"    element={<PrivateRoute><RoleLayout><ProcurementDashboard /></RoleLayout></PrivateRoute>} />
           <Route path="/leave-approval" element={<PrivateRoute><RoleLayout><LeaveApproval /></RoleLayout></PrivateRoute>} />
           <Route path="/leave-setup"    element={<PrivateRoute><RoleLayout><LeaveSetup /></RoleLayout></PrivateRoute>} />

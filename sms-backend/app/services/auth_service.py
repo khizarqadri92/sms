@@ -11,10 +11,23 @@ class AuthService:
     def __init__(self, user_repo: UserRepository = None):
         self._users = user_repo or UserRepository()
 
-    def login(self, email: str, password: str) -> Dict:
-        user = self._users.find_by_email(email)
+    def _resolve_user(self, identifier: str):
+        """
+        Resolves a login identifier (student enrollment number, parent phone
+        number, or email) to a user record via sp_resolve_login_identifier.
+        """
+        from app.db.connection import get_db
+        import psycopg2.extras
+        db = get_db()
+        cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT * FROM sp_resolve_login_identifier(%s)", (identifier,))
+        row = cur.fetchone()
+        return dict(row) if row else None
+
+    def login(self, identifier: str, password: str) -> Dict:
+        user = self._resolve_user(identifier)
         if not user:
-            raise ValueError("Invalid email or password.")
+            raise ValueError("Invalid credentials.")
 
         from app.db.connection import get_db
         import psycopg2.extras

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import studentsApi from "../api/studentsApi";
 import financeApi  from "../api/financeApi";
 import InvoiceTimelineModal from "../components/InvoiceTimelineModal";
@@ -23,6 +24,7 @@ const downloadInvoice = async (invoiceId) => {
 
 export default function MyFees() {
   const [summary,     setSummary]     = useState(null);
+  const [searchParams] = useSearchParams();
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState("");
   const [showPayment, setShowPayment] = useState(null);
@@ -43,9 +45,13 @@ export default function MyFees() {
   const fetchMyFees = async () => {
     setLoading(true);
     try {
-      const meRes    = await studentsApi.getMe();
-      const studentId = meRes.data.data?.id;
-      if (!studentId) { setError("Student profile not found."); return; }
+      const paramStudentId = searchParams.get("studentId");
+      let studentId = paramStudentId;
+      if (!studentId) {
+        const meRes = await studentsApi.getMe();
+        studentId = meRes.data.data?.id;
+      }
+      if (!studentId) { setError("Student profile not found."); setLoading(false); return; }
       const res = await studentsApi.getFees(studentId);
       setSummary({ ...res.data.data, studentId });
     } catch {

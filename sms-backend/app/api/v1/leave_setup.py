@@ -1,171 +1,169 @@
-﻿from flask import Blueprint, request
-from app.middleware.jwt_guard import jwt_required_custom
-from app.middleware.rbac import require_permission
-from app.utils.response import success, error
-import psycopg2.extras
+"""
+Native FastAPI router for Leave Setup - migrated from app/api/v1/leave_setup.py.
+Fully self-contained inline SQL in the original, now converted to
+dedicated stored procedures. The _insert_rules validation logic (checking
+each rule has an approver_role) stays in Python since it's business logic,
+not a pure SQL concern.
+"""
 
-bp = Blueprint("leave_setup", __name__)
+from typing import Optional, Any, List
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+
+from app.fastapi_auth import get_current_user_id
+from app.fastapi_permissions import require_permission
+from app.fastapi_db import get_db, get_cur as _get_cur
+
+router = APIRouter()
 
 
-def get_db():
-    from app.db.connection import get_db as _get_db
-    return _get_db()
+def get_cur(db):
+    return _get_cur(db)
+
+
+def fail(message: str, status_code: int = 400, details=None):
+    raise HTTPException(status_code=status_code, detail={"status": "error", "message": message, "details": details})
+
+
+def ok(data=None, message="Success"):
+    return {"status": "success", "message": message, "data": data}
+
+
+class RuleIn(BaseModel):
+    day_from: Optional[Any] = 1
+    day_to: Optional[Any] = None
+    recommender_role: Optional[Any] = None
+    approver_role: Optional[str] = None
+    certificate_required: Optional[bool] = False
+    certificate_label: Optional[str] = ""
+
+
+class LeaveTypeCreateIn(BaseModel):
+    name: str
+    max_days_per_year: Optional[Any] = None
+    notify_mode: Optional[str] = "incharge_only"
+    is_active: Optional[bool] = True
+    rules: List[RuleIn]
+
+
+class LeaveTypeUpdateIn(BaseModel):
+    name: Optional[str] = None
+    max_days_per_year: Optional[Any] = None
+    notify_mode: Optional[str] = None
+    is_active: Optional[bool] = None
+    rules: List[RuleIn]
 
 
 def _insert_rules(cur, lt_id, rules):
     for i, rule in enumerate(rules):
-        if not rule.get("approver_role"):
-            return f"Rule {i+1} is missing an approver role"
-        cur.execute("""
-            INSERT INTO leave_approval_rules
-                (leave_type_id, day_from, day_to, recommender_role,
-                 approver_role, sort_order, certificate_required, certificate_label)
-            VALUES(%s,%s,%s,%s,%s,%s,%s,%s)
-        """, (
-            lt_id,
-            int(rule.get("day_from") or 1),
-            int(rule["day_to"]) if rule.get("day_to") else None,
-            rule.get("recommender_role") or None,
-            rule["approver_role"],
-            i,
-            bool(rule.get("certificate_required", False)),
-            rule.get("certificate_label", "") or "",
-        ))
+        if not rule.approver_role:
+            return "Rule " + str(i + 1) + " is missing an approver role"
+        cur.execute(
+            "SELECT sp_insert_leave_approval_rule(%s,%s,%s,%s,%s,%s,%s,%s)",
+            (
+                lt_id,
+                int(rule.day_from or 1),
+                int(rule.day_to) if rule.day_to else None,
+                rule.recommender_role or None,
+                rule.approver_role,
+                i,
+                bool(rule.certificate_required or False),
+                rule.certificate_label or "",
+            )
+        )
     return None
 
 
-@bp.get("/active-types")
-@jwt_required_custom
-def get_active_leave_types():
-    db  = get_db()
-    cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("SELECT * FROM leave_types WHERE is_active=TRUE ORDER BY name")
-    types = cur.fetchall()
+def _attach_rules(cur, types):
     for lt in types:
-        cur.execute("""
-            SELECT id, day_from, day_to, recommender_role, approver_role,
-                   sort_order, certificate_required, certificate_label
-            FROM leave_approval_rules
-            WHERE leave_type_id = %s ORDER BY sort_order, day_from
-        """, (lt["id"],))
-        lt["rules"] = cur.fetchall()
-    return success(data=types)
+        cur.execute("SELECT * FROM sp_get_leave_approval_rules(%s)", (lt["id"],))
+        lt["rules"] = [dict(r) for r in cur.fetchall()]
+    return types
 
 
-@bp.get("/types")
-@jwt_required_custom
-@require_permission("leave_type.view")
-def get_leave_types():
-    db  = get_db()
-    cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("SELECT * FROM leave_types ORDER BY name")
-    types = cur.fetchall()
-    for lt in types:
-        cur.execute("""
-            SELECT id, day_from, day_to, recommender_role, approver_role,
-                   sort_order, certificate_required, certificate_label
-            FROM leave_approval_rules
-            WHERE leave_type_id = %s ORDER BY sort_order, day_from
-        """, (lt["id"],))
-        lt["rules"] = cur.fetchall()
-    return success(data=types)
+@router.get("/active-types")
+def get_active_leave_types(user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+    cur = get_cur(db)
+    cur.execute("SELECT * FROM sp_get_active_leave_types()")
+    types = [dict(r) for r in cur.fetchall()]
+    _attach_rules(cur, types)
+    return ok(data=types)
 
 
-@bp.post("/types")
-@jwt_required_custom
-@require_permission("leave_type.manage")
-def create_leave_type():
-    body  = request.get_json() or {}
-    name  = body.get("name", "").strip()
-    rules = body.get("rules", [])
+@router.get("/types")
+def get_leave_types(user_id: int = Depends(require_permission("leave_type.view")), db=Depends(get_db)):
+    cur = get_cur(db)
+    cur.execute("SELECT * FROM sp_get_all_leave_types()")
+    types = [dict(r) for r in cur.fetchall()]
+    _attach_rules(cur, types)
+    return ok(data=types)
 
+
+@router.post("/types")
+def create_leave_type(body: LeaveTypeCreateIn, user_id: int = Depends(require_permission("leave_type.manage")), db=Depends(get_db)):
+    name = (body.name or "").strip()
     if not name:
-        return error("Leave type name is required", 400)
-    if not rules:
-        return error("At least one approval rule is required", 400)
+        fail("Leave type name is required", 400)
+    if not body.rules:
+        fail("At least one approval rule is required", 400)
 
-    db  = get_db()
-    cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur = get_cur(db)
+    cur.execute("SELECT sp_check_leave_type_name_exists(%s) AS exists", (name,))
+    if cur.fetchone()["exists"]:
+        fail("Leave type with this name already exists", 400)
 
-    cur.execute("SELECT id FROM leave_types WHERE LOWER(name)=LOWER(%s)", (name,))
-    if cur.fetchone():
-        return error("Leave type with this name already exists", 400)
-
-    cur.execute("""
-        INSERT INTO leave_types(name, max_days_per_year, notify_mode, is_active)
-        VALUES(%s,%s,%s,%s) RETURNING id
-    """, (
-        name,
-        int(body["max_days_per_year"]) if body.get("max_days_per_year") else None,
-        body.get("notify_mode", "incharge_only"),
-        body.get("is_active", True),
-    ))
+    cur.execute(
+        "SELECT sp_create_leave_type(%s,%s,%s,%s) AS id",
+        (name, int(body.max_days_per_year) if body.max_days_per_year else None, body.notify_mode or "incharge_only", body.is_active if body.is_active is not None else True)
+    )
     lt_id = cur.fetchone()["id"]
 
-    err = _insert_rules(cur, lt_id, rules)
+    err = _insert_rules(cur, lt_id, body.rules)
     if err:
         db.rollback()
-        return error(err, 400)
+        fail(err, 400)
 
     db.commit()
-    return success(message="Leave type created.", data={"id": lt_id})
+    return ok(data={"id": lt_id}, message="Leave type created.")
 
 
-@bp.put("/types/<int:lt_id>")
-@jwt_required_custom
-@require_permission("leave_type.manage")
-def update_leave_type(lt_id):
-    body  = request.get_json() or {}
-    rules = body.get("rules", [])
+@router.put("/types/{lt_id}")
+def update_leave_type(lt_id: int, body: LeaveTypeUpdateIn, user_id: int = Depends(require_permission("leave_type.manage")), db=Depends(get_db)):
+    if not body.rules:
+        fail("At least one approval rule is required", 400)
 
-    if not rules:
-        return error("At least one approval rule is required", 400)
+    cur = get_cur(db)
+    cur.execute("SELECT sp_check_leave_type_exists(%s) AS exists", (lt_id,))
+    if not cur.fetchone()["exists"]:
+        fail("Leave type not found", 404)
 
-    db  = get_db()
-    cur = db.cursor()
+    cur.execute(
+        "SELECT sp_update_leave_type(%s,%s,%s,%s,%s)",
+        (lt_id, body.name, int(body.max_days_per_year) if body.max_days_per_year else None, body.notify_mode, body.is_active)
+    )
 
-    cur.execute("SELECT id FROM leave_types WHERE id=%s", (lt_id,))
-    if not cur.fetchone():
-        return error("Leave type not found", 404)
+    cur.execute("SELECT sp_delete_leave_approval_rules(%s)", (lt_id,))
 
-    cur.execute("""
-        UPDATE leave_types SET
-            name              = COALESCE(%s, name),
-            max_days_per_year = %s,
-            notify_mode       = COALESCE(%s, notify_mode),
-            is_active         = COALESCE(%s, is_active)
-        WHERE id = %s
-    """, (
-        body.get("name"),
-        int(body["max_days_per_year"]) if body.get("max_days_per_year") else None,
-        body.get("notify_mode"),
-        body.get("is_active"),
-        lt_id,
-    ))
-
-    cur.execute("DELETE FROM leave_approval_rules WHERE leave_type_id=%s", (lt_id,))
-
-    err = _insert_rules(cur, lt_id, rules)
+    err = _insert_rules(cur, lt_id, body.rules)
     if err:
         db.rollback()
-        return error(err, 400)
+        fail(err, 400)
 
     db.commit()
-    return success(message="Leave type updated.")
+    return ok(message="Leave type updated.")
 
 
-@bp.delete("/types/<int:lt_id>")
-@jwt_required_custom
-@require_permission("leave_type.manage")
-def delete_leave_type(lt_id):
-    db  = get_db()
-    cur = db.cursor()
-    cur.execute("SELECT id FROM leave_types WHERE id=%s", (lt_id,))
-    if not cur.fetchone():
-        return error("Leave type not found", 404)
-    cur.execute("SELECT id FROM leave_requests WHERE leave_type_id=%s LIMIT 1", (lt_id,))
-    if cur.fetchone():
-        return error("Cannot delete leave requests exist for this type. Deactivate instead.", 400)
-    cur.execute("DELETE FROM leave_types WHERE id=%s", (lt_id,))
+@router.delete("/types/{lt_id}")
+def delete_leave_type(lt_id: int, user_id: int = Depends(require_permission("leave_type.manage")), db=Depends(get_db)):
+    cur = get_cur(db)
+    cur.execute("SELECT sp_check_leave_type_exists(%s) AS exists", (lt_id,))
+    if not cur.fetchone()["exists"]:
+        fail("Leave type not found", 404)
+
+    cur.execute("SELECT sp_check_leave_requests_exist(%s) AS exists", (lt_id,))
+    if cur.fetchone()["exists"]:
+        fail("Cannot delete leave requests exist for this type. Deactivate instead.", 400)
+
+    cur.execute("SELECT sp_delete_leave_type(%s)", (lt_id,))
     db.commit()
-    return success(message="Leave type deleted.")
+    return ok(message="Leave type deleted.")

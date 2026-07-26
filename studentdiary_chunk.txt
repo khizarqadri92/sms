@@ -1,0 +1,43 @@
+function StudentDiary() {
+  const [entries,   setEntries]   = useState([]);
+  const [published, setPublished] = useState(false);
+  const [selDate,   setSelDate]   = useState(today());
+  const [selSubj,   setSelSubj]   = useState(null);
+  const [loading,   setLoading]   = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    diaryApi.getStudent({ date: selDate })
+      .then(r => {
+        const ents = r.data.data?.entries || [];
+        setEntries(ents);
+        setPublished(r.data.data?.published || false);
+        if (ents.length > 0) setSelSubj(ents[0].subject_id);
+      }).catch(() => {}).finally(() => setLoading(false));
+  }, [selDate]);
+
+  const active = entries.find(e => e.subject_id === selSubj);
+
+  const COLORS = ["#178DD9","#1D9E75","#D85A30","#7F77DD","#BA7517","#D4537E","#0F6E56","#993556"];
+  const colorMap = {};
+  entries.forEach((e, i) => { colorMap[e.subject_id] = COLORS[i % COLORS.length]; });
+
+  return (
+    <div>
+      <div className="page-header">
+        <h1 className="page-heading">Daily Diary</h1>
+        <input type="date" className="form-control" style={{ maxWidth:180 }} value={selDate} onChange={e => setSelDate(e.target.value)} />
+      </div>
+
+      {loading ? <div className="loading-state">Loading...</div> : !published ? (
+        <div className="section-card"><div className="empty-state">Diary not published yet for {selDate}.</div></div>
+      ) : entries.length === 0 ? (
+        <div className="section-card"><div className="empty-state">No diary entries for this date.</div></div>
+      ) : (
+        <DiaryPanel entries={entries} selSubj={selSubj} setSelSubj={setSelSubj} active={active} colorMap={colorMap} />
+      )}
+    </div>
+  );
+}
+
+/* ── Parent View ──────────────────────────────────────────────── */

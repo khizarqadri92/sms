@@ -1,4 +1,4 @@
-﻿import client from "./client";
+import client from "./client";
 
 export const withdrawalApi = {
   getAll:    ()           => client.get("/withdrawal/"),
@@ -6,10 +6,23 @@ export const withdrawalApi = {
   apply:     (form)       => client.post("/withdrawal/apply", form),
   review:    (id, data)   => client.post("/withdrawal/" + id + "/review", data),
   clear:     (id, data)   => client.post("/withdrawal/" + id + "/clear", data),
+  stepActionRequired: (id, data) => client.post("/withdrawal/" + id + "/step-action-required", data),
+  parentRespond:      (id, data) => client.post("/withdrawal/" + id + "/parent-respond", data),
+  getActivity:        (id)       => client.get("/withdrawal/" + id + "/activity"),
+  submitConduct:      (id, data) => client.post("/withdrawal/" + id + "/conduct", data),
+  parentRespond:      (id, data) => client.post("/withdrawal/" + id + "/parent-respond", data),
+  getActivity:        (id)       => client.get("/withdrawal/" + id + "/activity"),
+  submitConduct:      (id, data) => client.post("/withdrawal/" + id + "/conduct", data),
   approve:    (id, data)  => client.post("/withdrawal/" + id + "/approve", data),
   requireAction:(id, data)  => client.post("/withdrawal/" + id + "/require", data),
   finalize:     (id, data)  => client.post("/withdrawal/" + id + "/finalize", data),
   getTC:          (id)       => client.get("/withdrawal/" + id + "/tc"),
   getConductForm: (id)       => client.get("/withdrawal/" + id + "/conduct"),
   submitConduct:  (id, data) => client.post("/withdrawal/" + id + "/conduct", data),
+  getPendingInvoices: (id)       => client.get("/withdrawal/" + id + "/pending-invoices"),
+  requestWaiver:      (id, data) => client.post("/withdrawal/" + id + "/waiver-request", data),
+  getWaivers:         (id)       => client.get("/withdrawal/" + id + "/waivers"),
+  actionWaiver:       (wid, data)=> client.post("/withdrawal/waivers/" + wid + "/action", data),
+  forwardWaiver:        (wid, data)=> client.post("/withdrawal/waivers/" + wid + "/forward", data),
+  generateWaiverInvoice:(wid)     => client.post("/withdrawal/waivers/" + wid + "/generate-invoice"),
 };

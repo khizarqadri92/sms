@@ -24,8 +24,12 @@ export default function MarksHistory() {
     setSelectedClass(cls); setSelectedSub(null); setMarksData(null);
     if(!selectedExam) return;
     const r = await examsApi.getSubjects(selectedExam.id);
-    const mySubIds = mySubjects.map(s=>s.id);
-    const subs = (r.data.data||[]).filter(s=>s.class_id===cls.id&&mySubIds.includes(s.subject_id));
+    let subs = (r.data.data||[]).filter(s=>s.class_id===cls.id);
+    const isIncharge = cls.is_primary;
+    if(!isIncharge){
+      const mySubIds = mySubjects.map(s=>s.id);
+      subs = subs.filter(s=>mySubIds.includes(s.subject_id));
+    }
     setClassSubjects(subs);
   };
 

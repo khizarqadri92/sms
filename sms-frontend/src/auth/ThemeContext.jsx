@@ -1,4 +1,4 @@
-﻿import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState, useEffect } from "react";
 
 const THEMES = {
   indigo: {
@@ -100,25 +100,71 @@ export function ThemeProvider({ children }) {
 
   const theme = THEMES[themeKey] || THEMES.indigo;
 
+  // Load per-user theme from backend whenever a token is present.
+  // Runs on mount (covers page refresh while logged in) and whenever
+  // localStorage changes (covers the moment right after login).
+  function loadThemeFromApi() {
+    const token = localStorage.getItem("access_token");
+    if (!token) return;
+    fetch("/api/v1/users/profile/theme", {
+      headers: { "Authorization": "Bearer " + token }
+    })
+      .then(r => r.json())
+      .then(data => {
+        const t = data?.data?.theme;
+        if (t && THEMES[t]) {
+          setThemeKey(t);
+          localStorage.setItem("sms_theme", t);
+        }
+      })
+      .catch(() => {});
+  }
+
+  useEffect(() => {
+    loadThemeFromApi();
+
+    // Also reload theme whenever localStorage changes (e.g., after login sets access_token)
+    function onThemeChanged(e) {
+      const t = e.detail?.theme;
+      if (t && THEMES[t]) {
+        setThemeKey(t);
+        localStorage.setItem("sms_theme", t);
+      }
+    }
+    window.addEventListener("themeChanged", onThemeChanged);
+    return () => window.removeEventListener("themeChanged", onThemeChanged);
+  }, []);
+
   useEffect(() => {
     applyTheme(theme);
   }, [themeKey]);
 
   function applyTheme(t) {
     const root = document.documentElement;
-    root.style.setProperty("--theme-nav",          t.navBg);
-    root.style.setProperty("--theme-nav-dark",     t.navBgDark);
-    root.style.setProperty("--theme-primary",      t.primary);
-    root.style.setProperty("--theme-primary-dark", t.primaryDark);
-    root.style.setProperty("--theme-primary-light",t.primaryLight);
+    root.style.setProperty("--theme-nav",           t.navBg);
+    root.style.setProperty("--theme-nav-dark",      t.navBgDark);
+    root.style.setProperty("--theme-primary",       t.primary);
+    root.style.setProperty("--theme-primary-dark",  t.primaryDark);
+    root.style.setProperty("--theme-primary-light", t.primaryLight);
     root.style.setProperty("--theme-primary-border",t.primaryBorder);
-    root.style.setProperty("--theme-hero",         t.heroBg);
-    root.style.setProperty("--theme-active",       t.activeLink);
+    root.style.setProperty("--theme-hero",          t.heroBg);
+    root.style.setProperty("--theme-active",        t.activeLink);
   }
 
   function setTheme(key) {
     setThemeKey(key);
     localStorage.setItem("sms_theme", key);
+    const token = localStorage.getItem("access_token");
+    if (token) {
+      fetch("/api/v1/users/profile/theme", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + token
+        },
+        body: JSON.stringify({ theme: key })
+      }).catch(() => {});
+    }
   }
 
   return (

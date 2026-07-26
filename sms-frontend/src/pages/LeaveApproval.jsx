@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+import workflowApi from "../api/workflowApi";
 import { leavesApi } from "../api/leavesApi";
 import { useAuth } from "../auth/AuthContext";
 
@@ -37,13 +39,26 @@ export default function LeaveApproval() {
   };
 
   const [leaves, setLeaves]   = useState([]);
-  const [filter, setFilter]   = useState("pending");
+  const [filter, setFilter]   = useState(new URLSearchParams(window.location.search).get("id") ? "all" : "pending");
   const [detail, setDetail]   = useState(null);
   const [action, setAction]   = useState(null);
   const [note, setNote]       = useState("");
   const [toast, setToast]     = useState("");
   const [toastType, setToastType] = useState("success");
   const [loading, setLoading] = useState(false);
+  const [wfStep, setWfStep] = useState(null);
+
+  const [searchParams] = useSearchParams();
+  const initialFilter = searchParams.get("id") ? "all" : "pending";
+
+  const loadWfStep = async (leaveId) => {
+    try {
+      const r = await workflowApi.getInstance("leaves", "leave_application", leaveId);
+      const steps = r.data.data?.steps || [];
+      const pending = steps.find(s => s.status === "pending");
+      setWfStep(pending || null);
+    } catch { setWfStep(null); }
+  };
 
   const load = async () => {
     try {
@@ -53,6 +68,19 @@ export default function LeaveApproval() {
   };
 
   useEffect(() => { load(); }, [filter]);
+
+  useEffect(() => {
+    const targetId = searchParams.get("id");
+    if (targetId && leaves.length > 0) {
+      const found = leaves.find(l => String(l.id) === String(targetId));
+      if (found) setDetail(found);
+    }
+  }, [leaves, searchParams]);
+
+  useEffect(() => {
+    if (detail) loadWfStep(detail.id);
+    else setWfStep(null);
+  }, [detail?.id]);
 
   const flash = (type, text) => {
     setToastType(type); setToast(text);
@@ -83,28 +111,32 @@ export default function LeaveApproval() {
     const btnClass = size === "table" ? "btn btn-ghost btn-sm" : "btn btn-primary";
     return (
       <>
-        {canRecommendLeave(lr) && lr.status === "pending" && (
-          <button className={btnClass} style={{ color: size === "table" ? "#2563eb" : undefined, marginLeft: size === "table" ? 6 : 0 }}
+                {/* Workflow engine: show buttons based on current step */}
+        {wfStep && (user?.id === wfStep.assigned_to_id || (wfStep.assigned_role && roles.includes(wfStep.assigned_role))) && lr.status !== "approved" && lr.status !== "rejected" && (
+          <>
+            <button className={btnClass} style={{ background: size === "modal" ? "#166534" : undefined, color: size === "table" ? "#166534" : undefined, marginLeft: size === "table" ? 6 : 0 }}
+              onClick={() => { setAction({ id: lr.id, type: wfStep.step_type }); setNote(""); }}>
+              {wfStep.action_label || wfStep.step_name || wfStep.step_type}
+            </button>
+            {wfStep.can_reject !== false && (
+              <button className={btnClass} style={{ color: "#991b1b", marginLeft: 4 }}
+                onClick={() => { setAction({ id: lr.id, type: "reject" }); setNote(""); }}>
+                {wfStep.reject_label || "Reject"}
+              </button>
+            )}
+          </>
+        )}
+        {/* Legacy non-engine: fallback permission-based buttons */}
+        {!wfStep && canRecommendLeave(lr) && lr.status === "pending" && (
+          <button className={btnClass} style={{ marginLeft: size === "table" ? 6 : 0 }}
             onClick={() => { setAction({ id: lr.id, type: "recommend" }); setNote(""); }}>
             Recommend
           </button>
         )}
-        {canApproveLeave(lr) && lr.status === "pending" && !lr.needs_recommendation && (
+        {!wfStep && canApproveLeave(lr) && (lr.status === "pending" || lr.status === "recommended") && (
           <button className={btnClass} style={{ background: size === "modal" ? "#166534" : undefined, color: size === "table" ? "#166534" : undefined, marginLeft: size === "table" ? 6 : 0 }}
             onClick={() => { setAction({ id: lr.id, type: "approve" }); setNote(""); }}>
             Approve
-          </button>
-        )}
-        {canApproveLeave(lr) && lr.status === "recommended" && (
-          <button className={btnClass} style={{ background: size === "modal" ? "#166534" : undefined, color: size === "table" ? "#166634" : undefined, marginLeft: size === "table" ? 6 : 0 }}
-            onClick={() => { setAction({ id: lr.id, type: "approve" }); setNote(""); }}>
-            Approve
-          </button>
-        )}
-        {canApproveLeave(lr) && ["pending","recommended"].includes(lr.status) && (
-          <button className={btnClass} style={{ background: size === "modal" ? "#991b1b" : undefined, color: size === "table" ? "#991b1b" : undefined, marginLeft: size === "table" ? 6 : 0 }}
-            onClick={() => { setAction({ id: lr.id, type: "reject" }); setNote(""); }}>
-            Reject
           </button>
         )}
       </>

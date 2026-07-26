@@ -48,6 +48,12 @@ class UserService:
             raise ValueError(f"User {id} not found.")
         self._users.delete(id)
 
+    def reactivate(self, id: int):
+        user = self._users.find_by_id(id)
+        if not user:
+            raise ValueError(f"User {id} not found.")
+        self._users.reactivate(id)
+
     def assign_role(self, user_id: int, role_id: int, action: str) -> Dict:
         if not role_id:
             raise ValueError("role_id is required.")

@@ -48,13 +48,38 @@ export default function Settings() {
 }
 
 function IdFormatsTab({ onSaved, canManage }) {
-  const [settings, setSettings] = useState({});
-  const [loading,  setLoading]  = useState(true);
-  const [saving,   setSaving]   = useState(false);
-  const [error,    setError]    = useState("");
-  const [previews, setPreviews] = useState({});
+  const [settings, setSettings]   = useState({});
+  const [loading,  setLoading]    = useState(true);
+  const [saving,   setSaving]     = useState(false);
+  const [error,    setError]      = useState("");
+  const [previews, setPreviews]   = useState({});
+  const [mode, setMode]           = useState("per_department");
+  const [staffSubMode, setStaffSubMode] = useState("same");
+  const [departments, setDepartments]   = useState([]);
+  const [selectedDept, setSelectedDept] = useState("");
+  const [deptRoles, setDeptRoles]       = useState([]);
 
-  useEffect(() => { fetchSettings(); }, []);
+  const roleKeyMap = {
+    student:"student_id", teacher:"teacher_id", admin:"admin_id",
+    principal:"principal_id", finance_officer:"finance_id",
+    parent:"parent_id", academic_coordinator:"coordinator_id",
+    hr:"hr_id", librarian:"librarian_id", procurement:"procurement_id",
+  };
+
+  useEffect(() => {
+    fetchSettings();
+    import("../api/hrApi").then(m => {
+      m.default.getDepartments().then(r => setDepartments(r.data.data||[])).catch(()=>{});
+    });
+  }, []);
+
+  useEffect(() => {
+    if(mode==="per_department" && selectedDept) {
+      import("../api/hrApi").then(m => {
+        m.default.getDeptRoles(selectedDept).then(r => setDeptRoles(r.data.data||[])).catch(()=>{});
+      });
+    }
+  }, [selectedDept, mode]);
 
   const fetchSettings = async () => {
     setLoading(true);
@@ -65,167 +90,205 @@ function IdFormatsTab({ onSaved, canManage }) {
         group.forEach(item => { flat[item.key] = item.value; });
       });
       setSettings(flat);
+      if(flat.id_format_mode) setMode(flat.id_format_mode);
     } catch { setError("Failed to load settings."); }
     finally { setLoading(false); }
   };
 
-  const handleChange = (key, value) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
-  };
+  const handleChange = (key, value) => setSettings(prev => ({ ...prev, [key]: value }));
 
   const handlePreview = async (role) => {
     try {
       const res = await settingsApi.previewId(role);
       setPreviews(prev => ({ ...prev, [role]: res.data.data.preview_id }));
-    } catch {
-      setPreviews(prev => ({ ...prev, [role]: "Error generating preview" }));
-    }
+    } catch { setPreviews(prev => ({ ...prev, [role]: "Error" })); }
   };
 
   const handleSave = async () => {
     setSaving(true); setError("");
     try {
-      const idSettings = {};
+      const idSettings = { id_format_mode: mode };
       Object.keys(settings).forEach(k => {
         if (!k.includes("counter")) idSettings[k] = settings[k];
       });
       await settingsApi.update(idSettings);
       onSaved();
-    } catch (err) {
-      setError(err.response?.data?.message || "Failed to save settings.");
-    } finally { setSaving(false); }
+    } catch (err) { setError(err.response?.data?.message || "Failed to save."); }
+    finally { setSaving(false); }
+  };
+
+  const FormatFields = ({ baseKey, label, roleKey }) => {
+    const base = roleKey ? (roleKeyMap[roleKey]||null) : baseKey;
+    if(!base) return <div style={{color:"#94a3b8",padding:12,fontSize:12}}>No format key configured for this role.</div>;
+    const hasYear = roleKey==="student";
+    return (
+      <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:8,padding:16,marginBottom:12}}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
+          <div style={{fontWeight:700,fontSize:13,color:"#334155"}}>{label}</div>
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            {previews[base] && <span style={{fontFamily:"monospace",fontSize:12,fontWeight:700,color:"#2563eb",background:"#eff6ff",padding:"2px 8px",borderRadius:6}}>{previews[base]}</span>}
+            {roleKey && <button className="btn btn-ghost btn-sm" style={{fontSize:11}} onClick={()=>handlePreview(roleKey)}>Preview</button>}
+          </div>
+        </div>
+        <div className="form-grid">
+          <div className="form-group">
+            <label className="form-label">Prefix</label>
+            <input className="form-control" value={settings[base+"_prefix"]||""} onChange={e=>handleChange(base+"_prefix",e.target.value)} placeholder="e.g. TCH, MGT" style={{fontFamily:"monospace",fontWeight:600}}/>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Separator</label>
+            <select className="form-control" value={settings[base+"_separator"]||"-"} onChange={e=>handleChange(base+"_separator",e.target.value)}>
+              <option value="-">Dash ( - )</option>
+              <option value="/">Slash ( / )</option>
+              <option value="_">Underscore ( _ )</option>
+              <option value="">None</option>
+            </select>
+          </div>
+          {hasYear && (
+            <div className="form-group">
+              <label className="form-label">Include Year</label>
+              <select className="form-control" value={settings[base+"_year"]||"YYYY"} onChange={e=>handleChange(base+"_year",e.target.value)}>
+                <option value="YYYY">Full year (2025)</option>
+                <option value="YY">Short year (25)</option>
+                <option value="none">No year</option>
+              </select>
+            </div>
+          )}
+          <div className="form-group">
+            <label className="form-label">Sequence Digits</label>
+            <select className="form-control" value={settings[base+"_digits"]||"4"} onChange={e=>handleChange(base+"_digits",e.target.value)}>
+              <option value="3">3 digits (001)</option>
+              <option value="4">4 digits (0001)</option>
+              <option value="5">5 digits (00001)</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Example Output</label>
+            <div style={{padding:"9px 13px",background:"#f8fafc",border:"1.5px solid #e2e8f0",borderRadius:8,fontFamily:"monospace",fontSize:13,fontWeight:700,color:"#2563eb"}}>
+              {(() => {
+                const prefix = settings[base+"_prefix"]||"PRE";
+                const sep = settings[base+"_separator"]||"-";
+                const year = settings[base+"_year"];
+                const digits = parseInt(settings[base+"_digits"]||"4");
+                const seq = "1".padStart(digits,"0");
+                if(year==="YYYY") return prefix+sep+new Date().getFullYear()+sep+seq;
+                if(year==="YY") return prefix+sep+String(new Date().getFullYear()).slice(2)+sep+seq;
+                return prefix+sep+seq;
+              })()}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   if (loading) return <div className="loading-state">Loading settings...</div>;
-
-  const ROLES = [
-    { key:"student",             label:"Student Registration Number", fields:["prefix","separator","year","digits"] },
-    { key:"teacher",             label:"Teacher Employee Number",     fields:["prefix","separator","digits"] },
-    { key:"admin",               label:"Admin ID",                    fields:["prefix"] },
-    { key:"principal",           label:"Principal ID",                fields:["prefix"] },
-    { key:"finance_officer",     label:"Finance Officer ID",          fields:["prefix"] },
-    { key:"parent",              label:"Parent ID",                   fields:["prefix"] },
-    { key:"academic_coordinator",label:"Academic Coordinator ID",     fields:["prefix"] },
-  ];
-
-  const roleKeyMap = {
-    student:              "student_id",
-    teacher:              "teacher_id",
-    admin:                "admin_id",
-    principal:            "principal_id",
-    finance_officer:      "finance_id",
-    parent:               "parent_id",
-    academic_coordinator: "coordinator_id",
-  };
 
   return (
     <div>
       {error && <div className="alert alert-error">{error}</div>}
 
-      {ROLES.map(role => {
-        const base = roleKeyMap[role.key];
-        return (
-          <div key={role.key} className="section-card" style={{ marginBottom:16 }}>
-            <div className="section-card-header">
-              <span className="section-card-title">{role.label}</span>
-              <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                {previews[role.key] && (
-                  <span style={{ fontFamily:"monospace", fontSize:13, fontWeight:700, color:"#2563eb", background:"#eff6ff", padding:"3px 10px", borderRadius:6 }}>
-                    {previews[role.key]}
-                  </span>
-                )}
-                <button className="btn btn-ghost btn-sm" onClick={() => handlePreview(role.key)}>
-                  Preview
-                </button>
+      {/* Mode Toggle */}
+      <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",padding:"16px 20px",marginBottom:20}}>
+        <div style={{fontSize:13,fontWeight:700,color:"#334155",marginBottom:12}}>ID FORMAT CONFIGURATION MODE</div>
+        <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+          {[
+            ["per_department","🏢 Per Department","Different format for each department"],
+            ["per_staff","👥 Per Staff","Same or designation-based format for all staff"],
+          ].map(([val,lbl,desc])=>(
+            <label key={val} style={{display:"flex",gap:10,alignItems:"flex-start",cursor:"pointer",padding:"12px 16px",borderRadius:8,border:"2px solid "+(mode===val?"#2563eb":"#e2e8f0"),background:mode===val?"#eff6ff":"#f8fafc",flex:1,minWidth:200}}>
+              <input type="radio" name="mode" value={val} checked={mode===val} onChange={()=>{setMode(val);handleChange("id_format_mode",val);}} style={{accentColor:"#2563eb",marginTop:2}}/>
+              <div>
+                <div style={{fontSize:13,fontWeight:700,color:mode===val?"#2563eb":"#475569"}}>{lbl}</div>
+                <div style={{fontSize:11,color:"#94a3b8",marginTop:2}}>{desc}</div>
               </div>
-            </div>
+            </label>
+          ))}
+        </div>
+      </div>
 
-            <div className="form-grid">
-              <div className="form-group">
-                <label className="form-label">Prefix</label>
-                <input
-                  className="form-control"
-                  value={settings[base + "_prefix"] || ""}
-                  onChange={e => handleChange(base + "_prefix", e.target.value)}
-                  placeholder="e.g. SMS, STU, EMP"
-                  style={{ fontFamily:"monospace", fontWeight:600 }}
-                />
-              </div>
+      {/* PER DEPARTMENT MODE */}
+      {mode==="per_department" && (
+        <div>
+          <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",padding:16,marginBottom:16}}>
+            <div style={{fontSize:12,fontWeight:700,color:"#334155",marginBottom:8}}>SELECT DEPARTMENT</div>
+            <select className="form-control" style={{maxWidth:320}} value={selectedDept} onChange={e=>setSelectedDept(e.target.value)}>
+              <option value="">Choose a department...</option>
+              {departments.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+            {selectedDept && deptRoles.length===0 && <div style={{fontSize:12,color:"#94a3b8",marginTop:8}}>No roles assigned to this department.</div>}
+          </div>
+          {selectedDept && deptRoles.map(r=>(
+            <FormatFields key={r.id} roleKey={r.name} label={r.name.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase())}/>
+          ))}
+          {/* Student & Parent always shown separately */}
+          <div style={{borderTop:"1px solid #e2e8f0",paddingTop:16,marginTop:8}}>
+            <div style={{fontSize:12,fontWeight:700,color:"#94a3b8",marginBottom:12}}>STUDENT & PARENT (Always Separate)</div>
+            <FormatFields roleKey="student" label="Student Registration Number"/>
+            <FormatFields roleKey="parent" label="Parent ID"/>
+          </div>
+        </div>
+      )}
 
-              {role.fields.includes("separator") && (
-                <div className="form-group">
-                  <label className="form-label">Separator</label>
-                  <select
-                    className="form-control"
-                    value={settings[base + "_separator"] || "-"}
-                    onChange={e => handleChange(base + "_separator", e.target.value)}
-                  >
-                    <option value="-">Dash ( - )</option>
-                    <option value="/">Slash ( / )</option>
-                    <option value="_">Underscore ( _ )</option>
-                    <option value="">None</option>
-                  </select>
-                </div>
-              )}
-
-              {role.fields.includes("year") && (
-                <div className="form-group">
-                  <label className="form-label">Include Year</label>
-                  <select
-                    className="form-control"
-                    value={settings[base + "_year"] || "YYYY"}
-                    onChange={e => handleChange(base + "_year", e.target.value)}
-                  >
-                    <option value="YYYY">Full year (2025)</option>
-                    <option value="YY">Short year (25)</option>
-                    <option value="none">No year</option>
-                  </select>
-                </div>
-              )}
-
-              {role.fields.includes("digits") && (
-                <div className="form-group">
-                  <label className="form-label">Sequence Digits</label>
-                  <select
-                    className="form-control"
-                    value={settings[base + "_digits"] || "4"}
-                    onChange={e => handleChange(base + "_digits", e.target.value)}
-                  >
-                    <option value="3">3 digits (001)</option>
-                    <option value="4">4 digits (0001)</option>
-                    <option value="5">5 digits (00001)</option>
-                  </select>
-                </div>
-              )}
-
-              <div className="form-group">
-                <label className="form-label">Example Output</label>
-                <div style={{ padding:"9px 13px", background:"#f8fafc", border:"1.5px solid #e2e8f0", borderRadius:8, fontFamily:"monospace", fontSize:14, fontWeight:700, color:"#2563eb" }}>
-                  {(() => {
-                    const prefix = settings[base + "_prefix"] || "PRE";
-                    const sep    = settings[base + "_separator"] || "-";
-                    const year   = settings[base + "_year"];
-                    const digits = parseInt(settings[base + "_digits"] || "4");
-                    const seq    = "1".padStart(digits, "0");
-                    if (year === "YYYY") return prefix + sep + new Date().getFullYear() + sep + seq;
-                    if (year === "YY")   return prefix + sep + String(new Date().getFullYear()).slice(2) + sep + seq;
-                    return prefix + sep + seq;
-                  })()}
-                </div>
-              </div>
+      {/* PER STAFF MODE */}
+      {mode==="per_staff" && (
+        <div>
+          {/* Staff sub-mode */}
+          <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",padding:16,marginBottom:16}}>
+            <div style={{fontSize:12,fontWeight:700,color:"#334155",marginBottom:10}}>STAFF FORMAT TYPE</div>
+            <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+              {[
+                ["same","Same Format for All Staff","One universal format applied to all staff"],
+                ["designation","By Designation Type","Separate format for Management vs Other Staff"],
+              ].map(([val,lbl,desc])=>(
+                <label key={val} style={{display:"flex",gap:10,alignItems:"flex-start",cursor:"pointer",padding:"10px 14px",borderRadius:8,border:"2px solid "+(staffSubMode===val?"#2563eb":"#e2e8f0"),background:staffSubMode===val?"#eff6ff":"#f8fafc",flex:1,minWidth:200}}>
+                  <input type="radio" name="staffSubMode" value={val} checked={staffSubMode===val} onChange={()=>setStaffSubMode(val)} style={{accentColor:"#2563eb",marginTop:2}}/>
+                  <div>
+                    <div style={{fontSize:13,fontWeight:700,color:staffSubMode===val?"#2563eb":"#475569"}}>{lbl}</div>
+                    <div style={{fontSize:11,color:"#94a3b8",marginTop:2}}>{desc}</div>
+                  </div>
+                </label>
+              ))}
             </div>
           </div>
-        );
-      })}
 
-      <div style={{ display:"flex", justifyContent:"flex-end", marginTop:8 }}>
-        <button className="btn btn-primary" onClick={handleSave} disabled={saving || !canManage}>
-          {saving ? "Saving..." : "Save All ID Settings"}
+          {staffSubMode==="same" && (
+            <div>
+              <FormatFields baseKey="all_staff" label="All Staff — Universal Format"/>
+              <div style={{borderTop:"1px solid #e2e8f0",paddingTop:16,marginTop:8}}>
+                <div style={{fontSize:12,fontWeight:700,color:"#94a3b8",marginBottom:12}}>STUDENT & PARENT (Always Separate)</div>
+                <FormatFields roleKey="student" label="Student Registration Number"/>
+                <FormatFields roleKey="parent" label="Parent ID"/>
+              </div>
+            </div>
+          )}
+
+          {staffSubMode==="designation" && (
+            <div>
+              <div style={{fontSize:12,color:"#64748b",marginBottom:12,padding:"8px 12px",background:"#fefce8",border:"1px solid #fef08a",borderRadius:8}}>
+                💡 Management includes: Principal, Academic Coordinator, Admin, HR Manager. All others fall under Other Staff.
+              </div>
+              <FormatFields baseKey="management" label="Management Staff (Principal, Coordinator, Admin, HR)"/>
+              <FormatFields baseKey="other_staff" label="Other Staff (Teacher, Finance, Librarian, Procurement)"/>
+              <div style={{borderTop:"1px solid #e2e8f0",paddingTop:16,marginTop:8}}>
+                <div style={{fontSize:12,fontWeight:700,color:"#94a3b8",marginBottom:12}}>STUDENT & PARENT (Always Separate)</div>
+                <FormatFields roleKey="student" label="Student Registration Number"/>
+                <FormatFields roleKey="parent" label="Parent ID"/>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div style={{display:"flex",justifyContent:"flex-end",marginTop:20}}>
+        <button className="btn btn-primary" onClick={handleSave} disabled={saving||!canManage}>
+          {saving?"Saving...":"Save ID Format Settings"}
         </button>
       </div>
     </div>
   );
 }
+
 
 function SchoolInfoTab({ onSaved, canManage }) {
   const [form,    setForm]    = useState({ school_name:"", school_city:"", school_phone:"", school_address:"", school_email:"", bank_name:"", bank_account:"", academic_year:"", school_logo:"" });

@@ -52,6 +52,31 @@ const procurementApi = {
   updatePOItem:         (itemId, data) => client.put(`/procurement/purchase-orders/items/${itemId}`, data),
   issuePurchaseOrder:   (id)         => client.post(`/procurement/purchase-orders/${id}/issue`),
   cancelPurchaseOrder:  (id)         => client.post(`/procurement/purchase-orders/${id}/cancel`),
+
+  getGRNs:              (params)     => client.get("/procurement/grn", { params }),
+  getGRN:               (id)         => client.get(`/procurement/grn/${id}`),
+  createGRN:            (data)       => client.post("/procurement/grn", data),
+  confirmGRN:           (id)         => client.post(`/procurement/grn/${id}/confirm`),
+  cancelGRN:            (id)         => client.post(`/procurement/grn/${id}/cancel`),
+  getPOGRNs:            (poId)       => client.get(`/procurement/purchase-orders/${poId}/grns`),
+  getStock:             ()           => client.get("/procurement/stock"),
+  getPendingStockGRNs:  ()           => client.get("/procurement/stock/pending-grns"),
+  getGRNStockItems:     (grnId)      => client.get(`/procurement/stock/grn/${grnId}`),
+  updateStockFromGRN:   (grnId)      => client.post(`/procurement/grn/${grnId}/update-stock`),
+  adjustStock:          (id, data)   => client.put(`/procurement/stock/${id}`, data),
+  skipStockFromGRN:     (grnId)      => client.post(`/procurement/grn/${grnId}/skip-stock`),
+  notifyCollection:     (grnId)      => client.post(`/procurement/grn/${grnId}/notify-collection`),
+
+  getVendorInvoices:    (params)     => client.get("/procurement/vendor-invoices", { params }),
+  getVendorInvoice:     (id)         => client.get(`/procurement/vendor-invoices/${id}`),
+  createVendorInvoice:  (data)       => client.post("/procurement/vendor-invoices", data),
+  updateVendorInvoice:  (id, data)   => client.put(`/procurement/vendor-invoices/${id}`, data),
+  actOnVendorInvoice:   (id, data)   => client.post(`/procurement/vendor-invoices/${id}/act`, data),
+  verifyVendorInvoice:  (id)         => client.post(`/procurement/vendor-invoices/${id}/verify`),
+  approveVendorInvoice: (id)         => client.post(`/procurement/vendor-invoices/${id}/approve`),
+  disputeVendorInvoice: (id, data)   => client.post(`/procurement/vendor-invoices/${id}/dispute`, data),
+  cancelVendorInvoice:  (id)         => client.post(`/procurement/vendor-invoices/${id}/cancel`),
+  recordInvoicePayment: (id, data)   => client.post(`/procurement/vendor-invoices/${id}/pay`, data),
 };
 
 export default procurementApi;

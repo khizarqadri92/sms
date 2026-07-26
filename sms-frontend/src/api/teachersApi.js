@@ -7,10 +7,12 @@ const teachersApi = {
   create:          (data)       => client.post("/teachers/", data),
   update:          (id, data)   => client.put(`/teachers/${id}`, data),
   remove:          (id)         => client.delete(`/teachers/${id}`),
+  reactivate:      (id)         => client.post(`/teachers/${id}/reactivate`),
   getSubjects:     (id)         => client.get(`/teachers/${id}/subjects`),
   assignSubject:   (id, data)   => client.post(`/teachers/${id}/subjects`, data),
   getTimetable:    (id)         => client.get(`/teachers/${id}/timetable`),
   getClasses:      (id)         => client.get(`/teachers/${id}/classes`),
+  getMyClasses:    ()           => client.get("/teachers/me/classes"),
   getAllSubjects:   ()           => client.get("/teachers/meta/subjects"),
 };
 

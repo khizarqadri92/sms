@@ -215,10 +215,10 @@ export default function Login() {
 
           <form onSubmit={handleSubmit}>
             <div style={S.field}>
-              <label style={S.fieldLabel}>Email address</label>
+              <label style={S.fieldLabel}>Email, Registration No., or Phone</label>
               <div style={S.fieldWrap}>
                 <div style={S.fieldIcon}><IconMail/></div>
-                <input style={S.inp} type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@school.com" required autoFocus
+                <input style={S.inp} type="text" value={email} onChange={e=>setEmail(e.target.value)} placeholder="Email, registration no., or phone" required autoFocus
                   onFocus={e=>e.target.style.borderColor="#0a2e1c"}
                   onBlur={e=>e.target.style.borderColor="#e2e8f0"}
                 />

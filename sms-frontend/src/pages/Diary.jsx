@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthContext";
 import diaryApi from "../api/diaryApi";
 import academicsApi from "../api/academicsApi";
@@ -427,6 +427,7 @@ function StudentDiary() {
   const [selDate,   setSelDate]   = useState(today());
   const [selSubj,   setSelSubj]   = useState(null);
   const [loading,   setLoading]   = useState(false);
+  const [classInfo, setClassInfo] = useState(null);
 
   useEffect(() => {
     setLoading(true);
@@ -435,6 +436,7 @@ function StudentDiary() {
         const ents = r.data.data?.entries || [];
         setEntries(ents);
         setPublished(r.data.data?.published || false);
+        setClassInfo({ name: r.data.data?.class_name, section: r.data.data?.section });
         if (ents.length > 0) setSelSubj(ents[0].subject_id);
       }).catch(() => {}).finally(() => setLoading(false));
   }, [selDate]);
@@ -451,6 +453,9 @@ function StudentDiary() {
         <h1 className="page-heading">Daily Diary</h1>
         <input type="date" className="form-control" style={{ maxWidth:180 }} value={selDate} onChange={e => setSelDate(e.target.value)} />
       </div>
+      {classInfo?.name && <div style={{ fontSize:13, color:"var(--color-text-secondary)", marginBottom:12 }}>
+        Class: {classInfo.name}{classInfo.section ? " ("+classInfo.section+")" : ""}
+      </div>}
 
       {loading ? <div className="loading-state">Loading...</div> : !published ? (
         <div className="section-card"><div className="empty-state">Diary not published yet for {selDate}.</div></div>
@@ -519,7 +524,7 @@ function ParentDiary() {
       </div>
 
       {child && <div style={{ fontSize:13, color:"var(--color-text-secondary)", marginBottom:12 }}>
-        Class: {child.class_name}{child.section ? " ("+child.section+")" : ""}
+        Class: {child.class_name}{child.class_section ? " ("+child.class_section+")" : ""}
       </div>}
 
       {loading ? <div className="loading-state">Loading...</div> : !published ? (

@@ -17,6 +17,7 @@ const studentsApi = {
   getMyChildren:    ()           => client.get("/students/my-children"),
   linkParent:      (id, data)   => client.put(`/students/${id}/link-parent`, data),
   searchParents:   (q)          => client.get("/students/parents/search", { params: { q } }),
+  getNextEnrollmentNo: ()       => client.get("/students/meta/next-enrollment-no"),
 };
 
 export default studentsApi;

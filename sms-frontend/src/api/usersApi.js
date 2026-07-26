@@ -1,4 +1,4 @@
-﻿import client from "./client";
+import client from "./client";
 
 const usersApi = {
   getAll:             (params)   => client.get("/users/", { params }),
@@ -6,6 +6,7 @@ const usersApi = {
   create:             (data)     => client.post("/users/", data),
   update:             (id, data) => client.put(`/users/${id}`, data),
   remove:             (id)       => client.delete(`/users/${id}`),
+  reactivate:         (id)       => client.post(`/users/${id}/reactivate`),
   assignRole:         (id, data) => client.post(`/users/${id}/assign-role`, data),
   getAllRoles:         ()         => client.get("/users/roles/all"),
   getRolePermissions: (roleId)   => client.get(`/users/roles/${roleId}/permissions`),
@@ -17,6 +18,8 @@ const usersApi = {
   saveSignature:   (data)   => client.put("/users/signature", data),
   deleteSignature: ()       => client.delete("/users/signature"),
   changePassword:     (data)     => client.put("/users/profile/password", data),
+  getTheme:           ()         => client.get("/users/profile/theme"),
+  saveTheme:          (theme)    => client.put("/users/profile/theme", { theme }),
 };
 
 export default usersApi;

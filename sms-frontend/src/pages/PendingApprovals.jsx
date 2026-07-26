@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import procurementApi from "../api/procurementApi";
 import RequisitionDetailModal from "../components/RequisitionDetailModal";
+import { useAutoOpenById } from "../hooks/useAutoOpenById";
 
 export default function PendingApprovals() {
   const [pending, setPending] = useState([]);
@@ -23,6 +24,8 @@ export default function PendingApprovals() {
     setSuccess(msg);
     setTimeout(() => setSuccess(""), 3000);
   };
+
+  useAutoOpenById(pending, (pr) => setViewId(pr.id));
 
   return (
     <div>

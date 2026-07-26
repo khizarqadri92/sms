@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { syllabusApi } from "../api/syllabusApi";
 import academicsApi from "../api/academicsApi";
@@ -24,8 +24,15 @@ export default function Syllabus() {
   const [editSyllabus, setEditSyllabus] = useState(null);
   const [editTopic, setEditTopic]       = useState(null);
   const [expandedMonths, setExpandedMonths] = useState({});
+  const [selClassFilter, setSelClassFilter] = useState("");
 
-  const [createForm, setCreateForm] = useState({ class_id: "", subject_id: "", title: "", description: "" });
+  const [createForm, setCreateForm] = useState({ class_id: "", rows: [{ subject_id: "", title: "", description: "" }] });
+  const [createErr, setCreateErr] = useState("");
+
+  useEffect(() => {
+    if (!createForm.class_id) { setSubjects([]); return; }
+    academicsApi.getClassSubjects(createForm.class_id).then(r => setSubjects(r.data.data || [])).catch(() => setSubjects([]));
+  }, [createForm.class_id]);
   const [children, setChildren]   = useState([]);
   const [selChild, setSelChild]   = useState("");
   const [monthForm, setMonthForm]   = useState({ planned_month: "", month_title: "", weeks: [{ title: "", description: "", planned_week: "", planned_date: "" }] });
@@ -51,9 +58,12 @@ export default function Syllabus() {
     }
     if (canManage) {
       academicsApi.getClasses().then(r => setClasses(r.data.data?.items || r.data.data || [])).catch(() => {});
-      academicsApi.getSubjects().then(r => setSubjects(r.data.data || [])).catch(() => {});
     }
   }, []);
+
+  useEffect(() => {
+    if (role !== "parent") loadList();
+  }, [selClassFilter]);
 
   useEffect(() => {
     if (role === "parent" && selChild) {
@@ -61,14 +71,21 @@ export default function Syllabus() {
     }
   }, [selChild]);
 
-  const loadList = async (studentId) => {
+  const loadList = async (studentId, keepId) => {
     try {
       const params = studentId ? { student_id: studentId } : {};
+      if (selClassFilter) params.class_id = selClassFilter;
       const r = await syllabusApi.getAll(params);
       const data = r.data.data || [];
       setList(data);
-      setSelected(null);
-      if (data.length > 0) loadSelected(data[0].id);
+      const stillExists = keepId && data.some(d => d.id === keepId);
+      if (stillExists) {
+        loadSelected(keepId);
+      } else if (data.length > 0) {
+        loadSelected(data[0].id);
+      } else {
+        setSelected(null);
+      }
     } catch { flash("error", "Failed to load syllabus."); }
   };
 
@@ -109,15 +126,28 @@ export default function Syllabus() {
   };
 
   const createSyllabus = async () => {
-    if (!createForm.class_id || !createForm.subject_id || !createForm.title)
-      return flash("error", "Class, subject and title are required.");
+    setCreateErr("");
+    const validRows = createForm.rows.filter(r => r.subject_id && r.title.trim());
+    if (!createForm.class_id || validRows.length === 0)
+      return setCreateErr("Class, and at least one subject with a title, are required.");
     try {
-      await syllabusApi.create(createForm);
-      flash("success", "Syllabus created.");
+      const results = await Promise.allSettled(
+        validRows.map(r => syllabusApi.create({
+          class_id: createForm.class_id,
+          subject_id: r.subject_id,
+          title: r.title,
+          description: r.description,
+        }))
+      );
+      const failed = results.filter(r => r.status === "rejected");
+      if (failed.length > 0 && failed.length === results.length) {
+        return setCreateErr(failed[0].reason?.response?.data?.message || "Failed to create syllabus.");
+      }
+      flash("success", (results.length - failed.length) + " syllabus(es) created." + (failed.length ? " " + failed.length + " failed." : ""));
       setShowCreate(false);
-      setCreateForm({ class_id: "", subject_id: "", title: "", description: "" });
+      setCreateForm({ class_id: "", rows: [{ subject_id: "", title: "", description: "" }] });
       loadList();
-    } catch (e) { flash("error", e.response?.data?.message || "Failed to create."); }
+    } catch (e) { setCreateErr(e.response?.data?.message || "Failed to create."); }
   };
 
   const updateSyllabus = async () => {
@@ -160,7 +190,7 @@ export default function Syllabus() {
       setShowAddTopic(false);
       setMonthForm({ planned_month: "", month_title: "", weeks: [{ title: "", description: "", planned_week: "", planned_date: "" }] });
       await loadSelected(selected.id);
-      loadList();
+      loadList(undefined, selected.id);
     } catch (e) { flash("error", e.response?.data?.message || "Failed to add topics."); }
   };
 
@@ -194,7 +224,7 @@ export default function Syllabus() {
       await syllabusApi.markTopic(selected.id, tid, { action, covered_at: new Date().toISOString().split("T")[0], note: "" });
       flash("success", action === "cover" ? "Topic marked as covered." : "Topic uncovered.");
       await loadSelected(selected.id);
-      loadList();
+      loadList(undefined, selected.id);
     } catch (e) { flash("error", e.response?.data?.message || "Failed."); }
   };
 
@@ -231,7 +261,13 @@ export default function Syllabus() {
         {/* Left: Subject List */}
         <div style={{ borderRight: "1px solid var(--color-border-tertiary)", background: "#f8fafc", overflowY: "auto" }}>
           <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--color-border-tertiary)" }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Subjects</div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: canManage ? 8 : 0 }}>Subjects</div>
+            {canManage && (
+              <select className="form-control" style={{ fontSize: 12, padding: "4px 8px" }} value={selClassFilter} onChange={e => setSelClassFilter(e.target.value)}>
+                <option value="">All classes</option>
+                {classes.map(c => <option key={c.id} value={c.id}>{c.name}{c.section?" ("+c.section+")":""}</option>)}
+              </select>
+            )}
           </div>
           {list.length === 0 && (
             <div style={{ padding: "32px 16px", textAlign: "center", fontSize: 13, color: "var(--color-text-secondary)" }}>
@@ -315,7 +351,7 @@ export default function Syllabus() {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: "0.08em" }}>Topics</div>
                 {canManage && (
-                  <button className="btn btn-primary btn-sm" onClick={() => { setShowAddTopic(true); setMonthForm({ planned_month: "", month_title: "", weeks: [{ title: "", description: "", planned_week: "", planned_date: "" }] }); }}>
+                  <button className="btn btn-primary btn-sm" style={{ color: "#fff" }} onClick={() => { setShowAddTopic(true); setMonthForm({ planned_month: "", month_title: "", weeks: [{ title: "", description: "", planned_week: "", planned_date: "" }] }); }}>
                     + Add Topic
                   </button>
                 )}
@@ -425,38 +461,54 @@ export default function Syllabus() {
       {/* Create Syllabus Modal */}
       {showCreate && (
         <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <div style={{ background: "#fff", borderRadius: 12, width: "100%", maxWidth: 500, boxShadow: "0 20px 60px rgba(0,0,0,0.18)", overflow: "hidden" }}>
+          <div style={{ background: "#fff", borderRadius: 12, width: "100%", maxWidth: 640, maxHeight: "85vh", display: "flex", flexDirection: "column", boxShadow: "0 20px 60px rgba(0,0,0,0.18)", overflow: "hidden" }}>
             <div style={{ padding: "16px 24px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}>
               <div style={{ fontWeight: 600, fontSize: 16 }}>New Syllabus</div>
             </div>
-            <div style={{ padding: "20px 24px" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
-                <div className="form-group">
-                  <label className="form-label">Class *</label>
-                  <select className="form-control" value={createForm.class_id} onChange={e => setCreateForm(f => ({ ...f, class_id: e.target.value }))}>
-                    <option value="">Select class</option>
-                    {classes.map(c => <option key={c.id} value={c.id}>{c.name}{c.section?" ("+c.section+")":""}</option>)}
-                  </select>
+            <div style={{ padding: "20px 24px", overflowY: "auto", flex: 1 }}>
+              {createErr && <div className="alert alert-error" style={{ marginBottom: 14 }}>{createErr}</div>}
+              <div className="form-group" style={{ marginBottom: 16 }}>
+                <label className="form-label">Class *</label>
+                <select className="form-control" value={createForm.class_id} onChange={e => setCreateForm(f => ({ ...f, class_id: e.target.value, rows: [{ subject_id: "", title: "", description: "" }] }))}>
+                  <option value="">Select class</option>
+                  {classes.map(c => <option key={c.id} value={c.id}>{c.name}{c.section?" ("+c.section+")":""}</option>)}
+                </select>
+              </div>
+
+              {createForm.rows.map((row, idx) => (
+                <div key={idx} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr auto", gap: 10, alignItems: "start", marginBottom: 12, paddingBottom: 12, borderBottom: idx < createForm.rows.length - 1 ? "1px dashed #e2e8f0" : "none" }}>
+                  <div className="form-group">
+                    <label className="form-label">Subject *</label>
+                    <select className="form-control" value={row.subject_id} disabled={!createForm.class_id}
+                      onChange={e => setCreateForm(f => ({ ...f, rows: f.rows.map((r,i) => i===idx ? { ...r, subject_id: e.target.value } : r) }))}>
+                      <option value="">Select subject</option>
+                      {subjects.map(s => <option key={s.subject_id} value={s.subject_id}>{s.subject_name}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Title *</label>
+                    <input className="form-control" value={row.title} placeholder="e.g. Term 1 Syllabus"
+                      onChange={e => setCreateForm(f => ({ ...f, rows: f.rows.map((r,i) => i===idx ? { ...r, title: e.target.value } : r) }))} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Description</label>
+                    <input className="form-control" value={row.description} placeholder="Optional"
+                      onChange={e => setCreateForm(f => ({ ...f, rows: f.rows.map((r,i) => i===idx ? { ...r, description: e.target.value } : r) }))} />
+                  </div>
+                  {createForm.rows.length > 1 && (
+                    <button type="button" className="btn btn-ghost btn-sm" style={{ color: "var(--color-text-danger)", marginTop: 22 }}
+                      onClick={() => setCreateForm(f => ({ ...f, rows: f.rows.filter((_,i) => i!==idx) }))}>Remove</button>
+                  )}
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Subject *</label>
-                  <select className="form-control" value={createForm.subject_id} onChange={e => setCreateForm(f => ({ ...f, subject_id: e.target.value }))}>
-                    <option value="">Select subject</option>
-                    {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div className="form-group" style={{ marginBottom: 14 }}>
-                <label className="form-label">Title *</label>
-                <input className="form-control" value={createForm.title} onChange={e => setCreateForm(f => ({ ...f, title: e.target.value }))} placeholder="e.g. Mathematics Syllabus 2025-2026" />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Description</label>
-                <textarea className="form-control" value={createForm.description} onChange={e => setCreateForm(f => ({ ...f, description: e.target.value }))} style={{ minHeight: 70, resize: "vertical" }} />
-              </div>
+              ))}
+
+              <button type="button" className="btn btn-ghost btn-sm" disabled={!createForm.class_id}
+                onClick={() => setCreateForm(f => ({ ...f, rows: [...f.rows, { subject_id: "", title: "", description: "" }] }))}>
+                + Add More Subject
+              </button>
             </div>
             <div style={{ padding: "14px 24px", borderTop: "1px solid #e2e8f0", display: "flex", gap: 10, justifyContent: "flex-end", background: "#f8fafc" }}>
-              <button className="btn btn-secondary" onClick={() => setShowCreate(false)}>Cancel</button>
+              <button className="btn btn-secondary" onClick={() => { setShowCreate(false); setCreateErr(""); }}>Cancel</button>
               <button className="btn btn-primary" onClick={createSyllabus}>Create</button>
             </div>
           </div>

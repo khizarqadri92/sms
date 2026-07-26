@@ -248,7 +248,7 @@ function TeacherAssignments() {
     ? inchargeAllSubjects.map(s => ({ id: s.subject_id||s.id, name: s.subject_name }))
     : [...new Map(inchargeAssignments.map(a=>[a.subject_id,{id:a.subject_id,name:a.subject_name}])).values()];
 
-  if (selAssign) return <SubmissionsView assignment={selAssign} onBack={() => setSelAssign(null)} readOnly />;
+  if (selAssign) return <SubmissionsView assignment={selAssign} onBack={() => setSelAssign(null)} />;
 
   return (
     <div>

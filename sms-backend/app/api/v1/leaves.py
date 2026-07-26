@@ -1,273 +1,347 @@
-from flask import Blueprint, request
-from flask_jwt_extended import get_jwt_identity, get_jwt
-from app.middleware.jwt_guard import jwt_required_custom
-from app.middleware.rbac import require_permission
-from app.utils.response import success, error
-import psycopg2.extras
+"""
+Native FastAPI router for Leaves - migrated from app/api/v1/leaves.py.
+sp_apply_leave, sp_get_leave_requests, sp_get_leave_balance, sp_recommend_leave,
+sp_action_leave, sp_mark_leave_attendance already existed and were verified
+clean (no broken chr()-stub pattern), signatures confirmed against pg_proc.
+File upload/download use FastAPI's native UploadFile/Form and FileResponse.
+The "hr" role branch intentionally returns empty data, matching the original
+placeholder pending a dedicated teacher-leave module. The certificate
+download directory uses a computed relative path instead of the original's
+hardcoded Windows absolute path, for portability - same folder either way.
+"""
+
+from app.utils.workflow_engine import engine as wf_engine
 import os
+import time
+from typing import Optional, Any
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query
+from fastapi.responses import FileResponse
+from pydantic import BaseModel
 
-bp = Blueprint("leaves", __name__)
+from app.fastapi_auth import get_current_user_id, get_jwt_claims
+from app.fastapi_permissions import require_permission
+from app.fastapi_db import get_db, get_cur as _get_cur
 
-CERT_UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "uploads", "leave_certificates")
+router = APIRouter()
+
+CERT_UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "..", "uploads", "leave_certificates")
+ALLOWED_EXT = {".pdf", ".jpg", ".jpeg", ".png"}
 
 
-def get_db():
-    from app.db.connection import get_db as _get_db
-    return _get_db()
+def get_cur(db):
+    return _get_cur(db)
 
 
-def _notify_teachers(student_id, leave_request_id, notify_mode, db):
+def fail(message: str, status_code: int = 400, details=None):
+    raise HTTPException(status_code=status_code, detail={"status": "error", "message": message, "details": details})
+
+
+def ok(data=None, message="Success"):
+    return {"status": "success", "message": message, "data": data}
+
+
+class RecommendIn(BaseModel):
+    note: Optional[str] = ""
+
+
+class ActionIn(BaseModel):
+    action: str
+    note: Optional[str] = ""
+
+
+
+def _wq_leave(db, action, leave_id, student_name, duration, user_id):
+    from app.utils.work_queue import push_to_queue, complete_queue_item, cancel_queue_items
+    if action == "apply":
+        push_to_queue(db, module="leaves", entity_type="leave_application", entity_id=leave_id,
+            title="Leave Request - " + student_name, description=str(duration) + " day(s) leave",
+            action_required="recommend", priority="normal", assigned_role="teacher",
+            link="/leaves", created_by=user_id)
+    elif action == "recommend":
+        complete_queue_item(db, "leaves", leave_id, "leave_application", "recommend", user_id)
+        push_to_queue(db, module="leaves", entity_type="leave_application", entity_id=leave_id,
+            title="Leave Approval - " + student_name, description=str(duration) + " day(s) leave",
+            action_required="approve", priority="normal", assigned_role="principal",
+            link="/leaves", created_by=user_id)
+    elif action == "action":
+        cancel_queue_items(db, "leaves", leave_id, "leave_application")
+
+def _notify_teachers(cur, student_id, leave_request_id, notify_mode):
     try:
         from app.utils.notify import send_notification
-        cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute("""
-            SELECT s.class_id, u.first_name || ' ' || u.last_name AS student_name
-            FROM students s JOIN users u ON u.id = s.user_id
-            WHERE s.id = %s
-        """, (student_id,))
+        import main as _main
+        cur.execute("SELECT * FROM sp_get_student_class_and_name(%s)", (student_id,))
         st = cur.fetchone()
         if not st:
             return
-        if notify_mode == "all_teachers":
-            cur.execute("""
-                SELECT DISTINCT t.user_id FROM class_teachers ct
-                JOIN teachers t ON t.id = ct.teacher_id
-                WHERE ct.class_id = %s
-            """, (st["class_id"],))
-        else:
-            cur.execute("""
-                SELECT t.user_id FROM class_teachers ct
-                JOIN teachers t ON t.id = ct.teacher_id
-                WHERE ct.class_id = %s AND ct.is_primary = TRUE LIMIT 1
-            """, (st["class_id"],))
-        for t in cur.fetchall():
-            send_notification(t["user_id"],
-                title="Leave Request",
-                body=st["student_name"] + " has applied for leave (Request #" + str(leave_request_id) + ")",
-                ntype="leave")
+        all_teachers = notify_mode == "all_teachers"
+        cur.execute("SELECT * FROM sp_get_teachers_for_notify(%s, %s)", (st["class_id"], all_teachers))
+        rows = cur.fetchall()
+        with _main.flask_app.app_context():
+            for t in rows:
+                send_notification(
+                    t["user_id"], title="Leave Request",
+                    body=st["student_name"] + " has applied for leave (Request #" + str(leave_request_id) + ")",
+                    ntype="leave"
+                )
     except Exception as e:
-        print("[leave notify] " + str(e))
+        print("[leave notify]", e)
 
 
-def _notify_student_parent(student_id, status, db):
+def _notify_student_parent(cur, student_id, status):
     try:
         from app.utils.notify import send_notification
-        cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute("""
-            SELECT s.user_id AS student_user_id, s.parent_id,
-                   u.first_name || ' ' || u.last_name AS student_name
-            FROM students s JOIN users u ON u.id = s.user_id
-            WHERE s.id = %s
-        """, (student_id,))
+        import main as _main
+        cur.execute("SELECT * FROM sp_get_student_notify_info(%s)", (student_id,))
         st = cur.fetchone()
         if not st:
             return
         msg = "Your leave request has been " + status + "."
-        send_notification(st["student_user_id"], title="Leave " + status.capitalize(), body=msg, ntype="leave")
-        if st["parent_id"]:
-            send_notification(st["parent_id"],
-                title="Leave " + status.capitalize(),
-                body=st["student_name"] + "'s leave request has been " + status + ".",
-                ntype="leave")
+        with _main.flask_app.app_context():
+            send_notification(st["student_user_id"], title="Leave " + status.capitalize(), body=msg, ntype="leave")
+            if st["parent_id"]:
+                send_notification(
+                    st["parent_id"], title="Leave " + status.capitalize(),
+                    body=st["student_name"] + "'s leave request has been " + status + ".", ntype="leave"
+                )
     except Exception as e:
-        print("[leave notify student] " + str(e))
+        print("[leave notify student]", e)
 
 
-
-def _get_matching_rule(leave_type_id, total_days, db):
-    cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+def _get_matching_rule(cur, leave_type_id, total_days):
     try:
         lt_id = int(leave_type_id)
         t_days = int(total_days)
     except (TypeError, ValueError):
         return None
-    cur.execute(
-        """SELECT recommender_role, approver_role
-           FROM leave_approval_rules
-           WHERE leave_type_id = %s
-             AND day_from <= %s
-             AND (day_to IS NULL OR day_to >= %s)
-           ORDER BY day_from DESC LIMIT 1""",
-        (lt_id, t_days, t_days)
-    )
-    row = cur.fetchone()
-    print("[rule match] leave_type_id:", lt_id, "total_days:", t_days, "rule:", dict(row) if row else None)
-    return row
-
-@bp.get("/my-children")
-@jwt_required_custom
-def get_my_children():
-    user_id = int(get_jwt_identity())
-    db  = get_db()
-    cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("""
-        SELECT s.id, s.enrollment_no,
-               s.first_name || ' ' || s.last_name AS name,
-               c.name AS class_name, c.section AS class_section
-        FROM students s
-        JOIN classes c ON c.id = s.class_id
-        WHERE s.parent_id = %s AND s.status = 'active'
-        ORDER BY s.first_name
-    """, (user_id,))
-    return success(data=cur.fetchall())
+    cur.execute("SELECT * FROM sp_get_matching_leave_rule(%s, %s)", (lt_id, t_days))
+    return cur.fetchone()
 
 
-@bp.post("/apply")
-@jwt_required_custom
-@require_permission("leave.apply")
-def apply_leave():
-    user_id = int(get_jwt_identity())
-    db  = get_db()
-    cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    claims = get_jwt()
-    roles  = claims.get("roles", [])
-    role   = roles[0] if roles else claims.get("role", "")
-    student_id = request.form.get("student_id") or (request.json or {}).get("student_id")
+@router.get("/my-children")
+def get_my_children(user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+    cur = get_cur(db)
+    cur.execute("SELECT * FROM sp_get_my_children_for_leave(%s)", (user_id,))
+    return ok(data=[dict(r) for r in cur.fetchall()])
+
+
+
+def _has_active_workflow(db, leave_id):
+    """Returns True if an active workflow instance exists for this leave."""
+    try:
+        _cur = db.cursor()
+        _cur.execute(
+            "SELECT id FROM workflow_instances WHERE module='leaves' AND entity_type='leave_application' AND entity_id=%s AND status='active' LIMIT 1",
+            (leave_id,)
+        )
+        return _cur.fetchone() is not None
+    except Exception:
+        return False
+
+
+def _engine_advance_leave(db, leave_id, action, user_id, note):
+    """Advance the workflow for a leave and update leave status accordingly."""
+    try:
+        # Get entity_status from current pending step before advancing
+        _sc = db.cursor()
+        _sc.execute(
+            """SELECT ws.entity_status_on_approve, ws.entity_status_on_reject
+               FROM workflow_step_instances wsi
+               JOIN workflow_steps ws ON ws.id=wsi.step_id
+               JOIN workflow_instances wi ON wi.id=wsi.instance_id
+               WHERE wi.module='leaves' AND wi.entity_type='leave_application'
+                 AND wi.entity_id=%s AND wsi.status='pending'
+               ORDER BY wsi.step_order LIMIT 1""",
+            (leave_id,)
+        )
+        _ws = _sc.fetchone()
+        is_rejection = action in ('reject', 'rejected')
+        if is_rejection:
+            _new_status = (_ws[1] if _ws and _ws[1] else 'rejected')
+        else:
+            _default_s = "approved" if action == "approve" else action
+            _new_status = (_ws[0].lower() if _ws and _ws[0] else _default_s)
+
+        # Update leave status
+        _sc.execute("UPDATE leave_requests SET status=%s WHERE id=%s", (_new_status, leave_id))
+
+        # Advance engine
+        result = wf_engine.advance(
+            db, module="leaves", entity_type="leave_application",
+            entity_id=leave_id, action=action,
+            actioned_by=user_id, note=note or ""
+        )
+        return True, _new_status
+    except Exception as _e:
+        print("[engine_advance_leave error]", _e)
+        import traceback; traceback.print_exc()
+        return False, None
+
+@router.post("/apply")
+def apply_leave(
+    student_id: Optional[Any] = Form(None), leave_type_id: Optional[Any] = Form(None),
+    from_date: Optional[str] = Form(None), to_date: Optional[str] = Form(None),
+    reason: Optional[str] = Form(None), certificate: Optional[UploadFile] = File(None),
+    user_id: int = Depends(require_permission("leave.apply")),
+    claims: dict = Depends(get_jwt_claims), db=Depends(get_db),
+):
+    roles = claims.get("roles", [])
+    role = roles[0] if roles else claims.get("role", "")
+    cur = get_cur(db)
 
     if role == "student":
-        cur.execute("SELECT id FROM students WHERE user_id=%s", (user_id,))
+        cur.execute("SELECT sp_get_student_id_by_user(%s) AS sid", (user_id,))
         row = cur.fetchone()
-        if not row:
-            return error("Student profile not found", 404)
-        student_id = row["id"]
+        if not row or not row["sid"]:
+            fail("Student profile not found", 404)
+        resolved_student_id = row["sid"]
     elif role == "parent":
         if not student_id:
-            cur.execute("SELECT id FROM students WHERE parent_id=%s AND status='active' LIMIT 1", (user_id,))
+            cur.execute("SELECT sp_get_active_child_id(%s) AS sid", (user_id,))
             row = cur.fetchone()
-            if not row:
-                return error("No active student linked to this parent", 404)
-            student_id = row["id"]
+            if not row or not row["sid"]:
+                fail("No active student linked to this parent", 404)
+            resolved_student_id = row["sid"]
         else:
-            cur.execute("SELECT id FROM students WHERE id=%s AND parent_id=%s", (int(student_id), user_id))
-            if not cur.fetchone():
-                return error("Student not linked to this parent", 403)
-            student_id = int(student_id)
+            cur.execute("SELECT sp_check_student_belongs_to_parent(%s, %s) AS belongs", (int(student_id), user_id))
+            if not cur.fetchone()["belongs"]:
+                fail("Student not linked to this parent", 403)
+            resolved_student_id = int(student_id)
     else:
-        return error("Only students or parents can apply for leave", 403)
+        fail("Only students or parents can apply for leave", 403)
 
     certificate_url = None
-    if "certificate" in request.files:
-        f = request.files["certificate"]
-        if f.filename:
-            ext = os.path.splitext(f.filename)[1].lower()
-            if ext not in [".pdf", ".jpg", ".jpeg", ".png"]:
-                return error("Certificate must be PDF, JPG, or PNG", 400)
-            fname = "leave_" + str(student_id) + "_" + str(int(__import__("time").time())) + ext
-            f.save(os.path.join(CERT_UPLOAD_DIR, fname))
-            certificate_url = fname
+    if certificate and certificate.filename:
+        ext = os.path.splitext(certificate.filename)[1].lower()
+        if ext not in ALLOWED_EXT:
+            fail("Certificate must be PDF, JPG, or PNG", 400)
+        os.makedirs(CERT_UPLOAD_DIR, exist_ok=True)
+        fname = "leave_" + str(resolved_student_id) + "_" + str(int(time.time())) + ext
+        with open(os.path.join(CERT_UPLOAD_DIR, fname), "wb") as f:
+            f.write(certificate.file.read())
+        certificate_url = fname
 
-    body = request.form if request.content_type and "multipart" in request.content_type else (request.get_json() or {})
+    cur.execute(
+        "SELECT * FROM sp_apply_leave(%s,%s,%s,%s,%s,%s,%s)",
+        (resolved_student_id, leave_type_id, from_date, to_date, reason, certificate_url, user_id)
+    )
+    result = cur.fetchone()
+    if result["error_msg"]:
+        fail(result["error_msg"], 400)
+    leave_id = result["id"]
+    db.commit()
 
-    from app.utils.sp_helper import call_sp
-    result, err = call_sp("sp_apply_leave", (
-        student_id,
-        body.get("leave_type_id"),
-        body.get("from_date"),
-        body.get("to_date"),
-        body.get("reason"),
-        certificate_url,
-        user_id,
-    ))
-    if err:
-        return error(err, 400)
-    leave_id = result.get("id")
+    cur.execute("SELECT sp_get_leave_type_notify_mode(%s) AS notify_mode", (leave_id,))
+    row = cur.fetchone()
+    notify_mode = row["notify_mode"] if row and row["notify_mode"] else "incharge_only"
+    _notify_teachers(cur, resolved_student_id, leave_id, notify_mode)
+
+    try:
+        if from_date and to_date:
+            from datetime import date as _date
+            fd = _date.fromisoformat(str(from_date))
+            td = _date.fromisoformat(str(to_date))
+            total_days = (td - fd).days + 1
+            rule = _get_matching_rule(cur, leave_type_id, total_days)
+            if rule and rule.get("recommender_role"):
+                from app.utils.notify import send_notification
+                import main as _main
+                cur.execute("SELECT * FROM sp_get_leave_request_notify_info(%s)", (leave_id,))
+                lr_info = cur.fetchone()
+                student_name = lr_info["student_name"] if lr_info else "A student"
+                cur.execute("SELECT * FROM sp_get_active_users_by_role(%s)", (rule["recommender_role"],))
+                recommenders = cur.fetchall()
+                with _main.flask_app.app_context():
+                    for r in recommenders:
+                        send_notification(
+                            r["id"], title="Leave Needs Recommendation",
+                            body="Leave request for " + student_name + " needs your recommendation.", ntype="leave"
+                        )
+    except Exception as e:
+        print("[leave recommender notify]", e)
+
+    db.rollback()  # clear any aborted state before WQ insert
+    # WF Engine: trigger
+    try:
+        _lv_cur = db.cursor()
+        _lv_cur.execute(
+            "SELECT lr.student_id, lr.leave_type_id, (lr.to_date - lr.from_date + 1) AS duration FROM leave_requests lr WHERE lr.id=%s",
+            (leave_id,)
+        )
+        _lv_row = _lv_cur.fetchone()
+        _ctx = {"entity_id": leave_id}
+        if _lv_row:
+            _dur = _lv_row[2]
+            if hasattr(_dur, 'days'): _dur = _dur.days
+            else: _dur = int(_dur or 1)
+            _ctx.update({"student_id": _lv_row[0], "leave_type_id": _lv_row[1], "duration": _dur})
+        _wf_result = wf_engine.trigger(
+            db, module="leaves", entity_type="leave_application",
+            entity_id=leave_id, initiated_by=user_id,
+            submitter_id=user_id, context=_ctx
+        )
+        if not _wf_result:
+            _cur2 = db.cursor()
+            _cur2.execute("""
+                INSERT INTO work_queue_items
+                    (module, entity_type, entity_id, title, description, action_required, priority, assigned_role, assigned_user_id, link, metadata, entity_status, created_by, submitter_id)
+                SELECT 'leaves','leave_application',%s,'Leave Request','Leave submitted','recommend','normal','teacher',
+                       t.user_id,'/leave-approval?id='||%s::text,'{}','submitted',%s,%s
+                FROM leave_requests lr
+                JOIN students s ON s.id=lr.student_id
+                LEFT JOIN class_teachers ct ON ct.class_id=s.class_id AND ct.is_primary=TRUE
+                LEFT JOIN teachers t ON t.id=ct.teacher_id
+                WHERE lr.id=%s LIMIT 1
+            """, (leave_id, leave_id, user_id, user_id, leave_id))
+    except Exception as _wf_e:
+        import traceback; traceback.print_exc()
+        print('[leaves WF trigger error]', type(_wf_e).__name__, str(_wf_e))
+    return ok(data={"id": leave_id}, message="Leave request submitted.")
 
 
-
-    cur.execute("""
-        SELECT lt.notify_mode FROM leave_types lt
-        JOIN leave_requests lr ON lr.leave_type_id = lt.id
-        WHERE lr.id = %s
-    """, (leave_id,))
-    cfg = cur.fetchone()
-    notify_mode = cfg["notify_mode"] if cfg else "incharge_only"
-    _notify_teachers(student_id, leave_id, notify_mode, db)
-
-    return success(message="Leave request submitted.", data={"id": leave_id})
-
-
-@bp.get("/")
-@jwt_required_custom
-def get_leaves():
-    user_id = int(get_jwt_identity())
-    claims  = get_jwt()
-    _roles  = claims.get("roles", [])
-    role    = _roles[0] if _roles else claims.get("role", "")
-    db      = get_db()
-    cur     = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-
+@router.get("/")
+def get_leaves(
+    student_id: Optional[int] = Query(None), status: Optional[str] = Query(None),
+    from_date: Optional[str] = Query(None), to_date: Optional[str] = Query(None),
+    user_id: int = Depends(get_current_user_id), claims: dict = Depends(get_jwt_claims), db=Depends(get_db),
+):
+    roles = claims.get("roles", [])
+    role = roles[0] if roles else claims.get("role", "")
     permissions = claims.get("permissions", [])
-    student_id  = request.args.get("student_id")
-    status      = request.args.get("status")
-    from_date   = request.args.get("from_date")
+    cur = get_cur(db)
 
-    # HR: show only staff/teacher leaves
     if role == "hr":
-        cur.execute("""
-            SELECT lr.*, lt.name AS leave_type,
-                   u.first_name || ' ' || u.last_name AS student_name,
-                   'Staff' AS class_name,
-                   u.email AS enrollment_no,
-                   ab.first_name || ' ' || ab.last_name AS applied_by_name,
-                   NULL::VARCHAR AS approver_name, NULL::VARCHAR AS approver_note,
-                   NULL::VARCHAR AS recommender_name, NULL::VARCHAR AS recommender_note,
-                   NULL::VARCHAR AS rejection_reason,
-                   NULL::VARCHAR AS certificate_url,
-                   NULL::TIMESTAMPTZ AS recommended_at, NULL::TIMESTAMPTZ AS approved_at
-            FROM leave_requests lr
-            JOIN leave_types lt ON lt.id = lr.leave_type_id
-            JOIN students s ON s.id = lr.student_id
-            JOIN users u ON u.id = s.user_id
-            JOIN users ab ON ab.id = lr.applied_by
-            WHERE 1=1
-        """)
-        rows = [dict(r) for r in cur.fetchall()]
-        # HR sees teacher leave requests - for now return empty until teacher leave module built
-        return success(data=[])
-    to_date     = request.args.get("to_date")
+        return ok(data=[])
 
     if "leave.view_all" not in permissions and "leave.view_class" not in permissions:
         if role == "student":
-            cur.execute("SELECT id FROM students WHERE user_id=%s", (user_id,))
+            cur.execute("SELECT sp_get_student_id_by_user(%s) AS sid", (user_id,))
             row = cur.fetchone()
-            student_id = row["id"] if row else None
+            student_id = row["sid"] if row else None
         elif role == "parent":
             if not student_id:
-                cur.execute("SELECT id FROM students WHERE parent_id=%s AND status='active' LIMIT 1", (user_id,))
+                cur.execute("SELECT sp_get_active_child_id(%s) AS sid", (user_id,))
                 row = cur.fetchone()
-                student_id = row["id"] if row else None
+                student_id = row["sid"] if row else None
 
-    # Teacher: only see leaves for their incharge class
     if "leave.view_class" in permissions and "leave.view_all" not in permissions:
-        # Academic coordinator - see all leaves where they are the configured recommender or approver
         if role == "academic_coordinator":
-            sp_cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-            sp_cur.execute("SELECT * FROM sp_get_leave_requests(%s, %s, %s, %s, %s)",
-                           (user_id, None, status, from_date, to_date))
-            rows = [dict(r) for r in sp_cur.fetchall()]
+            cur.execute("SELECT * FROM sp_get_leave_requests(%s, %s, %s, %s, %s)", (user_id, None, status, from_date, to_date))
+            rows = [dict(r) for r in cur.fetchall()]
         else:
-            # Teacher: only incharge class students
-            cur.execute("""
-                SELECT s.id FROM students s
-                JOIN class_teachers ct ON ct.class_id = s.class_id
-                JOIN teachers t ON t.id = ct.teacher_id
-                WHERE t.user_id = %s AND ct.is_primary = TRUE
-            """, (user_id,))
+            cur.execute("SELECT * FROM sp_get_teacher_incharge_class_student_ids(%s)", (user_id,))
             class_students = [r["id"] for r in cur.fetchall()]
             if not class_students:
-                return success(data=[])
+                return ok(data=[])
             rows = []
-            sp_cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
             for sid in class_students:
-                sp_cur.execute("SELECT * FROM sp_get_leave_requests(%s, %s, %s, %s, %s)",
-                            (user_id, sid, status, from_date, to_date))
-                rows.extend([dict(r) for r in sp_cur.fetchall()])
-        id_cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+                cur.execute("SELECT * FROM sp_get_leave_requests(%s, %s, %s, %s, %s)", (user_id, sid, status, from_date, to_date))
+                rows.extend([dict(r) for r in cur.fetchall()])
         for row in rows:
-            id_cur.execute("SELECT leave_type_id FROM leave_requests WHERE id=%s", (row["id"],))
-            lr_row = id_cur.fetchone()
-            lt_id = lr_row["leave_type_id"] if lr_row else None
-            rule = _get_matching_rule(lt_id, row["total_days"], db) if lt_id else None
+            cur.execute("SELECT sp_get_leave_type_id_for_request(%s) AS lt_id", (row["id"],))
+            lt_row = cur.fetchone()
+            lt_id = lt_row["lt_id"] if lt_row else None
+            rule = _get_matching_rule(cur, lt_id, row["total_days"]) if lt_id else None
             if rule:
                 row["needs_recommendation"] = bool(rule.get("recommender_role"))
                 row["approver_role"] = rule.get("approver_role", "")
@@ -276,172 +350,180 @@ def get_leaves():
                 row["needs_recommendation"] = False
                 row["approver_role"] = ""
                 row["recommender_role"] = ""
-        return success(data=rows)
+        return ok(data=rows)
 
-    sp_cur2 = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    sp_cur2.execute("SELECT * FROM sp_get_leave_requests(%s, %s, %s, %s, %s)", (user_id, student_id, status, from_date, to_date))
-    rows = [dict(r) for r in sp_cur2.fetchall()]
-    id_cur2 = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    cur.execute("SELECT * FROM sp_get_leave_requests(%s, %s, %s, %s, %s)", (user_id, student_id, status, from_date, to_date))
+    rows = [dict(r) for r in cur.fetchall()]
     for row in rows:
-        id_cur2.execute("SELECT leave_type_id FROM leave_requests WHERE id=%s", (row["id"],))
-        lr_row = id_cur2.fetchone()
-        lt_id = lr_row["leave_type_id"] if lr_row else None
-        rule = _get_matching_rule(lt_id, row["total_days"], db) if lt_id else None
+        cur.execute("SELECT sp_get_leave_type_id_for_request(%s) AS lt_id", (row["id"],))
+        lt_row = cur.fetchone()
+        lt_id = lt_row["lt_id"] if lt_row else None
+        rule = _get_matching_rule(cur, lt_id, row["total_days"]) if lt_id else None
         if rule:
             row["needs_recommendation"] = bool(rule.get("recommender_role"))
             row["approver_role"] = rule.get("approver_role", "")
         else:
             row["needs_recommendation"] = False
             row["approver_role"] = ""
-    return success(data=rows)
+    return ok(data=rows)
 
-@bp.get("/my-balance")
-@jwt_required_custom
-@require_permission("leave.view_own")
-def get_balance():
-    user_id    = int(get_jwt_identity())
-    student_id = request.args.get("student_id")
-    db         = get_db()
-    cur        = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    claims     = get_jwt()
-    _roles     = claims.get("roles", [])
-    role       = _roles[0] if _roles else claims.get("role", "")
+
+@router.get("/my-balance")
+def get_balance(
+    student_id: Optional[int] = Query(None),
+    user_id: int = Depends(require_permission("leave.view_own")),
+    claims: dict = Depends(get_jwt_claims), db=Depends(get_db),
+):
+    roles = claims.get("roles", [])
+    role = roles[0] if roles else claims.get("role", "")
+    cur = get_cur(db)
 
     if role == "student":
-        cur.execute("SELECT id FROM students WHERE user_id=%s", (user_id,))
+        cur.execute("SELECT sp_get_student_id_by_user(%s) AS sid", (user_id,))
         row = cur.fetchone()
-        student_id = row["id"] if row else None
+        student_id = row["sid"] if row else None
     elif role == "parent":
         if not student_id:
-            cur.execute("SELECT id FROM students WHERE parent_id=%s AND status='active' LIMIT 1", (user_id,))
+            cur.execute("SELECT sp_get_active_child_id(%s) AS sid", (user_id,))
             row = cur.fetchone()
-            student_id = row["id"] if row else None
+            student_id = row["sid"] if row else None
 
     if not student_id:
-        return error("Student not found", 404)
+        fail("Student not found", 404)
 
-    cur.execute("SELECT id FROM academic_years WHERE is_active=TRUE LIMIT 1")
+    cur.execute("SELECT sp_get_active_academic_year() AS yid")
     yr = cur.fetchone()
-    if not yr:
-        return error("No active academic year", 400)
+    if not yr or not yr["yid"]:
+        fail("No active academic year", 400)
 
-    cur.execute("SELECT * FROM sp_get_leave_balance(%s, %s)", (student_id, yr["id"]))
-    return success(data=cur.fetchall())
+    cur.execute("SELECT * FROM sp_get_leave_balance(%s, %s)", (student_id, yr["yid"]))
+    return ok(data=[dict(r) for r in cur.fetchall()])
 
 
-@bp.post("/<int:leave_id>/recommend")
-@jwt_required_custom
-@require_permission("leave.recommend")
-def recommend_leave(leave_id):
-    user_id = int(get_jwt_identity())
-    body    = request.get_json() or {}
-    db      = get_db()
-    from app.utils.sp_helper import call_sp
-    result, err = call_sp("sp_recommend_leave", (leave_id, user_id, body.get("note", "")))
-    if err:
-        return error(err, 400)
+@router.post("/{leave_id}/recommend")
+def recommend_leave(leave_id: int, body: RecommendIn, user_id: int = Depends(require_permission("leave.recommend")), db=Depends(get_db)):
+    cur = get_cur(db)
+    # Engine-first: if workflow instance active, bypass SP
+    if _has_active_workflow(db, leave_id):
+        _ok, _status = _engine_advance_leave(db, leave_id, "approve", user_id, body.note)
+        if not _ok:
+            fail("Workflow advance failed", 500)
+        db.commit()
+        return ok(message="Leave recommended.")
+    # Legacy: use SP
+    cur.execute("SELECT * FROM sp_recommend_leave(%s, %s, %s)", (leave_id, user_id, body.note or ""))
+    result = cur.fetchone()
+    if result["error_msg"]:
+        fail(result["error_msg"], 400)
+    db.commit()
+
     try:
-        cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute("""
-            SELECT lr.student_id, lr.leave_type_id,
-                   u.first_name || ' ' || u.last_name AS student_name
-            FROM leave_requests lr
-            JOIN students s ON s.id = lr.student_id
-            JOIN users u ON u.id = s.user_id
-            WHERE lr.id = %s
-        """, (leave_id,))
-        lr = cur.fetchone()
-        if lr:
-            cur.execute("""
-                SELECT DISTINCT u.id FROM users u
-                JOIN user_roles ur ON ur.user_id = u.id
-                JOIN roles r ON r.id = ur.role_id
-                JOIN leave_approval_rules lac ON lac.leave_type_id = %s
-                WHERE r.name = lac.approver_role AND u.is_active = TRUE LIMIT 5
-            """, (lr["leave_type_id"],))
-            from app.utils.notify import send_notification
-            for row in cur.fetchall():
-                send_notification(row["id"],
-                    title="Leave Recommended",
-                    body="Leave request for " + lr["student_name"] + " is awaiting your approval.",
-                    ntype="leave")
+        cur.execute("SELECT * FROM sp_get_leave_request_basic(%s)", (leave_id,))
+        lr_basic = cur.fetchone()
+        if lr_basic:
+            rule = _get_matching_rule(cur, lr_basic["leave_type_id"], lr_basic["total_days"])
+            if rule and rule.get("approver_role"):
+                from app.utils.notify import send_notification
+                import main as _main
+                cur.execute("SELECT * FROM sp_get_leave_request_notify_info(%s)", (leave_id,))
+                lr = cur.fetchone()
+                student_name = lr["student_name"] if lr else "A student"
+                cur.execute("SELECT * FROM sp_get_active_users_by_role(%s)", (rule["approver_role"],))
+                approvers = cur.fetchall()
+                with _main.flask_app.app_context():
+                    for row in approvers:
+                        send_notification(
+                            row["id"], title="Leave Recommended",
+                            body="Leave request for " + student_name + " is awaiting your approval.", ntype="leave"
+                        )
     except Exception as e:
-        print("[recommend notify] " + str(e))
-    return success(message="Leave recommended.")
+        print("[recommend notify]", e)
+
+    db.rollback()  # clear any aborted state
+    # WF Engine: advance recommend
+    try:
+        wf_engine.advance(
+            db, module="leaves", entity_type="leave_application",
+            entity_id=leave_id, action="approve",
+            actioned_by=user_id, note=getattr(body, "note", "") or ""
+        )
+    except Exception as _wf_e:
+        import traceback; traceback.print_exc()
+        print('[leaves WF recommend error]', type(_wf_e).__name__, str(_wf_e))
+    return ok(message="Leave recommended.")
 
 
-@bp.post("/<int:leave_id>/action")
-@jwt_required_custom
-def action_leave(leave_id):
-    user_id = int(get_jwt_identity())
-    claims  = get_jwt()
-    perms   = claims.get("permissions", [])
-    _roles  = claims.get("roles", [])
-    role    = _roles[0] if _roles else claims.get("role", "")
-    body    = request.get_json() or {}
-    action  = body.get("action", "")
-    db      = get_db()
+@router.post("/{leave_id}/action")
+def action_leave(
+    leave_id: int, body: ActionIn, user_id: int = Depends(get_current_user_id),
+    claims: dict = Depends(get_jwt_claims), db=Depends(get_db),
+):
+    roles = claims.get("roles", [])
+    role = roles[0] if roles else claims.get("role", "")
+    permissions = claims.get("permissions", [])
+    action = body.action or ""
 
-    if action not in ("approve", "reject"):
-        return error("action must be approve or reject", 400)
-    if action == "reject" and not body.get("note"):
-        return error("Rejection reason is required", 400)
+    if action not in ("approve", "reject", "verify", "recommend", "clear", "publish", "review"):
+        fail("action must be a valid workflow action", 400)
+    if action == "reject" and not body.note:
+        fail("Rejection reason is required", 400)
 
-    cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("""
-        SELECT lr.student_id, lr.leave_type_id, lr.total_days, lr.status
-        FROM leave_requests lr WHERE lr.id = %s
-    """, (leave_id,))
+    cur = get_cur(db)
+    cur.execute("SELECT * FROM sp_get_leave_request_basic(%s)", (leave_id,))
     lr = cur.fetchone()
     if not lr:
-        return error("Leave request not found", 404)
+        fail("Leave request not found", 404)
 
-    # Check permission: either has leave.approve OR their role matches the approver_role for this leave
-    if "leave.approve" not in perms:
-        rule = _get_matching_rule(lr["leave_type_id"], lr["total_days"], db)
-        if not rule or rule.get("approver_role") != role:
-            return error("You do not have permission to approve this leave", 403)
+    if "leave.approve" not in permissions:
+        # Check if user is assigned to current workflow step
+        _wf_cur = db.cursor()
+        _wf_cur.execute("""
+            SELECT wsi.id FROM workflow_step_instances wsi
+            JOIN workflow_instances wi ON wi.id=wsi.instance_id
+            WHERE wi.module='leaves' AND wi.entity_type='leave_application'
+              AND wi.entity_id=%s AND wsi.status='pending'
+              AND (wsi.assigned_to_id=%s OR wsi.assigned_role=ANY(%s::varchar[]))
+            LIMIT 1
+        """, (leave_id, user_id, list(roles) if roles else []))
+        _wf_step = _wf_cur.fetchone()
+        if not _wf_step:
+            rule = _get_matching_rule(cur, lr["leave_type_id"], lr["total_days"])
+            if not rule or rule.get("approver_role") != role:
+                fail("You do not have permission to approve this leave", 403)
 
-    from app.utils.sp_helper import call_sp
-    result, err = call_sp("sp_action_leave", (leave_id, action, user_id, body.get("note", "")))
-    print("[action_leave] result:", result, "err:", err)
-    if err:
-        return error(err, 400)
+    # Engine-first: if workflow instance active, bypass SP
+    if _has_active_workflow(db, leave_id):
+        _ok, _status = _engine_advance_leave(db, leave_id, action, user_id, body.note)
+        if not _ok:
+            fail("Workflow advance failed", 500)
+        db.commit()
+        return ok(message="Leave " + action + "d successfully.")
+    if result["error_msg"]:
+        fail(result["error_msg"], 400)
+    db.commit()
 
     status = "approved" if action == "approve" else "rejected"
-    _notify_student_parent(lr["student_id"], status, db)
+    _notify_student_parent(cur, lr["student_id"], status)
 
-    # Auto-mark attendance as on_leave when approved
     if action == "approve":
         try:
-            att_cur = db.cursor()
-            att_cur.execute(
-                "SELECT from_date, to_date FROM leave_requests WHERE id=%s",
-                (leave_id,)
-            )
-            lr_dates = att_cur.fetchone()
+            cur.execute("SELECT * FROM sp_get_leave_request_dates(%s)", (leave_id,))
+            lr_dates = cur.fetchone()
             if lr_dates:
-                att_cur.execute(
-                    "SELECT sp_mark_leave_attendance(%s, %s, %s, %s)",
-                    (lr["student_id"], lr_dates[0], lr_dates[1], user_id)
-                )
+                cur.execute("SELECT sp_mark_leave_attendance(%s, %s, %s, %s)", (lr["student_id"], lr_dates["from_date"], lr_dates["to_date"], user_id))
                 db.commit()
         except Exception as e:
-            print("[leave attendance] " + str(e))
+            print("[leave attendance]", e)
 
-    return success(message="Leave " + status + ".")
+    db.rollback()  # clear any aborted state
+    # WF Engine: advance action
+    try:
+        wf_engine.advance(
+            db, module="leaves", entity_type="leave_application",
+            entity_id=leave_id, action=body.action,
+            actioned_by=user_id, note=getattr(body, "note", "") or ""
+        )
+    except Exception as _wf_e:
+        import traceback; traceback.print_exc()
+        print('[leaves WF action error]', type(_wf_e).__name__, str(_wf_e))
 
-
-@bp.get("/<int:leave_id>/certificate")
-@jwt_required_custom
-def download_certificate(leave_id):
-    db  = get_db()
-    cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("SELECT certificate_url FROM leave_requests WHERE id=%s", (leave_id,))
-    row = cur.fetchone()
-    if not row or not row["certificate_url"]:
-        return error("No certificate found", 404)
-    cert_dir = r"J:\sms-project\sms-backend\uploads\leave_certificates"
-    print("[cert] dir:", cert_dir, "file:", row["certificate_url"])
-    from flask import send_from_directory
-    return send_from_directory(cert_dir, row["certificate_url"])

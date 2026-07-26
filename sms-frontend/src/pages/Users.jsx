@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthContext";
 import usersApi from "../api/usersApi";
 import CreateUserModal from "../components/users/CreateUserModal";
@@ -63,9 +63,15 @@ export default function Users() {
   };
 
   const handleDeactivate = async (id) => {
-    if (!window.confirm("Deactivate this user?")) return;
+    if (!window.confirm("Deactivate this user? They will no longer be able to log in.")) return;
     try { await usersApi.remove(id); setSuccess("User deactivated."); fetchUsers(); }
     catch { setError("Failed to deactivate."); }
+  };
+
+  const handleReactivate = async (id) => {
+    if (!window.confirm("Reactivate this user? They will be able to log in again.")) return;
+    try { await usersApi.reactivate(id); setSuccess("User reactivated."); fetchUsers(); }
+    catch { setError("Failed to reactivate."); }
   };
 
   const handleCreated = () => { setShowCreate(false); setSuccess("User created."); fetchUsers(); setTimeout(() => setSuccess(""), 3000); };
@@ -159,7 +165,13 @@ export default function Users() {
                   <td style={{ fontSize:12, color:"#64748b" }}>{u.last_login_at ? new Date(u.last_login_at).toLocaleDateString() : "Never"}</td>
                   <td style={{ display:"flex", gap:6 }}>
                     <button className="btn btn-ghost btn-xs" onClick={() => setSelected(u)}>Assign Role</button>
-                    {can("users.delete") && <button className="btn btn-danger btn-xs" onClick={() => handleDeactivate(u.id)}>Deactivate</button>}
+                    {can("users.delete") && (
+                      u.is_active ? (
+                        <button className="btn btn-danger btn-xs" onClick={() => handleDeactivate(u.id)}>Deactivate</button>
+                      ) : (
+                        <button className="btn btn-secondary btn-xs" onClick={() => handleReactivate(u.id)}>Activate</button>
+                      )
+                    )}
                   </td>
                 </tr>
               ))}
