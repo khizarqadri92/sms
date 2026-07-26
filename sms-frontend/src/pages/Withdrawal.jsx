@@ -1,6 +1,9 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { withdrawalApi } from "../api/withdrawalApi";
+import workQueueApi from "../api/workQueueApi";
+import workflowApi from "../api/workflowApi";
 import studentsApi from "../api/studentsApi";
 import client from "../api/client";
 
@@ -34,11 +37,52 @@ export default function Withdrawal() {
   const role    = user?.roles?.[0] || "";
   const canApply   = can("withdrawal.apply");
   const canReview  = can("withdrawal.review");
+  const [wfStep, setWfStep]   = useState(null);
+  const [wfSteps, setWfSteps] = useState([]);
+  const [wfStatus, setWfStatus] = useState(null);
+  const [hasActionRequired, setHasActionRequired] = useState(false);
+  const [wfExists, setWfExists] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [wfDone, setWfDone]   = useState(false);
+  const { user: wfUser, roles: wfRoles } = useAuth();
+  const navigate = useNavigate();
+  const fromWQ = new URLSearchParams(window.location.search).get("from") === "wq";
+  const userRoles = wfRoles || [];
+
+  // Auto-open modal from URL when coming from Work Queue
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlId = params.get("id");
+    const fromWq = params.get("from") === "wq";
+    if (urlId && fromWq) { setShowModal(true); loadDetail(Number(urlId)); }
+  }, [user?.id]);
+
+  const loadWfStep = async (id) => {
+    try {
+      const r = await workflowApi.getInstance("withdrawal", "withdrawal_request", id);
+      const inst = r.data.data;
+      setWfExists(!!inst);
+      setWfDone(inst?.status === "completed");
+      setWfStatus(inst?.status || null);
+      const steps = inst?.steps || [];
+      setWfSteps(steps);
+      const uid = wfUser?.id;
+      const pending = steps.find(s => s.status === "pending" && (
+        s.assigned_to_id === uid ||
+        (s.assigned_role && userRoles.some(r => r===s.assigned_role || r?.name===s.assigned_role))
+      ));
+      setWfStep(pending || null);
+    } catch { setWfStep(null); setWfExists(false); setWfDone(false); }
+  };
   const canClear   = can("withdrawal.clear");
   const canApprove = can("withdrawal.approve");
 
   const [list,           setList]           = useState([]);
   const [detail,         setDetail]         = useState(null);
+  const [waivers, setWaivers] = useState([]);
+  const [selectedWaiverDetail, setSelectedWaiverDetail] = useState(null);
+
+
   const [toast,          setToast]          = useState("");
   const [toastType,      setToastType]      = useState("success");
   const [loading,        setLoading]        = useState(false);
@@ -54,6 +98,9 @@ export default function Withdrawal() {
   const [feeLoading,     setFeeLoading]     = useState(false);
   const [unpaidInvoices, setUnpaidInvoices] = useState([]);
   const [showUnpaidModal,setShowUnpaidModal]= useState(false);
+  const [showWaiverModal, setShowWaiverModal] = useState(false);
+  const [waiverForm, setWaiverForm] = useState({invoice_id:null,waiver_type:"full",waiver_amount:"",reason:""});
+  
   const [clearNote,      setClearNote]      = useState("");
   const [studentBooks,   setStudentBooks]   = useState([]);
   const [showBooksModal, setShowBooksModal] = useState(false);
@@ -88,13 +135,23 @@ export default function Withdrawal() {
     try { const r = await withdrawalApi.getAll(); setList(r.data.data||[]); } catch { flash("error","Failed to load."); }
   };
 
+  useEffect(() => {
+    if (detail?.id && userRoles.length > 0) loadWfStep(detail.id);
+  }, [detail?.id, userRoles.length]);
+
   const loadDetail = async (id) => {
     try {
       const r = await withdrawalApi.getOne(id);
       setDetail(r.data.data);
+      withdrawalApi.getWaivers(id).then(r=>setWaivers(r.data.data||[])).catch(()=>{});
+
+      loadWfStep(id);
+      workQueueApi.getMyQueue({module:"withdrawal",status:"pending"}).then(r=>{
+        const items = r.data.data||[];
+        setHasActionRequired(items.some(i=>Number(i.entity_id)===Number(id)&&i.action_required==="submit"));
+      }).catch(()=>{});
       setFeeData(null); setShowFees(false); setStudentBooks([]);
-      const c = await withdrawalApi.getConductForm(id);
-      setConductData(c.data.data);
+      try { const cr = await withdrawalApi.getConductForm(id); setConductData(cr.data.data); } catch { setConductData(null); }
     } catch { flash("error","Failed to load details."); }
   };
 
@@ -195,14 +252,14 @@ export default function Withdrawal() {
 
   return (
     <div>
-      <div className="page-header">
+      <div className="page-header" style={fromWQ?{display:"none"}:{}}>
         <h1 className="page-heading">Student Withdrawal</h1>
         {canApply && <button className="btn btn-primary" onClick={()=>setShowApply(true)}>+ Apply for Withdrawal</button>}
       </div>
 
       {toast && <div className={"alert "+(toastType==="error"?"alert-error":"alert-success")} style={{marginBottom:16}}>{toast}</div>}
 
-      <div>
+      <div style={fromWQ?{display:"none"}:{}}>
 
         {/* ── LEFT PANEL ── */}
         <div>
@@ -263,7 +320,7 @@ export default function Withdrawal() {
                         <td style={{padding:"12px 12px",color:"var(--color-text-secondary)",whiteSpace:"nowrap"}}>{fmtDate(w.requested_at)}</td>
                         <td style={{padding:"12px 12px"}}><StatusBadge status={w.status} /></td>
                         <td style={{padding:"12px 12px"}}>
-                          <button className="btn btn-ghost btn-sm" onClick={e=>{e.stopPropagation();loadDetail(w.id);}}>View</button>
+                          <button className="btn btn-ghost btn-sm" onClick={e=>{e.stopPropagation();loadDetail(w.id);setShowModal(true);}}>View</button>
                         </td>
                       </tr>
                     );
@@ -275,9 +332,62 @@ export default function Withdrawal() {
         </div>
 
         {/* ── RIGHT PANEL ── */}
-        {detail && (
-          <div style={{display:"flex",flexDirection:"column",gap:16}}>
+        {detail && showModal && (
+          <div style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"flex-start",justifyContent:"center",padding:"20px",overflowY:"auto"}} onClick={e=>{if(e.target===e.currentTarget){setDetail(null);setShowModal(false);if(fromWQ)navigate("/work-queue");}}}>
+            <div style={{background:"var(--color-background-primary)",borderRadius:12,width:"100%",maxWidth:860,marginTop:40,marginBottom:40,padding:24,position:"relative"}}>
+             {/* <button className="btn btn-ghost btn-sm" onClick={()=>{setDetail(null);setShowModal(false);if(fromWQ)navigate("/work-queue");}} style={{position:"absolute",top:12,right:12}}>? Close</button>  */}
+              <div style={{display:"flex",flexDirection:"column",gap:16}}>
 
+              {/* Parent Action Required Response */}
+              {hasActionRequired && !wfStep && (
+              <div className="section-card" style={{padding:"12px 16px",background:"#fffbeb",border:"1px solid #f59e0b",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
+                <div>
+                  <span style={{fontWeight:700,fontSize:13,color:"#b45309"}}>Action Required: </span>
+                  <span style={{fontSize:13}}>The department has requested you to submit information.</span>
+                </div>
+                <button className="btn btn-primary btn-sm" onClick={async()=>{
+                  try{
+                    await withdrawalApi.parentRespond(detail.id,{note:"Parent responded"});
+                    flash("success","Response submitted. Department notified.");
+                    setHasActionRequired(false); loadDetail(detail.id);
+                  }catch(e){flash("error","Failed.");}
+                }}>Mark as Submitted</button>
+              </div>
+            )}
+              {/* Workflow Action Bar */}
+              {wfStep && !showModal && (
+              <div className="section-card" style={{padding:"12px 16px",background:"#f0f9ff",border:"1px solid #bae6fd",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
+                <div>
+                  <span style={{fontWeight:700,fontSize:13}}>Current Step: </span>
+                  <span style={{fontSize:13,color:"#0369a1"}}>{wfStep.step_name}</span>
+                  {wfStep.assigned_role&&<span style={{fontSize:12,color:"#64748b",marginLeft:8}}>({wfStep.assigned_role.replace(/_/g," ")})</span>}
+                </div>
+                <div style={{display:"flex",gap:8}}>
+                  <button className="btn btn-primary btn-sm" onClick={async()=>{
+                    try{
+                      await withdrawalApi[wfStep.step_type==="approve"?"approve":wfStep.step_type==="review"?"review":"clear"](detail.id,{action:wfStep.step_type==="approve"?"approve":"clear",note:""});
+                      flash("success","Done."); loadDetail(detail.id);
+                    }catch(e){flash("error",e.response?.data?.message||"Failed.");}
+                  }}>{wfStep.action_label||wfStep.step_name}</button>
+                  <button className="btn btn-ghost btn-sm" style={{color:"#b45309"}} onClick={async()=>{
+                    const reason=prompt("What does the parent need to do?");
+                    if(!reason)return;
+                    try{await withdrawalApi.stepActionRequired(detail.id,{note:reason});flash("success","Action request sent.");}
+                    catch(e){flash("error","Failed.");}
+                  }}>Require Action from Parent</button>
+                  {wfStep.can_reject!==false&&(
+                    <button className="btn btn-ghost btn-sm" style={{color:"#dc2626"}} onClick={async()=>{
+                      const note=prompt("Rejection reason:");
+                      if(!note)return;
+                      try{
+                        await withdrawalApi[wfStep.step_type==="approve"?"approve":"review"](detail.id,{action:"reject",note});
+                        flash("success","Rejected."); loadDetail(detail.id);
+                      }catch(e){flash("error",e.response?.data?.message||"Failed.");}
+                    }}>{wfStep.reject_label||"Reject"}</button>
+                  )}
+                </div>
+              </div>
+            )}
             {/* Header Card */}
             <div className="section-card" style={{padding:0,overflow:"hidden"}}>
               <div style={{padding:"16px 20px",borderBottom:"1px solid var(--color-border-tertiary)",display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
@@ -292,7 +402,7 @@ export default function Withdrawal() {
                 </div>
 <div style={{display:"flex",gap:8}}>
                   <button className="btn btn-ghost btn-sm" onClick={()=>openHistory(detail.student_id)}>View History</button>
-                  <button className="btn btn-ghost btn-sm" onClick={()=>setDetail(null)}>Close</button>
+                  <button className="btn btn-ghost btn-sm" onClick={()=>{setDetail(null);setShowModal(false);if(fromWQ)navigate("/work-queue");}}>Close</button>
                 </div>
               </div>
 
@@ -305,13 +415,13 @@ export default function Withdrawal() {
               {/* Timeline */}
               <div style={{padding:"14px 20px",borderBottom:"1px solid var(--color-border-tertiary)"}}>
                 <div style={{fontSize:11,fontWeight:700,color:"var(--color-text-secondary)",textTransform:"uppercase",letterSpacing:".06em",marginBottom:12}}>Progress</div>
-                {TIMELINE_STEPS.map((step,i)=>(
+                {(wfSteps.length>0 ? wfSteps.map((s,i)=>({label:s.step_name, done:s.status==="approved"||s.status==="skipped", current:s.status==="pending"&&wfSteps.findIndex(x=>x.status==="pending")===i, by:s.assigned_role?.replace(/_/g," "), at:s.actioned_at, note:s.note, num:s.step_order})) : TIMELINE_STEPS).map((step,i)=>(
                   <div key={i} style={{display:"flex",gap:12,marginBottom:10,opacity:(!step.done&&!step.current)?0.4:1}}>
                     <div style={{display:"flex",flexDirection:"column",alignItems:"center"}}>
                       <div style={{width:26,height:26,borderRadius:"50%",flexShrink:0,background:step.done?"#22c55e":step.current?"#2563eb":"var(--color-background-tertiary)",border:step.current?"2px solid #2563eb":"2px solid transparent",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:step.done||step.current?"#fff":"#94a3b8"}}>
                         {step.done?"✓":step.current?"●":i+1}
                       </div>
-                      {i<TIMELINE_STEPS.length-1&&<div style={{width:2,flex:1,minHeight:14,background:step.done?"#22c55e":"var(--color-border-tertiary)",marginTop:2}}/>}
+                      {i<(wfSteps.length>0?wfSteps.length:TIMELINE_STEPS.length)-1&&<div style={{width:2,flex:1,minHeight:14,background:step.done?"#22c55e":"var(--color-border-tertiary)",marginTop:2}}/>}
                     </div>
                     <div style={{flex:1,paddingBottom:8}}>
                       <div style={{display:"flex",alignItems:"center",gap:8}}>
@@ -342,7 +452,119 @@ export default function Withdrawal() {
                 </div>
               )}
 
-              {/* Conduct Form Summary */}
+              
+              
+              {/* Waiver Requests - Finance/Authority View */}
+              {waivers.length>0&&(role==="finance_officer"||role==="principal"||role==="superadmin"||role==="admin")&&(
+                <div style={{padding:"14px 20px",borderBottom:"1px solid var(--color-border-tertiary)"}}>
+                  <div style={{fontSize:11,fontWeight:700,color:"var(--color-text-secondary)",textTransform:"uppercase",letterSpacing:".06em",marginBottom:10}}>Fee Waiver Requests</div>
+                  {waivers.map(w=>(
+                    <div key={w.id} style={{background:w.status==="approved"?"#f0fdf4":w.status==="rejected"?"#fef2f2":w.status==="forwarded"?"#eff6ff":"#fffbeb",border:"1px solid "+(w.status==="approved"?"#bbf7d0":w.status==="rejected"?"#fecaca":w.status==="forwarded"?"#bfdbfe":"#fde68a"),borderRadius:8,padding:"12px 14px",marginBottom:8}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
+                        <div>
+                          <div style={{fontSize:13,fontWeight:600}}>{w.waiver_type==="full"?"Full Waiver":"Partial Waiver"}{w.waiver_amount?" - Rs. "+w.waiver_amount:""}</div>
+                          <div style={{fontSize:12,color:"var(--color-text-secondary)",marginTop:2}}>By: {w.requester_name}{w.requested_at?" - "+fmtDate(w.requested_at):""}</div>
+                          {w.reason&&<div style={{fontSize:12,color:"#78350f",marginTop:4,fontStyle:"italic"}}>"{w.reason}"</div>}
+                          {w.action_note&&<div style={{fontSize:12,color:"var(--color-text-secondary)",marginTop:4}}>Note: {w.action_note}</div>}
+                          {w.invoice_items?.length>0&&(
+                            <div style={{marginTop:8,background:"#f8fafc",border:"1px solid #e2e8f0",borderRadius:6,padding:"8px 10px"}}>
+                              <div style={{fontSize:11,fontWeight:700,color:"var(--color-text-secondary)",marginBottom:6,textTransform:"uppercase",letterSpacing:".05em"}}>Invoice Details{w.invoice_month_year?" - "+w.invoice_month_year:""}</div>
+                              {w.invoice_items.map((item,idx)=>(
+                                <div key={idx} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:idx<w.invoice_items.length-1?"1px solid #f1f5f9":"none"}}>
+                                  <span style={{color:"var(--color-text-primary)"}}>{item.label||item.type}</span>
+                                  <span style={{fontWeight:600,color:"#1d4ed8"}}>Rs. {item.amount}</span>
+                                </div>
+                              ))}
+                              <div style={{display:"flex",justifyContent:"space-between",fontSize:12,fontWeight:700,marginTop:6,paddingTop:6,borderTop:"1px solid #e2e8f0"}}>
+                                <span>Total Due</span>
+                                <span style={{color:"#991b1b"}}>Rs. {w.invoice_total}</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        <span style={{fontSize:11,fontWeight:600,padding:"2px 10px",borderRadius:10,flexShrink:0,background:w.status==="approved"?"#dcfce7":w.status==="rejected"?"#fee2e2":w.status==="forwarded"?"#dbeafe":"#fef9c3",color:w.status==="approved"?"#166534":w.status==="rejected"?"#991b1b":w.status==="forwarded"?"#1d4ed8":"#92400e"}}>
+                          {w.status==="forwarded"?"Forwarded to Authority":w.status.charAt(0).toUpperCase()+w.status.slice(1)}
+                        </span>
+                      </div>
+                      {/* Finance officer sees pending waivers - can forward to authority */}
+                      {w.status==="pending"&&role==="finance_officer"&&(
+                        <div style={{display:"flex",gap:8,marginTop:8,flexWrap:"wrap"}}>
+                          <input placeholder="Note for authority (optional)" style={{flex:1,padding:"6px 10px",borderRadius:6,border:"1px solid #e2e8f0",fontSize:12}} id={"fwd-note-"+w.id} />
+                          <button className="btn btn-primary btn-sm" style={{color:"#fff"}} onClick={async()=>{
+                            const note=document.getElementById("fwd-note-"+w.id)?.value||"";
+                            try{await withdrawalApi.forwardWaiver(w.id,{action:"forward",note});flash("success","Waiver forwarded to authority.");withdrawalApi.getWaivers(detail.id).then(r=>setWaivers(r.data.data||[])).catch(()=>{});}
+                            catch(e){flash("error",e.response?.data?.message||"Failed.");}}}>Forward to Authority</button>
+                        </div>
+                      )}
+                      {/* Finance officer sees approved waivers - clear or generate invoice */}
+                      {w.status==="approved"&&role==="finance_officer"&&(
+                        <div style={{display:"flex",gap:8,marginTop:8,flexWrap:"wrap",alignItems:"center"}}>
+                          {w.waiver_type==="full"&&!detail.clearances?.find(c=>c.department==="finance"&&c.status==="cleared")&&(
+                            <button className="btn btn-primary btn-sm" style={{background:"#166534",color:"#fff"}} onClick={async()=>{
+                              try{await withdrawalApi.clear(detail.id,{action:"clear",note:"Full waiver approved by authority. Finance clearance granted."});
+                              flash("success","Finance clearance marked.");load();loadDetail(detail.id);withdrawalApi.getWaivers(detail.id).then(r=>setWaivers(r.data.data||[])).catch(()=>{});}
+                              catch(e){flash("error",e.response?.data?.message||"Failed.");}
+                            }}>Mark Finance Cleared</button>
+                          )}
+                          {w.waiver_type==="partial"&&!w.new_invoice_id&&(
+                            <button className="btn btn-primary btn-sm" style={{background:"#1d4ed8",color:"#fff"}} onClick={async()=>{
+                              try{await withdrawalApi.generateWaiverInvoice(w.id);
+                              flash("success","New invoice generated. Parent can now pay the reduced amount.");
+                              withdrawalApi.getWaivers(detail.id).then(r=>setWaivers(r.data.data||[])).catch(()=>{});}
+                              catch(e){flash("error",e.response?.data?.message||"Failed.");}
+                            }}>Generate New Invoice</button>
+                          )}
+                          {w.waiver_type==="partial"&&w.new_invoice_id&&(
+                            <div style={{fontSize:12,color:"#166534",fontWeight:600}}>✓ New invoice #{w.new_invoice_id} generated. Awaiting parent payment.</div>
+                          )}
+                        </div>
+                      )}
+                      {/* Authority sees forwarded waivers - can approve or reject */}
+                      {w.status==="forwarded"&&(role==="principal"||role==="superadmin")&&(
+                        <div style={{display:"flex",gap:8,marginTop:8,flexWrap:"wrap"}}>
+                          <button className="btn btn-ghost btn-sm" style={{border:"1px solid #2563eb",color:"#2563eb"}} onClick={async()=>{setSelectedWaiverDetail(w);try{const r=await withdrawalApi.getPendingInvoices(detail.id);setSelectedWaiverDetail({...w,pendingInvoices:r.data.data||[]});}catch(e){}}}>View Fee Details</button>
+                          <input type="number" placeholder="Approved amount (blank = full waiver)" style={{flex:1,minWidth:180,padding:"6px 10px",borderRadius:6,border:"1px solid #e2e8f0",fontSize:12}} id={"waiver-amt-"+w.id} />
+                          <input placeholder="Decision note" style={{flex:2,minWidth:180,padding:"6px 10px",borderRadius:6,border:"1px solid #e2e8f0",fontSize:12}} id={"waiver-nt-"+w.id} />
+                          <button className="btn btn-primary btn-sm" style={{background:"#166534",color:"#fff"}} onClick={async()=>{
+                            const amt=document.getElementById("waiver-amt-"+w.id)?.value;
+                            const note=document.getElementById("waiver-nt-"+w.id)?.value||"";
+                            try{await withdrawalApi.actionWaiver(w.id,{action:"approve",note,approved_amount:amt?parseFloat(amt):null});flash("success","Waiver approved.");withdrawalApi.getWaivers(detail.id).then(r=>setWaivers(r.data.data||[])).catch(()=>{});loadDetail(detail.id);}
+                            catch(e){flash("error",e.response?.data?.message||"Failed.");}}}>Approve</button>
+                          <button className="btn btn-ghost btn-sm" style={{border:"1px solid #991b1b",color:"#991b1b"}} onClick={async()=>{
+                            const note=document.getElementById("waiver-nt-"+w.id)?.value||"";
+                            try{await withdrawalApi.actionWaiver(w.id,{action:"reject",note});flash("success","Waiver rejected.");withdrawalApi.getWaivers(detail.id).then(r=>setWaivers(r.data.data||[])).catch(()=>{});loadDetail(detail.id);}
+                            catch(e){flash("error",e.response?.data?.message||"Failed.");}}}>Reject</button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+{/* Finance Action Required - Parent View */}
+              {role==="parent"&&detail.status==="clearance"&&detail.clearances?.some(c=>c.department==="finance"&&c.status==="rejected")&&(
+                <div style={{padding:"14px 20px",borderBottom:"1px solid var(--color-border-tertiary)",background:"#fef9ec"}}>
+                  <div style={{fontSize:11,fontWeight:700,color:"#92400e",textTransform:"uppercase",letterSpacing:".06em",marginBottom:10}}>Finance Action Required</div>
+                  <div style={{background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,padding:"12px 14px",marginBottom:12}}>
+                    <div style={{fontSize:13,fontWeight:600,color:"#92400e",marginBottom:4}}>Outstanding fee dues on your account</div>
+                    <div style={{fontSize:12,color:"#78350f"}}>{detail.clearances?.find(c=>c.department==="finance")?.note||"Please settle your outstanding dues to proceed with withdrawal."}</div>
+                  </div>
+                  <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
+                    <a href={"/my-fees?studentId="+detail.student_id} style={{padding:"8px 16px",borderRadius:8,background:"#1d4ed8",color:"#fff",fontSize:13,fontWeight:600,textDecoration:"none",display:"inline-flex",alignItems:"center",gap:6}}>View My Invoices</a>
+                    <button className="btn btn-ghost btn-sm" style={{border:"1px solid #d97706",color:"#d97706"}}
+                      onClick={()=>{setWaiverForm(f=>({...f,invoice_id:null}));setShowWaiverModal(true);}}>
+                      Request Fee Waiver
+                    </button>
+                    <button className="btn btn-ghost btn-sm" style={{border:"1px solid #166534",color:"#166534"}}
+                      onClick={async()=>{try{
+                        await fetch("/api/v1/withdrawal/"+detail.id+"/paid-notification",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+(localStorage.getItem("access_token")||"")}});
+                        flash("success","Finance team notified. They will verify and clear your dues.");
+                      }catch(e){flash("error","Failed to notify.");}}}>
+                      I Have Paid
+                    </button>
+                  </div>
+                </div>
+              )}
+{/* Conduct Form Summary */}
               {(detail.status==="under_review"||detail.status==="coordinator_final"||detail.status==="approved"||detail.status==="withdrawn")&&(
                 <div style={{padding:"14px 20px",borderBottom:"1px solid var(--color-border-tertiary)"}}>
                   <div style={{fontSize:11,fontWeight:700,color:"var(--color-text-secondary)",textTransform:"uppercase",letterSpacing:".06em",marginBottom:10}}>Teacher Conduct Form</div>
@@ -430,18 +652,20 @@ export default function Withdrawal() {
                 <div style={{padding:"14px 20px",borderBottom:"1px solid var(--color-border-tertiary)"}}>
                   <div style={{fontSize:11,fontWeight:700,color:"var(--color-text-secondary)",textTransform:"uppercase",letterSpacing:".06em",marginBottom:10}}>Review Request</div>
                   <div style={{marginBottom:10}}>
-                    <div style={{fontSize:12,marginBottom:6,color:"var(--color-text-secondary)"}}>Select departments for clearance:</div>
+                    <div style={{fontSize:12,marginBottom:6,color:"var(--color-text-secondary)"}}>Departments required for clearance:</div>
                     <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
-                      {["finance","library","admin","hr","transport"].map(d=>(
-                        <label key={d} style={{display:"flex",alignItems:"center",gap:6,fontSize:13,cursor:"pointer"}}>
-                          <input type="checkbox" checked={depts.includes(d)} onChange={e=>setDepts(prev=>e.target.checked?[...prev,d]:prev.filter(x=>x!==d))} />
-                          {DEPT_LABELS[d]||d}
-                        </label>
+                      {wfSteps.filter(s=>s.step_type==="clear"||s.step_type==="verify").map((s,i)=>(
+                        <span key={i} style={{padding:"4px 12px",background:"#dbeafe",color:"#1e40af",borderRadius:20,fontSize:12,fontWeight:600}}>
+                          {(s.step_name||s.assigned_role||"").replace(/_/g," ")}
+                        </span>
                       ))}
                     </div>
+                    <textarea className="form-input" rows={3} value={note} onChange={e=>setNote(e.target.value)}
+                      placeholder="Add a note (optional)"
+                      style={{width:"100%",resize:"vertical",fontSize:13,marginTop:10}}/>
                   </div>
                   <div style={{display:"flex",gap:8}}>
-                    <button className="btn btn-primary" onClick={()=>setAction({id:detail.id,type:"approve",kind:"review"})}>Forward to Departments</button>
+                    <button className="btn btn-primary" onClick={()=>setAction({id:detail.id,type:"approve",kind:"review"})}>Review and Forward to Department</button>
                     <button className="btn btn-ghost btn-sm" style={{color:"var(--color-text-danger)"}} onClick={()=>setAction({id:detail.id,type:"reject",kind:"review"})}>Reject</button>
                   </div>
                 </div>
@@ -466,6 +690,8 @@ export default function Withdrawal() {
                   <button className="btn btn-primary" style={{background:"#166534"}} onClick={()=>setShowSummaryModal(true)}>View Summary & Approve</button>
                 </div>
               )}
+            </div>
+          </div>
             </div>
           </div>
         )}
@@ -555,8 +781,8 @@ export default function Withdrawal() {
 
       {/* ── APPLY MODAL ── */}
       {showApply&&(
-        <div style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(0,0,0,0.45)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
-          <div style={{background:"var(--color-background-primary)",borderRadius:12,width:"100%",maxWidth:500,boxShadow:"0 20px 60px rgba(0,0,0,0.18)",overflow:"hidden"}}>
+        <div style={{position:"fixed",inset:0,zIndex:2000,background:"rgba(0,0,0,0.45)",display:"flex",alignItems:"flex-end",justifyContent:"center",padding:24}}>
+          <div style={{background:"#ffffff",borderRadius:12,width:"100%",maxWidth:500,boxShadow:"0 20px 60px rgba(0,0,0,0.18)",overflow:"hidden"}}>
             <div style={{padding:"16px 24px",borderBottom:"1px solid var(--color-border-tertiary)",background:"var(--color-background-secondary)"}}>
               <div style={{fontWeight:600,fontSize:16,color:"var(--color-text-primary)"}}>Apply for Withdrawal</div>
             </div>
@@ -566,7 +792,9 @@ export default function Withdrawal() {
                   <label className="form-label">Select Child *</label>
                   <select className="form-control" value={applyForm.student_id} onChange={e=>setApplyForm(f=>({...f,student_id:e.target.value}))}>
                     <option value="">Select child</option>
-                    {children.map(c=><option key={c.id} value={c.id}>{c.first_name} {c.last_name} - {c.class_name}{c.section?" ("+c.section+")":""}</option>)}
+                    {children.map(c=><option key={c.id} value={c.id} disabled={c.status==="withdrawn"}>
+                        {c.first_name} {c.last_name} - {c.class_name}{(c.class_section||c.section)?" ("+(c.class_section||c.section)+")":""} [{c.status==="withdrawn"?"Withdrawn":"Active"}]
+                      </option>)}
                   </select>
                 </div>
               )}
@@ -597,8 +825,8 @@ export default function Withdrawal() {
 
       {/* ── REVIEW NOTE MODAL ── */}
       {action?.kind==="review"&&(
-        <div style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(0,0,0,0.45)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
-          <div style={{background:"var(--color-background-primary)",borderRadius:12,width:"100%",maxWidth:460,boxShadow:"0 20px 60px rgba(0,0,0,0.18)",overflow:"hidden"}}>
+        <div style={{position:"fixed",inset:0,zIndex:2000,background:"rgba(0,0,0,0.45)",display:"flex",alignItems:"flex-end",justifyContent:"center",padding:24}}>
+          <div style={{background:"#ffffff",borderRadius:12,width:"100%",maxWidth:460,boxShadow:"0 20px 60px rgba(0,0,0,0.18)",overflow:"hidden"}}>
             <div style={{padding:"16px 24px",borderBottom:"1px solid var(--color-border-tertiary)",background:"var(--color-background-secondary)"}}>
               <div style={{fontWeight:600,fontSize:16}}>{action.type==="approve"?"Forward to Departments":"Reject Request"}</div>
             </div>
@@ -620,8 +848,8 @@ export default function Withdrawal() {
 
       {/* ── CLEAR NOTE MODAL ── */}
       {action?.kind==="clear"&&(
-        <div style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(0,0,0,0.45)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
-          <div style={{background:"var(--color-background-primary)",borderRadius:12,width:"100%",maxWidth:460,boxShadow:"0 20px 60px rgba(0,0,0,0.18)",overflow:"hidden"}}>
+        <div style={{position:"fixed",inset:0,zIndex:2000,background:"rgba(0,0,0,0.45)",display:"flex",alignItems:"flex-end",justifyContent:"center",padding:24}}>
+          <div style={{background:"#ffffff",borderRadius:12,width:"100%",maxWidth:460,boxShadow:"0 20px 60px rgba(0,0,0,0.18)",overflow:"hidden"}}>
             <div style={{padding:"16px 24px",borderBottom:"1px solid var(--color-border-tertiary)",background:"var(--color-background-secondary)"}}>
               <div style={{fontWeight:600,fontSize:16}}>{action.type==="clear"?"Mark Department Cleared":"Reject Clearance"}</div>
             </div>
@@ -643,8 +871,8 @@ export default function Withdrawal() {
 
       {/* ── PRINCIPAL SUMMARY MODAL ── */}
       {showSummaryModal&&detail&&(
-        <div style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(0,0,0,0.45)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
-          <div style={{background:"var(--color-background-primary)",borderRadius:12,width:"100%",maxWidth:600,maxHeight:"90vh",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px rgba(0,0,0,0.18)",overflow:"hidden"}}>
+        <div style={{position:"fixed",inset:0,zIndex:2000,background:"rgba(0,0,0,0.45)",display:"flex",alignItems:"flex-end",justifyContent:"center",padding:24}}>
+          <div style={{background:"#ffffff",borderRadius:12,width:"100%",maxWidth:600,maxHeight:"90vh",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px rgba(0,0,0,0.18)",overflow:"hidden"}}>
             <div style={{padding:"16px 24px",borderBottom:"1px solid var(--color-border-tertiary)",background:"var(--color-background-secondary)",flexShrink:0}}>
               <div style={{fontWeight:700,fontSize:16}}>Withdrawal Summary</div>
               <div style={{fontSize:12,color:"var(--color-text-secondary)",marginTop:2}}>Review all details before final approval</div>
@@ -705,8 +933,8 @@ export default function Withdrawal() {
 
       {/* ── REQUIRE ACTION MODAL ── */}
       {showRequireModal&&(
-        <div style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(0,0,0,0.45)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
-          <div style={{background:"var(--color-background-primary)",borderRadius:12,width:"100%",maxWidth:500,boxShadow:"0 20px 60px rgba(0,0,0,0.18)",overflow:"hidden"}}>
+        <div style={{position:"fixed",inset:0,zIndex:2000,background:"rgba(0,0,0,0.45)",display:"flex",alignItems:"flex-end",justifyContent:"center",padding:24}}>
+          <div style={{background:"#ffffff",borderRadius:12,width:"100%",maxWidth:500,boxShadow:"0 20px 60px rgba(0,0,0,0.18)",overflow:"hidden"}}>
             <div style={{padding:"16px 24px",borderBottom:"1px solid #fde68a",background:"#fffbeb"}}>
               <div style={{fontWeight:600,fontSize:16,color:"#92400e"}}>Require Action from Parent/Student</div>
               <div style={{fontSize:12,color:"#92400e",marginTop:2}}>Parent will be notified. Clearance held until resolved.</div>
@@ -727,8 +955,8 @@ export default function Withdrawal() {
 
       {/* ── LIBRARY BOOKS MODAL ── */}
       {showBooksModal&&(
-        <div style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(0,0,0,0.45)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
-          <div style={{background:"var(--color-background-primary)",borderRadius:12,width:"100%",maxWidth:560,maxHeight:"85vh",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px rgba(0,0,0,0.18)",overflow:"hidden"}}>
+        <div style={{position:"fixed",inset:0,zIndex:2000,background:"rgba(0,0,0,0.45)",display:"flex",alignItems:"flex-end",justifyContent:"center",padding:24}}>
+          <div style={{background:"#ffffff",borderRadius:12,width:"100%",maxWidth:560,maxHeight:"85vh",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px rgba(0,0,0,0.18)",overflow:"hidden"}}>
             <div style={{padding:"16px 24px",borderBottom:"1px solid var(--color-border-tertiary)",background:studentBooks.length>0?"#fef2f2":"#f0fdf4",flexShrink:0}}>
               <div style={{fontWeight:600,fontSize:16,color:studentBooks.length>0?"#991b1b":"#166534"}}>{studentBooks.length>0?"Unreturned Books":"No Issued Books"}</div>
               <div style={{fontSize:12,color:studentBooks.length>0?"#991b1b":"#166534",marginTop:2}}>{studentBooks.length>0?studentBooks.length+" book(s) must be returned before clearance":"Student has no pending book returns"}</div>
@@ -778,8 +1006,8 @@ export default function Withdrawal() {
 
       {/* ── UNPAID INVOICES MODAL ── */}
       {showUnpaidModal&&(
-        <div style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(0,0,0,0.45)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
-          <div style={{background:"var(--color-background-primary)",borderRadius:12,width:"100%",maxWidth:560,maxHeight:"85vh",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px rgba(0,0,0,0.18)",overflow:"hidden"}}>
+        <div style={{position:"fixed",inset:0,zIndex:2000,background:"rgba(0,0,0,0.45)",display:"flex",alignItems:"flex-end",justifyContent:"center",padding:24}}>
+          <div style={{background:"#ffffff",borderRadius:12,width:"100%",maxWidth:560,maxHeight:"85vh",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px rgba(0,0,0,0.18)",overflow:"hidden"}}>
             <div style={{padding:"16px 24px",borderBottom:"1px solid #fecaca",background:"#fef2f2",flexShrink:0}}>
               <div style={{fontWeight:600,fontSize:16,color:"#991b1b"}}>Unpaid Fee Invoices</div>
               <div style={{fontSize:12,color:"#991b1b",marginTop:2}}>Student has outstanding dues before withdrawal clearance</div>
@@ -809,6 +1037,7 @@ export default function Withdrawal() {
             </div>
             <div style={{padding:"14px 24px",borderTop:"1px solid var(--color-border-tertiary)",display:"flex",gap:10,justifyContent:"flex-end",background:"var(--color-background-secondary)",flexShrink:0}}>
               <button className="btn btn-secondary" onClick={()=>setShowUnpaidModal(false)}>Close</button>
+              <button className="btn btn-ghost" style={{color:"#d97706"}} onClick={()=>{setWaiverForm(f=>({...f,invoice_id:unpaidInvoices[0]?.id||null}));setShowWaiverModal(true);}}>Request Waiver</button>
               <button className="btn btn-primary" style={{background:"#991b1b"}} disabled={!clearNote.trim()} onClick={async()=>{try{await withdrawalApi.clear(detail.id,{action:"reject",note:"UNPAID FEES: "+clearNote});flash("error","Finance clearance rejected.");setShowUnpaidModal(false);load();loadDetail(detail.id);}catch(e){flash("error",e.response?.data?.message||"Failed.");}}}>Reject Clearance</button>
             </div>
           </div>
@@ -816,9 +1045,93 @@ export default function Withdrawal() {
       )}
 
       {/* ── CONDUCT FORM MODAL ── */}
+      
+      {/* WAIVER FEE DETAIL MODAL */}
+      {selectedWaiverDetail&&(
+        <div style={{position:"fixed",inset:0,zIndex:1020,background:"rgba(0,0,0,0.55)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+          <div style={{background:"#ffffff",borderRadius:12,width:"100%",maxWidth:520,boxShadow:"0 20px 60px rgba(0,0,0,0.2)",overflow:"hidden"}}>
+            <div style={{padding:"16px 24px",borderBottom:"1px solid #e2e8f0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <div style={{fontWeight:600,fontSize:16}}>Fee Waiver Request Details</div>
+                <div style={{fontSize:12,color:"var(--color-text-secondary)",marginTop:2}}>{selectedWaiverDetail.waiver_type==="full"?"Full Waiver Requested":"Partial Waiver Requested"}{selectedWaiverDetail.waiver_amount?" - Rs. "+selectedWaiverDetail.waiver_amount:""}</div>
+              </div>
+              <button style={{background:"none",border:"none",fontSize:20,cursor:"pointer",color:"var(--color-text-secondary)"}} onClick={()=>setSelectedWaiverDetail(null)}>×</button>
+            </div>
+            <div style={{padding:"20px 24px",maxHeight:"70vh",overflowY:"auto"}}>
+              
+              {(()=>{const invoices=selectedWaiverDetail.pendingInvoices||[];const total=invoices.reduce((s,i)=>s+parseFloat(i.net_amount||0),0);return invoices.length>0?(
+                <div>
+                  <div style={{fontSize:12,fontWeight:700,color:"var(--color-text-secondary)",marginBottom:10,textTransform:"uppercase",letterSpacing:".05em"}}>Unpaid Fee Invoices</div>
+                  {invoices.map((inv,idx)=>(
+                    <div key={idx} style={{borderRadius:8,border:"1px solid #fecaca",background:"#fef2f2",padding:"10px 14px",marginBottom:8}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
+                        <div style={{fontSize:13,fontWeight:600,color:"#991b1b"}}>Invoice #{inv.id}{inv.month_year?" - "+inv.month_year:""}</div>
+                        <div style={{fontSize:14,fontWeight:700,color:"#991b1b"}}>Rs. {inv.net_amount}</div>
+                      </div>
+                      <div style={{display:"flex",gap:16,fontSize:12,color:"var(--color-text-secondary)"}}>
+                        {inv.due_date&&<span>Due: {inv.due_date}</span>}
+                        <span style={{background:"#fee2e2",color:"#991b1b",padding:"1px 8px",borderRadius:10,fontWeight:600}}>{inv.status}</span>
+                      </div>
+                    </div>
+                  ))}
+                  <div style={{display:"flex",justifyContent:"space-between",padding:"12px 14px",borderRadius:8,background:"#fef2f2",border:"1px solid #fecaca",marginTop:4}}>
+                    <div style={{fontWeight:700,fontSize:14,color:"#991b1b"}}>Total Outstanding</div>
+                    <div style={{fontWeight:700,fontSize:16,color:"#991b1b"}}>Rs. {total.toFixed(2)}</div>
+                  </div>
+                </div>
+              ):(
+                <div style={{color:"var(--color-text-secondary)",fontSize:13,textAlign:"center",padding:20}}>No unpaid invoices found for this student.</div>
+              );})()}
+            </div>
+            <div style={{padding:"14px 24px",borderTop:"1px solid #e2e8f0",display:"flex",justifyContent:"flex-end",background:"#f8fafc"}}>
+              <button className="btn btn-secondary" onClick={()=>setSelectedWaiverDetail(null)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+{/* WAIVER REQUEST MODAL */}
+      {showWaiverModal&&(
+        <div style={{position:"fixed",inset:0,zIndex:1010,background:"rgba(0,0,0,0.55)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
+          <div style={{background:"#ffffff",borderRadius:12,width:"100%",maxWidth:500,boxShadow:"0 20px 60px rgba(0,0,0,0.2)",overflow:"hidden"}}>
+            <div style={{padding:"16px 24px",borderBottom:"1px solid #e2e8f0",background:"#fffbeb"}}>
+              <div style={{fontWeight:600,fontSize:16,color:"#92400e"}}>Request Fee Waiver</div>
+              <div style={{fontSize:12,color:"#92400e",marginTop:2}}>Submit a waiver request to the authority for approval</div>
+            </div>
+            <div style={{padding:"20px 24px"}}>
+              <div className="form-group" style={{marginBottom:14}}>
+                <label className="form-label">Waiver Type *</label>
+                <select className="form-control" value={waiverForm.waiver_type} onChange={e=>setWaiverForm(f=>({...f,waiver_type:e.target.value}))}>
+                  <option value="full">Full Waiver (cancel entire invoice)</option>
+                  <option value="partial">Partial Waiver (reduce amount)</option>
+                </select>
+              </div>
+              {waiverForm.waiver_type==="partial"&&(
+                <div className="form-group" style={{marginBottom:14}}>
+                  <label className="form-label">Amount to Waive (Rs.) *</label>
+                  <input type="number" className="form-control" value={waiverForm.waiver_amount} onChange={e=>setWaiverForm(f=>({...f,waiver_amount:e.target.value}))} placeholder="Enter amount to waive" />
+                </div>
+              )}
+              <div className="form-group">
+                <label className="form-label">Reason *</label>
+                <textarea className="form-control" value={waiverForm.reason} onChange={e=>setWaiverForm(f=>({...f,reason:e.target.value}))} placeholder="Reason for waiver request..." style={{minHeight:80,resize:"vertical"}} />
+              </div>
+            </div>
+            <div style={{padding:"14px 24px",borderTop:"1px solid #e2e8f0",display:"flex",gap:10,justifyContent:"flex-end",background:"#f8fafc"}}>
+              <button className="btn btn-secondary" onClick={()=>setShowWaiverModal(false)}>Cancel</button>
+              <button className="btn btn-primary" style={{background:"#d97706"}}
+                disabled={!waiverForm.reason.trim()||(waiverForm.waiver_type==="partial"&&!waiverForm.waiver_amount)}
+                onClick={async()=>{try{await withdrawalApi.requestWaiver(detail.id,{invoice_id:waiverForm.invoice_id,waiver_type:waiverForm.waiver_type,waiver_amount:waiverForm.waiver_amount||null,reason:waiverForm.reason});flash("success","Waiver request submitted for approval.");setShowWaiverModal(false);setShowUnpaidModal(false);load();loadDetail(detail.id);}catch(e){flash("error",e.response?.data?.message||"Failed.");}}}>
+                Submit Waiver Request
+              </button>
+            </div>
+              </div>
+            </div>
+          
+      )}
+
       {showConductModal&&(
-        <div style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(0,0,0,0.45)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
-          <div style={{background:"var(--color-background-primary)",borderRadius:12,width:"100%",maxWidth:560,maxHeight:"90vh",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px rgba(0,0,0,0.18)",overflow:"hidden"}}>
+        <div style={{position:"fixed",inset:0,zIndex:2000,background:"rgba(0,0,0,0.45)",display:"flex",alignItems:"flex-end",justifyContent:"center",padding:24}}>
+          <div style={{background:"#ffffff",borderRadius:12,width:"100%",maxWidth:560,maxHeight:"90vh",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px rgba(0,0,0,0.18)",overflow:"hidden"}}>
             <div style={{padding:"16px 24px",borderBottom:"1px solid var(--color-border-tertiary)",background:"var(--color-background-secondary)",flexShrink:0}}>
               <div style={{fontWeight:600,fontSize:16}}>Student Conduct Form</div>
               <div style={{fontSize:12,color:"var(--color-text-secondary)",marginTop:2}}>Fill student conduct report for withdrawal processing</div>

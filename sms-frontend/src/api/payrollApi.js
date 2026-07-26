@@ -1,0 +1,55 @@
+import client from "./client";
+const payrollApi = {
+  getComponents:      (params)    => client.get("/payroll/components", { params }),
+  createComponent:    (data)      => client.post("/payroll/components", data),
+  updateComponent:    (id, data)  => client.put(`/payroll/components/${id}`, data),
+  deactivateComponent: (id)       => client.delete(`/payroll/components/${id}`),
+
+  getSettings:        ()          => client.get("/payroll/settings"),
+  updateSettings:     (data)      => client.put("/payroll/settings", data),
+
+  getGrades:          ()          => client.get("/payroll/grades"),
+  createGrade:        (data)      => client.post("/payroll/grades", data),
+  updateGrade:        (id, data)  => client.put(`/payroll/grades/${id}`, data),
+
+  getGradeComponents: (gradeId)   => client.get(`/payroll/grades/${gradeId}/components`),
+  upsertGradeComponent: (gradeId, data) => client.post(`/payroll/grades/${gradeId}/components`, data),
+  removeGradeComponent: (gradeId, componentId) => client.delete(`/payroll/grades/${gradeId}/components/${componentId}`),
+  getStaffPayrollProfile: (staffId) => client.get(`/payroll/staff/${staffId}/profile`),
+  updateStaffPayrollProfile: (staffId, data) => client.put(`/payroll/staff/${staffId}/profile`, data),
+  getAdjustments:   (params)   => client.get("/payroll/adjustments", { params }),
+  createAdjustment: (data)     => client.post("/payroll/adjustments", data),
+  deleteAdjustment: (id)       => client.delete(`/payroll/adjustments/${id}`),
+  getStaffList:     ()          => client.get("/payroll/staff-list"),
+  bulkCreateAdjustments: (data) => client.post("/payroll/adjustments/bulk", data),
+  getDepartmentsList: () => client.get("/payroll/departments-list"),
+  getDesignationsList: () => client.get("/payroll/designations-list"),
+  getDesignationGrades: () => client.get("/payroll/designation-grades"),
+  upsertDesignationGrade: (data) => client.post("/payroll/designation-grades", data),
+  removeDesignationGrade: (designationId) => client.delete(`/payroll/designation-grades/${designationId}`),
+
+  getGradeDepartmentComponents: (gradeId, deptId) => client.get(`/payroll/grades/${gradeId}/department-components/${deptId}`),
+  upsertGradeDepartmentComponent: (gradeId, deptId, data) => client.post(`/payroll/grades/${gradeId}/department-components/${deptId}`, data),
+  removeGradeDepartmentComponent: (gradeId, deptId, componentId) => client.delete(`/payroll/grades/${gradeId}/department-components/${deptId}/${componentId}`),
+
+  getTaxSlabSets:      () => client.get("/payroll/tax-slab-sets"),
+  createTaxSlabSet:    (data) => client.post("/payroll/tax-slab-sets", data),
+  activateTaxSlabSet:  (id) => client.post(`/payroll/tax-slab-sets/${id}/activate`),
+  deleteTaxSlabSet:    (id) => client.delete(`/payroll/tax-slab-sets/${id}`),
+  getTaxSlabs:         (setId) => client.get(`/payroll/tax-slab-sets/${setId}/slabs`),
+  upsertTaxSlab:       (setId, data) => client.post(`/payroll/tax-slab-sets/${setId}/slabs`, data),
+  deleteTaxSlab:       (slabId) => client.delete(`/payroll/tax-slabs/${slabId}`),
+  calculateTaxPreview: (monthlyIncome) => client.get("/payroll/tax-slabs/calculate", { params: { monthly_income: monthlyIncome } }),
+
+  getPayrollRuns:      ()          => client.get("/payroll/runs"),
+  createPayrollRun:    (data)      => client.post("/payroll/runs", data),
+  generatePayrollRun:  (runId)     => client.post(`/payroll/runs/${runId}/generate`),
+  getPayslips:         (runId)     => client.get(`/payroll/runs/${runId}/payslips`),
+  submitPayrollRun:    (runId)     => client.post(`/payroll/runs/${runId}/submit`),
+  advancePayrollRun:   (runId, data) => client.post(`/payroll/runs/${runId}/advance`, data),
+  hrSubmitPayrollRun:  (runId)     => client.post(`/payroll/runs/${runId}/hr-submit`),
+  releasePayrollRun:   (runId)     => client.post(`/payroll/runs/${runId}/release`),
+  previewPayrollRun:   (runId)     => client.get(`/payroll/runs/${runId}/preview`),
+  hrSummaryPayrollRun: (runId)     => client.get(`/payroll/runs/${runId}/hr-summary`),
+};
+export default payrollApi;

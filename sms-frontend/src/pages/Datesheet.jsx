@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { examsApi } from "../api/examsApi";
 import { useAuth } from "../auth/AuthContext";
 
@@ -455,7 +455,7 @@ export default function Datesheet() {
           <div style={{background:"#fff",borderRadius:12,width:"100%",maxWidth:440,overflow:"hidden",boxShadow:"0 20px 60px rgba(0,0,0,0.2)"}}>
             <div style={{padding:"16px 24px",borderBottom:"1px solid #e2e8f0",background:"#f8fafc"}}>
               <div style={{fontWeight:700,fontSize:16}}>Assign Invigilator</div>
-              <div style={{fontSize:12,color:"#64748b",marginTop:2}}>Subject: <strong>{invigilatorSubject.subject_name}</strong> &middot; {invigilatorSubject.class_name}</div>
+              <div style={{fontSize:12,color:"#64748b",marginTop:2}}>Subject: <strong>{invigilatorSubject.subject_name}</strong> &middot; {invigilatorSubject.class_name}{invigilatorSubject.section?" ("+invigilatorSubject.section+")":""}</div>
             </div>
             <div style={{padding:"20px 24px"}}>
               <div style={{display:"flex",background:"#f8fafc",borderRadius:10,padding:4,marginBottom:16,border:"1px solid #e2e8f0"}}>

@@ -1,270 +1,433 @@
-from flask import Blueprint, request
-from flask_jwt_extended import get_jwt_identity
-from app.middleware.jwt_guard import jwt_required_custom
-from app.middleware.rbac import require_permission
-from app.services.student_service import StudentService
-from app.utils.response import success, error, paginated
-from app.utils.pagination import get_page_args
+"""
+Native FastAPI router for Students - migrated from app/api/v1/students.py.
 
-bp   = Blueprint("students", __name__)
-_svc = StudentService()
+Unlike Procurement/Library (which did raw SQL inline), this module delegates
+to StudentService -> StudentRepository, and several routes call Flask's
+get_db() directly too. All of that code calls Flask's get_db() (flask.g-based)
+somewhere, so every route here wraps its body in `with flask_app.app_context():`
+to satisfy that dependency - the existing business logic runs completely
+unchanged, only the routing/auth/request-parsing layer is native FastAPI.
 
+IMPORTANT: literal paths (e.g. /my-children, /meta/classes) MUST be declared
+before parameterized paths (/{id}) - FastAPI/Starlette matches routes in
+declaration order, so a /{id} route declared first would incorrectly try to
+parse "my-children" as an integer id.
+"""
 
-@bp.get("/")
-@jwt_required_custom
-@require_permission("students.view")
-def list_students():
-    page, per_page = get_page_args()
-    filters = {k: request.args.get(k) for k in
-               ["class_id", "status", "search"] if request.args.get(k)}
-    result = _svc.get_all(filters, page, per_page)
-    return paginated(result["items"], result["total"], page, per_page)
+from typing import Optional, Any
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 
+from app.fastapi_auth import get_current_user_id
+from app.fastapi_permissions import require_permission
+from app.fastapi_db import get_db, get_cur
 
-@bp.get("/me")
-@jwt_required_custom
-def my_profile():
-    user_id = int(get_jwt_identity())
-    student = _svc.get_by_user_id(user_id)
-    if not student:
-        return error("Student profile not found.", 404)
-    return success(data=student)
+router = APIRouter()
 
 
-@bp.get("/<int:id>")
-@jwt_required_custom
-@require_permission("students.view")
-def get_student(id):
-    try:
-        return success(data=_svc.get_by_id(id))
-    except ValueError as e:
-        return error(str(e), 404)
+def fail(message: str, status_code: int = 400, details=None):
+    raise HTTPException(status_code=status_code, detail={"status": "error", "message": message, "details": details})
 
 
-@bp.put("/<int:id>")
-@jwt_required_custom
-@require_permission("students.edit")
-def update_student(id):
-    try:
-        result = _svc.update(id, request.get_json() or {})
-        return success(data=result, message="Student updated successfully.")
-    except ValueError as e:
-        return error(str(e), 400)
+def ok(data=None, message="Success", status_code=200):
+    return {"status": "success", "message": message, "data": data}
 
 
-@bp.delete("/<int:id>")
-@jwt_required_custom
-@require_permission("students.delete")
-def deactivate_student(id):
-    try:
-        _svc.deactivate(id)
-        return success(message="Student deactivated.")
-    except ValueError as e:
-        return error(str(e), 404)
+def _flask_app():
+    import main
+    return main.flask_app
 
 
-@bp.post("/")
-@jwt_required_custom
-@require_permission("students.create")
-def enroll_student():
-    try:
-        result = _svc.enroll(request.get_json() or {})
-        # Notify student and parent
+class StudentUpdateIn(BaseModel):
+    first_name: Optional[Any] = None
+    last_name: Optional[Any] = None
+    date_of_birth: Optional[Any] = None
+    gender: Optional[Any] = None
+    blood_group: Optional[Any] = None
+    address: Optional[Any] = None
+    class_id: Optional[Any] = None
+    parent_id: Optional[Any] = None
+    status: Optional[Any] = None
+    father_name: Optional[Any] = None
+    mother_name: Optional[Any] = None
+    father_cnic: Optional[Any] = None
+    father_phone: Optional[Any] = None
+    mother_phone: Optional[Any] = None
+
+    def to_dict(self):
+        return {k: v for k, v in self.dict().items() if v is not None}
+
+
+class StudentEnrollIn(BaseModel):
+    email: Optional[str] = None
+    first_name: str
+    last_name: str
+    password: Optional[str] = None
+    phone: Optional[Any] = None
+    date_of_birth: Optional[Any] = None
+    gender: Optional[Any] = None
+    blood_group: Optional[Any] = None
+    address: Optional[Any] = None
+    class_id: Optional[Any] = None
+    parent_id: Optional[Any] = None
+    enrollment_no: Optional[Any] = None
+
+    def to_dict(self):
+        d = self.dict()
+        if d.get("password") is None:
+            d.pop("password")
+        return d
+
+
+class LinkParentIn(BaseModel):
+    parent_id: Optional[Any] = None
+
+
+# ── Literal-path routes (must come before /{id}) ──────────────
+
+@router.get("/")
+def list_students(
+    class_id: Optional[str] = Query(None), status: Optional[str] = Query(None), search: Optional[str] = Query(None),
+    page: int = Query(1), per_page: int = Query(20),
+    user_id: int = Depends(require_permission("students.view")),
+):
+    filters = {k: v for k, v in {"class_id": class_id, "status": status, "search": search}.items() if v}
+    with _flask_app().app_context():
+        from app.services.student_service import StudentService
+        result = StudentService().get_all(filters, page, per_page)
+    return {
+        "status": "success",
+        "data": result["items"],
+        "pagination": {"total": result["total"], "page": page, "per_page": per_page},
+    }
+
+
+@router.post("/")
+def enroll_student(body: StudentEnrollIn, user_id: int = Depends(require_permission("students.create"))):
+    with _flask_app().app_context():
+        from app.services.student_service import StudentService
+        try:
+            result = StudentService().enroll(body.to_dict())
+        except ValueError as e:
+            fail(str(e), 400)
+
         try:
             from app.utils.notify import send_notification
             if result.get("user_id"):
-                send_notification(result["user_id"],
-                    "Welcome to School!",
-                    f"Your enrollment is confirmed. Enrollment No: {result.get('enrollment_no','')}.",
-                    "success")
+                send_notification(
+                    result["user_id"], "Welcome to School!",
+                    "Your enrollment is confirmed. Enrollment No: " + str(result.get("enrollment_no", "")) + ".",
+                    "success"
+                )
             if result.get("parent_id"):
-                send_notification(result["parent_id"],
-                    "Child Enrolled",
-                    f"{result.get('first_name','')} {result.get('last_name','')} has been enrolled. Enrollment No: {result.get('enrollment_no','')}.",
-                    "success")
+                send_notification(
+                    result["parent_id"], "Child Enrolled",
+                    str(result.get("first_name", "")) + " " + str(result.get("last_name", "")) + " has been enrolled. Enrollment No: " + str(result.get("enrollment_no", "")) + ".",
+                    "success"
+                )
         except Exception:
             pass
-        return success(data=result, message="Student enrolled successfully.", status=201)
-    except ValueError as e:
-        return error(str(e), 400)
+
+    return ok(data=result, message="Student enrolled successfully.")
 
 
-@bp.get("/<int:id>/attendance")
-@jwt_required_custom
-@require_permission("attendance.view")
-def student_attendance(id):
-    from_date = request.args.get("from")
-    to_date   = request.args.get("to")
-    if not from_date or not to_date:
-        return error("from and to query params required", 400)
-    from app.services.attendance_service import AttendanceService
-    return success(data=AttendanceService().get_student_attendance(id, from_date, to_date))
+@router.get("/me")
+def my_profile(user_id: int = Depends(get_current_user_id)):
+    with _flask_app().app_context():
+        from app.services.student_service import StudentService
+        student = StudentService().get_by_user_id(user_id)
+    if not student:
+        fail("Student profile not found.", 404)
+    return ok(data=student)
 
 
-@bp.get("/<int:id>/attendance/summary")
-@jwt_required_custom
-@require_permission("attendance.view")
-def attendance_summary(id):
-    from datetime import date
-    month = request.args.get("month", date.today().strftime("%Y-%m-01"))
-    from app.services.attendance_service import AttendanceService
-    return success(data=AttendanceService().get_monthly_summary(id, month))
+@router.get("/my-children")
+def my_children(user_id: int = Depends(require_permission("students.view"))):
+    with _flask_app().app_context():
+        from app.services.student_service import StudentService
+        data = StudentService().get_by_parent(user_id)
+    return ok(data=data)
 
 
-@bp.get("/<int:id>/grades")
-@jwt_required_custom
-@require_permission("grades.view")
-def student_grades(id):
-    from app.repositories.grade_repository import GradeRepository
-    return success(data=GradeRepository().find_by_student(id))
+@router.get("/meta/next-enrollment-no")
+def next_enrollment_no(user_id: int = Depends(require_permission("students.create"))):
+    with _flask_app().app_context():
+        import psycopg2.extras
+        from app.db.connection import get_db
+        db = get_db()
+        cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT fn_preview_next_id('student') AS preview")
+        preview = cur.fetchone()["preview"]
+    return ok(data={"next_enrollment_no": preview})
 
 
-@bp.get("/<int:id>/siblings")
-@jwt_required_custom
-@require_permission("students.view")
-def student_siblings(id):
-    import psycopg2.extras
-    from app.db.connection import get_db
-    db  = get_db()
-    cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("SELECT * FROM sp_get_student_siblings(%s::integer)", (id,))
-    return success(data=[dict(r) for r in cur.fetchall()])
+@router.get("/meta/classes")
+def get_classes(user_id: int = Depends(require_permission("students.view"))):
+    with _flask_app().app_context():
+        from app.db.connection import execute_query
+        rows = execute_query("SELECT id, name, section FROM classes ORDER BY name")
+        data = [dict(r) for r in rows]
+    return ok(data=data)
 
 
-@bp.get("/my-children")
-@jwt_required_custom
-@require_permission("students.view")
-def my_children():
-    parent_id = int(get_jwt_identity())
-    return success(data=_svc.get_by_parent(parent_id))
-
-
-@bp.get("/meta/classes")
-@jwt_required_custom
-@require_permission("students.view")
-def get_classes():
-    from app.db.connection import execute_query
-    rows = execute_query("SELECT id, name, section FROM classes ORDER BY name")
-    return success(data=[dict(r) for r in rows])
-
-
-@bp.get("/meta/parents")
-@jwt_required_custom
-@require_permission("students.view")
-def get_parents():
-    from app.db.connection import execute_query
-    rows = execute_query("""
-        SELECT u.id, u.first_name || ' ' || u.last_name AS name, u.email
-        FROM users u
-        JOIN user_roles ur ON ur.user_id = u.id
-        JOIN roles r ON r.id = ur.role_id
-        WHERE r.name = 'parent' AND u.is_active = TRUE
-        ORDER BY u.first_name
-    """)
-    return success(data=[dict(r) for r in rows])
-
-@bp.get('/<int:id>/fees')
-@jwt_required_custom
-@require_permission('finance.view')
-def student_fees(id):
-    import psycopg2.extras
-    from app.db.connection import get_db
-    db  = get_db()
-    cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    sql1 = ('SELECT fi.id, fi.amount, fi.net_amount, fi.discount, fi.fine, fi.status, fi.due_date, fi.issued_at, fi.notes, fi.month_year, COALESCE(fs.name, \'Tuition Fee\') AS structure_name, c.name AS class_name, c.section AS class_section, COALESCE((SELECT SUM(p.amount_paid) FROM payments p WHERE p.invoice_id = fi.id), 0) AS paid_amount, (SELECT p2.id FROM payments p2 WHERE p2.invoice_id = fi.id AND p2.is_verified = TRUE ORDER BY p2.paid_at DESC LIMIT 1) AS verified_payment_id FROM fee_invoices fi LEFT JOIN fee_structures fs ON fs.id = fi.fee_structure_id LEFT JOIN classes c ON c.id = fi.for_class_id WHERE fi.student_id = %s AND fi.status != \'cancelled\' ORDER BY fi.issued_at DESC')
-    cur.execute(sql1, (id,))
-    invoices = [dict(r) for r in cur.fetchall()]
-
-    if invoices:
-        invoice_ids = [inv["id"] for inv in invoices]
-        cur.execute(
-            "SELECT invoice_id, label, amount FROM fee_invoice_items "
-            "WHERE invoice_id = ANY(%s::integer[]) AND item_type = 'discount'",
-            (invoice_ids,)
-        )
-        discount_items_by_invoice = {}
-        for row in cur.fetchall():
-            discount_items_by_invoice.setdefault(row["invoice_id"], []).append(
-                {"label": row["label"], "amount": float(row["amount"])}
-            )
-        for inv in invoices:
-            inv["discount_items"] = discount_items_by_invoice.get(inv["id"], [])
-    sql2 = (
-        "SELECT COUNT(*) AS total_invoices,"
-        " COALESCE(SUM(net_amount), 0) AS total_billed,"
-        " COALESCE(SUM(CASE WHEN status = 'paid' THEN net_amount ELSE 0 END), 0) AS total_paid,"
-        " COALESCE(SUM(CASE WHEN status IN ('unpaid','partial','overdue') THEN net_amount ELSE 0 END), 0) AS total_due,"
-        " COUNT(CASE WHEN status = 'overdue' THEN 1 END) AS overdue_count,"
-        " %s AS student_id FROM fee_invoices WHERE student_id = %s AND status != 'cancelled'"
-    )
-    cur.execute(sql2, (id, id))
-    summary = dict(cur.fetchone())
-    summary['total_billed'] = float(summary['total_billed'])
-    summary['total_paid']   = float(summary['total_paid'])
-    summary['total_due']    = float(summary['total_due'])
-    summary['invoices']     = invoices
-    return success(data=summary)
-
-
-@bp.put("/<int:id>/link-parent")
-@jwt_required_custom
-@require_permission("students.edit")
-def link_parent(id):
-    import psycopg2.extras
-    from app.db.connection import get_db
-    body      = request.get_json() or {}
-    parent_id = body.get("parent_id")
-    db  = get_db()
-    cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    if parent_id:
-        cur.execute("""
-            SELECT u.id, u.first_name, u.last_name, u.email
+@router.get("/meta/parents")
+def get_parents(user_id: int = Depends(require_permission("students.view"))):
+    with _flask_app().app_context():
+        from app.db.connection import execute_query
+        rows = execute_query("""
+            SELECT u.id, u.first_name || ' ' || u.last_name AS name, u.email
             FROM users u
             JOIN user_roles ur ON ur.user_id = u.id
             JOIN roles r ON r.id = ur.role_id
-            WHERE u.id = %s AND r.name = 'parent'
-        """, (parent_id,))
-        parent = cur.fetchone()
-        if not parent:
-            return error("User not found or does not have parent role.", 400)
-        cur.execute("UPDATE students SET parent_id = %s WHERE id = %s", (parent_id, id))
-    else:
-        cur.execute("UPDATE students SET parent_id = NULL WHERE id = %s", (id,))
-    db.commit()
-    cur.execute("""
-        SELECT s.*, u.email,
-               pu.first_name || ' ' || pu.last_name AS parent_name,
-               pu.email AS parent_email, pu.phone AS parent_phone
-        FROM students s
-        JOIN users u ON u.id = s.user_id
-        LEFT JOIN users pu ON pu.id = s.parent_id
-        WHERE s.id = %s
-    """, (id,))
-    return success(data=dict(cur.fetchone()), message="Parent updated successfully.")
+            WHERE r.name = 'parent' AND u.is_active = TRUE
+            ORDER BY u.first_name
+        """)
+        data = [dict(r) for r in rows]
+    return ok(data=data)
 
 
-@bp.get("/parents/search")
-@jwt_required_custom
-@require_permission("students.edit")
-def search_parents():
-    import psycopg2.extras
-    from app.db.connection import get_db
-    q   = request.args.get("q", "")
-    db  = get_db()
-    cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    cur.execute("""
-        SELECT u.id, u.first_name, u.last_name, u.email, u.phone,
-               COUNT(s.id) AS children_count
-        FROM users u
-        JOIN user_roles ur ON ur.user_id = u.id
-        JOIN roles r ON r.id = ur.role_id
-        LEFT JOIN students s ON s.parent_id = u.id
-        WHERE r.name = 'parent'
-          AND (u.first_name ILIKE %s OR u.last_name ILIKE %s
-               OR u.email ILIKE %s OR u.phone ILIKE %s
-               OR (u.first_name || ' ' || u.last_name) ILIKE %s)
-        GROUP BY u.id, u.first_name, u.last_name, u.email, u.phone
-        ORDER BY u.first_name
-        LIMIT 20
-    """, [f"%{q}%"] * 5)
-    return success(data=[dict(r) for r in cur.fetchall()])
+@router.get("/parents/search")
+def search_parents(q: Optional[str] = Query(""), user_id: int = Depends(require_permission("students.edit"))):
+    with _flask_app().app_context():
+        import psycopg2.extras
+        from app.db.connection import get_db
+        db = get_db()
+        cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("""
+            SELECT u.id, u.first_name, u.last_name, u.email, u.phone,
+                   COUNT(s.id) AS children_count
+            FROM users u
+            JOIN user_roles ur ON ur.user_id = u.id
+            JOIN roles r ON r.id = ur.role_id
+            LEFT JOIN students s ON s.parent_id = u.id
+            WHERE r.name = 'parent'
+              AND (u.first_name ILIKE %s OR u.last_name ILIKE %s
+                   OR u.email ILIKE %s OR u.phone ILIKE %s
+                   OR (u.first_name || ' ' || u.last_name) ILIKE %s)
+            GROUP BY u.id, u.first_name, u.last_name, u.email, u.phone
+            ORDER BY u.first_name
+            LIMIT 20
+        """, ["%" + q + "%"] * 5)
+        data = [dict(r) for r in cur.fetchall()]
+    return ok(data=data)
+
+
+# ── Parameterized /{id} routes (must come after all literal paths above) ──
+
+@router.get("/{id}")
+def get_student(id: int, user_id: int = Depends(require_permission("students.view"))):
+    with _flask_app().app_context():
+        from app.services.student_service import StudentService
+        try:
+            data = StudentService().get_by_id(id)
+        except ValueError as e:
+            fail(str(e), 404)
+    return ok(data=data)
+
+
+@router.put("/{id}")
+def update_student(id: int, body: StudentUpdateIn, user_id: int = Depends(require_permission("students.edit"))):
+    with _flask_app().app_context():
+        from app.services.student_service import StudentService
+        try:
+            result = StudentService().update(id, body.to_dict())
+        except ValueError as e:
+            fail(str(e), 400)
+    return ok(data=result, message="Student updated successfully.")
+
+
+@router.delete("/{id}")
+def deactivate_student(id: int, user_id: int = Depends(require_permission("students.delete"))):
+    with _flask_app().app_context():
+        from app.services.student_service import StudentService
+        try:
+            StudentService().deactivate(id)
+        except ValueError as e:
+            fail(str(e), 404)
+    return ok(message="Student deactivated.")
+
+
+@router.post("/{id}/reactivate")
+def reactivate_student(id: int, user_id: int = Depends(require_permission("students.delete"))):
+    with _flask_app().app_context():
+        from app.services.student_service import StudentService
+        try:
+            StudentService().reactivate(id)
+        except ValueError as e:
+            fail(str(e), 404)
+    return ok(message="Student reactivated.")
+
+
+@router.get("/{id}/attendance")
+def student_attendance(
+    id: int, from_: Optional[str] = Query(None, alias="from"), to: Optional[str] = Query(None),
+    user_id: int = Depends(require_permission("attendance.view")),
+):
+    if not from_ or not to:
+        fail("from and to query params required", 400)
+    with _flask_app().app_context():
+        from app.services.attendance_service import AttendanceService
+        data = AttendanceService().get_student_attendance(id, from_, to)
+    return ok(data=data)
+
+
+@router.get("/{id}/attendance/summary")
+def attendance_summary(id: int, month: Optional[str] = Query(None), user_id: int = Depends(require_permission("attendance.view"))):
+    from datetime import date
+    month = month or date.today().strftime("%Y-%m-01")
+    with _flask_app().app_context():
+        from app.services.attendance_service import AttendanceService
+        data = AttendanceService().get_monthly_summary(id, month)
+    return ok(data=data)
+
+
+@router.get("/{id}/grades")
+def student_grades(id: int, user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+    try:
+        with _flask_app().app_context():
+            from app.repositories.grade_repository import GradeRepository
+            data = GradeRepository().find_by_student(id)
+        return ok(data=data)
+    except Exception as e:
+        print("[grades error]", e)
+        # Fallback: query results directly
+        cur = get_cur(db)
+        cur.execute("""
+            SELECT sr.id, sub.name AS subject, e.title AS exam, sr.marks_obtained, sr.total_marks,
+                   sr.grade, e.exam_date AS date
+            FROM student_results sr
+            JOIN exams e ON e.id=sr.exam_id
+            JOIN subjects sub ON sub.id=e.subject_id
+            WHERE sr.student_id=%s ORDER BY e.exam_date DESC LIMIT 50
+        """, (id,))
+        rows = [dict(r) for r in cur.fetchall()]
+        return ok(data=rows)
+
+
+@router.get("/{id}/siblings")
+def student_siblings(id: int, user_id: int = Depends(require_permission("students.view"))):
+    with _flask_app().app_context():
+        import psycopg2.extras
+        from app.db.connection import get_db
+        db = get_db()
+        cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute("SELECT * FROM sp_get_student_siblings(%s::integer)", (id,))
+        data = [dict(r) for r in cur.fetchall()]
+    return ok(data=data)
+
+
+@router.get("/{id}/fees")
+def student_fees(id: int, user_id: int = Depends(require_permission("finance.view"))):
+    with _flask_app().app_context():
+        import psycopg2.extras
+        from app.db.connection import get_db
+        db = get_db()
+        cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        sql1 = ('SELECT fi.id, fi.amount, fi.net_amount, fi.discount, fi.fine, fi.status, fi.due_date, fi.issued_at, fi.notes, fi.month_year, COALESCE(fs.name, \'Monthly Fee\') AS structure_name, c.name AS class_name, c.section AS class_section, COALESCE((SELECT SUM(p.amount_paid) FROM payments p WHERE p.invoice_id = fi.id), 0) AS paid_amount, (SELECT p2.id FROM payments p2 WHERE p2.invoice_id = fi.id AND p2.is_verified = TRUE ORDER BY p2.paid_at DESC LIMIT 1) AS verified_payment_id FROM fee_invoices fi LEFT JOIN fee_structures fs ON fs.id = fi.fee_structure_id LEFT JOIN classes c ON c.id = fi.for_class_id WHERE fi.student_id = %s AND fi.status != \'cancelled\' ORDER BY fi.issued_at DESC')
+        cur.execute(sql1, (id,))
+        invoices = [dict(r) for r in cur.fetchall()]
+
+        if invoices:
+            invoice_ids = [inv["id"] for inv in invoices]
+            cur.execute(
+                "SELECT invoice_id, label, amount FROM fee_invoice_items "
+                "WHERE invoice_id = ANY(%s::integer[]) AND item_type = 'discount'",
+                (invoice_ids,)
+            )
+            discount_items_by_invoice = {}
+            for row in cur.fetchall():
+                discount_items_by_invoice.setdefault(row["invoice_id"], []).append(
+                    {"label": row["label"], "amount": float(row["amount"])}
+                )
+            for inv in invoices:
+                inv["discount_items"] = discount_items_by_invoice.get(inv["id"], [])
+        sql2 = (
+            "SELECT COUNT(*) AS total_invoices,"
+            " COALESCE(SUM(net_amount), 0) AS total_billed,"
+            " COALESCE(SUM(CASE WHEN status = 'paid' THEN net_amount ELSE 0 END), 0) AS total_paid,"
+            " COALESCE(SUM(CASE WHEN status IN ('unpaid','partial','overdue') THEN net_amount ELSE 0 END), 0) AS total_due,"
+            " COUNT(CASE WHEN status = 'overdue' THEN 1 END) AS overdue_count,"
+            " %s AS student_id FROM fee_invoices WHERE student_id = %s AND status != 'cancelled'"
+        )
+        cur.execute(sql2, (id, id))
+        summary = dict(cur.fetchone())
+        summary["total_billed"] = float(summary["total_billed"])
+        summary["total_paid"] = float(summary["total_paid"])
+        summary["total_due"] = float(summary["total_due"])
+        summary["invoices"] = invoices
+    return ok(data=summary)
+
+
+@router.get("/{id}/fees/{invoice_id}/timeline")
+def invoice_timeline(id: int, invoice_id: int, user_id: int = Depends(get_current_user_id)):
+    with _flask_app().app_context():
+        import psycopg2.extras
+        from app.db.connection import get_db
+        db = get_db()
+        cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+        cur.execute("SELECT user_id, parent_id FROM students WHERE id = %s", (id,))
+        stu = cur.fetchone()
+        if not stu:
+            fail("Student not found.", 404)
+        if user_id != stu["user_id"] and user_id != stu["parent_id"]:
+            fail("You do not have permission to view this record.", 403)
+
+        cur.execute("""
+            SELECT fi.id, fi.invoice_no, fi.amount, fi.discount, fi.fine, fi.net_amount,
+                   fi.status, fi.due_date, fi.issued_at,
+                   c.name AS class_name, c.section AS class_section,
+                   COALESCE(fs.name, 'Monthly Fee') AS structure_name
+            FROM fee_invoices fi
+            LEFT JOIN classes c ON c.id = fi.for_class_id
+            LEFT JOIN fee_structures fs ON fs.id = fi.fee_structure_id
+            WHERE fi.id = %s AND fi.student_id = %s
+        """, (invoice_id, id))
+        invoice = cur.fetchone()
+        if not invoice:
+            fail("Invoice not found.", 404)
+
+        cur.execute("""
+            SELECT id, amount_paid, method, reference, notes, paid_at, is_verified, verified_at
+            FROM payments WHERE invoice_id = %s ORDER BY paid_at ASC
+        """, (invoice_id,))
+        payments = [dict(r) for r in cur.fetchall()]
+
+        invoice = dict(invoice)
+        invoice["payments"] = payments
+    return ok(data=invoice)
+
+
+@router.put("/{id}/link-parent")
+def link_parent(id: int, body: LinkParentIn, user_id: int = Depends(require_permission("students.edit"))):
+    with _flask_app().app_context():
+        import psycopg2.extras
+        from app.db.connection import get_db
+        db = get_db()
+        cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        if body.parent_id:
+            cur.execute("""
+                SELECT u.id, u.first_name, u.last_name, u.email
+                FROM users u
+                JOIN user_roles ur ON ur.user_id = u.id
+                JOIN roles r ON r.id = ur.role_id
+                WHERE u.id = %s AND r.name = 'parent'
+            """, (body.parent_id,))
+            parent = cur.fetchone()
+            if not parent:
+                fail("User not found or does not have parent role.", 400)
+            cur.execute("UPDATE students SET parent_id = %s WHERE id = %s", (body.parent_id, id))
+        else:
+            cur.execute("UPDATE students SET parent_id = NULL WHERE id = %s", (id,))
+        db.commit()
+        cur.execute("""
+            SELECT s.*, u.email,
+                   pu.first_name || ' ' || pu.last_name AS parent_name,
+                   pu.email AS parent_email, pu.phone AS parent_phone
+            FROM students s
+            JOIN users u ON u.id = s.user_id
+            LEFT JOIN users pu ON pu.id = s.parent_id
+            WHERE s.id = %s
+        """, (id,))
+        data = dict(cur.fetchone())
+    return ok(data=data, message="Parent updated successfully.")

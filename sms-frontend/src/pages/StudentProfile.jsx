@@ -817,7 +817,7 @@ function DiscountsTab({ studentId, can }) {
           <div style={{ display:"flex", gap:8, alignItems:"center" }}>
             {totalPct > 0   && <span className="badge badge-success">{totalPct}% off</span>}
             {totalFixed > 0 && <span className="badge badge-primary">Rs. {totalFixed} off</span>}
-            {(can ? can("discounts.manage") : true) && <button className="btn btn-primary btn-sm" onClick={() => setShowForm(!showForm)}>
+            {(can ? can("discounts.manage") : true) && <button className="btn btn-primary btn-sm" style={{color:"#fff"}} onClick={() => setShowForm(!showForm)}>
               {showForm ? "Cancel" : "+ Assign Discount"}
             </button>}
           </div>
@@ -857,7 +857,7 @@ function DiscountsTab({ studentId, can }) {
             </div>
             <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
               <button type="button" className="btn btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Assigning..." : "Assign Discount"}</button>
+              <button type="submit" className="btn btn-primary" style={{color:"#fff"}} disabled={saving}>{saving ? "Assigning..." : "Assign Discount"}</button>
             </div>
           </form>
         )}

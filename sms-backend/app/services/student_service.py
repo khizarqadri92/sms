@@ -1,4 +1,4 @@
-﻿from typing import Dict, List
+from typing import Dict, List
 import bcrypt
 import re
 from app.repositories.student_repository import StudentRepository
@@ -43,12 +43,18 @@ class StudentService:
             raise ValueError(f"Student {id} not found.")
         return self._repo.delete(id)
 
+    def reactivate(self, id: int):
+        student = self._repo.find_by_id(id)
+        if not student:
+            raise ValueError(f"Student {id} not found.")
+        self._repo.reactivate(id)
+
     def get_by_parent(self, parent_user_id: int) -> List[Dict]:
         return self._repo.find_by_parent(parent_user_id)
 
     def _validate_enrollment(self, data: Dict):
-        for field in ["email", "first_name", "last_name"]:
+        for field in ["first_name", "last_name"]:
             if not data.get(field):
                 raise ValueError(f"{field} is required.")
-        if not re.match(r"[^@]+@[^@]+\.[^@]+", data["email"]):
+        if data.get("email") and not re.match(r"[^@]+@[^@]+\.[^@]+", data["email"]):
             raise ValueError("Invalid email format.")

@@ -50,6 +50,12 @@ class TeacherService:
             raise ValueError(f"Teacher {id} not found.")
         self._repo.delete(id)
 
+    def reactivate(self, id: int):
+        teacher = self._repo.find_by_id(id)
+        if not teacher:
+            raise ValueError(f"Teacher {id} not found.")
+        self._repo.reactivate(id)
+
     def get_subjects(self, id: int) -> List[Dict]:
         return self._repo.get_subjects(id)
 

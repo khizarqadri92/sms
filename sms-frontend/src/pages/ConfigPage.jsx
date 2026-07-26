@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { configApi } from "../api/configApi";
 import { examsApi } from "../api/examsApi";
@@ -30,6 +30,7 @@ export default function ConfigPage() {
     require_principal:true, allow_appeal:false, appeal_days:7,
     required_documents:[], tc_prefix:"TC", auto_generate_tc:true
   });
+  const [waiverAuthRole, setWaiverAuthRole] = useState("principal");
   const [dConfig, setDConfig] = useState({
     violation_types:[], severity_labels:{"1":"Minor","2":"Moderate","3":"Serious","4":"Critical"},
     hearing_min_severity:2, committee_min_members:2, require_head:true,
@@ -55,6 +56,7 @@ export default function ConfigPage() {
 
   useEffect(() => {
     configApi.getWithdrawal().then(r=>setWConfig(r.data.data||wConfig)).catch(()=>{});
+    fetch("/api/v1/settings/category/finance",{headers:{"Authorization":"Bearer "+(localStorage.getItem("access_token")||"")}}).then(r=>r.json()).then(d=>{if(d?.data?.waiver_authority_role)setWaiverAuthRole(d.data.waiver_authority_role);}).catch(()=>{});
     configApi.getDiscipline().then(r=>setDConfig(r.data.data||dConfig)).catch(()=>{});
     examsApi.getTypes().then(r=>setExamTypes(r.data.data||[])).catch(()=>{});
     examsApi.getComponents().then(r=>setComponents(r.data.data||[])).catch(()=>{});
@@ -151,10 +153,23 @@ export default function ConfigPage() {
             </div>
           </div>
           <div className="section-card">
+            <div className="section-card-header"><span className="section-card-title">Fee Waiver Authority</span></div>
+            <div style={{fontSize:13,color:"var(--color-text-secondary)",marginBottom:14}}>Select which role can approve or reject fee waiver requests during withdrawal.</div>
+            <div style={{display:"flex",alignItems:"center",gap:12}}>
+              <select className="form-control" style={{maxWidth:220}} value={waiverAuthRole} onChange={e=>setWaiverAuthRole(e.target.value)}>
+                <option value="principal">Principal</option>
+                <option value="superadmin">Super Admin</option>
+                <option value="admin">Admin</option>
+                <option value="academic_coordinator">Academic Coordinator</option>
+              </select>
+              <button className="btn btn-primary btn-sm" style={{color:"#fff"}} onClick={async()=>{try{await fetch("/api/v1/settings/category/finance",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+(localStorage.getItem("access_token")||"")},body:JSON.stringify({waiver_authority_role:waiverAuthRole})});flash("success","Waiver authority saved.");}catch(e){flash("error","Failed to save.");}}}>Save</button>
+            </div>
+          </div>
+          <div className="section-card">
             <div className="section-card-header"><span className="section-card-title">Required Documents</span></div>
             <div style={{display:"flex",gap:8,marginBottom:12}}>
               <input type="text" className="form-control" value={newDoc} onChange={e=>setNewDoc(e.target.value)} placeholder="e.g. Birth Certificate..." onKeyDown={e=>e.key==="Enter"&&(newDoc.trim()&&setWConfig(c=>({...c,required_documents:[...(c.required_documents||[]),newDoc.trim()]}))&&setNewDoc(""))} />
-              <button className="btn btn-primary btn-sm" onClick={()=>{if(newDoc.trim()){setWConfig(c=>({...c,required_documents:[...(c.required_documents||[]),newDoc.trim()]}));setNewDoc("");}}}>Add</button>
+              <button className="btn btn-primary btn-sm" style={{ color: "#fff" }} onClick={()=>{if(newDoc.trim()){setWConfig(c=>({...c,required_documents:[...(c.required_documents||[]),newDoc.trim()]}));setNewDoc("");}}}>Add</button>
             </div>
             {(wConfig.required_documents||[]).length===0?<div style={{fontSize:13,color:"var(--color-text-secondary)",fontStyle:"italic"}}>No required documents.</div>:(wConfig.required_documents||[]).map((doc,i)=>(
               <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 12px",borderRadius:8,border:"1px solid var(--color-border-tertiary)",background:"var(--color-background-secondary)",marginBottom:6}}>
@@ -224,7 +239,7 @@ export default function ConfigPage() {
             <div style={{display:"flex",gap:8,marginBottom:14,alignItems:"flex-end"}}>
               <div className="form-group" style={{marginBottom:0,flex:1}}><label className="form-label">Violation Label</label><input type="text" className="form-control" value={newViolation.label} onChange={e=>setNewViolation(f=>({...f,label:e.target.value}))} placeholder="e.g. Behavioral - Vandalism" /></div>
               <div className="form-group" style={{marginBottom:0,width:160}}><label className="form-label">Default Severity</label><select className="form-control" value={newViolation.default_severity} onChange={e=>setNewViolation(f=>({...f,default_severity:parseInt(e.target.value)}))}>{[1,2,3,4].map(s=><option key={s} value={s}>{s} - {(dConfig.severity_labels||{})[s]||s}</option>)}</select></div>
-              <button className="btn btn-primary btn-sm" onClick={()=>{if(!newViolation.label.trim())return;const types=Array.isArray(dConfig.violation_types)?dConfig.violation_types:[];const newId=types.length>0?Math.max(...types.map(v=>v.id||0))+1:1;setDConfig(c=>({...c,violation_types:[...types,{...newViolation,id:newId}]}));setNewViolation({label:"",default_severity:1});}}>Add</button>
+              <button className="btn btn-primary btn-sm" style={{ color: "#fff" }} onClick={()=>{if(!newViolation.label.trim())return;const types=Array.isArray(dConfig.violation_types)?dConfig.violation_types:[];const newId=types.length>0?Math.max(...types.map(v=>v.id||0))+1:1;setDConfig(c=>({...c,violation_types:[...types,{...newViolation,id:newId}]}));setNewViolation({label:"",default_severity:1});}}>Add</button>
             </div>
             <div style={{display:"flex",flexDirection:"column",gap:6}}>
               {(dConfig.violation_types||[]).map((v,i)=>(
@@ -270,7 +285,7 @@ export default function ConfigPage() {
                         <div style={{flex:1,display:"flex",gap:10,alignItems:"center"}} onClick={e=>e.stopPropagation()}>
                           <input className="form-control" style={{flex:2}} value={t.name} onChange={e=>setExamTypes(prev=>prev.map((x,j)=>j===i?{...x,name:e.target.value}:x))} />
                           <input className="form-control" style={{width:110}} value={t.code} onChange={e=>setExamTypes(prev=>prev.map((x,j)=>j===i?{...x,code:e.target.value.toUpperCase()}:x))} />
-                          <button className="btn btn-primary btn-sm" onClick={async()=>{await examsApi.updateType(t.id,{name:t.name,code:t.code,weight:t.weight,order_no:t.order_no,is_active:t.is_active,publish_mode:t.publish_mode||"per_class",require_datesheet_approval:t.require_datesheet_approval!==false,include_in_final:t.include_in_final!==false,datesheet_submit_role:t.datesheet_submit_role||"academic_coordinator",datesheet_approve_role:t.datesheet_approve_role||"principal",datesheet_publish_role:t.datesheet_publish_role||"academic_coordinator"});flash("success","Updated.");setEditingType(null);}}>Save</button>
+                          <button className="btn btn-primary btn-sm" style={{ color: "#fff" }} onClick={async()=>{await examsApi.updateType(t.id,{name:t.name,code:t.code,weight:t.weight,order_no:t.order_no,is_active:t.is_active,publish_mode:t.publish_mode||"per_class",require_datesheet_approval:t.require_datesheet_approval!==false,include_in_final:t.include_in_final!==false,datesheet_submit_role:t.datesheet_submit_role||"academic_coordinator",datesheet_approve_role:t.datesheet_approve_role||"principal",datesheet_publish_role:t.datesheet_publish_role||"academic_coordinator"});flash("success","Updated.");setEditingType(null);}}>Save</button>
                           <button className="btn btn-ghost btn-sm" onClick={()=>setEditingType(null)}>Cancel</button>
                         </div>
                       ) : (
@@ -526,7 +541,7 @@ export default function ConfigPage() {
                         <option value="auto">Auto (System)</option>
                       </select>
                     </div>
-                    <button className="btn btn-primary btn-sm" onClick={async()=>{
+                    <button className="btn btn-primary btn-sm" style={{ color: "#fff" }} onClick={async()=>{
                       if(!newComponent.name||!newComponent.code) return flash("error","Name and code required.");
                       try {
                         await examsApi.createComponent(newComponent);

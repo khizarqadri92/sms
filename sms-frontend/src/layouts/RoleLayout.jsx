@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
+import workQueueApi from "../api/workQueueApi";
 import AnnouncementTicker from '../components/AnnouncementTicker';
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import dashboardApi from "../api/dashboardApi";
+import attendanceApi from "../api/attendanceApi";
 import notificationsApi from "../api/notificationsApi";
 import { useTheme } from "../auth/ThemeContext";
 import "./RoleLayout.css";
@@ -11,6 +13,12 @@ const NAV = {
   superadmin: [
     { label:"General",    cat:"General",    items:[
       { label:"Dashboard", path:"/dashboard" },
+      { label:"Work Queue", path:"/work-queue" },
+      { label:"My Leave",   path:"/staff-leave"  },
+      { label:"My Attendance", path:"/my-attendance" },
+      { label:"Department Attendance", path:"/my-department-attendance", requiresHod:true },
+      { label:"My Profile", path:"/my-profile"   },
+      { label:"Workflow Builder", path:"/workflow-builder" },
       { label:"Calendar",  path:"/calendar"  },
     ]},
     { label:"People",     cat:"People",     items:[
@@ -19,18 +27,48 @@ const NAV = {
       { label:"Users",     path:"/users"     },
     ]},
     { label:"Academic",   cat:"Academic",   items:[
-      { label:"Academics",        path:"/academics"      },
-      { label:"Syllabus",         path:"/syllabus"       },
-      { label:"Withdrawal",       path:"/withdrawal"     },
-      { label:"Discipline",       path:"/discipline"     },
+      { label:"Academics",  path:"/academics"      },
+      { label:"Syllabus",   path:"/syllabus"       },
+      { label:"Withdrawal", path:"/withdrawal"     },
+      { label:"Discipline", path:"/discipline"     },
+      { label:"Exams",      path:"/exams",          perm:"exam.view", end:true },
     ]},
-    { label:"Exams",      cat:"Exams",      items:[
-      { label:"Exams",            path:"/exams"                              },
-      { label:"Datesheet",         path:"/datesheet",    perm:"exam.manage" },
-      { label:"Exam Marks",        path:"/exam-marks",   perm:"exam.marks"  },
+    { label:"HR",         cat:"HR",         items:[
+      { label:"Staff Management", path:"/hr/staff",       perm:"hr.view"         },
+      { label:"Leave Management",  path:"/hr/leave",       perm:"hr.view"         },
+      { label:"Employee Attendance", path:"/hr/attendance", perm:"hr.view" },
+      { label:"Payroll Setup", path:"/payroll/setup", perm:"payroll.view" },
+      { label:"Payroll Grades", path:"/payroll/grades", perm:"payroll.view" },
+      { label:"Payroll Adjustments", path:"/payroll/adjustments", perm:"payroll.view" },
+      { label:"Designation Grades", path:"/payroll/designation-grades", perm:"payroll.view" },
+      { label:"Income Tax Slabs", path:"/payroll/tax-slabs", perm:"payroll.view" },
+      { label:"Payroll Runs", path:"/payroll/runs", perm:"payroll.edit" },
+      { label:"HR Setup",         path:"/hr/setup",       perm:"hr.designations" },
     ]},
+    { label:"Reports",    cat:"Reports",    items:[
+      { label:"Employee Attendance", path:"/reports/employee-attendance", perm:"hr.view" },
+      { label:"Student Attendance", path:"/reports/student-attendance", perm:"attendance.view" },
+    ]},
+
     { label:"Finance",    cat:"Finance",    items:[
       { label:"Finance",   path:"/finance"   },
+      { label:"Vendor Invoices", path:"/procurement/vendor-invoices" },
+    ]},
+    { label:"Library",    cat:"Library",    items:[
+      { label:"Management",   path:"/library",          perm:"library.view",   end:true },
+      { label:"Setup",        path:"/library/settings", perm:"library.manage", end:true },
+    ]},
+    { label:"Procurement", cat:"Procurement", items:[
+      { label:"Vendors",      path:"/procurement/vendors", perm:"procurement.view" },
+      { label:"Item Master",  path:"/procurement/items",   perm:"procurement.view" },
+      { label:"Item Categories", path:"/procurement/item-categories", perm:"procurement.manage" },
+      { label:"Requisitions Pipeline", path:"/procurement/pipeline", perm:"procurement.view" },
+      { label:"Purchase Orders", path:"/procurement/purchase-orders", perm:"procurement.view" },
+      { label:"Goods Receipt (GRN)", path:"/procurement/grn", perm:"procurement.view" },
+      { label:"Stock", path:"/procurement/stock", perm:"procurement.view" },
+      { label:"Vendor Invoices", path:"/procurement/vendor-invoices", perm:"procurement.view" },
+      { label:"Departments",  path:"/procurement/departments", perm:"procurement.manage" },
+      { label:"Approval Rules", path:"/procurement/approval-rules", perm:"procurement.manage" },
     ]},
     { label:"Reports",    cat:"Reports",    items:[
       { label:"Attendance",  path:"/admin-attendance"          },
@@ -45,11 +83,24 @@ const NAV = {
       { label:"Leave Setup",      path:"/leave-setup"    },
       { label:"Workflow Config",  path:"/workflow-config" },
     ]},
+    { label:"Purchase Requests", cat:"Purchase Requests", items:[
+      { label:"My Requisitions",    path:"/procurement/my-requisitions",     perm:null },
+      { label:"Pending Approvals",  path:"/procurement/pending-approvals",   perm:null },
+    ]},
   ],
   admin: [
     { label:"General",    cat:"General",    items:[
       { label:"Dashboard", path:"/dashboard" },
+      { label:"Work Queue", path:"/work-queue" },
+      { label:"My Leave",   path:"/staff-leave"  },
+      { label:"My Attendance", path:"/my-attendance" },
+      { label:"Department Attendance", path:"/my-department-attendance", requiresHod:true },
+      { label:"My Profile", path:"/my-profile"   },
       { label:"Calendar",  path:"/calendar"  },
+    ]},
+    { label:"Reports",    cat:"Reports",    items:[
+      { label:"Employee Attendance", path:"/reports/employee-attendance", perm:"hr.view" },
+      { label:"Student Attendance", path:"/reports/student-attendance", perm:"attendance.view" },
     ]},
     { label:"People",     cat:"People",     items:[
       { label:"Students",  path:"/students"  },
@@ -72,10 +123,19 @@ const NAV = {
       { label:"Workflow Config",  path:"/workflow-config" },
       { label:"Announcements",    path:"/announcements"  },
     ]},
+    { label:"Purchase Requests", cat:"Purchase Requests", items:[
+      { label:"My Requisitions",    path:"/procurement/my-requisitions",     perm:null },
+      { label:"Pending Approvals",  path:"/procurement/pending-approvals",   perm:null },
+    ]},
   ],
   principal: [
     { label:"General",    cat:"General",    items:[
       { label:"Dashboard",  path:"/dashboard"  },
+      { label:"Work Queue", path:"/work-queue" },
+      { label:"My Leave",   path:"/staff-leave"  },
+      { label:"My Attendance", path:"/my-attendance" },
+      { label:"Department Attendance", path:"/my-department-attendance", requiresHod:true },
+      { label:"My Profile", path:"/my-profile"   },
       { label:"Calendar",   path:"/calendar"   },
     ]},
     { label:"Academic",   cat:"Academic",   items:[
@@ -102,10 +162,15 @@ const NAV = {
       { label:"Locked Students", path:"/locked-students" },
       { label:"Fee Report", path:"/fee-report" },
     ]},
+    { label:"Purchase Requests", cat:"Purchase Requests", items:[
+      { label:"My Requisitions",    path:"/procurement/my-requisitions",     perm:null },
+      { label:"Pending Approvals",  path:"/procurement/pending-approvals",   perm:null },
+    ]},
   ],
   academic_coordinator: [
     { label:"General",    cat:"General",    items:[
       { label:"Dashboard", path:"/dashboard" },
+      { label:"Work Queue", path:"/work-queue" },
       { label:"Calendar",  path:"/calendar"  },
     ]},
     { label:"Academic",   cat:"Academic",   items:[
@@ -126,10 +191,19 @@ const NAV = {
       { label:"Locked Students", path:"/locked-students" },
       { label:"Fee Report", path:"/fee-report" },
     ]},
+    { label:"Purchase Requests", cat:"Purchase Requests", items:[
+      { label:"My Requisitions",    path:"/procurement/my-requisitions",     perm:null },
+      { label:"Pending Approvals",  path:"/procurement/pending-approvals",   perm:null },
+    ]},
   ],
   teacher: [
     { label:"General",    cat:"General",    items:[
       { label:"Dashboard",  path:"/dashboard" },
+      { label:"Work Queue", path:"/work-queue" },
+      { label:"My Profile", path:"/my-profile" },
+      { label:"My Leave",   path:"/staff-leave" },
+      { label:"My Attendance", path:"/my-attendance" },
+      { label:"Department Attendance", path:"/my-department-attendance", requiresHod:true },
       { label:"Calendar",   path:"/calendar"  },
     ]},
     { label:"Academic",   cat:"Academic",   items:[
@@ -158,14 +232,34 @@ const NAV = {
       { label:"Attendance Report", path:"/attendance-report" },
       { label:"Fee Report", path:"/fee-report" },
     ]},
+    { label:"Purchase Requests", cat:"Purchase Requests", items:[
+      { label:"My Requisitions",    path:"/procurement/my-requisitions",     perm:null },
+      { label:"Pending Approvals",  path:"/procurement/pending-approvals",   perm:null },
+    ]},
   ],
   finance_officer: [
     { label:"General",    cat:"General",    items:[
       { label:"Dashboard", path:"/dashboard" },
+      { label:"Work Queue", path:"/work-queue" },
+      { label:"My Leave",   path:"/staff-leave"  },
+      { label:"My Attendance", path:"/my-attendance" },
+      { label:"Payroll Setup", path:"/payroll/setup", perm:"payroll.view" },
+      { label:"Payroll Grades", path:"/payroll/grades", perm:"payroll.view" },
+      { label:"Payroll Adjustments", path:"/payroll/adjustments", perm:"payroll.view" },
+      { label:"Designation Grades", path:"/payroll/designation-grades", perm:"payroll.view" },
+      { label:"Income Tax Slabs", path:"/payroll/tax-slabs", perm:"payroll.view" },
+      { label:"Payroll Runs", path:"/payroll/runs", perm:"payroll.edit" },
+      { label:"Department Attendance", path:"/my-department-attendance", requiresHod:true },
+      { label:"My Profile", path:"/my-profile"   },
       { label:"Calendar",  path:"/calendar"  },
+    ]},
+    { label:"Reports",    cat:"Reports",    items:[
+      { label:"Employee Attendance", path:"/reports/employee-attendance", perm:"hr.view" },
+      { label:"Student Attendance", path:"/reports/student-attendance", perm:"attendance.view" },
     ]},
     { label:"Finance",    cat:"Finance",    items:[
       { label:"Finance",   path:"/finance"   },
+      { label:"Vendor Invoices", path:"/procurement/vendor-invoices" },
     ]},
     { label:"Academic",   cat:"Academic",   items:[
       { label:"Withdrawal", path:"/withdrawal" },
@@ -173,10 +267,15 @@ const NAV = {
     { label:"Reports",    cat:"Reports",    items:[
       { label:"Fee Report", path:"/fee-report" },
     ]},
+    { label:"Purchase Requests", cat:"Purchase Requests", items:[
+      { label:"My Requisitions",    path:"/procurement/my-requisitions",     perm:null },
+      { label:"Pending Approvals",  path:"/procurement/pending-approvals",   perm:null },
+    ]},
   ],
   parent: [
     { label:"General",    cat:"General",    items:[
       { label:"Dashboard",   path:"/dashboard" },
+      { label:"Work Queue", path:"/work-queue" },
       { label:"Calendar",    path:"/calendar"  },
       { label:"My Children", path:"/children"  },
     ]},
@@ -206,47 +305,113 @@ const NAV = {
   hr: [
     { label:"General",  cat:"General",  items:[
       { label:"Dashboard",      path:"/dashboard",      perm:null           },
+      { label:"Work Queue", path:"/work-queue" },
+      { label:"My Leave",   path:"/staff-leave"  },
+      { label:"My Attendance", path:"/my-attendance" },
+      { label:"Department Attendance", path:"/my-department-attendance", requiresHod:true },
+      { label:"My Profile", path:"/my-profile"   },
       { label:"Calendar",       path:"/calendar",       perm:"calendar.view"},
     ]},
-    { label:"Staff",    cat:"Staff",    items:[
-      { label:"Teachers",       path:"/teachers",       perm:"teachers.view"  },
-      { label:"Attendance",     path:"/attendance",     perm:"attendance.view"},
-      { label:"Leave Requests", path:"/leave-approval", perm:"leave.view_all" },
-      { label:"Withdrawal",       path:"/withdrawal",      perm:"withdrawal.clear" },
+    { label:"Management", cat:"Management", items:[
+      { label:"Staff Management",  path:"/hr/staff",       perm:"hr.view"        },
+      { label:"Leave Management",  path:"/hr/leave",       perm:"hr.view"        },
+      { label:"Employee Attendance", path:"/hr/attendance", perm:"hr.view" },
+      { label:"Payroll Setup", path:"/payroll/setup", perm:"payroll.view" },
+      { label:"Payroll Grades", path:"/payroll/grades", perm:"payroll.view" },
+      { label:"Payroll Adjustments", path:"/payroll/adjustments", perm:"payroll.view" },
+      { label:"Designation Grades", path:"/payroll/designation-grades", perm:"payroll.view" },
+      { label:"Income Tax Slabs", path:"/payroll/tax-slabs", perm:"payroll.view" },
+      { label:"Payroll Runs", path:"/payroll/runs", perm:"payroll.edit" },
+      { label:"Attendance",        path:"/attendance",     perm:"attendance.view"},
+      { label:"Leave Requests",   path:"/leave-approval", perm:"leave.view_all" },
+    ]},
+    { label:"Reports",    cat:"Reports",    items:[
+      { label:"Employee Attendance", path:"/reports/employee-attendance", perm:"hr.view" },
+      { label:"Student Attendance", path:"/reports/student-attendance", perm:"attendance.view" },
+    ]},
+    { label:"Setup",      cat:"Setup",      items:[
+      { label:"HR Setup",         path:"/hr/setup",       perm:"hr.designations"},
     ]},
     { label:"System",   cat:"System",   items:[
       { label:"Settings",       path:"/settings",       perm:"settings.view"  },
+    ]},
+    { label:"Purchase Requests", cat:"Purchase Requests", items:[
+      { label:"My Requisitions",    path:"/procurement/my-requisitions",     perm:null },
+      { label:"Pending Approvals",  path:"/procurement/pending-approvals",   perm:null },
     ]},
   ],
   librarian: [
     { label:"General",  cat:"General",  items:[
       { label:"Dashboard",  path:"/dashboard", perm:null             },
+      { label:"Work Queue", path:"/work-queue" },
+      { label:"My Leave",   path:"/staff-leave"  },
+      { label:"My Attendance", path:"/my-attendance" },
+      { label:"Department Attendance", path:"/my-department-attendance", requiresHod:true },
+      { label:"My Profile", path:"/my-profile"   },
       { label:"Calendar",   path:"/calendar",  perm:"calendar.view"  },
     ]},
-    { label:"Library",  cat:"Library",  items:[
-      { label:"Library",    path:"/library",   perm:"library.view"   },
-      { label:"Students",   path:"/students",  perm:"students.view"  },
-      { label:"Withdrawal", path:"/withdrawal", perm:"withdrawal.clear" },
+    { label:"Library",    cat:"Library",    items:[
+      { label:"Dashboard",    path:"/library",             perm:"library.view" },
+      { label:"Catalog",      path:"/library/catalog",     perm:"library.view" },
+      { label:"Issue/Return", path:"/library/issue-return", perm:"library.issue" },
+      { label:"Members",      path:"/library/members",     perm:"library.manage" },
+      { label:"Damaged Books", path:"/library/damaged",     perm:"library.manage" },
+      { label:"Lost Books",    path:"/library/lost",       perm:"library.manage" },
+      { label:"Inventory",     path:"/library/inventory",  perm:"library.manage" },
+      { label:"Pending Fines", path:"/library/fines",      perm:"library.issue" },
+      { label:"Fine History",  path:"/library/fine-history", perm:"library.issue" },
+      { label:"Students",     path:"/students",  perm:"students.view"  },
+      { label:"Withdrawal",   path:"/withdrawal", perm:"withdrawal.clear" },
+    ]},
+    { label:"Setup",      cat:"Setup",      items:[
+      { label:"Library Settings", path:"/library/settings",    perm:"library.manage" },
+      { label:"Authors",          path:"/library/authors",     perm:"library.manage" },
+      { label:"Publishers",       path:"/library/publishers",  perm:"library.manage" },
+      { label:"Categories",       path:"/library/categories",  perm:"library.manage" },
     ]},
     { label:"System",   cat:"System",   items:[
       { label:"Settings",   path:"/settings",  perm:"settings.view"  },
+    ]},
+    { label:"Purchase Requests", cat:"Purchase Requests", items:[
+      { label:"My Requisitions",    path:"/procurement/my-requisitions",     perm:null },
+      { label:"Pending Approvals",  path:"/procurement/pending-approvals",   perm:null },
     ]},
   ],
   procurement: [
     { label:"General",      cat:"General",      items:[
       { label:"Dashboard",    path:"/dashboard",    perm:null                  },
+      { label:"Work Queue", path:"/work-queue" },
+      { label:"My Leave",   path:"/staff-leave"  },
+      { label:"My Attendance", path:"/my-attendance" },
+      { label:"Department Attendance", path:"/my-department-attendance", requiresHod:true },
+      { label:"My Profile", path:"/my-profile"   },
       { label:"Calendar",     path:"/calendar",     perm:"calendar.view"       },
     ]},
-    { label:"Procurement",  cat:"Procurement",  items:[
+    { label:"Management",  cat:"Management",  items:[
       { label:"Procurement",  path:"/procurement",  perm:"procurement.view"    },
+      { label:"Vendors",      path:"/procurement/vendors", perm:"procurement.view" },
+      { label:"Item Master",  path:"/procurement/items",   perm:"procurement.view" },
+      { label:"Item Categories", path:"/procurement/item-categories", perm:"procurement.manage" },
+      { label:"Requisitions Pipeline", path:"/procurement/pipeline", perm:"procurement.view" },
+      { label:"Purchase Orders", path:"/procurement/purchase-orders", perm:"procurement.view" },
+      { label:"Goods Receipt (GRN)", path:"/procurement/grn", perm:"procurement.view" },
+      { label:"Stock", path:"/procurement/stock", perm:"procurement.view" },
+      { label:"Vendor Invoices", path:"/procurement/vendor-invoices", perm:"procurement.view" },
+      { label:"Departments",  path:"/procurement/departments", perm:"procurement.manage" },
+      { label:"Approval Rules", path:"/procurement/approval-rules", perm:"procurement.manage" },
     ]},
     { label:"System",       cat:"System",       items:[
       { label:"Settings",     path:"/settings",     perm:"settings.view"       },
+    ]},
+    { label:"Purchase Requests", cat:"Purchase Requests", items:[
+      { label:"My Requisitions",    path:"/procurement/my-requisitions",     perm:null },
+      { label:"Pending Approvals",  path:"/procurement/pending-approvals",   perm:null },
     ]},
   ],
   student: [
     { label:"General",    cat:"General",    items:[
       { label:"Dashboard", path:"/dashboard" },
+      { label:"Work Queue", path:"/work-queue" },
       { label:"Calendar",  path:"/calendar"  },
       { label:"Timetable", path:"/timetable" },
     ]},
@@ -325,6 +490,7 @@ const SUBNAV = {
     { label:"Fee Settings",   sub:"fee_settings" },
     { label:"School Timing",     sub:"school_timing"     },
     { label:"Attendance Config", sub:"attendance_config" },
+    { label:"Account Settings",  sub:"account_settings"  },
   ],
   "/my-fees": [
     { label:"My Fees",   sub:"fees"    },
@@ -339,6 +505,28 @@ const SUBNAV = {
   ],
   "/roles": [
     { label:"Roles & Permissions", sub:"roles" },
+  ],
+  "/exams": [
+    { label:"Exams",       path:"/exams",       perm:"exam.view",    end:true },
+    { label:"Datesheet",   path:"/datesheet",   perm:"exam.manage"            },
+    { label:"Exam Marks",  path:"/exam-marks",  perm:"exam.marks"             },
+  ],
+  "/library": [
+    { label:"Dashboard",    path:"/library",              perm:"library.view",   end:true },
+    { label:"Catalog",      path:"/library/catalog",      perm:"library.view"   },
+    { label:"Issue/Return", path:"/library/issue-return", perm:"library.issue"  },
+    { label:"Members",      path:"/library/members",      perm:"library.manage" },
+    { label:"Damaged Books",path:"/library/damaged",      perm:"library.manage" },
+    { label:"Lost Books",   path:"/library/lost",         perm:"library.manage" },
+    { label:"Inventory",    path:"/library/inventory",    perm:"library.manage" },
+    { label:"Pending Fines",path:"/library/fines",        perm:"library.issue"  },
+    { label:"Fine History", path:"/library/fine-history", perm:"library.issue"  },
+  ],
+  "/library/settings": [
+    { label:"Library Settings", path:"/library/settings",   perm:"library.manage" },
+    { label:"Authors",          path:"/library/authors",    perm:"library.manage" },
+    { label:"Publishers",       path:"/library/publishers", perm:"library.manage" },
+    { label:"Categories",       path:"/library/categories", perm:"library.manage" },
   ],
   "/classes": [
     { label:"My Classes",     sub:"list"      },
@@ -408,6 +596,13 @@ function buildHeroStats(role, s) {
         { label:"Academic Year", value: s.academic_year  || "2025-2026" },
         { label:"Status",        value: (s.student_status||"active").charAt(0).toUpperCase()+(s.student_status||"active").slice(1) },
       ];
+    case "librarian":
+      return [
+        { label:"Total Books",       value: s.lib_total_books },
+        { label:"Available Copies",  value: s.lib_available_copies },
+        { label:"Issued Today",      value: s.lib_issued_today },
+        { label:"Overdue Books",     value: s.lib_overdue_count, warn: s.lib_overdue_count > 0 },
+      ];
     default:
       return [
         { label:"Students",            value: s.total_students },
@@ -438,20 +633,37 @@ export default function RoleLayout({ children }) {
   const [subGroup,  setSubGroup]         = useState("main");
   const [notifs, setNotifs]             = useState([]);
   const [unreadCount, setUnreadCount]   = useState(0);
+  const [queueCount,  setQueueCount]    = useState(0);
   const [showNotifs, setShowNotifs]     = useState(false);
   const bellRef                         = React.useRef(null);
 
   const role      = user?.roles?.[0] || "student";
   const userPerms = user?.permissions || [];
+  const [isHod, setIsHod] = useState(false);
+  useEffect(() => {
+    attendanceApi.getMyHodStatus().then(r => setIsHod(!!r.data.data.is_hod)).catch(() => {});
+  }, []);
   const rawNavGroups = NAV[role] || NAV.student;
   const navGroups = rawNavGroups.map(g => ({
     ...g,
-    items: g.items.filter(item => !item.perm || userPerms.includes(item.perm))
+    items: g.items.filter(item => (!item.perm || userPerms.includes(item.perm)) && (!item.requiresHod || isHod))
   })).filter(g => g.items.length > 0);
   const allNavItems = navGroups.flatMap(g => g.items);
 
   const currentPath  = "/" + location.pathname.split("/")[1];
-  const subnavItems  = SUBNAV[currentPath] || [];
+  const fullPath = location.pathname;
+  const subnavItems  = (() => {
+    if(SUBNAV[fullPath]) return SUBNAV[fullPath];
+    // Check if fullPath appears as a path in any SUBNAV group's items
+    const itemKey = Object.keys(SUBNAV).find(k =>
+      Array.isArray(SUBNAV[k]) && SUBNAV[k].some(i => i.path === fullPath)
+    );
+    if(itemKey) return SUBNAV[itemKey];
+    // Prefix match: find longest SUBNAV key that is a prefix of fullPath
+    const prefixKey = Object.keys(SUBNAV).filter(k=>k!=="/" && fullPath.startsWith(k+"/")).sort((a,b)=>b.length-a.length)[0];
+    if(prefixKey) return SUBNAV[prefixKey];
+    return SUBNAV[currentPath] || [];
+  })();
 
   // Active category = group that contains the current path
   const activeCat = navGroups.find(g => g.items.some(i => i.path === currentPath))?.cat || navGroups[0]?.cat;
@@ -490,6 +702,7 @@ export default function RoleLayout({ children }) {
 
   const fetchUnreadCount = () => {
     notificationsApi.getUnreadCount()
+    workQueueApi.getCount().then(r => setQueueCount(r.data?.data?.count || 0)).catch(()=>{})
       .then(res => setUnreadCount(res.data.data?.count || 0))
       .catch(() => {});
   };
@@ -570,8 +783,8 @@ export default function RoleLayout({ children }) {
   // Load school info
   const [schoolInfo, setSchoolInfo] = React.useState({ name:"SchoolMS", logo:null });
   React.useEffect(() => {
-    fetch(process.env.REACT_APP_API_URL + "/settings/category/school_info", {
-      headers: { Authorization: "Bearer " + localStorage.getItem("access_token") }
+    fetch(process.env.REACT_APP_API_URL + "/settings/school-info-public", {
+      headers: { Authorization: "Bearer " + sessionStorage.getItem("access_token") }
     }).then(r => r.json()).then(d => {
       const s = d.data || {};
       setSchoolInfo({ name: s.school_name || "SchoolMS", logo: s.school_logo || null });
@@ -596,7 +809,19 @@ export default function RoleLayout({ children }) {
         <div className="topnav-user">
           <div className="topnav-divider" />
 
-          <div style={{ position:"relative" }} ref={bellRef}>
+          <button
+              onClick={() => window.location.href='/work-queue'}
+              title="Work Queue"
+              style={{ background:"none", border:"none", cursor:"pointer", position:"relative", padding:"4px 6px", display:"flex", alignItems:"center", marginRight:4 }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFD700" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="2" width="6" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+              {queueCount > 0 && (
+                <span style={{ position:"absolute", top:-2, right:-2, background:"#ef4444", color:"#fff", borderRadius:"50%", fontSize:10, fontWeight:700, minWidth:16, height:16, display:"flex", alignItems:"center", justifyContent:"center", padding:"0 3px" }}>
+                  {queueCount > 99 ? "99+" : queueCount}
+                </span>
+              )}
+            </button>
+            <div style={{ position:"relative" }} ref={bellRef}>
             <button
               onClick={handleBellClick}
               style={{ background:"none", border:"none", cursor:"pointer", position:"relative", padding:"4px 6px", display:"flex", alignItems:"center" }}
@@ -679,15 +904,20 @@ export default function RoleLayout({ children }) {
         ))}
         <div style={{ flex:1 }} />
       </div>
-      {/* Ribbon row 2: items for active category */}
+                  {/* Ribbon row 2: items for active category */}
       <div className="ribbon-items">
-        {activeGroup?.items.map(item => (
-          <NavLink key={item.path} to={item.path}
-            className={({ isActive }) => "ribbon-item" + (isActive ? " active" : "")}
+        {activeGroup?.items.map(item => {
+          const isParentActive = item.end
+            ? location.pathname !== item.path &&
+              Array.isArray(SUBNAV[item.path]) &&
+              SUBNAV[item.path].some(s => s.path === location.pathname)
+            : false;
+          return (<NavLink key={item.path} to={item.path} end={!!item.end}
+            className={({ isActive }) => "ribbon-item" + (isActive || isParentActive ? " active" : "")}
             style={item.parent?{paddingLeft:8,fontSize:12,opacity:.85,borderLeft:"2px solid rgba(255,255,255,0.2)",marginLeft:4}:{}}>
             {item.parent&&<span style={{marginRight:4,opacity:.6}}>&#8627;</span>}{item.label}
-          </NavLink>
-        ))}
+          </NavLink>);
+        })}
         {/* Page subnav if exists */}
         {subnavItems.length > 0 && (
           <>
@@ -710,11 +940,18 @@ export default function RoleLayout({ children }) {
               </>
             )}
             {visibleSubnavItems.map(item => (
-              <button key={item.sub}
-                className={"ribbon-item " + (activeSub===item.sub ? "active" : "")}
-                onClick={() => handleSubNav(item.sub)}>
-                {item.label}
-              </button>
+              item.path ? (
+                <NavLink key={item.path} to={item.path} end={!!item.end}
+                  className={({ isActive }) => "ribbon-item" + (isActive ? " active" : "")}>
+                  {item.label}
+                </NavLink>
+              ) : (
+                <button key={item.sub}
+                  className={"ribbon-item " + (activeSub===item.sub ? "active" : "")}
+                  onClick={() => handleSubNav(item.sub)}>
+                  {item.label}
+                </button>
+              )
             ))}
           </>
         )}

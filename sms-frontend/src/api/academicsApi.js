@@ -1,4 +1,4 @@
-﻿import client from "./client";
+import client from "./client";
 
 const academicsApi = {
   getYears:          ()           => client.get("/academics/years"),
@@ -12,6 +12,7 @@ const academicsApi = {
   createSubject:     (data)       => client.post("/academics/subjects", data),
   updateSubject:     (id, data)   => client.put(`/academics/subjects/${id}`, data),
   deleteSubject:     (id)         => client.delete(`/academics/subjects/${id}`),
+  reactivateSubject: (id)         => client.post(`/academics/subjects/${id}/reactivate`),
   getTimetable:      (params)     => client.get("/academics/timetable", { params }),
   createTimetable:   (data)       => client.post("/academics/timetable", data),
   deleteTimetable:   (id)         => client.delete(`/academics/timetable/${id}`),

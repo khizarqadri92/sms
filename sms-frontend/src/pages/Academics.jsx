@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthContext";
 import academicsApi from "../api/academicsApi";
 import teachersApi  from "../api/teachersApi";
@@ -398,6 +398,18 @@ function SubjectsTab() {
     }
   };
 
+  const handleReactivate = async (id) => {
+    if (!window.confirm("Reactivate this subject?")) return;
+    try {
+      await academicsApi.reactivateSubject(id);
+      setSuccess("Subject reactivated.");
+      fetchSubjects();
+      setTimeout(() => setSuccess(""), 3000);
+    } catch {
+      setError("Failed to reactivate subject.");
+    }
+  };
+
   return (
     <div>
       <div className="page-header" style={{ marginBottom:16 }}>
@@ -470,7 +482,11 @@ function SubjectsTab() {
                   </td>
                   <td style={{ display:"flex", gap:6 }}>
                     {can("subjects.manage") && <button className="btn btn-ghost btn-xs" onClick={() => openEdit(s)}>Edit</button>}
-                    {s.is_active && can("subjects.manage") && <button className="btn btn-danger btn-xs" onClick={() => handleDeactivate(s.id)}>Deactivate</button>}
+                    {can("subjects.manage") && (
+                      s.is_active
+                        ? <button className="btn btn-danger btn-xs" onClick={() => handleDeactivate(s.id)}>Deactivate</button>
+                        : <button className="btn btn-secondary btn-xs" onClick={() => handleReactivate(s.id)}>Activate</button>
+                    )}
                   </td>
                 </tr>
               ))}

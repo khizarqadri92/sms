@@ -1,79 +1,127 @@
-﻿from flask import Blueprint, request
-from flask_jwt_extended import get_jwt_identity, get_jwt
-from app.middleware.jwt_guard import jwt_required_custom
-from app.middleware.rbac import require_permission
-from app.utils.response import success, error
-from app.utils.sp_helper import call_sp
-import psycopg2.extras, json
+"""
+Native FastAPI router for Config - migrated from app/api/v1/config.py.
+All 4 stored procedures (sp_get/update_withdrawal_config, sp_get/update_discipline_config)
+already existed and were verified clean (no broken chr()-stub pattern), and
+their signatures were confirmed against pg_proc before wiring this up.
+The call_sp() helper's error-checking pattern is replicated inline.
+"""
 
-bp = Blueprint("config", __name__)
+import json
+from typing import Optional, Any, List
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
 
-def get_cur():
-    from app.db.connection import get_db
-    db = get_db()
-    return db, db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+from app.fastapi_auth import get_current_user_id
+from app.fastapi_permissions import require_permission
+from app.fastapi_db import get_db, get_cur as _get_cur
+
+router = APIRouter()
 
 
-@bp.get("/withdrawal")
-@jwt_required_custom
-@require_permission("settings.view")
-def get_withdrawal_config():
-    db, cur = get_cur()
+def get_cur(db):
+    return _get_cur(db)
+
+
+def fail(message: str, status_code: int = 400, details=None):
+    raise HTTPException(status_code=status_code, detail={"status": "error", "message": message, "details": details})
+
+
+def ok(data=None, message="Success"):
+    return {"status": "success", "message": message, "data": data}
+
+
+class WithdrawalConfigIn(BaseModel):
+    departments: Optional[List[str]] = ["finance", "library", "admin"]
+    require_coordinator: Optional[bool] = True
+    require_principal: Optional[bool] = True
+    allow_appeal: Optional[bool] = False
+    appeal_days: Optional[int] = 7
+    required_documents: Optional[List[Any]] = []
+    tc_prefix: Optional[str] = "TC"
+    auto_generate_tc: Optional[bool] = True
+
+
+class DisciplineConfigIn(BaseModel):
+    violation_types: Optional[List[Any]] = []
+    severity_labels: Optional[dict] = {}
+    hearing_min_severity: Optional[int] = 2
+    committee_min_members: Optional[int] = 2
+    require_head: Optional[bool] = True
+    allow_appeal: Optional[bool] = True
+    appeal_days: Optional[int] = 7
+    max_suspension_days: Optional[int] = 14
+    auto_reinstate: Optional[bool] = True
+
+
+@router.get("/withdrawal")
+def get_withdrawal_config(user_id: int = Depends(require_permission("settings.view")), db=Depends(get_db)):
+    cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_withdrawal_config()")
     row = cur.fetchone()
-    if not row: return error("Config not found", 404)
-    return success(data=dict(row))
+    if not row:
+        fail("Config not found", 404)
+    return ok(data=dict(row))
 
 
-@bp.put("/withdrawal")
-@jwt_required_custom
-@require_permission("settings.manage")
-def update_withdrawal_config():
-    user_id = int(get_jwt_identity())
-    body    = request.get_json() or {}
-    result, err = call_sp("sp_update_withdrawal_config", (
-        user_id,
-        json.dumps(body.get("departments", ["finance","library","admin"])),
-        body.get("require_coordinator", True),
-        body.get("require_principal", True),
-        body.get("allow_appeal", False),
-        body.get("appeal_days", 7),
-        json.dumps(body.get("required_documents", [])),
-        body.get("tc_prefix", "TC"),
-        body.get("auto_generate_tc", True),
-    ))
-    if err: return error(err, 400)
-    return success(message="Withdrawal configuration updated.")
+@router.put("/withdrawal")
+def update_withdrawal_config(body: WithdrawalConfigIn, user_id: int = Depends(require_permission("settings.manage")), db=Depends(get_db)):
+    cur = get_cur(db)
+    try:
+        cur.execute(
+            "SELECT * FROM sp_update_withdrawal_config(%s,%s::jsonb,%s,%s,%s,%s,%s::jsonb,%s,%s)",
+            (
+                user_id, json.dumps(body.departments), body.require_coordinator, body.require_principal,
+                body.allow_appeal, body.appeal_days, json.dumps(body.required_documents),
+                body.tc_prefix, body.auto_generate_tc,
+            )
+        )
+        row = cur.fetchone()
+        result = dict(row) if row else {}
+        error_msg = result.get("error_msg")
+        if error_msg:
+            db.rollback()
+            fail(error_msg, 400)
+        db.commit()
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        fail(str(e), 400)
+    return ok(message="Withdrawal configuration updated.")
 
 
-@bp.get("/discipline")
-@jwt_required_custom
-@require_permission("settings.view")
-def get_discipline_config():
-    db, cur = get_cur()
+@router.get("/discipline")
+def get_discipline_config(user_id: int = Depends(require_permission("settings.view")), db=Depends(get_db)):
+    cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_discipline_config()")
     row = cur.fetchone()
-    if not row: return error("Config not found", 404)
-    return success(data=dict(row))
+    if not row:
+        fail("Config not found", 404)
+    return ok(data=dict(row))
 
 
-@bp.put("/discipline")
-@jwt_required_custom
-@require_permission("settings.manage")
-def update_discipline_config():
-    user_id = int(get_jwt_identity())
-    body    = request.get_json() or {}
-    result, err = call_sp("sp_update_discipline_config", (
-        user_id,
-        json.dumps(body.get("violation_types", [])),
-        json.dumps(body.get("severity_labels", {})),
-        body.get("hearing_min_severity", 2),
-        body.get("committee_min_members", 2),
-        body.get("require_head", True),
-        body.get("allow_appeal", True),
-        body.get("appeal_days", 7),
-        body.get("max_suspension_days", 14),
-        body.get("auto_reinstate", True),
-    ))
-    if err: return error(err, 400)
-    return success(message="Discipline configuration updated.")
+@router.put("/discipline")
+def update_discipline_config(body: DisciplineConfigIn, user_id: int = Depends(require_permission("settings.manage")), db=Depends(get_db)):
+    cur = get_cur(db)
+    try:
+        cur.execute(
+            "SELECT * FROM sp_update_discipline_config(%s,%s::jsonb,%s::jsonb,%s,%s,%s,%s,%s,%s,%s)",
+            (
+                user_id, json.dumps(body.violation_types), json.dumps(body.severity_labels),
+                body.hearing_min_severity, body.committee_min_members, body.require_head,
+                body.allow_appeal, body.appeal_days, body.max_suspension_days, body.auto_reinstate,
+            )
+        )
+        row = cur.fetchone()
+        result = dict(row) if row else {}
+        error_msg = result.get("error_msg")
+        if error_msg:
+            db.rollback()
+            fail(error_msg, 400)
+        db.commit()
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        fail(str(e), 400)
+    return ok(message="Discipline configuration updated.")

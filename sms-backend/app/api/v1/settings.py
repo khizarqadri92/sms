@@ -1,146 +1,157 @@
-from flask import Blueprint, request
-from app.middleware.jwt_guard import jwt_required_custom
-from app.middleware.rbac import require_permission
-from app.utils.response import success, error
-import psycopg2.extras
+"""
+Native FastAPI router for Settings - migrated from app/api/v1/settings.py.
+All 5 stored procedures already existed and were verified clean (no broken
+chr()-stub pattern). Reuses sp_get_all_active_user_ids (built for Calendar)
+for the school_timing bulk-notification lookup.
+"""
 
-bp = Blueprint("settings", __name__)
+from typing import Optional
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
+
+from app.fastapi_auth import get_current_user_id
+from app.fastapi_permissions import require_permission
+from app.fastapi_db import get_db, get_cur as _get_cur
+
+router = APIRouter()
 
 
-def get_cur():
-    from app.db.connection import get_db
-    return get_db(), get_db().cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+def get_cur(db):
+    return _get_cur(db)
 
 
-@bp.get("/public")
-def get_public_settings():
-    from app.db.connection import get_db
-    db  = get_db()
-    cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+def fail(message: str, status_code: int = 400, details=None):
+    raise HTTPException(status_code=status_code, detail={"status": "error", "message": message, "details": details})
+
+
+def ok(data=None, message="Success"):
+    return {"status": "success", "message": message, "data": data}
+
+
+class SettingsBody(BaseModel):
+    class Config:
+        extra = "allow"
+
+
+@router.get("/public")
+def get_public_settings(db=Depends(get_db)):
+    cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_public_settings()")
-    rows = {r["key"]: r["value"] for r in cur.fetchall()}
-    return success(data=rows)
+    return ok(data={r["key"]: r["value"] for r in cur.fetchall()})
 
 
-@bp.get("/")
-@jwt_required_custom
-@require_permission("roles.manage")
-def get_settings():
-    db, cur = get_cur()
+@router.get("/")
+def get_settings(user_id: int = Depends(require_permission("roles.manage")), db=Depends(get_db)):
+    cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_all_settings()")
     rows = cur.fetchall()
     grouped = {}
     for r in rows:
         cat = r["category"]
-        if cat not in grouped:
-            grouped[cat] = []
-        grouped[cat].append(dict(r))
-    return success(data=grouped)
+        grouped.setdefault(cat, []).append(dict(r))
+    return ok(data=grouped)
 
 
-@bp.put("/")
-@jwt_required_custom
-@require_permission("roles.manage")
-def update_settings():
-    body = request.get_json() or {}
-    from flask_jwt_extended import get_jwt_identity
-    user_id = int(get_jwt_identity())
-    db, cur = get_cur()
-    keys   = list(body.keys())
-    values = [str(v) for v in body.values()]
+@router.put("/")
+def update_settings(body: SettingsBody, user_id: int = Depends(require_permission("roles.manage")), db=Depends(get_db)):
+    data = body.dict()
+    keys = list(data.keys())
+    values = [str(v) for v in data.values()]
+    cur = get_cur(db)
     if keys:
-        cur.execute(
-            "SELECT sp_update_settings_by_key(%s::varchar[], %s::varchar[], %s::integer)",
-            (keys, values, user_id)
-        )
+        cur.execute("SELECT sp_update_settings_by_key(%s::varchar[], %s::varchar[], %s::integer)", (keys, values, user_id))
     db.commit()
-    return success(message="Settings saved.")
+    return ok(message="Settings saved.")
 
 
-@bp.get("/preview-id")
-@jwt_required_custom
-@require_permission("roles.manage")
-def preview_id():
-    role = request.args.get("role", "student")
-    db, cur = get_cur()
+@router.get("/preview-id")
+def preview_id(role: str = Query("student"), user_id: int = Depends(require_permission("roles.manage")), db=Depends(get_db)):
+    cur = get_cur(db)
     cur.execute("SELECT fn_generate_id(%s::varchar) AS preview_id", (role,))
     preview = cur.fetchone()["preview_id"]
     db.rollback()
-    return success(data={"preview_id": preview})
+    return ok(data={"preview_id": preview})
 
 
-@bp.get("/fee")
-@jwt_required_custom
-@require_permission("settings.view")
-def get_fee_settings():
-    db, cur = get_cur()
+@router.get("/fee")
+def get_fee_settings(user_id: int = Depends(require_permission("settings.view")), db=Depends(get_db)):
+    cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_settings_by_category(%s::varchar)", ("fee_settings",))
-    rows = cur.fetchall()
-    data = {r["key"]: r["value"] for r in rows}
-    return success(data=data)
+    return ok(data={r["key"]: r["value"] for r in cur.fetchall()})
 
 
-@bp.put("/fee")
-@jwt_required_custom
-@require_permission("settings.manage")
-def update_fee_settings():
-    from flask_jwt_extended import get_jwt_identity
-    user_id = int(get_jwt_identity())
-    body    = request.get_json() or {}
-    allowed = {"fee_due_day","fee_reminder1_days","fee_reminder2_days",
-               "fee_lock_days","fee_late_type","fee_late_fixed",
-               "fee_late_percentage","fee_grace_days","fee_reminder_time"}
-    filtered = {k: v for k, v in body.items() if k in allowed}
-    db, cur = get_cur()
-    keys   = list(filtered.keys())
+@router.put("/fee")
+def update_fee_settings(body: SettingsBody, user_id: int = Depends(require_permission("settings.manage")), db=Depends(get_db)):
+    allowed = {
+        "fee_due_day", "fee_reminder1_days", "fee_reminder2_days",
+        "fee_lock_days", "fee_late_type", "fee_late_fixed",
+        "fee_late_percentage", "fee_grace_days", "fee_reminder_time",
+    }
+    data = body.dict()
+    filtered = {k: v for k, v in data.items() if k in allowed}
+    keys = list(filtered.keys())
     values = [str(v) for v in filtered.values()]
+    cur = get_cur(db)
     if keys:
         cur.execute(
             "SELECT sp_upsert_settings_by_category(%s::varchar, %s::varchar[], %s::varchar[], %s::integer)",
             ("fee_settings", keys, values, user_id)
         )
     db.commit()
-    return success(message="Fee settings saved.")
+    return ok(message="Fee settings saved.")
 
 
-@bp.get("/category/<string:cat>")
-@jwt_required_custom
-@require_permission("settings.view")
-def get_category_settings(cat):
-    db, cur = get_cur()
+@router.get("/category/{cat}")
+def get_category_settings(cat: str, user_id: int = Depends(require_permission("settings.view")), db=Depends(get_db)):
+    cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_settings_by_category(%s::varchar)", (cat,))
-    data = {r["key"]: r["value"] for r in cur.fetchall()}
-    return success(data=data)
+    return ok(data={r["key"]: r["value"] for r in cur.fetchall()})
 
 
-@bp.post("/category/<string:cat>")
-@jwt_required_custom
-@require_permission("settings.manage")
-def save_category_settings(cat):
-    body = request.get_json() or {}
-    from flask_jwt_extended import get_jwt_identity
-    user_id = int(get_jwt_identity())
-    db, cur = get_cur()
-    keys   = list(body.keys())
-    values = [str(v) for v in body.values()]
+@router.get("/security-public")
+def get_security_public_settings(user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+    cur = get_cur(db)
+    cur.execute("SELECT * FROM sp_get_settings_by_category(%s::varchar)", ("security",))
+    all_data = {r["key"]: r["value"] for r in cur.fetchall()}
+    allowed_keys = ("idle_timeout_minutes", "max_failed_attempts", "lockout_duration_minutes")
+    return ok(data={k: v for k, v in all_data.items() if k in allowed_keys})
+
+
+@router.get("/school-info-public")
+def get_school_info_public(user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+    cur = get_cur(db)
+    cur.execute("SELECT * FROM sp_get_settings_by_category(%s::varchar)", ("school_info",))
+    all_data = {r["key"]: r["value"] for r in cur.fetchall()}
+    allowed_keys = ("school_name", "school_logo")
+    return ok(data={k: v for k, v in all_data.items() if k in allowed_keys})
+
+
+@router.post("/category/{cat}")
+def save_category_settings(cat: str, body: SettingsBody, user_id: int = Depends(require_permission("settings.manage")), db=Depends(get_db)):
+    data = body.dict()
+    keys = list(data.keys())
+    values = [str(v) for v in data.values()]
+    cur = get_cur(db)
     if keys:
         cur.execute(
             "SELECT sp_upsert_settings_by_category(%s::varchar, %s::varchar[], %s::varchar[], %s::integer)",
             (cat, keys, values, user_id)
         )
     db.commit()
+
     if cat == "school_timing":
         try:
             from app.utils.notify import send_bulk
-            from app.db.connection import get_db
-            db2 = get_db()
-            cur2 = db2.cursor()
-            cur2.execute("SELECT id FROM users WHERE is_active=TRUE")
-            all_users = [r[0] for r in cur2.fetchall()]
-            send_bulk(all_users,
-                title="School Timing Updated",
-                body="School timing settings have been updated. Please check the new schedule.",
-                ntype="info")
-        except Exception:
-            pass
-    return success(message="Settings saved.")
+            import main as _main
+            cur.execute("SELECT * FROM sp_get_all_active_user_ids()")
+            all_users = [r["id"] for r in cur.fetchall()]
+            with _main.flask_app.app_context():
+                send_bulk(
+                    all_users, title="School Timing Updated",
+                    body="School timing settings have been updated. Please check the new schedule.",
+                    ntype="info"
+                )
+        except Exception as e:
+            print("[settings notify]", e)
+
+    return ok(message="Settings saved.")

@@ -1,6 +1,7 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import studentsApi from "../api/studentsApi";
+import InvoiceTimelineModal from "../components/InvoiceTimelineModal";
 
 export default function Children() {
   const [children, setChildren] = useState([]);
@@ -106,12 +107,12 @@ function ChildOverview({ child }) {
       <div className="section-card">
         <div className="section-card-header">
           <span className="section-card-title">Student Info</span>
-          <span className="badge badge-primary">{child.class_name || "N/A"}</span>
+          <span className="badge badge-primary">{child.class_name ? child.class_name + (child.class_section ? " (" + child.class_section + ")" : "") : "N/A"}</span>
         </div>
         {[
           ["Full Name",     child.first_name + " " + child.last_name],
           ["Enrollment No", child.enrollment_no],
-          ["Class",         child.class_name   || "N/A"],
+          ["Class",         child.class_name ? child.class_name + (child.class_section ? " (" + child.class_section + ")" : "") : "N/A"],
           ["Gender",        child.gender        || "N/A"],
           ["Blood Group",   child.blood_group   || "N/A"],
           ["Status",        child.status        || "active"],
@@ -284,6 +285,7 @@ function ChildFees({ child }) {
   const [loading,     setLoading]     = useState(true);
   const [showPayment, setShowPayment] = useState(null);
   const [success,     setSuccess]     = useState("");
+  const [timelineInvoiceId, setTimelineInvoiceId] = useState(null);
 
   useEffect(() => { fetchFees(); }, [child.id]);
 
@@ -333,8 +335,12 @@ function ChildFees({ child }) {
             <thead>
               <tr>
                 <th>Fee</th>
-                <th>Net Amount</th>
+                <th>Amount</th>
+                <th>Discount</th>
+                <th>Fine</th>
+                <th>Gross Amount</th>
                 <th>Paid</th>
+                <th>Balance</th>
                 <th>Due Date</th>
                 <th>Status</th>
                 <th>Actions</th>
@@ -345,16 +351,27 @@ function ChildFees({ child }) {
                 const balance = Number(inv.net_amount) - Number(inv.paid_amount || 0);
                 const isOverdue = inv.due_date && new Date(inv.due_date) < new Date() && inv.status !== "paid";
                 return (
-                  <tr key={inv.id}>
-                    <td><strong>{inv.structure_name || "Invoice"}</strong></td>
+                  <tr key={inv.id} onClick={() => inv.status === "paid" && setTimelineInvoiceId(inv.id)} style={{ cursor: inv.status === "paid" ? "pointer" : "default" }}>
+                    <td>
+                      <strong>{inv.structure_name || "Invoice"}</strong>
+                      {inv.class_name && (
+                        <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>
+                          {inv.class_name}{inv.class_section ? " (" + inv.class_section + ")" : ""}
+                        </div>
+                      )}
+                    </td>
+                    <td>Rs. {Number(inv.amount).toLocaleString()}</td>
+                    <td style={{ color:"#16a34a" }}>{inv.discount > 0 ? "- Rs. " + Number(inv.discount).toLocaleString() : "N/A"}</td>
+                    <td style={{ color: inv.fine > 0 ? "#dc2626" : "#94a3b8" }}>{inv.fine > 0 ? "+ Rs. " + Number(inv.fine).toLocaleString() : "N/A"}</td>
                     <td><strong>Rs. {Number(inv.net_amount).toLocaleString()}</strong></td>
                     <td style={{ color:"#16a34a" }}>Rs. {Number(inv.paid_amount||0).toLocaleString()}</td>
+                    <td style={{ color:"#dc2626", fontWeight:700 }}>Rs. {Number(balance).toLocaleString()}</td>
                     <td style={{ fontSize:12, color: isOverdue ? "#dc2626" : "#64748b", fontWeight: isOverdue ? 700 : 400 }}>
                       {inv.due_date ? new Date(inv.due_date).toLocaleDateString("en-US") : "N/A"}
                       {isOverdue && <div style={{ fontSize:10, color:"#dc2626" }}>Overdue</div>}
                     </td>
                     <td><span className={"badge " + statusBadge(inv.status)} style={{ textTransform:"capitalize" }}>{inv.status}</span></td>
-                    <td>
+                    <td onClick={e => e.stopPropagation()}>
                       <div style={{ display:"flex", gap:5, flexWrap:"wrap" }}>
                         <button className="btn btn-ghost btn-xs" onClick={() => downloadInvoicePdf(inv.id)}>
                           Invoice
@@ -378,6 +395,14 @@ function ChildFees({ child }) {
             </tbody>
           </table>
         </div>
+      )}
+
+      {timelineInvoiceId && (
+        <InvoiceTimelineModal
+          studentId={child.id}
+          invoiceId={timelineInvoiceId}
+          onClose={() => setTimelineInvoiceId(null)}
+        />
       )}
 
       {showPayment && (

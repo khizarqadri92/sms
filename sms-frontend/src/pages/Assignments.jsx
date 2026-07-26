@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../auth/AuthContext";
 import assignmentsApi from "../api/assignmentsApi";
 import diaryApi from "../api/diaryApi";
@@ -6,7 +6,7 @@ import diaryApi from "../api/diaryApi";
 const today = () => new Date().toISOString().split("T")[0];
 const API   = process.env.REACT_APP_API_URL || "http://localhost:5000/api/v1";
 
-function getToken() { return localStorage.getItem("access_token") || ""; }
+function getToken() { return sessionStorage.getItem("access_token") || ""; }
 
 async function createAssignmentWithFile(data, file) {
   const fd = new FormData();
@@ -248,7 +248,7 @@ function TeacherAssignments() {
     ? inchargeAllSubjects.map(s => ({ id: s.subject_id||s.id, name: s.subject_name }))
     : [...new Map(inchargeAssignments.map(a=>[a.subject_id,{id:a.subject_id,name:a.subject_name}])).values()];
 
-  if (selAssign) return <SubmissionsView assignment={selAssign} onBack={() => setSelAssign(null)} readOnly />;
+  if (selAssign) return <SubmissionsView assignment={selAssign} onBack={() => setSelAssign(null)} />;
 
   return (
     <div>
@@ -293,11 +293,15 @@ function TeacherAssignments() {
         <div>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
             <span style={{ fontWeight:700, fontSize:15, color:"#1e3a5f" }}>Class Assignments — Incharge View</span>
-            {inchargeClasses.length>1 && (
+            {inchargeClasses.length>1 ? (
               <select style={{ height:34, fontSize:12, padding:"0 8px", border:"1px solid #e2e8f0", borderRadius:8, background:"#fff", minWidth:160 }}
                 value={inchargeClass} onChange={e=>{setInchargeClass(e.target.value);setInchargeSubj("");}}>
                 {inchargeClasses.map(c=><option key={c.id} value={c.id}>{c.name}{c.section?" ("+c.section+")":""}</option>)}
               </select>
+            ) : inchargeClasses.length===1 && (
+              <span style={{ fontSize:13, fontWeight:600, color:"#7c3aed", background:"#f5f3ff", padding:"4px 12px", borderRadius:20 }}>
+                {inchargeClasses[0].name}{inchargeClasses[0].section?" ("+inchargeClasses[0].section+")":""}
+              </span>
             )}
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"200px 1fr", gap:16 }}>

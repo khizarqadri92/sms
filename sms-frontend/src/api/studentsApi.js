@@ -1,4 +1,4 @@
-﻿import client from "./client";
+import client from "./client";
 
 const studentsApi = {
   getMyProfile:   ()           => client.get("/students/me"),
@@ -12,10 +12,12 @@ const studentsApi = {
   getAttendanceSummary: (id, params) => client.get(`/students/${id}/attendance/summary`, { params }),
   getGrades:       (id)         => client.get(`/students/${id}/grades`),
   getFees:         (id)         => client.get(`/students/${id}/fees`),
+  getInvoiceTimeline: (id, invoiceId) => client.get(`/students/${id}/fees/${invoiceId}/timeline`),
   getSiblings:     (id)         => client.get(`/students/${id}/siblings`),
   getMyChildren:    ()           => client.get("/students/my-children"),
   linkParent:      (id, data)   => client.put(`/students/${id}/link-parent`, data),
   searchParents:   (q)          => client.get("/students/parents/search", { params: { q } }),
+  getNextEnrollmentNo: ()       => client.get("/students/meta/next-enrollment-no"),
 };
 
 export default studentsApi;

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { examsApi } from "../api/examsApi";
 import client from "../api/client";
@@ -86,7 +86,7 @@ export default function DatesheetView() {
             {children.filter(c=>c.status!=="withdrawn").map(c=>(
               <div key={c.id} onClick={()=>setSelectedChild(c)} style={{padding:"7px 16px",borderRadius:20,border:"1.5px solid",borderColor:selectedChild?.id===c.id?"#0f4c35":"#e2e8f0",background:selectedChild?.id===c.id?"#f0fdf4":"#fafafa",cursor:"pointer",fontWeight:selectedChild?.id===c.id?700:400,fontSize:13,color:selectedChild?.id===c.id?"#0f4c35":"#374151",transition:"all .15s"}}>
                 <div style={{fontWeight:selectedChild?.id===c.id?700:500}}>{c.first_name||""} {c.last_name||""}</div>
-                <div style={{fontSize:10,color:selectedChild?.id===c.id?"#166534":"#94a3b8",marginTop:1}}>{c.class_name}{c.section?" ("+c.section+")":""}</div>
+                <div style={{fontSize:10,color:selectedChild?.id===c.id?"#166534":"#94a3b8",marginTop:1}}>{c.class_name}{c.class_section?" ("+c.class_section+")":""}</div>
               </div>
             ))}
           </div>
