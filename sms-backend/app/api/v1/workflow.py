@@ -428,6 +428,14 @@ def list_roles(user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
+@router.get("/designations/list")
+def list_designations(user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+    """List all active designations for the Designation approver-type dropdown."""
+    cur = get_cur(db)
+    cur.execute("SELECT id, name FROM designations WHERE is_active = true ORDER BY name")
+    return ok(data=[dict(r) for r in cur.fetchall()])
+
+
 # ─── Assignment Conditions ────────────────────────────────────────────────────
 
 class AssignmentConditionIn(BaseModel):

@@ -24,7 +24,7 @@ export default function HRLeave() {
 
   // Leave Types
   const [leaveTypes, setLeaveTypes] = useState([]);
-  const [ltForm, setLtForm]         = useState({name:"",max_days_per_year:"",is_active:true});
+  const [ltForm, setLtForm]         = useState({name:"",max_days_per_year:"",is_active:true,is_encashable:false});
   const [editLtId, setEditLtId]     = useState(null);
 
   // Policies
@@ -119,7 +119,7 @@ export default function HRLeave() {
       if(editLtId) await hrApi.updateLeaveType(editLtId, payload);
       else await hrApi.createLeaveType(payload);
       showFlash("success", editLtId?"Updated.":"Created.");
-      setLtForm({name:"",max_days_per_year:"",is_active:true});
+      setLtForm({name:"",max_days_per_year:"",is_active:true,is_encashable:false});
       setEditLtId(null); loadTypes();
     } catch(e){showFlash("error","Failed.");}
   };
@@ -207,7 +207,7 @@ export default function HRLeave() {
   const ss = (s) => STATUS_COLORS[s]||STATUS_COLORS.cancelled;
 
   return (
-    <div style={{padding:20,maxWidth:1100,margin:"0 auto"}}>
+    <div style={{padding:20,margin:"0 auto"}}>
       <h2 style={{margin:"0 0 16px",fontSize:20,fontWeight:700}}>Staff Leave Management</h2>
 
       {/* Tabs */}
@@ -239,8 +239,12 @@ export default function HRLeave() {
                 <input type="checkbox" checked={ltForm.is_active} onChange={e=>setLtForm(p=>({...p,is_active:e.target.checked}))}/>
                 Active
               </label>
+              <label style={{display:"flex",gap:8,alignItems:"center",fontSize:13,cursor:"pointer"}}>
+                <input type="checkbox" checked={ltForm.is_encashable} onChange={e=>setLtForm(p=>({...p,is_encashable:e.target.checked}))}/>
+                Encashable at Resignation
+              </label>
               <div style={{display:"flex",gap:8}}>
-                {editLtId&&<button className="btn btn-ghost btn-sm" onClick={()=>{setEditLtId(null);setLtForm({name:"",max_days_per_year:"",is_active:true});}}>Cancel</button>}
+                {editLtId&&<button className="btn btn-ghost btn-sm" onClick={()=>{setEditLtId(null);setLtForm({name:"",max_days_per_year:"",is_active:true,is_encashable:false});}}>Cancel</button>}
                 <button className="btn btn-primary btn-sm" style={{color:"#fff"}} onClick={saveLt}>{editLtId?"Update":"Add"} Leave Type</button>
               </div>
             </div>
@@ -254,11 +258,12 @@ export default function HRLeave() {
                   <div style={{fontSize:11,color:"#64748b",marginTop:2}}>
                     {lt.max_days_per_year?`Max ${lt.max_days_per_year} days/year`:"No day limit"}
                     <span style={{marginLeft:8,padding:"1px 6px",borderRadius:6,background:lt.is_active?"#f0fdf4":"#f1f5f9",color:lt.is_active?"#166534":"#475569",fontSize:10,fontWeight:700}}>{lt.is_active?"Active":"Inactive"}</span>
+                    {lt.is_encashable&&<span style={{marginLeft:6,padding:"1px 6px",borderRadius:6,background:"#f0fdf4",color:"#166534",fontSize:10,fontWeight:700}}>Encashable</span>}
                   </div>
                   <div style={{fontSize:11,color:"#94a3b8"}}>{lt.policy_count} policies configured</div>
                 </div>
                 {canEdit&&<div style={{display:"flex",gap:4}}>
-                  <button className="btn btn-ghost btn-sm" style={{fontSize:11}} onClick={()=>{setEditLtId(lt.id);setLtForm({name:lt.name,max_days_per_year:lt.max_days_per_year||"",is_active:lt.is_active});}}>Edit</button>
+                  <button className="btn btn-ghost btn-sm" style={{fontSize:11}} onClick={()=>{setEditLtId(lt.id);setLtForm({name:lt.name,max_days_per_year:lt.max_days_per_year||"",is_active:lt.is_active,is_encashable:lt.is_encashable||false});}}>Edit</button>
                   <button className="btn btn-ghost btn-sm" style={{color:"#dc2626",fontSize:11}} onClick={async()=>{await hrApi.deleteLeaveType(lt.id);loadTypes();}}>Deactivate</button>
                 </div>}
               </div>

@@ -760,6 +760,7 @@ class LeaveTypeIn(BaseModel):
     max_days_per_year: Optional[int] = None
     certificate_required: Optional[bool] = False
     is_active: Optional[bool] = True
+    is_encashable: Optional[bool] = False
 
 class LeaveReviewIn(BaseModel):
     status: str
@@ -774,8 +775,8 @@ def get_staff_leave_types(user_id: int = Depends(require_permission("hr.view")),
 @router.post("/leave/types")
 def create_leave_type(body: LeaveTypeIn, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db)):
     cur = get_cur(db)
-    cur.execute("INSERT INTO leave_types(name, max_days_per_year, certificate_required, is_active) VALUES(%s,%s,%s,%s) RETURNING id",
-        (body.name, body.max_days_per_year, body.certificate_required, body.is_active))
+    cur.execute("INSERT INTO leave_types(name, max_days_per_year, certificate_required, is_active, is_encashable) VALUES(%s,%s,%s,%s,%s) RETURNING id",
+        (body.name, body.max_days_per_year, body.certificate_required, body.is_active, body.is_encashable))
     new_id = cur.fetchone()["id"]
     db.commit()
     return ok(data={"id": new_id}, message="Leave type created.")
@@ -783,8 +784,8 @@ def create_leave_type(body: LeaveTypeIn, user_id: int = Depends(require_permissi
 @router.put("/leave/types/{lt_id}")
 def update_leave_type(lt_id: int, body: LeaveTypeIn, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db)):
     cur = get_cur(db)
-    cur.execute("UPDATE leave_types SET name=%s, max_days_per_year=%s, certificate_required=%s, is_active=%s WHERE id=%s",
-        (body.name, body.max_days_per_year, body.certificate_required, body.is_active, lt_id))
+    cur.execute("UPDATE leave_types SET name=%s, max_days_per_year=%s, certificate_required=%s, is_active=%s, is_encashable=%s WHERE id=%s",
+        (body.name, body.max_days_per_year, body.certificate_required, body.is_active, body.is_encashable, lt_id))
     db.commit()
     return ok(message="Leave type updated.")
 
@@ -915,6 +916,8 @@ RULE_TYPES = ("certificate_required", "cannot_combine_with", "leave_balance", "l
 class HRPolicySettingsIn(BaseModel):
     probation_duration_days: int
     notice_period_duration_days: int
+    resignation_withdrawal_allowed: bool = True
+    resignation_withdrawal_max_step: int = 3
 
 @router.get("/policy-settings")
 def get_policy_settings(user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db)):
@@ -925,8 +928,10 @@ def get_policy_settings(user_id: int = Depends(require_permission("hr.view")), d
 @router.put("/policy-settings")
 def update_policy_settings(body: HRPolicySettingsIn, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db)):
     cur = get_cur(db)
-    cur.execute("""UPDATE hr_policy_settings SET probation_duration_days=%s, notice_period_duration_days=%s WHERE id=1""",
-        (body.probation_duration_days, body.notice_period_duration_days))
+    cur.execute("""UPDATE hr_policy_settings SET probation_duration_days=%s, notice_period_duration_days=%s,
+        resignation_withdrawal_allowed=%s, resignation_withdrawal_max_step=%s WHERE id=1""",
+        (body.probation_duration_days, body.notice_period_duration_days,
+         body.resignation_withdrawal_allowed, body.resignation_withdrawal_max_step))
     db.commit()
     return ok(message="Policy settings updated.")
 
@@ -1057,7 +1062,17 @@ def validate_leave_rules(db, user_id, leave_type_id, from_date, to_date, total_d
                     period_label = "probation"
                 elif restrict_status == "notice_period" and srow["resignation_accepted_date"]:
                     window_start = srow["resignation_accepted_date"]
-                    window_end = window_start + _timedelta(days=srow["notice_period_duration_days"] or 30)
+                    # Use the actual accepted last working day (which HR may have
+                    # set to the employee's requested date, not necessarily
+                    # accepted_date + the default notice duration) instead of
+                    # recalculating it mathematically.
+                    cur4b = get_cur(db)
+                    cur4b.execute("""SELECT COALESCE(final_last_working_day, system_calculated_last_working_day) AS last_day
+                        FROM resignation_requests WHERE staff_id=(SELECT id FROM staff WHERE user_id=%s)
+                        AND status NOT IN ('submitted','manager_approved','rejected','withdrawn')
+                        ORDER BY id DESC LIMIT 1""", (user_id,))
+                    lwd_row = cur4b.fetchone()
+                    window_end = lwd_row["last_day"] if (lwd_row and lwd_row["last_day"]) else (window_start + _timedelta(days=srow["notice_period_duration_days"] or 30))
                     period_label = "notice"
 
                 if window_start and _date2.today() <= window_end:
@@ -1099,7 +1114,15 @@ def get_my_employment_status(user_id: int = Depends(get_current_user_id), db=Dep
 
     today = _d.today()
     probation_end = (srow["joining_date"] + _td(days=srow["probation_duration_days"] or 90)) if (srow["joining_date"] and srow["is_probationary"]) else None
-    notice_end = (srow["resignation_accepted_date"] + _td(days=srow["notice_period_duration_days"] or 30)) if srow["resignation_accepted_date"] else None
+    notice_end = None
+    if srow["resignation_accepted_date"]:
+        cur_lwd = get_cur(db)
+        cur_lwd.execute("""SELECT COALESCE(final_last_working_day, system_calculated_last_working_day) AS last_day
+            FROM resignation_requests WHERE staff_id=(SELECT id FROM staff WHERE user_id=%s)
+            AND status NOT IN ('submitted','manager_approved','rejected','withdrawn')
+            ORDER BY id DESC LIMIT 1""", (user_id,))
+        lwd_row = cur_lwd.fetchone()
+        notice_end = lwd_row["last_day"] if (lwd_row and lwd_row["last_day"]) else (srow["resignation_accepted_date"] + _td(days=srow["notice_period_duration_days"] or 30))
     is_probation = bool(probation_end and today <= probation_end)
     is_notice = bool(notice_end and today <= notice_end)
     current_status = "notice_period" if is_notice else ("probation" if is_probation else None)

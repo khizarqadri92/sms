@@ -1,12 +1,23 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import authApi from "../api/authApi";
+import requestPermissionsApi from "../api/requestPermissionsApi";
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser]               = useState(null);
   const [permissions, setPermissions] = useState([]);
+  const [requestScopes, setRequestScopes] = useState([]);
+  const [requestScopesLoading, setRequestScopesLoading] = useState(true);
   const [loading, setLoading]         = useState(true);
+
+  const loadRequestScopes = () => {
+    setRequestScopesLoading(true);
+    requestPermissionsApi.getMyScopes()
+      .then(r => setRequestScopes(r.data.data?.accessible_request_types || []))
+      .catch(() => {})
+      .finally(() => setRequestScopesLoading(false));
+  };
 
   useEffect(() => {
     const stored = sessionStorage.getItem("user");
@@ -15,6 +26,9 @@ export function AuthProvider({ children }) {
       const parsed = JSON.parse(stored);
       setUser(parsed);
       setPermissions(parsed.permissions || []);
+      loadRequestScopes();
+    } else {
+      setRequestScopesLoading(false);
     }
     setLoading(false);
   }, []);
@@ -27,6 +41,7 @@ export function AuthProvider({ children }) {
     sessionStorage.setItem("user",          JSON.stringify(userData));
     setUser(userData);
     setPermissions(userData.permissions || []);
+    loadRequestScopes();
     // Load per-user theme from backend after login
     fetch("/api/v1/users/profile/theme", {
       headers: { "Authorization": "Bearer " + access_token }
@@ -50,9 +65,10 @@ export function AuthProvider({ children }) {
   };
 
   const can = (permission) => permissions.includes(permission);
+  const hasRequestAccess = (requestType) => requestScopes.includes(requestType);
 
   return (
-    <AuthContext.Provider value={{ user, permissions, loading, login, logout, can }}>
+    <AuthContext.Provider value={{ user, permissions, loading, login, logout, can, hasRequestAccess, requestScopesLoading }}>
       {children}
     </AuthContext.Provider>
   );

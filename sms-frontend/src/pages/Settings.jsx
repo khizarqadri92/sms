@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../auth/AuthContext";
 import settingsApi from "../api/settingsApi";
+import processingDateApi from "../api/processingDateApi";
 
 const TABS = ["ID Formats", "School Info", "Fee Settings", "School Timing", "Attendance Config"];
 
@@ -12,7 +13,7 @@ export default function Settings() {
   useEffect(() => {
     const handler = (e) => {
       const sub = e.detail?.sub;
-      if (["id_formats","school_info","fee_settings","school_timing","attendance_config","account_settings"].includes(sub)) {
+      if (["id_formats","school_info","fee_settings","school_timing","attendance_config","account_settings","regional_format"].includes(sub)) {
         setTab(sub);
       }
     };
@@ -42,6 +43,7 @@ export default function Settings() {
       {tab === "school_info"  && <SchoolInfoTab  onSaved={() => showToast("School info saved.")} canManage={can("settings.manage")} />}
       {tab === "fee_settings"   && <FeeSettingsTab   onSaved={() => showToast("Fee settings saved.")} canManage={can("settings.manage")} />}
       {tab === "school_timing"  && <SchoolTimingTab  onSaved={() => showToast("School timing saved.")} canManage={can("settings.manage")} />}
+      {tab === "regional_format" && <RegionalFormatTab onSaved={() => showToast("Regional & format settings saved.")} canManage={can("settings.manage")} />}
       {tab === "account_settings" && <AccountSettingsTab onSaved={() => showToast("Account security settings saved.")} canManage={can("settings.manage")} />}
     </div>
   );
@@ -818,6 +820,85 @@ function AccountSettingsTab({ onSaved, canManage }) {
   const [loading, setLoading] = useState(true);
   const [saving,  setSaving]  = useState(false);
   const [error,   setError]   = useState("");
+  const [processingDate, setProcessingDate] = useState(null);
+  const [advancing, setAdvancing] = useState(false);
+  const [advanceMsg, setAdvanceMsg] = useState("");
+  const [timeMode, setTimeMode] = useState("auto");
+  const [liveTime, setLiveTime] = useState(null);
+  const [manualTimeInput, setManualTimeInput] = useState("");
+  const [settingTime, setSettingTime] = useState(false);
+  const [timeMsg, setTimeMsg] = useState("");
+  const anchorRef = useRef(null);
+  const [schoolTimezone, setSchoolTimezone] = useState("UTC");
+
+  const loadProcessingDate = () => {
+    processingDateApi.get().then(r => setProcessingDate(r.data.data)).catch(() => {});
+  };
+
+  const loadProcessingTime = () => {
+    processingDateApi.getTime().then(r => {
+      const d = r.data.data;
+      setTimeMode(d.mode);
+      anchorRef.current = { serverTime: new Date(d.current_time), clientTime: Date.now() };
+      setLiveTime(new Date(d.current_time));
+    }).catch(() => {});
+  };
+
+  useEffect(() => {
+    settingsApi.getByCategory("regional_format").then(r => {
+      if (r.data.data?.timezone) setSchoolTimezone(r.data.data.timezone);
+    }).catch(() => {});
+    loadProcessingDate();
+    loadProcessingTime();
+    const interval = setInterval(() => {
+      if (anchorRef.current) {
+        const elapsed = Date.now() - anchorRef.current.clientTime;
+        setLiveTime(new Date(anchorRef.current.serverTime.getTime() + elapsed));
+      }
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleSetAutomatic = async () => {
+    setSettingTime(true); setTimeMsg("");
+    try {
+      await processingDateApi.setAutomatic();
+      setTimeMsg("Processing time set to automatic.");
+      loadProcessingTime();
+    } catch {
+      setTimeMsg("Failed to update.");
+    } finally { setSettingTime(false); }
+  };
+
+  const handleSetManualTime = async () => {
+    if (!manualTimeInput) return;
+    setSettingTime(true); setTimeMsg("");
+    try {
+      const todayStr = liveTime
+        ? new Intl.DateTimeFormat("en-CA", { timeZone: schoolTimezone }).format(liveTime)
+        : new Intl.DateTimeFormat("en-CA", { timeZone: schoolTimezone }).format(new Date());
+      const isoTime = `${todayStr}T${manualTimeInput}:00`;
+      await processingDateApi.setManualTime({ new_time: isoTime });
+      setTimeMsg("Manual processing time set.");
+      loadProcessingTime();
+    } catch {
+      setTimeMsg("Failed to set manual time.");
+    } finally { setSettingTime(false); }
+  };
+
+  const handleAdvance = async () => {
+    if (!window.confirm("Advance the processing date to the next day? This affects all date-based calculations system-wide.")) return;
+    setAdvancing(true); setAdvanceMsg("");
+    try {
+      const r = await processingDateApi.advance();
+      setProcessingDate(r.data.data);
+      setAdvanceMsg("Processing date advanced.");
+    } catch {
+      setAdvanceMsg("Failed to advance processing date.");
+    } finally {
+      setAdvancing(false);
+    }
+  };
 
   useEffect(() => {
     settingsApi.getByCategory("security")
@@ -841,6 +922,72 @@ function AccountSettingsTab({ onSaved, canManage }) {
   return (
     <div>
       {error && <div className="alert alert-error">{error}</div>}
+      <div className="section-card" style={{ marginBottom:16 }}>
+        <div className="section-card-header">
+          <span className="section-card-title">Current Processing Date</span>
+        </div>
+        <div style={{ padding:"12px 0" }}>
+          {advanceMsg && <div style={{ fontSize:13, marginBottom:10, color:advanceMsg.includes("Failed")?"#dc2626":"#166534" }}>{advanceMsg}</div>}
+          <div style={{ display:"flex", alignItems:"center", gap:16, flexWrap:"wrap" }}>
+            <div>
+              <div style={{ fontSize:12, color:"#64748b" }}>Current Processing Date</div>
+              <div style={{ fontSize:20, fontWeight:700 }}>{processingDate?.current_processing_date || "-"}</div>
+            </div>
+            {processingDate?.previous_processing_date && (
+              <div>
+                <div style={{ fontSize:12, color:"#64748b" }}>Previous</div>
+                <div style={{ fontSize:14 }}>{processingDate.previous_processing_date}</div>
+              </div>
+            )}
+            {canManage && (
+              <button className="btn btn-primary btn-sm" style={{ color:"#fff", marginLeft:"auto" }} disabled={advancing} onClick={handleAdvance}>
+                {advancing ? "Advancing..." : "Advance to Next Day"}
+              </button>
+            )}
+          </div>
+          <div style={{ fontSize:11, color:"#94a3b8", marginTop:8 }}>
+            This date drives all system-wide calculations (fee generation, overdue checks, notice periods, etc.) instead of the server clock.
+            It advances automatically every midnight; use this button only for manual/testing overrides.
+          </div>
+        </div>
+      </div>
+
+      <div className="section-card" style={{ marginBottom:16 }}>
+        <div className="section-card-header">
+          <span className="section-card-title">Current Processing Time</span>
+        </div>
+        <div style={{ padding:"12px 0" }}>
+          {timeMsg && <div style={{ fontSize:13, marginBottom:10, color:timeMsg.includes("Failed")?"#dc2626":"#166534" }}>{timeMsg}</div>}
+          <div style={{ display:"flex", alignItems:"center", gap:20, flexWrap:"wrap", marginBottom:12 }}>
+            <div style={{ fontFamily:"monospace", fontSize:28, fontWeight:700, letterSpacing:1 }}>
+              {liveTime ? liveTime.toLocaleTimeString("en-US", { timeZone: schoolTimezone }) : "--:--:--"}
+            </div>
+            <div style={{ fontSize:11, color:"#94a3b8" }}>({schoolTimezone})</div>
+            <span style={{ fontSize:11, fontWeight:700, padding:"3px 10px", borderRadius:12,
+              background: timeMode === "auto" ? "#eff6ff" : "#fff7ed", color: timeMode === "auto" ? "#1d4ed8" : "#c2410c" }}>
+              {timeMode === "auto" ? "Automatic" : "Manual"}
+            </span>
+          </div>
+          {canManage && (
+            <div style={{ display:"flex", alignItems:"flex-end", gap:10, flexWrap:"wrap" }}>
+              <button className="btn btn-ghost btn-sm" disabled={settingTime || timeMode === "auto"} onClick={handleSetAutomatic}>
+                Set Time Automatically
+              </button>
+              <div>
+                <label style={{ fontSize:11, fontWeight:600, display:"block", marginBottom:3 }}>Update Manual Time</label>
+                <input type="time" className="form-control" style={{ width:140 }} value={manualTimeInput} onChange={e => setManualTimeInput(e.target.value)} />
+              </div>
+              <button className="btn btn-primary btn-sm" style={{ color:"#fff" }} disabled={settingTime || !manualTimeInput} onClick={handleSetManualTime}>
+                {settingTime ? "Updating..." : "Update Manual Time"}
+              </button>
+            </div>
+          )}
+          <div style={{ fontSize:11, color:"#94a3b8", marginTop:8 }}>
+            When set manually, the clock keeps ticking forward from the time you set, rather than following the real server clock.
+          </div>
+        </div>
+      </div>
+
       <div className="section-card" style={{ marginBottom:16 }}>
         <div className="section-card-header">
           <span className="section-card-title">Session &amp; Security</span>
@@ -870,6 +1017,230 @@ function AccountSettingsTab({ onSaved, canManage }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+const WEEKDAYS = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+const TIMEZONES = (typeof Intl.supportedValuesOf === "function")
+  ? Intl.supportedValuesOf("timeZone")
+  : ["Asia/Karachi","UTC","America/New_York","Europe/London"];
+
+const COUNTRY_CODES = [
+  "PK","IN","BD","AF","LK","NP","SA","AE","QA","KW","BH","OM","EG","US","GB","CA","AU","NZ",
+  "FR","DE","IT","ES","NL","BE","CH","SE","NO","DK","FI","IE","PT","PL","RU","CN","JP","KR",
+  "SG","MY","ID","TH","PH","VN","TR","IR","IQ","JO","LB","YE","NG","KE","ZA","GH","ET","MA",
+  "DZ","TN","LY","BR","MX","AR","CL","CO","PE",
+];
+
+function getCountryName(code) {
+  try {
+    return new Intl.DisplayNames(["en"], { type: "region" }).of(code);
+  } catch { return code; }
+}
+
+function getTimezoneOffset(tz) {
+  try {
+    const parts = new Intl.DateTimeFormat("en", { timeZone: tz, timeZoneName: "shortOffset" }).formatToParts(new Date());
+    const part = parts.find(p => p.type === "timeZoneName");
+    return part ? part.value : "";
+  } catch { return ""; }
+}
+
+const CURRENCY_SYMBOL_OVERRIDES = {
+  PKR: "Rs", INR: "\u20b9", SAR: "SR", AED: "AED", BDT: "\u09f3", AFN: "Af",
+  NPR: "Rs", LKR: "Rs", EGP: "E\u00a3", QAR: "QR", KWD: "KD", BHD: "BD", OMR: "OMR",
+  IDR: "Rp", MYR: "RM", THB: "\u0e3f", PHP: "\u20b1", VND: "\u20ab", TRY: "\u20ba",
+  ZAR: "R", NGN: "\u20a6", KES: "KSh", CNY: "\u00a5", JPY: "\u00a5",
+};
+
+function getCurrencySymbol(code) {
+  if (CURRENCY_SYMBOL_OVERRIDES[code]) return CURRENCY_SYMBOL_OVERRIDES[code];
+  try {
+    const parts = new Intl.NumberFormat("en", { style: "currency", currency: code }).formatToParts(0);
+    const part = parts.find(p => p.type === "currency");
+    return part ? part.value : code;
+  } catch { return code; }
+}
+
+const CURRENCIES = (typeof Intl.supportedValuesOf === "function")
+  ? Intl.supportedValuesOf("currency").map(code => ({ code, symbol: getCurrencySymbol(code) }))
+  : [{ code:"PKR", symbol:"Rs" }, { code:"USD", symbol:"$" }];
+
+function RegionalFormatTab({ onSaved, canManage }) {
+  const [form, setForm] = useState({
+    date_format: "DD/MM/YYYY", time_format: "24h", decimal_places: "2", region: "en-PK", country: "PK",
+    currency_code: "PKR", currency_symbol: "Rs", currency_position: "prefix",
+    timezone: "Asia/Karachi", weekend_days: "Saturday,Sunday", first_day_of_week: "Monday",
+    academic_year_start_month: "4", fiscal_year_start_month: "7", default_country_code: "+92",
+  });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    settingsApi.getByCategory("regional_format")
+      .then(r => setForm(prev => ({ ...prev, ...r.data.data })))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const toggleWeekendDay = (day) => {
+    setForm(f => {
+      const days = f.weekend_days ? f.weekend_days.split(",").filter(Boolean) : [];
+      const next = days.includes(day) ? days.filter(d => d !== day) : [...days, day];
+      return { ...f, weekend_days: next.join(",") };
+    });
+  };
+
+  const handleSave = async () => {
+    setSaving(true); setError("");
+    try {
+      await settingsApi.saveByCategory("regional_format", form);
+      onSaved();
+    } catch {
+      setError("Failed to save regional & format settings.");
+    } finally { setSaving(false); }
+  };
+
+  if (loading) return <div className="loading-state">Loading...</div>;
+
+  const weekendDaysArr = form.weekend_days ? form.weekend_days.split(",").filter(Boolean) : [];
+
+  return (
+    <div>
+      {error && <div className="alert alert-error">{error}</div>}
+      <div className="section-card" style={{ marginBottom:16 }}>
+        <div className="section-card-header">
+          <span className="section-card-title">Date &amp; Time</span>
+        </div>
+        <div className="form-grid">
+          <div className="form-group">
+            <label className="form-label">Date Format</label>
+            <select className="form-control" value={form.date_format} onChange={e => setForm({...form, date_format:e.target.value})} disabled={!canManage}>
+              <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+              <option value="DD-MM-YYYY">DD-MM-YYYY</option>
+              <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+              <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+              <option value="DD MMM YYYY">DD MMM YYYY (04 Aug 2026)</option>
+              <option value="MMM DD, YYYY">MMM DD, YYYY (Aug 04, 2026)</option>
+              <option value="DD MMMM YYYY">DD MMMM YYYY (04 August 2026)</option>
+              <option value="MMMM DD, YYYY">MMMM DD, YYYY (August 04, 2026)</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Time Format</label>
+            <select className="form-control" value={form.time_format} onChange={e => setForm({...form, time_format:e.target.value})} disabled={!canManage}>
+              <option value="24h">24-hour</option>
+              <option value="12h">12-hour (AM/PM)</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Timezone</label>
+            <select className="form-control" value={form.timezone} onChange={e => setForm({...form, timezone:e.target.value})} disabled={!canManage}>
+              {TIMEZONES.map(tz => <option key={tz} value={tz}>{tz} ({getTimezoneOffset(tz)})</option>)}
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">First Day of Week</label>
+            <select className="form-control" value={form.first_day_of_week} onChange={e => setForm({...form, first_day_of_week:e.target.value})} disabled={!canManage}>
+              {WEEKDAYS.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div className="section-card" style={{ marginBottom:16 }}>
+        <div className="section-card-header">
+          <span className="section-card-title">Weekend Days</span>
+        </div>
+        <div style={{ display:"flex", gap:14, flexWrap:"wrap", padding:"8px 0" }}>
+          {WEEKDAYS.map(d => (
+            <label key={d} style={{ display:"flex", alignItems:"center", gap:6, fontSize:13, cursor:canManage?"pointer":"default" }}>
+              <input type="checkbox" checked={weekendDaysArr.includes(d)} onChange={() => toggleWeekendDay(d)} disabled={!canManage} />
+              {d}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="section-card" style={{ marginBottom:16 }}>
+        <div className="section-card-header">
+          <span className="section-card-title">Currency &amp; Numbers</span>
+        </div>
+        <div className="form-grid">
+          <div className="form-group">
+            <label className="form-label">Currency Code</label>
+            <select className="form-control" value={form.currency_code} onChange={e => {
+              const match = CURRENCIES.find(c => c.code === e.target.value);
+              setForm({...form, currency_code:e.target.value, currency_symbol: match ? match.symbol : form.currency_symbol});
+            }} disabled={!canManage}>
+              {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Currency Symbol</label>
+            <input className="form-control" value={form.currency_symbol} disabled style={{background:"#f1f5f9",color:"#64748b"}} />
+            <div style={{ fontSize:11, color:"#94a3b8", marginTop:4 }}>Auto-set from the Currency Code above.</div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Symbol Position</label>
+            <select className="form-control" value={form.currency_position} onChange={e => setForm({...form, currency_position:e.target.value})} disabled={!canManage}>
+              <option value="prefix">Before amount (Rs 500)</option>
+              <option value="suffix">After amount (500 Rs)</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Decimal Places</label>
+            <input className="form-control" type="number" min="0" max="4" value={form.decimal_places} onChange={e => setForm({...form, decimal_places:e.target.value})} disabled={!canManage} />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Country</label>
+            <select className="form-control" value={form.country || "PK"} onChange={e => setForm({...form, country:e.target.value, region:`en-${e.target.value}`})} disabled={!canManage}>
+              {COUNTRY_CODES.map(code => <option key={code} value={code}>{getCountryName(code)}</option>)}
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Region (number formatting)</label>
+            <input className="form-control" value={form.region} disabled style={{background:"#f1f5f9",color:"#64748b"}} />
+            <div style={{ fontSize:11, color:"#94a3b8", marginTop:4 }}>Auto-set from the Country above.</div>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Default Phone Country Code</label>
+            <input className="form-control" value={form.default_country_code} onChange={e => setForm({...form, default_country_code:e.target.value})} disabled={!canManage} placeholder="e.g. +92" />
+          </div>
+        </div>
+      </div>
+
+      <div className="section-card" style={{ marginBottom:16 }}>
+        <div className="section-card-header">
+          <span className="section-card-title">Academic &amp; Fiscal Year</span>
+        </div>
+        <div className="form-grid">
+          <div className="form-group">
+            <label className="form-label">Academic Year Start Month</label>
+            <select className="form-control" value={form.academic_year_start_month} onChange={e => setForm({...form, academic_year_start_month:e.target.value})} disabled={!canManage}>
+              {MONTHS.map((m,i) => <option key={m} value={i+1}>{m}</option>)}
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label">Fiscal Year Start Month</label>
+            <select className="form-control" value={form.fiscal_year_start_month} onChange={e => setForm({...form, fiscal_year_start_month:e.target.value})} disabled={!canManage}>
+              {MONTHS.map((m,i) => <option key={m} value={i+1}>{m}</option>)}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {canManage && (
+        <div style={{ display:"flex", justifyContent:"flex-end" }}>
+          <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+            {saving ? "Saving..." : "Save Regional & Format Settings"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

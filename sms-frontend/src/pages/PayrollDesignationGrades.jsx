@@ -59,7 +59,7 @@ export default function PayrollDesignationGrades() {
   if (loading) return <div style={{ padding: 60, textAlign: "center", color: "#64748b" }}>Loading...</div>;
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: 24 }}>
+    <div style={{ margin: "0 auto", padding: 24 }}>
       <div style={{ marginBottom: 20 }}>
         <div style={{ fontSize: 22, fontWeight: 800, color: "#0f172a" }}>Designation - Grade Mapping</div>
         <div style={{ fontSize: 13, color: "#64748b" }}>Assign each designation to a payroll grade. A grade can be shared by multiple designations; a designation maps to exactly one grade.</div>

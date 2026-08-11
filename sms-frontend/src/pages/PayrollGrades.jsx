@@ -10,7 +10,7 @@ const CALC_LABELS = {
 };
 
 export default function PayrollGrades() {
-  const [settings, setSettings] = useState({ basic_salary_mode: "individual", days_in_month_mode: "fixed_30", fixed_days_value: 30 });
+  const [settings, setSettings] = useState({ basic_salary_mode: "individual", days_in_month_mode: "fixed_30", fixed_days_value: 30, pf_employer_contribution_mode: "same_as_employee", pf_employer_percentage: 0, pf_employer_fixed_amount: 0 });
   const [settingsMsg, setSettingsMsg] = useState(null);
   const [savingSettings, setSavingSettings] = useState(false);
 
@@ -218,7 +218,7 @@ export default function PayrollGrades() {
   if (loading) return <div style={{ padding: 60, textAlign: "center", color: "#64748b" }}>Loading...</div>;
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: 24 }}>
+    <div style={{ margin: "0 auto", padding: 24 }}>
       <div style={{ marginBottom: 20 }}>
         <div style={{ fontSize: 22, fontWeight: 800, color: "#0f172a" }}>Payroll Grades</div>
         <div style={{ fontSize: 13, color: "#64748b" }}>Define employee grades and attach salary components to each</div>
@@ -259,6 +259,32 @@ export default function PayrollGrades() {
             <input type="radio" checked={settings.days_in_month_mode === "actual"}
               onChange={() => setSettings(p => ({ ...p, days_in_month_mode: "actual" }))} />
             Actual calendar days in that month (28-31)
+          </label>
+        </div>
+
+        <div style={{ fontWeight: 700, fontSize: 14, marginTop: 20, marginBottom: 10 }}>Employer Provident Fund Contribution</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
+          <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13, cursor: "pointer" }}>
+            <input type="radio" checked={settings.pf_employer_contribution_mode === "same_as_employee"}
+              onChange={() => setSettings(p => ({ ...p, pf_employer_contribution_mode: "same_as_employee" }))} />
+            Same as employee deduction percentage
+          </label>
+          <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13, cursor: "pointer" }}>
+            <input type="radio" checked={settings.pf_employer_contribution_mode === "percentage"}
+              onChange={() => setSettings(p => ({ ...p, pf_employer_contribution_mode: "percentage" }))} />
+            Different percentage of basic salary:
+            <input type="number" min="0" max="100" step="0.01" className="form-input" style={{ width: 80, fontSize: 13 }}
+              disabled={settings.pf_employer_contribution_mode !== "percentage"}
+              value={settings.pf_employer_percentage} onChange={e => setSettings(p => ({ ...p, pf_employer_percentage: e.target.value }))} />
+            %
+          </label>
+          <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13, cursor: "pointer" }}>
+            <input type="radio" checked={settings.pf_employer_contribution_mode === "fixed"}
+              onChange={() => setSettings(p => ({ ...p, pf_employer_contribution_mode: "fixed" }))} />
+            Fixed amount per employee:
+            <input type="number" min="0" step="0.01" className="form-input" style={{ width: 100, fontSize: 13 }}
+              disabled={settings.pf_employer_contribution_mode !== "fixed"}
+              value={settings.pf_employer_fixed_amount} onChange={e => setSettings(p => ({ ...p, pf_employer_fixed_amount: e.target.value }))} />
           </label>
         </div>
         <button className="btn btn-primary btn-sm" style={{ color: "#fff" }} disabled={savingSettings} onClick={saveSettings}>

@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 from app.fastapi_auth import get_current_user_id
 from app.fastapi_db import get_db, get_cur as _get_cur
+from app.utils.processing_date import get_processing_date
 
 router = APIRouter()
 
@@ -134,8 +135,8 @@ def my_today(user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
     staff_id = _get_staff_id_for_user(db, user_id)
     cur = get_cur(db)
     cur.execute("""SELECT * FROM staff_attendance_sessions
-        WHERE staff_id=%s AND clock_in_at::date = CURRENT_DATE
-        ORDER BY clock_in_at""", (staff_id,))
+        WHERE staff_id=%s AND clock_in_at::date = %s
+        ORDER BY clock_in_at""", (staff_id, get_processing_date(db)))
     sessions = [dict(r) for r in cur.fetchall()]
     is_clocked_in = any(s["clock_out_at"] is None for s in sessions)
     return ok(data={"sessions": sessions, "is_clocked_in": is_clocked_in})

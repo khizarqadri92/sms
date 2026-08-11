@@ -18,6 +18,10 @@ const ENTITY_TYPE_LABELS = {
   withdrawal_request: "Withdrawal Request",
   staff_leave: "Staff Leave Request",
   attendance_correction: "Attendance Correction",
+  payroll_run: "Payroll Run",
+  resignation: "Resignation Request",
+  resignation_clearance: "Clearance Request",
+  resignation_experience_letter: "Experience Letter Request",
 };
 
 function timeAgo(dateStr) {
@@ -100,6 +104,28 @@ export default function WorkQueue() {
   };
 
   const getColor = (item) => colorMap[item.entity_status] || colorMap[item.action_required] || DEFAULT_COLOR;
+
+  const openItem = (item) => {
+    if (item.module === "withdrawal") { setWithdrawalReqId(item.entity_id); setWithdrawalWqItem(item); }
+    else if (item.module === "discipline") { setDisciplineCaseId(item.entity_id); }
+    else { setActionItem(item); }
+  };
+
+  // Deep-link support: notifications link to /work-queue?id={entity_id},
+  // so once items load, find and auto-open the matching one.
+  useEffect(() => {
+    if (loading || items.length === 0) return;
+    const params = new URLSearchParams(window.location.search);
+    const targetId = params.get("id");
+    if (!targetId) return;
+    const match = items.find(i => String(i.entity_id) === targetId);
+    if (match) {
+      openItem(match);
+      params.delete("id");
+      const newSearch = params.toString();
+      window.history.replaceState({}, "", window.location.pathname + (newSearch ? "?" + newSearch : ""));
+    }
+  }, [loading, items]);
 
   const pending = items.filter(i => i.status === "pending").length;
   const urgent  = items.filter(i => i.priority === "urgent" && i.status === "pending").length;
@@ -228,7 +254,7 @@ export default function WorkQueue() {
             const statusKey = item.entity_status || "submitted";
             return (
               <div key={item.id}
-                onClick={() => { if(item.module==="withdrawal"){setWithdrawalReqId(item.entity_id);setWithdrawalWqItem(item);}else if(item.module==="discipline"){setDisciplineCaseId(item.entity_id);}else if(item.module==="discipline"&&item.action_required==="submit_remarks"){setDisciplineCaseId(item.entity_id);}else{setActionItem(item);} }}
+                onClick={() => openItem(item)}
                 style={{
                   display:"grid", gridTemplateColumns:"2fr 1.2fr 0.8fr 1fr 1fr 1fr 1fr 70px",
                   padding:"11px 16px", cursor:"pointer",

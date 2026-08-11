@@ -28,6 +28,7 @@ Usage:
 import json
 from typing import Optional, Dict, Any
 import psycopg2.extras
+from app.utils.processing_date import get_processing_datetime
 
 
 OPERATOR_MAP = {
@@ -59,6 +60,7 @@ class WorkflowEngine:
         """
         context = context or {}
         cur = self._cur(db)
+        proc_time = get_processing_datetime(db)
 
         # 1. Find matching workflow
         workflow = self._find_workflow(cur, module, entity_type, context)
@@ -80,11 +82,11 @@ class WorkflowEngine:
         cur.execute("""
             INSERT INTO workflow_instances
                 (workflow_id, module, entity_type, entity_id, status, current_step_order,
-                 context, initiated_by, submitter_id)
-            VALUES (%s, %s, %s, %s, 'active', 1, %s::jsonb, %s, %s)
+                 context, initiated_by, submitter_id, created_at, updated_at)
+            VALUES (%s, %s, %s, %s, 'active', 1, %s::jsonb, %s, %s, %s, %s)
             RETURNING id
         """, (workflow['id'], module, entity_type, entity_id,
-              json.dumps(context), initiated_by, submitter_id or initiated_by))
+              json.dumps(context), initiated_by, submitter_id or initiated_by, proc_time, proc_time))
         instance_id = cur.fetchone()['id']
 
         # 4. Load steps and evaluate conditions
@@ -108,8 +110,8 @@ class WorkflowEngine:
         if not active_steps:
             # No steps — complete immediately
             cur.execute(
-                "UPDATE workflow_instances SET status='completed', completed_at=NOW() WHERE id=%s",
-                (instance_id,)
+                "UPDATE workflow_instances SET status='completed', completed_at=%s WHERE id=%s",
+                (proc_time, instance_id)
             )
             return {'id': instance_id, 'status': 'completed', 'workflow_id': workflow['id']}
 
@@ -119,11 +121,11 @@ class WorkflowEngine:
             cur.execute("""
                 INSERT INTO workflow_step_instances
                     (instance_id, step_id, step_order, step_name, step_type,
-                     status, assigned_to_id, assigned_role)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                     status, assigned_to_id, assigned_role, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (instance_id, step['id'], i + 1, step['step_name'], step['step_type'],
                   'pending' if i == 0 else 'pending',
-                  assigned_to_id, assigned_role))
+                  assigned_to_id, assigned_role, proc_time))
 
         # 6. Activate first step
         cur.execute("""
@@ -147,6 +149,7 @@ class WorkflowEngine:
         Returns dict with next_step info or completion status.
         """
         cur = self._cur(db)
+        proc_time = get_processing_datetime(db)
 
         # Get active instance
         cur.execute("""
@@ -182,17 +185,17 @@ class WorkflowEngine:
         new_status = 'rejected' if is_rejection else 'approved'
         cur.execute("""
             UPDATE workflow_step_instances
-            SET status=%s, actioned_by=%s, actioned_at=NOW(), note=%s
+            SET status=%s, actioned_by=%s, actioned_at=%s, note=%s
             WHERE id=%s
-        """, (new_status, actioned_by, note, current_step_inst['id']))
+        """, (new_status, actioned_by, proc_time, note, current_step_inst['id']))
 
         # Complete WQ item if linked
         if current_step_inst.get('wq_item_id'):
             cur.execute("""
                 UPDATE work_queue_items
-                SET status='completed', completed_by=%s, completed_at=NOW(), updated_at=NOW()
+                SET status='completed', completed_by=%s, completed_at=%s, updated_at=%s
                 WHERE id=%s
-            """, (actioned_by, current_step_inst['wq_item_id']))
+            """, (actioned_by, proc_time, proc_time, current_step_inst['wq_item_id']))
 
         if is_rejection:
             # Reject: skip remaining steps, complete instance as rejected
@@ -202,14 +205,14 @@ class WorkflowEngine:
             """, (instance['id'], current_step_inst['id']))
             cur.execute("""
                 UPDATE workflow_instances
-                SET status='rejected', completed_at=NOW(), updated_at=NOW()
+                SET status='rejected', completed_at=%s, updated_at=%s
                 WHERE id=%s
-            """, (instance['id'],))
+            """, (proc_time, proc_time, instance['id']))
 
             # Update WQ items for this entity
             entity_status = current_step_inst.get('entity_status_on_reject') or 'rejected'
             self._update_entity_wq(cur, module, entity_id, entity_type,
-                                   entity_status, actioned_by)
+                                   entity_status, actioned_by, proc_time=proc_time)
             return {'status': 'rejected', 'entity_status': entity_status}
 
         # Approval: find next pending step
@@ -232,12 +235,12 @@ class WorkflowEngine:
             # All steps done — complete workflow
             cur.execute("""
                 UPDATE workflow_instances
-                SET status='completed', completed_at=NOW(), updated_at=NOW()
+                SET status='completed', completed_at=%s, updated_at=%s
                 WHERE id=%s
-            """, (instance['id'],))
+            """, (proc_time, proc_time, instance['id']))
             final_status = (entity_status_on_approve or 'approved').lower()
             self._update_entity_wq(cur, module, entity_id, entity_type,
-                                   final_status, actioned_by)
+                                   final_status, actioned_by, proc_time=proc_time)
             return {'status': 'completed', 'entity_status': final_status}
 
         # Activate next step
@@ -255,16 +258,16 @@ class WorkflowEngine:
         """, (assigned_to_id, assigned_role, next_step_inst['id']))
 
         cur.execute("""
-            UPDATE workflow_instances SET current_step_order=%s, updated_at=NOW()
+            UPDATE workflow_instances SET current_step_order=%s, updated_at=%s
             WHERE id=%s
-        """, (next_step_inst['step_order'], instance['id']))
+        """, (next_step_inst['step_order'], proc_time, instance['id']))
 
         # Intermediate entity status
         if entity_status_on_approve:
             self._update_entity_wq(cur, module, entity_id, entity_type,
                                    entity_status_on_approve, actioned_by,
                                    next_assignee_id=assigned_to_id,
-                                   next_assignee_role=assigned_role)
+                                   next_assignee_role=assigned_role, proc_time=proc_time)
 
         self._activate_step(db, cur, instance['id'], next_step_inst,
                             assigned_to_id, assigned_role,
@@ -282,15 +285,16 @@ class WorkflowEngine:
 
     def cancel(self, db, module: str, entity_type: str, entity_id: int) -> bool:
         cur = self._cur(db)
+        proc_time = get_processing_datetime(db)
         cur.execute("""
-            UPDATE workflow_instances SET status='cancelled', updated_at=NOW()
+            UPDATE workflow_instances SET status='cancelled', updated_at=%s
             WHERE module=%s AND entity_type=%s AND entity_id=%s AND status='active'
             RETURNING id
-        """, (module, entity_type, entity_id))
+        """, (proc_time, module, entity_type, entity_id))
         row = cur.fetchone()
         if row:
             cur.execute("UPDATE workflow_step_instances SET status='skipped' WHERE instance_id=%s AND status='pending'", (row['id'],))
-            cur.execute("UPDATE work_queue_items SET status='cancelled', updated_at=NOW() WHERE module=%s AND entity_id=%s AND status='pending'", (module, entity_id))
+            cur.execute("UPDATE work_queue_items SET status='cancelled', updated_at=%s WHERE module=%s AND entity_id=%s AND status='pending'", (proc_time, module, entity_id))
         return bool(row)
 
     def get_status(self, db, module: str, entity_type: str, entity_id: int) -> Optional[Dict]:
@@ -467,6 +471,23 @@ class WorkflowEngine:
                 if row:
                     assigned_to_id = row['head_user_id']
             assigned_role = 'department_head'
+        elif approver_type == 'designation':
+            # approver_lookup holds the exact designation name (e.g. "Finance Manager").
+            # Lets a step target a specific job title rather than a whole shared role,
+            # since multiple designations (Accountant, Finance Officer, Finance Manager)
+            # can share one broad permission role.
+            designation_name = step.get('approver_lookup')
+            if designation_name:
+                cur.execute("""
+                    SELECT s.user_id FROM staff s
+                    JOIN designations d ON d.id = s.designation_id
+                    WHERE d.name = %s AND s.status = 'active'
+                    LIMIT 1
+                """, (designation_name,))
+                row = cur.fetchone()
+                if row:
+                    assigned_to_id = row['user_id']
+            assigned_role = step.get('approver_role')
 
         return assigned_to_id, assigned_role
 
@@ -474,6 +495,7 @@ class WorkflowEngine:
                        assigned_role, module: str, entity_type: str,
                        entity_id: int, triggered_by: int, submitter_id: int):
         """Create WQ item and send notification for the step."""
+        proc_time = get_processing_datetime(db)
         # Build WQ link
         link = step.get('wq_link_template')
         if not link:
@@ -496,15 +518,15 @@ class WorkflowEngine:
                 INSERT INTO work_queue_items
                     (module, entity_type, entity_id, title, description, action_required,
                      priority, assigned_role, assigned_user_id, link, metadata,
-                     entity_status, created_by, submitter_id)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, '{}'::jsonb, %s, %s, %s)
+                     entity_status, created_by, submitter_id, created_at, updated_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, '{}'::jsonb, %s, %s, %s, %s, %s)
                 RETURNING id
             """, (module, entity_type, entity_id,
                   step.get('step_name', 'Pending Action'),
                   f"Action required: {action_label}",
                   action_label.lower(),
                   priority, assigned_role, assigned_to_id,
-                  link, 'pending', triggered_by, submitter_id))
+                  link, 'pending', triggered_by, submitter_id, proc_time, proc_time))
             wq_row = cur.fetchone()
             wq_id = wq_row['id'] if wq_row else None
 
@@ -545,23 +567,32 @@ class WorkflowEngine:
 
     def _update_entity_wq(self, cur, module: str, entity_id: int, entity_type: str,
                           entity_status: str, actioned_by: int,
-                          next_assignee_id=None, next_assignee_role=None):
+                          next_assignee_id=None, next_assignee_role=None, proc_time=None):
         """Update all WQ items for an entity to reflect new status."""
+        from datetime import datetime as _dt, timezone as _tz
+        ts = proc_time or _dt.now(_tz.utc)
+        # IMPORTANT: must also filter by entity_type, not just (module, entity_id).
+        # Different workflows on the same underlying record (e.g. a resignation's
+        # main approval flow, its clearance checklist, and its experience letter
+        # review) all share the same entity_id since they key off the same
+        # resignation row - without this filter, updating one workflow's status
+        # would incorrectly overwrite WQ items belonging to a completely
+        # different, unrelated workflow on that same entity_id.
         try:
             if next_assignee_id or next_assignee_role:
                 cur.execute("""
                     UPDATE work_queue_items SET
-                        entity_status=%s, assigned_user_id=%s, assigned_role=%s, updated_at=NOW()
-                    WHERE module=%s AND entity_id=%s AND status='pending'
+                        entity_status=%s, assigned_user_id=%s, assigned_role=%s, updated_at=%s
+                    WHERE module=%s AND entity_id=%s AND entity_type=%s AND status='pending'
                       AND (action_required IS NULL OR (action_required != 'submit_remarks' AND action_required != 'view'))
-                """, (entity_status, next_assignee_id, next_assignee_role, module, entity_id))
+                """, (entity_status, next_assignee_id, next_assignee_role, ts, module, entity_id, entity_type))
             else:
                 cur.execute("""
                     UPDATE work_queue_items
-                SET entity_status=%s, updated_at=NOW()
-                WHERE module=%s AND entity_id=%s
+                SET entity_status=%s, updated_at=%s
+                WHERE module=%s AND entity_id=%s AND entity_type=%s
                   AND (action_required IS NULL OR (action_required != 'submit_remarks' AND action_required != 'view'))
-                """, (entity_status, module, entity_id))
+                """, (entity_status, ts, module, entity_id, entity_type))
         except Exception as e:
             print('[workflow] entity WQ update error:', e)
 

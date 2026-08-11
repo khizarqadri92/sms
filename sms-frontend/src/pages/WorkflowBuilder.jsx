@@ -1,8 +1,23 @@
 import React, { useState, useEffect, useCallback } from "react";
 import workflowApi from "../api/workflowApi";
 
-const STEP_TYPES     = ["approve","recommend","review","verify","clear","payment","notify","publish","conduct","decide","hearing","assign_committee"];
-const APPROVER_TYPES = ["role","specific_user","class_teacher","dept_head","dynamic"];
+const STEP_TYPES     = ["approve","accept","recommend","review","verify","clear","payment","finalize_settlement","finalize_exit","notify","publish","conduct","decide","hearing","assign_committee"];
+const ENTITY_STEP_TYPES = {
+  payroll_run: ["approve","verify","payment"],
+  resignation: ["approve","accept","clear","payment","finalize_settlement","finalize_exit"],
+  resignation_experience_letter: ["approve"],
+  staff_leave: ["approve","recommend"],
+  attendance_correction: ["approve","verify"],
+  leave_application: ["approve","recommend"],
+  purchase_requisition: ["approve","recommend","verify"],
+  vendor_invoice: ["approve","verify","payment"],
+  withdrawal_request: ["approve","clear","verify"],
+  discipline_case: ["hearing","decide","conduct","assign_committee"],
+  exam: ["review","approve","publish"],
+  announcement: ["approve","publish"],
+  book_request: ["approve"],
+};
+const APPROVER_TYPES = ["role","specific_user","class_teacher","dept_head","designation","dynamic"];
 const PRIORITIES     = ["low","normal","high","urgent"];
 const MODULES        = ["leaves","procurement","finance","withdrawal","discipline","exams","communication","library","hr"];
 
@@ -11,6 +26,8 @@ const MODULE_ENTITY_TYPES = {
     { value: "staff_leave",           label: "Staff Leave" },
     { value: "attendance_correction", label: "Attendance Correction" },
     { value: "payroll_run",           label: "Payroll Run" },
+    { value: "resignation",           label: "Employee Resignation" },
+    { value: "resignation_experience_letter", label: "Experience Letter Review" },
   ],
   leaves:        [{ value: "leave_application",   label: "Leave Application" }],
   procurement:   [{ value: "purchase_requisition", label: "Purchase Requisition" }],
@@ -20,6 +37,20 @@ const MODULE_ENTITY_TYPES = {
   exams:         [{ value: "exam",                 label: "Exam" }],
   communication: [{ value: "announcement",         label: "Announcement" }],
   library:       [{ value: "book_request",         label: "Book Request" }],
+};
+const ENTITY_STATUS_OPTIONS = {
+  payroll_run: ["draft","hr_submitted","pending_approval","approved","released"],
+  resignation: ["submitted","manager_approved","accepted","cleared","settlement_reviewed","settled","completed","rejected","withdrawn"],
+  resignation_experience_letter: ["pending_hod","pending_hr","approved","rejected_by_hod","rejected_by_hr"],
+  staff_leave: ["pending","approved","rejected"],
+  attendance_correction: ["pending","approved","rejected"],
+  leave_application: ["pending","approved","rejected"],
+  purchase_requisition: ["draft","submitted","approved","rejected","converted_to_po"],
+  vendor_invoice: ["pending","verified","approved","paid","disputed","cancelled"],
+  withdrawal_request: ["pending","approved","rejected","cleared"],
+  exam: ["draft","scheduled","marks_open","submitted","compiled","reviewed","approved","published"],
+  announcement: ["draft","published"],
+  book_request: ["pending","approved","rejected"],
 };
 const MODULE_DEFAULT_ENTITY = Object.fromEntries(
   Object.entries(MODULE_ENTITY_TYPES).map(([m, list]) => [m, list[0]?.value || ""])
@@ -97,7 +128,7 @@ const STEP_TYPE_COLOR = {
 
 const EMPTY_STEP = {
   step_order:1, step_name:"", step_type:"approve", approver_type:"role",
-  approver_role:"", action_label:"Approve", reject_label:"Reject",
+  approver_role:"", approver_lookup:"", action_label:"Approve", reject_label:"Reject",
   entity_status_on_approve:"", entity_status_on_reject:"rejected",
   notify_on_assign:true, notify_title:"", notify_body:"",
   wq_priority:"normal", wq_link_template:""
@@ -106,6 +137,7 @@ const EMPTY_STEP = {
 export default function WorkflowBuilder() {
   const [workflows, setWorkflows]     = useState([]);
   const [roles, setRoles]             = useState([]);
+  const [designations, setDesignations] = useState([]);
   const [moduleLinks, setModuleLinks] = useState([]);
   const [condFields, setCondFields]   = useState([]);
   const [selected, setSelected]       = useState(null);
@@ -130,8 +162,8 @@ export default function WorkflowBuilder() {
 
   const load = useCallback(()=>{
     setLoading(true);
-    Promise.all([workflowApi.getWorkflows(), workflowApi.getRoles(), workflowApi.getModuleLinks()])
-      .then(([wf,r,ml])=>{ setWorkflows(wf.data.data||[]); setRoles(r.data.data||[]); setModuleLinks(ml.data.data||[]); })
+    Promise.all([workflowApi.getWorkflows(), workflowApi.getRoles(), workflowApi.getModuleLinks(), workflowApi.getDesignations()])
+      .then(([wf,r,ml,d])=>{ setWorkflows(wf.data.data||[]); setRoles(r.data.data||[]); setModuleLinks(ml.data.data||[]); setDesignations(d.data.data||[]); })
       .catch(()=>showFlash("error","Failed to load."))
       .finally(()=>setLoading(false));
   },[]);
@@ -208,7 +240,7 @@ export default function WorkflowBuilder() {
 
   const openEditStep = (step) => {
     setEditStep(step);
-    setStepForm({step_order:step.step_order,step_name:step.step_name,step_type:step.step_type,approver_type:step.approver_type,approver_role:step.approver_role||"",action_label:step.action_label||"Approve",reject_label:step.reject_label||"Reject",entity_status_on_approve:step.entity_status_on_approve||"",entity_status_on_reject:step.entity_status_on_reject||"rejected",notify_on_assign:step.notify_on_assign,notify_title:step.notify_title||"",notify_body:step.notify_body||"",wq_priority:step.wq_priority||"normal",wq_link_template:step.wq_link_template||""});
+    setStepForm({step_order:step.step_order,step_name:step.step_name,step_type:step.step_type,approver_type:step.approver_type,approver_role:step.approver_role||"",approver_lookup:step.approver_lookup||"",action_label:step.action_label||"Approve",reject_label:step.reject_label||"Reject",entity_status_on_approve:step.entity_status_on_approve||"",entity_status_on_reject:step.entity_status_on_reject||"rejected",notify_on_assign:step.notify_on_assign,notify_title:step.notify_title||"",notify_body:step.notify_body||"",wq_priority:step.wq_priority||"normal",wq_link_template:step.wq_link_template||""});
     setNewStep(true);
   };
 
@@ -345,14 +377,41 @@ export default function WorkflowBuilder() {
                       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:10}}>
                         <div><label style={{fontSize:11,fontWeight:700,display:"block",marginBottom:4}}>Order</label><input type="number" className="form-input" style={{margin:0}} value={stepForm.step_order} onChange={e=>setStepForm(f=>({...f,step_order:parseInt(e.target.value)}))}/></div>
                         <div><label style={{fontSize:11,fontWeight:700,display:"block",marginBottom:4}}>Step Name *</label><input className="form-input" style={{margin:0}} placeholder="e.g. Principal Approval" value={stepForm.step_name} onChange={e=>setStepForm(f=>({...f,step_name:e.target.value}))}/></div>
-                        <div><label style={{fontSize:11,fontWeight:700,display:"block",marginBottom:4}}>Step Type</label><select className="form-input" style={{margin:0}} value={stepForm.step_type} onChange={e=>setStepForm(f=>({...f,step_type:e.target.value}))}>{STEP_TYPES.map(t=><option key={t} value={t}>{t}</option>)}</select></div>
+                        <div><label style={{fontSize:11,fontWeight:700,display:"block",marginBottom:4}}>Step Type</label><select className="form-input" style={{margin:0}} value={stepForm.step_type} onChange={e=>setStepForm(f=>({...f,step_type:e.target.value}))}>{(ENTITY_STEP_TYPES[selected?.entity_type]||STEP_TYPES).map(t=><option key={t} value={t}>{t}</option>)}</select></div>
                         <div><label style={{fontSize:11,fontWeight:700,display:"block",marginBottom:4}}>Approver Type</label><select className="form-input" style={{margin:0}} value={stepForm.approver_type} onChange={e=>setStepForm(f=>({...f,approver_type:e.target.value}))}>{APPROVER_TYPES.map(t=><option key={t} value={t}>{t.replace(/_/g," ")}</option>)}</select></div>
                         {stepForm.approver_type==="role" && (<div><label style={{fontSize:11,fontWeight:700,display:"block",marginBottom:4}}>Role</label><select className="form-input" style={{margin:0}} value={stepForm.approver_role} onChange={e=>setStepForm(f=>({...f,approver_role:e.target.value}))}><option value="">— Select Role —</option>{roles.map(r=><option key={r.id} value={r.name}>{r.name}</option>)}</select></div>)}
                         {stepForm.approver_type==="dept_head" && (<div style={{padding:"8px 10px",background:"#fefce8",border:"1px solid #fef08a",borderRadius:6,fontSize:12,color:"#854d0e",marginTop:4}}><strong>Dept Head (HOD)</strong> - Automatically routes to Head of Department of the submitter. Ensure HOD is assigned in HR Staff Management.</div>)}
                         {stepForm.approver_type==="class_teacher" && (<div style={{padding:"8px 10px",background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:6,fontSize:12,color:"#1d4ed8",marginTop:4}}><strong>Class Teacher</strong> - Routes to primary class teacher of the student.</div>)}
+                        {stepForm.approver_type==="designation" && (<div>
+                          <label style={{fontSize:11,fontWeight:700,display:"block",marginBottom:4}}>Designation</label>
+                          <select className="form-input" style={{margin:0}} value={stepForm.approver_lookup} onChange={e=>setStepForm(f=>({...f,approver_lookup:e.target.value}))}>
+                            <option value="">Select Designation...</option>
+                            {designations.map(d=><option key={d.id} value={d.name}>{d.name}</option>)}
+                          </select>
+                          <div style={{fontSize:11,color:"#94a3b8",marginTop:4}}>Routes to the active staff member with this designation - useful when several designations (e.g. Accountant, Finance Officer, Finance Manager) share one broad permission role.</div>
+                        </div>)}
                         <div><label style={{fontSize:11,fontWeight:700,display:"block",marginBottom:4}}>WQ Priority</label><select className="form-input" style={{margin:0}} value={stepForm.wq_priority} onChange={e=>setStepForm(f=>({...f,wq_priority:e.target.value}))}>{PRIORITIES.map(p=><option key={p} value={p}>{p}</option>)}</select></div>
                         <div><label style={{fontSize:11,fontWeight:700,display:"block",marginBottom:4}}>Action Label</label><input className="form-input" style={{margin:0}} value={stepForm.action_label} onChange={e=>setStepForm(f=>({...f,action_label:e.target.value}))}/></div>
-                        <div><label style={{fontSize:11,fontWeight:700,display:"block",marginBottom:4}}>Status on Approve</label><input className="form-input" style={{margin:0}} placeholder="e.g. recommended" value={stepForm.entity_status_on_approve} onChange={e=>setStepForm(f=>({...f,entity_status_on_approve:e.target.value}))}/></div>
+                        <div><label style={{fontSize:11,fontWeight:700,display:"block",marginBottom:4}}>Status on Approve</label>
+                          {(ENTITY_STATUS_OPTIONS[selected?.entity_type]||[]).length>0 ? (
+                            <select className="form-input" style={{margin:0}} value={stepForm.entity_status_on_approve} onChange={e=>setStepForm(f=>({...f,entity_status_on_approve:e.target.value}))}>
+                              <option value="">Select status...</option>
+                              {ENTITY_STATUS_OPTIONS[selected?.entity_type].map(s=><option key={s} value={s}>{s}</option>)}
+                            </select>
+                          ) : (
+                            <input className="form-input" style={{margin:0}} placeholder="e.g. recommended" value={stepForm.entity_status_on_approve} onChange={e=>setStepForm(f=>({...f,entity_status_on_approve:e.target.value}))}/>
+                          )}
+                        </div>
+                        <div><label style={{fontSize:11,fontWeight:700,display:"block",marginBottom:4}}>Status on Reject</label>
+                          {(ENTITY_STATUS_OPTIONS[selected?.entity_type]||[]).length>0 ? (
+                            <select className="form-input" style={{margin:0}} value={stepForm.entity_status_on_reject} onChange={e=>setStepForm(f=>({...f,entity_status_on_reject:e.target.value}))}>
+                              <option value="">Select status...</option>
+                              {ENTITY_STATUS_OPTIONS[selected?.entity_type].map(s=><option key={s} value={s}>{s}</option>)}
+                            </select>
+                          ) : (
+                            <input className="form-input" style={{margin:0}} placeholder="e.g. rejected" value={stepForm.entity_status_on_reject} onChange={e=>setStepForm(f=>({...f,entity_status_on_reject:e.target.value}))}/>
+                          )}
+                        </div>
                         <div>
                           <label style={{fontSize:11,fontWeight:700,display:"block",marginBottom:4}}>WQ Link (auto)</label>
                           <div style={{display:"flex",gap:6}}>

@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from app.fastapi_auth import get_current_user_id
 from app.fastapi_db import get_db, get_cur as _get_cur
+from app.utils.processing_date import get_processing_date, get_processing_datetime
 from psycopg2.extras import Json
 
 router = APIRouter()
@@ -133,18 +134,25 @@ class PayrollSettingsIn(BaseModel):
     basic_salary_mode: str
     days_in_month_mode: str = "fixed_30"
     fixed_days_value: int = 30
+    pf_employer_contribution_mode: str = "same_as_employee"
+    pf_employer_percentage: float = 0
+    pf_employer_fixed_amount: float = 0
 
 
 @router.put("/settings")
 def update_payroll_settings(body: PayrollSettingsIn, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db)):
     if body.basic_salary_mode not in ("grade_fixed", "individual"):
         fail("Invalid basic salary mode.", 400)
+    if body.pf_employer_contribution_mode not in ("same_as_employee", "percentage", "fixed"):
+        fail("Invalid PF employer contribution mode.", 400)
     if body.days_in_month_mode not in ("fixed_30", "actual"):
         fail("Invalid days-in-month mode.", 400)
     if body.fixed_days_value < 1 or body.fixed_days_value > 31:
         fail("Fixed days value must be between 1 and 31.", 400)
     cur = get_cur(db)
-    cur.execute("SELECT sp_update_payroll_settings(%s,%s,%s)", (body.basic_salary_mode, body.days_in_month_mode, body.fixed_days_value))
+    cur.execute("SELECT sp_update_payroll_settings(%s,%s,%s,%s,%s,%s)",
+        (body.basic_salary_mode, body.days_in_month_mode, body.fixed_days_value,
+         body.pf_employer_contribution_mode, body.pf_employer_percentage, body.pf_employer_fixed_amount))
     db.commit()
     return ok(message="Payroll settings updated.")
 
@@ -227,6 +235,16 @@ class StaffPayrollProfileIn(BaseModel):
     grade_id: Optional[int] = None
     hourly_rate: Optional[float] = None
     daily_wage_amount: Optional[float] = None
+    transfer_mode: Optional[str] = "bank_transfer"
+
+
+class StaffBankInfoIn(BaseModel):
+    bank_name: Optional[str] = None
+    account_title: Optional[str] = None
+    account_number: Optional[str] = None
+    iban: Optional[str] = None
+    branch_name: Optional[str] = None
+    branch_code: Optional[str] = None
 
 
 @router.get("/staff/{staff_id}/profile")
@@ -249,17 +267,37 @@ def update_staff_payroll_profile(staff_id: int, body: StaffPayrollProfileIn,
         fail("Daily Wage requires a daily amount.", 400)
     if body.salary_type == "structured" and not body.grade_id:
         fail("Structured Salary requires a Grade to be selected.", 400)
+    if body.transfer_mode and body.transfer_mode not in ("bank_transfer", "cash", "cheque"):
+        fail("Invalid salary transfer mode.", 400)
     cur = get_cur(db)
     if body.salary_type == "structured":
         cur.execute("SELECT basic_salary_mode FROM payroll_settings WHERE id=1")
         mode = cur.fetchone()["basic_salary_mode"]
         if mode == "individual" and body.basic_salary is None:
             fail("Basic Salary is required for this employee under the current payroll settings.", 400)
-    cur.execute("SELECT sp_upsert_staff_payroll_profile(%s,%s,%s,%s,%s,%s,%s)",
+    cur.execute("SELECT sp_upsert_staff_payroll_profile(%s,%s,%s,%s,%s,%s,%s,%s)",
         (staff_id, body.salary_type, body.lump_sum_amount, body.basic_salary,
-         body.grade_id, body.hourly_rate, body.daily_wage_amount))
+         body.grade_id, body.hourly_rate, body.daily_wage_amount, body.transfer_mode))
     db.commit()
     return ok(message="Salary profile updated.")
+
+
+@router.get("/staff/{staff_id}/bank-info")
+def get_staff_bank_info(staff_id: int, user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db)):
+    cur = get_cur(db)
+    cur.execute("SELECT * FROM sp_get_staff_bank_info(%s)", (staff_id,))
+    return ok(data=dict(cur.fetchone()))
+
+
+@router.put("/staff/{staff_id}/bank-info")
+def update_staff_bank_info(staff_id: int, body: StaffBankInfoIn,
+        user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db)):
+    cur = get_cur(db)
+    cur.execute("SELECT sp_upsert_staff_bank_info(%s,%s,%s,%s,%s,%s,%s)",
+        (staff_id, body.bank_name, body.account_title, body.account_number,
+         body.iban, body.branch_name, body.branch_code))
+    db.commit()
+    return ok(message="Bank information saved.")
 
 
 # --- PAYROLL ADJUSTMENTS (one-time, month-specific entries for variable components) ---
@@ -788,8 +826,73 @@ def list_payroll_runs(user_id: int = Depends(require_permission("payroll.view"))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
+def _check_workflow_step_authorized(db, run_id, user_id):
+    """Checks if user_id may act on the current pending step of this payroll
+    run's active workflow instance. Superadmin always allowed. If no active
+    workflow instance exists (not configured yet in Workflow Builder), allows
+    the action through so the feature degrades gracefully to permission-only gating."""
+    cur = get_cur(db)
+    cur.execute("""SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id
+        WHERE ur.user_id=%s AND r.name='superadmin'""", (user_id,))
+    if cur.fetchone():
+        return True
+    cur.execute("""SELECT id FROM workflow_instances
+        WHERE module='hr' AND entity_type='payroll_run' AND entity_id=%s AND status='active'""", (run_id,))
+    instance = cur.fetchone()
+    if not instance:
+        return True
+    cur.execute("""SELECT assigned_to_id, assigned_role FROM workflow_step_instances
+        WHERE instance_id=%s AND status='pending' ORDER BY step_order LIMIT 1""", (instance["id"],))
+    step = cur.fetchone()
+    if not step:
+        return True
+    if step["assigned_to_id"] and step["assigned_to_id"] == user_id:
+        return True
+    if step["assigned_role"]:
+        cur.execute("""SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id
+            WHERE ur.user_id=%s AND r.name=%s""", (user_id, step["assigned_role"]))
+        if cur.fetchone():
+            return True
+    return False
+
+
+_VALID_PAYROLL_STATUSES = ("draft", "hr_submitted", "pending_approval", "approved", "released", "rejected")
+
+
+def _advance_payroll_workflow(db, run_id, user_id, fallback_status=None, note=""):
+    """Advances the payroll_run workflow instance to its next step. If an active
+    instance exists, applies the status it returns to payroll_runs.status - but
+    only if that status is one of the valid internal values (guards against a
+    Workflow Builder step being misconfigured with a display label instead of
+    the exact status code). If no active instance exists, or its status value
+    is invalid, falls back to directly applying fallback_status."""
+    cur = get_cur(db)
+    applied = False
+    try:
+        from app.utils.workflow_engine import WorkflowEngine
+        wf = WorkflowEngine()
+        cur.execute("""SELECT id FROM workflow_instances
+            WHERE module='hr' AND entity_type='payroll_run' AND entity_id=%s AND status='active'""", (run_id,))
+        if cur.fetchone():
+            result = wf.advance(db, "hr", "payroll_run", run_id, action="approve", actioned_by=user_id, note=note)
+            returned_status = (result or {}).get("entity_status")
+            if returned_status and returned_status not in _VALID_PAYROLL_STATUSES:
+                print(f"[payroll workflow] Ignoring invalid entity_status \'{returned_status}\' from Workflow Builder step config - check entity_status_on_approve values.")
+                returned_status = None
+            if returned_status:
+                cur.execute("SELECT sp_update_payroll_run_status(%s,%s,%s)", (run_id, returned_status, user_id))
+                applied = True
+    except Exception as e:
+        print(f"[payroll workflow advance] {e}")
+        db.rollback()
+        cur = get_cur(db)
+    if not applied and fallback_status:
+        cur.execute("SELECT sp_update_payroll_run_status(%s,%s,%s)", (run_id, fallback_status, user_id))
+    db.commit()
+
+
 @router.post("/runs")
-def create_payroll_run(body: PayrollRunIn, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db)):
+def create_payroll_run(body: PayrollRunIn, user_id: int = Depends(require_permission("payroll.create_run")), db=Depends(get_db)):
     if body.month < 1 or body.month > 12:
         fail("Invalid month.", 400)
     cur = get_cur(db)
@@ -799,6 +902,15 @@ def create_payroll_run(body: PayrollRunIn, user_id: int = Depends(require_permis
     if row["error_msg"]:
         fail(row["error_msg"], 400)
     db.commit()
+    try:
+        from app.utils.workflow_engine import WorkflowEngine
+        wf = WorkflowEngine()
+        wf.trigger(db, module="hr", entity_type="payroll_run", entity_id=row["id"],
+            initiated_by=user_id, submitter_id=user_id,
+            context={"month": body.month, "year": body.year})
+        db.commit()
+    except Exception as we:
+        print(f"[payroll run workflow trigger] {we}")
     return ok(data={"id": row["id"]}, message="Payroll run created.")
 
 
@@ -813,9 +925,29 @@ def hr_submit_payroll_run(run_id: int, user_id: int = Depends(require_permission
         fail("Payroll run not found.", 404)
     if run["status"] != "draft":
         fail("Only a draft run can be submitted to Finance.", 400)
-    cur.execute("SELECT sp_update_payroll_run_status(%s,%s,%s)", (run_id, "hr_submitted", None))
-    db.commit()
+    if not _check_workflow_step_authorized(db, run_id, user_id):
+        fail("This action is assigned to a different person or role in the payroll workflow.", 403)
+    _advance_payroll_workflow(db, run_id, user_id, fallback_status="hr_submitted", note="Submitted to Finance.")
     return ok(message="Submitted to Finance. Adjustments for this period are now locked.")
+
+
+@router.post("/runs/{run_id}/mark-adjustments-done")
+def mark_adjustments_done(run_id: int, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db)):
+    """HR confirms they have finished entering incentives/arrears for this period.
+    This reveals the View button in the runs list so HR can review and submit to Finance."""
+    cur = get_cur(db)
+    cur.execute("SELECT status FROM payroll_runs WHERE id=%s", (run_id,))
+    run = cur.fetchone()
+    if not run:
+        fail("Payroll run not found.", 404)
+    if run["status"] != "draft":
+        fail("Only a draft run's adjustments can be marked done.", 400)
+    if not _check_workflow_step_authorized(db, run_id, user_id):
+        fail("This action is assigned to a different person or role in the payroll workflow.", 403)
+    cur.execute("SELECT sp_set_adjustments_done(%s,%s)", (run_id, True))
+    db.commit()
+    _advance_payroll_workflow(db, run_id, user_id, fallback_status=None, note="Adjustments marked done.")
+    return ok(message="Adjustments marked done.")
 
 
 @router.post("/runs/{run_id}/generate")
@@ -827,8 +959,12 @@ def generate_payroll_run(run_id: int, user_id: int = Depends(require_permission(
         fail("Payroll run not found.", 404)
     if run["status"] != "hr_submitted":
         fail("HR must submit this period to Finance before it can be generated. Current status: " + run["status"] + ".", 400)
+    if not _check_workflow_step_authorized(db, run_id, user_id):
+        fail("This action is assigned to a different person or role in the payroll workflow.", 403)
+    cur.execute("SELECT COUNT(*) AS c FROM payroll_payslips WHERE payroll_run_id=%s", (run_id,))
+    if cur.fetchone()["c"] > 0:
+        fail("Payroll has already been generated for this period.", 400)
 
-    cur.execute("SELECT sp_clear_payslips(%s)", (run_id,))
     cur.execute("SELECT id FROM staff WHERE status='active'")
     staff_ids = [r["id"] for r in cur.fetchall()]
 
@@ -843,8 +979,26 @@ def generate_payroll_run(run_id: int, user_id: int = Depends(require_permission(
             (run_id, sid, result["salary_type"], result["gross_earnings"], result["total_deductions"], result["net_pay"],
              Json(result["earnings_breakdown"]), Json(result["deductions_breakdown"]),
              result["days_present"], result["days_absent"], result["days_half_day"], result["days_on_leave"], result["hours_worked"]))
+
+        # Post this month's PF contribution to the ledger, if this employee has
+        # a Provident Fund deduction in their payslip.
+        pf_deduction = next((d["amount"] for d in result["deductions_breakdown"] if "Provident Fund" in d["name"]), 0)
+        if pf_deduction:
+            cur.execute("SELECT pf_employer_contribution_mode, pf_employer_percentage, pf_employer_fixed_amount FROM payroll_settings WHERE id=1")
+            pf_settings = cur.fetchone()
+            if pf_settings["pf_employer_contribution_mode"] == "percentage":
+                basic_amount = next((e["amount"] for e in result["earnings_breakdown"] if "Basic Salary" in e["name"] or "Lump Sum Salary" in e["name"]), 0)
+                employer_amount = round(float(basic_amount) * float(pf_settings["pf_employer_percentage"]) / 100.0, 2)
+            elif pf_settings["pf_employer_contribution_mode"] == "fixed":
+                employer_amount = float(pf_settings["pf_employer_fixed_amount"])
+            else:
+                employer_amount = float(pf_deduction)
+            cur.execute("SELECT sp_pf_post_monthly(%s,%s,%s,%s,%s)",
+                (sid, run["to_date"], pf_deduction, employer_amount, run_id))
+
         generated += 1
     db.commit()
+    _advance_payroll_workflow(db, run_id, user_id, fallback_status=None, note="Payroll generated.")
     return ok(data={"generated": generated, "skipped": skipped},
         message=str(generated) + " payslip(s) generated" + (", " + str(skipped) + " skipped (no salary profile)." if skipped else "."))
 
@@ -961,20 +1115,10 @@ def submit_payroll_run(run_id: int, user_id: int = Depends(require_permission("p
     cur.execute("SELECT COUNT(*) AS c FROM payroll_payslips WHERE payroll_run_id=%s", (run_id,))
     if cur.fetchone()["c"] == 0:
         fail("Generate payslips before submitting for approval.", 400)
+    if not _check_workflow_step_authorized(db, run_id, user_id):
+        fail("This action is assigned to a different person or role in the payroll workflow.", 403)
 
-    cur.execute("SELECT sp_update_payroll_run_status(%s,%s,%s)", (run_id, "pending_approval", None))
-    db.commit()
-
-    try:
-        from app.utils.workflow_engine import WorkflowEngine
-        wf = WorkflowEngine()
-        wf.trigger(db, module="hr", entity_type="payroll_run", entity_id=run_id,
-            initiated_by=user_id, submitter_id=user_id,
-            context={"month": run["month"], "year": run["year"]})
-        db.commit()
-    except Exception as we:
-        print(f"[payroll run workflow] {we}")
-
+    _advance_payroll_workflow(db, run_id, user_id, fallback_status="pending_approval", note="Submitted for approval.")
     return ok(message="Payroll run submitted for approval.")
 
 
@@ -998,15 +1142,29 @@ def advance_payroll_run(run_id: int, body: PayrollRunAdvanceIn,
         db.commit()
         if result:
             wf_status = result.get("status", "")
-            if wf_status in ("completed", "approved"):
+            if wf_status in ("advanced", "completed"):
+                returned_status = result.get("entity_status")
+                if returned_status and returned_status not in _VALID_PAYROLL_STATUSES:
+                    print(f"[payroll run advance] Ignoring invalid entity_status \'{returned_status}\' from Workflow Builder step config.")
+                    returned_status = None
                 cur = get_cur(db)
-                cur.execute("SELECT sp_update_payroll_run_status(%s,%s,%s)", (run_id, "approved", user_id))
+                cur.execute("SELECT sp_update_payroll_run_status(%s,%s,%s)", (run_id, returned_status or "approved", user_id))
                 db.commit()
             elif wf_status == "rejected":
                 cur = get_cur(db)
                 cur.execute("SELECT sp_clear_payslips(%s)", (run_id,))
+                cur.execute("SELECT sp_set_adjustments_done(%s,%s)", (run_id, False))
                 cur.execute("SELECT sp_update_payroll_run_status(%s,%s,%s)", (run_id, "draft", None))
+                cur.execute("SELECT month, year FROM payroll_runs WHERE id=%s", (run_id,))
+                mrow = cur.fetchone()
                 db.commit()
+                try:
+                    wf.trigger(db, module="hr", entity_type="payroll_run", entity_id=run_id,
+                        initiated_by=user_id, submitter_id=user_id,
+                        context={"month": mrow["month"], "year": mrow["year"]})
+                    db.commit()
+                except Exception as we:
+                    print(f"[payroll run re-trigger after rejection] {we}")
         return ok(message="Payroll run " + body.action + "d successfully.")
     except Exception as e:
         print(f"[payroll run advance] {e}")
@@ -1017,14 +1175,337 @@ def advance_payroll_run(run_id: int, body: PayrollRunAdvanceIn,
 @router.post("/runs/{run_id}/release")
 def release_payroll_run(run_id: int, user_id: int = Depends(require_permission("payroll.manage")), db=Depends(get_db)):
     """Final Finance action after Finance Manager approval - releases the run
-    for salary transfer. This is the true permanent-freeze point."""
+    for salary transfer. This is the true permanent-freeze point. Also notifies
+    every employee about how their salary will reach them, based on their
+    configured transfer mode."""
     cur = get_cur(db)
-    cur.execute("SELECT status FROM payroll_runs WHERE id=%s", (run_id,))
+    cur.execute("SELECT status, month, year FROM payroll_runs WHERE id=%s", (run_id,))
     run = cur.fetchone()
     if not run:
         fail("Payroll run not found.", 404)
     if run["status"] != "approved":
         fail("Only an approved run can be released.", 400)
-    cur.execute("SELECT sp_update_payroll_run_status(%s,%s,%s)", (run_id, "released", user_id))
-    db.commit()
+    if not _check_workflow_step_authorized(db, run_id, user_id):
+        fail("This action is assigned to a different person or role in the payroll workflow.", 403)
+    _advance_payroll_workflow(db, run_id, user_id, fallback_status="released", note="Released for salary transfer.")
+
+    try:
+        import calendar
+        period_label = calendar.month_name[run["month"]] + " " + str(run["year"])
+        cur.execute("""
+            SELECT s.user_id, p.net_pay, COALESCE(spp.transfer_mode, 'bank_transfer') AS transfer_mode
+            FROM payroll_payslips p
+            JOIN staff s ON s.id = p.staff_id
+            LEFT JOIN staff_payroll_profile spp ON spp.staff_id = s.id
+            WHERE p.payroll_run_id = %s AND s.user_id IS NOT NULL
+        """, (run_id,))
+        recipients = cur.fetchall()
+        from app.utils.notify import send_notification
+        import main as _main
+        with _main.flask_app.app_context():
+            for r in recipients:
+                if r["transfer_mode"] == "bank_transfer":
+                    body = "Your salary of Rs. " + str(round(float(r["net_pay"] or 0))) + " for " + period_label + " has been transferred to your bank account."
+                else:
+                    mode_label = "cheque" if r["transfer_mode"] == "cheque" else "cash"
+                    body = "Your salary of Rs. " + str(round(float(r["net_pay"] or 0))) + " for " + period_label + " is ready. Please collect your " + mode_label + " from the Finance department."
+                send_notification(r["user_id"], "Salary Released", body, "success")
+    except Exception as e:
+        print(f"[payroll release notifications] {e}")
+
     return ok(message="Payroll run released for salary transfer.")
+
+
+@router.get("/runs/{run_id}/download")
+def download_payroll_run(run_id: int, user_id: int = Depends(require_permission("payroll.manage")), db=Depends(get_db)):
+    """Downloadable Excel summary of a released payroll run - includes bank
+    transfer details for employees paid by bank transfer, so Finance can hand
+    this directly to the bank for disbursement."""
+    import io
+    from fastapi.responses import StreamingResponse
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment
+
+    cur = get_cur(db)
+    cur.execute("SELECT * FROM payroll_runs WHERE id=%s", (run_id,))
+    run = cur.fetchone()
+    if not run:
+        fail("Payroll run not found.", 404)
+
+    cur.execute("""
+        SELECT s.first_name, s.last_name, s.employee_code, d.name AS department_name,
+            p.net_pay, COALESCE(spp.transfer_mode, 'bank_transfer') AS transfer_mode,
+            sbi.bank_name, sbi.account_title, sbi.account_number, sbi.iban, sbi.branch_name, sbi.branch_code
+        FROM payroll_payslips p
+        JOIN staff s ON s.id = p.staff_id
+        LEFT JOIN departments d ON d.id = s.department_id
+        LEFT JOIN staff_payroll_profile spp ON spp.staff_id = s.id
+        LEFT JOIN staff_bank_info sbi ON sbi.staff_id = s.id
+        WHERE p.payroll_run_id = %s
+        ORDER BY s.first_name
+    """, (run_id,))
+    rows = cur.fetchall()
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Payroll"
+    headers = ["Employee Name", "Employee Code", "Department", "Net Pay", "Transfer Mode",
+        "Bank Name", "Account Title", "Account Number", "IBAN", "Branch Name", "Branch Code"]
+    ws.append(headers)
+    header_fill = PatternFill(start_color="0F4C35", end_color="0F4C35", fill_type="solid")
+    for cell in ws[1]:
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center")
+
+    transfer_labels = {"bank_transfer": "Bank Transfer", "cash": "Cash", "cheque": "Cheque"}
+    for r in rows:
+        ws.append([
+            r["first_name"] + " " + r["last_name"], r["employee_code"], r["department_name"],
+            float(r["net_pay"]) if r["net_pay"] else 0, transfer_labels.get(r["transfer_mode"], r["transfer_mode"]),
+            r["bank_name"] if r["transfer_mode"] == "bank_transfer" else "",
+            r["account_title"] if r["transfer_mode"] == "bank_transfer" else "",
+            r["account_number"] if r["transfer_mode"] == "bank_transfer" else "",
+            r["iban"] if r["transfer_mode"] == "bank_transfer" else "",
+            r["branch_name"] if r["transfer_mode"] == "bank_transfer" else "",
+            r["branch_code"] if r["transfer_mode"] == "bank_transfer" else "",
+        ])
+
+    for col in ws.columns:
+        max_len = max((len(str(c.value)) for c in col if c.value is not None), default=10)
+        ws.column_dimensions[col[0].column_letter].width = min(max_len + 3, 35)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    filename = "Payroll_" + str(run["month"]) + "_" + str(run["year"]) + ".xlsx"
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="' + filename + '"'})
+
+
+
+@router.get("/runs/{run_id}/payslip/{staff_id}")
+def get_salary_slip_pdf(run_id: int, staff_id: int, user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+    """Professional PDF salary slip. Accessible to anyone with payroll.view,
+    or to the employee viewing their own slip."""
+    import base64, io
+    from datetime import datetime
+    from fastapi.responses import StreamingResponse
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage, HRFlowable
+
+    cur = get_cur(db)
+
+    # Authorization: payroll.view OR the employee viewing their own slip
+    cur.execute("SELECT id FROM staff WHERE id=%s AND user_id=%s", (staff_id, user_id))
+    is_self = cur.fetchone() is not None
+    if not is_self:
+        cur.execute("""SELECT 1 FROM user_roles ur JOIN role_permissions rp ON rp.role_id=ur.role_id
+            JOIN permissions p ON p.id=rp.permission_id WHERE ur.user_id=%s AND p.code='payroll.view'""", (user_id,))
+        if not cur.fetchone():
+            fail("Not authorized to view this salary slip.", 403)
+
+    cur.execute("""
+        SELECT p.*, s.first_name, s.last_name, s.employee_code, d.name AS department_name,
+            des.name AS designation_name, COALESCE(spp.transfer_mode, 'bank_transfer') AS transfer_mode,
+            s.joining_date, s.is_probationary, sbi.bank_name, sbi.account_number
+        FROM payroll_payslips p
+        JOIN staff s ON s.id = p.staff_id
+        LEFT JOIN departments d ON d.id = s.department_id
+        LEFT JOIN designations des ON des.id = s.designation_id
+        LEFT JOIN staff_payroll_profile spp ON spp.staff_id = s.id
+        LEFT JOIN staff_bank_info sbi ON sbi.staff_id = s.id
+        WHERE p.payroll_run_id = %s AND p.staff_id = %s
+    """, (run_id, staff_id))
+    slip = cur.fetchone()
+    if not slip:
+        fail("Salary slip not found.", 404)
+
+    cur.execute("SELECT month, year FROM payroll_runs WHERE id=%s", (run_id,))
+    run = cur.fetchone()
+    import calendar
+    period_label = calendar.month_name[run["month"]] + " " + str(run["year"])
+
+    cur.execute("SELECT key, value FROM system_settings WHERE category=%s", ("school_info",))
+    settings = {r["key"]: r["value"] for r in cur.fetchall()}
+    school_name = settings.get("school_name", "School")
+    school_address = settings.get("school_address", "")
+    school_city = settings.get("school_city", "")
+    school_logo_data = settings.get("school_logo", "")
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, topMargin=15*mm, bottomMargin=15*mm, leftMargin=18*mm, rightMargin=18*mm)
+    styles = getSampleStyleSheet()
+    title_style = ParagraphStyle("SchoolTitle", parent=styles["Title"], fontSize=18, spaceAfter=2, textColor=colors.HexColor("#0f4c35"))
+    sub_style = ParagraphStyle("SchoolSub", parent=styles["Normal"], fontSize=9, alignment=TA_CENTER, textColor=colors.HexColor("#475569"))
+    slip_title_style = ParagraphStyle("SlipTitle", parent=styles["Heading2"], fontSize=13, alignment=TA_CENTER, spaceBefore=10, spaceAfter=4, textColor=colors.HexColor("#0f172a"))
+
+    story = []
+    logo_flowable = None
+    if school_logo_data and "base64," in school_logo_data:
+        try:
+            logo_bytes = base64.b64decode(school_logo_data.split("base64,")[1])
+            logo_flowable = RLImage(io.BytesIO(logo_bytes), width=20*mm, height=20*mm)
+        except Exception:
+            logo_flowable = None
+
+    addr_line = ", ".join([p for p in [school_address, school_city] if p])
+    school_info_para = [Paragraph(school_name, title_style), Paragraph(addr_line, sub_style)]
+    if logo_flowable:
+        header_table = Table([[logo_flowable, school_info_para]], colWidths=[25*mm, 145*mm])
+        header_table.setStyle(TableStyle([("VALIGN", (0,0), (-1,-1), "MIDDLE"), ("ALIGN", (0,0), (0,0), "CENTER")]))
+        story.append(header_table)
+    else:
+        story.extend(school_info_para)
+
+    story.append(Spacer(1, 6))
+    story.append(HRFlowable(width="100%", thickness=1.2, color=colors.HexColor("#0f4c35")))
+    story.append(Paragraph("SALARY SLIP", slip_title_style))
+    story.append(Paragraph("Pay Period: " + period_label, sub_style))
+    story.append(Spacer(1, 14))
+
+    transfer_labels = {"bank_transfer": "Bank Transfer", "cash": "Cash", "cheque": "Cheque"}
+    employee_type = "Permanent"
+    if slip.get("is_probationary") is not False and slip.get("joining_date"):
+        cur.execute("SELECT probation_duration_days FROM hr_policy_settings LIMIT 1")
+        policy = cur.fetchone()
+        duration_days = policy["probation_duration_days"] if policy and policy.get("probation_duration_days") else 90
+        from datetime import timedelta
+        end_date = slip["joining_date"] + timedelta(days=duration_days)
+        if get_processing_date(db) <= end_date:
+            employee_type = "On Probation"
+    joining_date_str = slip["joining_date"].strftime("%d %b %Y") if slip.get("joining_date") else "-"
+    emp_info = [
+        ["Employee Name:", slip["first_name"] + " " + slip["last_name"], "Employee Code:", slip.get("employee_code") or "-"],
+        ["Designation:", slip.get("designation_name") or "-", "Department:", slip.get("department_name") or "-"],
+        ["Date of Joining:", joining_date_str, "Employee Type:", employee_type],
+        ["Transfer Mode:", transfer_labels.get(slip["transfer_mode"], slip["transfer_mode"]), "", ""],
+    ]
+    if slip["transfer_mode"] == "bank_transfer":
+        emp_info.append(["Bank Name:", slip.get("bank_name") or "-", "Account No.:", slip.get("account_number") or "-"])
+    info_table = Table(emp_info, colWidths=[32*mm, 60*mm, 32*mm, 58*mm])
+    info_table.setStyle(TableStyle([
+        ("FONTNAME", (0,0), (0,-1), "Helvetica-Bold"), ("FONTNAME", (2,0), (2,-1), "Helvetica-Bold"),
+        ("FONTSIZE", (0,0), (-1,-1), 10), ("BOTTOMPADDING", (0,0), (-1,-1), 6), ("TOPPADDING", (0,0), (-1,-1), 6),
+        ("LINEBELOW", (0,0), (-1,-1), 0.5, colors.HexColor("#e2e8f0")),
+    ]))
+    story.append(info_table)
+    story.append(Spacer(1, 16))
+
+    earnings = slip.get("earnings_breakdown") or []
+    deductions = slip.get("deductions_breakdown") or []
+
+    def _breakdown_table(items, header_color, title):
+        data = [[title, "Amount"]]
+        for it in items:
+            data.append([it.get("name", ""), "%.0f" % float(it.get("amount", 0))])
+        if not items:
+            data.append(["-", "-"])
+        t = Table(data, colWidths=[55*mm, 29*mm])
+        t.setStyle(TableStyle([
+            ("BACKGROUND", (0,0), (-1,0), colors.HexColor(header_color)),
+            ("TEXTCOLOR", (0,0), (-1,0), colors.white),
+            ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
+            ("FONTSIZE", (0,0), (-1,-1), 9),
+            ("ALIGN", (1,0), (1,-1), "RIGHT"),
+            ("GRID", (0,0), (-1,-1), 0.5, colors.HexColor("#e2e8f0")),
+            ("ROWBACKGROUNDS", (0,1), (-1,-1), [colors.white, colors.HexColor("#f8fafc")]),
+            ("TOPPADDING", (0,0), (-1,-1), 5), ("BOTTOMPADDING", (0,0), (-1,-1), 5),
+            ("VALIGN", (0,0), (-1,-1), "TOP"),
+        ]))
+        return t
+
+    earnings_table = _breakdown_table(earnings, "#3a3a38", "Earnings")
+    deductions_table = _breakdown_table(deductions, "#3a3a38", "Deductions")
+    grid = Table([[earnings_table, deductions_table]], colWidths=[86*mm, 86*mm])
+    grid.setStyle(TableStyle([
+        ("VALIGN", (0,0), (-1,-1), "TOP"),
+        ("LEFTPADDING", (1,0), (1,0), 0),
+        ("BOX", (0,0), (-1,-1), 1, colors.HexColor("#1a1a1a")),
+        ("LINEAFTER", (0,0), (0,-1), 1, colors.HexColor("#1a1a1a")),
+    ]))
+    story.append(grid)
+    story.append(Spacer(1, 18))
+
+    gross = float(slip["gross_earnings"]) if slip.get("gross_earnings") else 0
+    ded = float(slip["total_deductions"]) if slip.get("total_deductions") else 0
+    net = float(slip["net_pay"]) if slip.get("net_pay") else 0
+    summary_data = [["Gross Earnings", "Total Deductions", "Net Pay"], ["%.0f" % gross, "%.0f" % ded, "%.0f" % net]]
+    summary_table = Table(summary_data, colWidths=[58*mm, 58*mm, 56*mm])
+    summary_table.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#f1f5f9")),
+        ("FONTNAME", (0,0), (-1,-1), "Helvetica-Bold"),
+        ("FONTSIZE", (0,0), (-1,0), 10), ("FONTSIZE", (0,1), (-1,1), 14),
+        ("ALIGN", (0,0), (-1,-1), "CENTER"),
+        ("GRID", (0,0), (-1,-1), 0.5, colors.HexColor("#e2e8f0")),
+        ("TEXTCOLOR", (2,1), (2,1), colors.HexColor("#166534")),
+        ("BACKGROUND", (2,1), (2,1), colors.HexColor("#f0fdf4")),
+        ("TOPPADDING", (0,0), (-1,-1), 8), ("BOTTOMPADDING", (0,0), (-1,-1), 8),
+    ]))
+    story.append(summary_table)
+    story.append(Spacer(1, 30))
+    story.append(Paragraph("This is a computer-generated salary slip and does not require a signature.",
+        ParagraphStyle("Footer", parent=styles["Normal"], fontSize=8, alignment=TA_CENTER, textColor=colors.HexColor("#94a3b8"))))
+    story.append(Paragraph("Generated on " + get_processing_datetime(db).strftime("%d %B %Y"),
+        ParagraphStyle("Footer2", parent=styles["Normal"], fontSize=7, alignment=TA_CENTER, textColor=colors.HexColor("#94a3b8"))))
+
+    doc.build(story)
+    buf.seek(0)
+    safe_name = (slip["first_name"] + "_" + slip["last_name"] + "_" + period_label).replace(" ", "_")
+    return StreamingResponse(buf, media_type="application/pdf",
+        headers={"Content-Disposition": 'attachment; filename="SalarySlip_' + safe_name + '.pdf"'})
+
+
+@router.post("/runs/{run_id}/send-payslips")
+def send_payslip_notifications(run_id: int, user_id: int = Depends(require_permission("payroll.send_slips")), db=Depends(get_db)):
+    """Notify every employee in this run that their salary slip is ready to view."""
+    cur = get_cur(db)
+    cur.execute("SELECT month, year, status FROM payroll_runs WHERE id=%s", (run_id,))
+    run = cur.fetchone()
+    if not run:
+        fail("Payroll run not found.", 404)
+    if run["status"] != "released":
+        fail("Salary slips can only be sent once the run is released.", 400)
+
+    import calendar
+    period_label = calendar.month_name[run["month"]] + " " + str(run["year"])
+    cur.execute("""
+        SELECT s.user_id FROM payroll_payslips p JOIN staff s ON s.id = p.staff_id
+        WHERE p.payroll_run_id = %s AND s.user_id IS NOT NULL
+    """, (run_id,))
+    recipients = cur.fetchall()
+
+    sent = 0
+    try:
+        from app.utils.notify import send_notification
+        import main as _main
+        with _main.flask_app.app_context():
+            for r in recipients:
+                send_notification(r["user_id"], "Salary Slip Ready",
+                    "Your salary slip for " + period_label + " is now available to view.", "info", "/my-payslips")
+                sent += 1
+    except Exception as e:
+        print(f"[send payslips] {e}")
+    return ok(data={"sent": sent}, message="Salary slip notifications sent to " + str(sent) + " employee(s).")
+
+
+@router.get("/my-payslips")
+def list_my_payslips(user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+    """List all released payslips belonging to the current logged-in employee."""
+    cur = get_cur(db)
+    cur.execute("SELECT id FROM staff WHERE user_id=%s", (user_id,))
+    staff_row = cur.fetchone()
+    if not staff_row:
+        return ok(data=[])
+    cur.execute("""
+        SELECT p.payroll_run_id AS run_id, r.month, r.year, p.net_pay, p.staff_id
+        FROM payroll_payslips p
+        JOIN payroll_runs r ON r.id = p.payroll_run_id
+        WHERE p.staff_id = %s AND r.status = 'released'
+        ORDER BY r.year DESC, r.month DESC
+    """, (staff_row["id"],))
+    return ok(data=[dict(r) for r in cur.fetchall()])

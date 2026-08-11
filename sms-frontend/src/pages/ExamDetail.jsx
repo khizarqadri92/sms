@@ -100,7 +100,7 @@ function DatesheetTab({examId, canManage, navigate, examsApi, detail}) {
   );
 }
 
-function ResultsTab({examId, detail, canManage, canApprove, acting, doAction, examsApi}) {
+function ResultsTab({examId, detail, canManage, canApprove, canCompile, acting, doAction, examsApi}) {
   const [compStatus,    setCompStatus]    = React.useState(null);
   const [selectedClass, setSelectedClass] = React.useState(null);
   const [classResults,  setClassResults]  = React.useState(null);
@@ -259,8 +259,13 @@ function ResultsTab({examId, detail, canManage, canApprove, acting, doAction, ex
                   ))}
                 </div>
                 {classResults?.all_submitted&&(
-                  <div style={{marginTop:8,padding:"10px 14px",background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,fontSize:12,color:"#166534",fontWeight:600}}>
-                    ? All marks submitted. Waiting for class incharge to compile.
+                  <div style={{marginTop:8,padding:"10px 14px",background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,fontSize:12,color:"#166534",fontWeight:600,display:"flex",justifyContent:"space-between",alignItems:"center",gap:12,flexWrap:"wrap"}}>
+                    <span>? All marks submitted. Waiting for class incharge to compile.</span>
+                    {canCompile&&(
+                      <button disabled={acting} onClick={()=>doAction(()=>examsApi.compileResults(examId,{class_id:selectedClass.class_id}),"Class compiled.")} style={{padding:"6px 16px",background:"#0f4c35",color:"#fff",border:"none",borderRadius:7,fontSize:12,fontWeight:700,cursor:"pointer",whiteSpace:"nowrap"}}>
+                        {acting?"Compiling...":"Compile Now"}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -383,7 +388,7 @@ export default function ExamDetail() {
     {k:"overview", l:"Overview"},
     {k:"datesheet", l:"Datesheet"},
     ...(canMarks&&(detail.status==="marks_open"||detail.status==="compiled"||detail.status==="reviewed"||detail.status==="approved"||detail.status==="published") ? [{k:"marks",l:"Marks"}] : []),
-    ...((detail.status==="compiled"||detail.status==="reviewed"||detail.status==="approved"||detail.status==="published")&&(canManage||canApprove) ? [{k:"results",l:"Results"}] : []),
+    ...((["marks_open","submitted","compiled","reviewed","approved","published"].includes(detail.status))&&(canManage||canApprove||canCompile) ? [{k:"results",l:"Results"}] : []),
   ];
 
   return (
@@ -525,7 +530,7 @@ export default function ExamDetail() {
       )}
 
       {/* Results Tab */}
-      {activeTab==="results"&&<ResultsTab examId={Number(id)} detail={detail} canManage={canManage} canApprove={canApprove} acting={acting} doAction={doAction} examsApi={examsApi} />}
+      {activeTab==="results"&&<ResultsTab examId={Number(id)} detail={detail} canManage={canManage} canApprove={canApprove} canCompile={canCompile} acting={acting} doAction={doAction} examsApi={examsApi} />}
 
     </div>
   );

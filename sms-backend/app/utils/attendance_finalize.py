@@ -14,6 +14,7 @@ already-finalized days (matches how the late-arrival flag is snapshotted).
 import psycopg2.extras
 from datetime import datetime as _dt, timedelta as _td
 from app.db.connection import get_db
+from app.utils.processing_date import get_processing_datetime
 
 
 def run_attendance_finalize_scheduled(app, force=False):
@@ -27,7 +28,12 @@ def run_attendance_finalize_scheduled(app, force=False):
         )
         settings = {r["key"]: r["value"] for r in cur.fetchall()}
 
-        now = _dt.now()
+        # Use the application's simulated processing date/time, not the real
+        # system clock - otherwise this scheduler only ever finalizes "real
+        # yesterday" and never advances alongside a manually-set processing
+        # date, leaving attendance permanently unfinalized ("pending") for
+        # any date around the simulated "today".
+        now = get_processing_datetime(db)
         today_str = now.date().isoformat()
 
         if not force:

@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import attendanceApi from "../api/attendanceApi";
 import hrApi from "../api/hrApi";
 import settingsApi from "../api/settingsApi";
+import processingDateApi from "../api/processingDateApi";
+import DatePicker from "../components/DatePicker";
 
 function fmtTime(iso) {
   if (!iso) return "-";
@@ -157,8 +159,20 @@ export default function AttendanceDashboard() {
   const [sessionForm, setSessionForm] = useState({ clock_in_at: "", clock_out_at: "", notes: "" });
   const [editingSessionId, setEditingSessionId] = useState(null);
 
-  const [viewDate, setViewDate] = useState(() => toLocalDateStr(new Date()));
-  const isLiveMode = viewDate === toLocalDateStr(new Date());
+  const [processingToday, setProcessingToday] = useState(null);
+  const [viewDate, setViewDate] = useState(null);
+  useEffect(() => {
+    processingDateApi.get().then(r => {
+      const d = r.data.data.current_processing_date;
+      setProcessingToday(d);
+      setViewDate(d);
+    }).catch(() => {
+      const d = toLocalDateStr(new Date());
+      setProcessingToday(d);
+      setViewDate(d);
+    });
+  }, []);
+  const isLiveMode = viewDate === processingToday;
 
   const loadDashboard = useCallback(() => {
     if (isLiveMode) {
@@ -250,7 +264,7 @@ export default function AttendanceDashboard() {
     setEditingSessionId(null);
     setDayDetailExpanded(false);
     setSessionForm({ clock_in_at: "", clock_out_at: "", notes: "" });
-    const initialMonth = !isLiveMode ? new Date(viewDate + "T00:00:00") : new Date();
+    const initialMonth = !isLiveMode ? new Date(viewDate + "T00:00:00") : new Date((processingToday || toLocalDateStr(new Date())) + "T00:00:00");
     setModalViewMonth(initialMonth);
     loadModalDailyStatus(staffId, initialMonth);
     try {
@@ -272,7 +286,7 @@ export default function AttendanceDashboard() {
 
   // Shared by both the day-summary card and the sessions table below it,
   // so expanding the summary shows sessions for the SAME date, not all-time.
-  const targetDateStr = !isLiveMode ? viewDate : toLocalDateStr(new Date());
+  const targetDateStr = !isLiveMode ? viewDate : (processingToday || toLocalDateStr(new Date()));
   const daySessions = sessions.filter(s => s.clock_in_at.slice(0, 10) === targetDateStr);
   const dayFirstIn = daySessions.length ? daySessions.reduce((a, b) => a.clock_in_at < b.clock_in_at ? a : b) : null;
   const dayOpenOnes = daySessions.filter(s => !s.clock_out_at);
@@ -337,7 +351,7 @@ export default function AttendanceDashboard() {
   };
 
   return (
-    <div style={{ padding: 24, maxWidth: 1100, margin: "0 auto" }}>
+    <div style={{ padding: 24, margin: "0 auto" }}>
       <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 20, color: "#0f172a" }}>Employee Attendance</h1>
 
       <div style={{ display: "flex", gap: 4, marginBottom: 20, borderBottom: "1px solid #e2e8f0" }}>
@@ -382,10 +396,9 @@ export default function AttendanceDashboard() {
                   Object.entries(STATUS_LABELS).map(([k, label]) => <option key={k} value={k}>{label}</option>)
                 )}
               </select>
-              <input type="date" className="form-input" style={{ fontSize: 13 }} value={viewDate} max={toLocalDateStr(new Date())}
-                onChange={e => setViewDate(e.target.value)} />
+              <DatePicker value={viewDate} onChange={setViewDate} max={processingToday || toLocalDateStr(new Date())} style={{ width: 150 }} />
               {!isLiveMode && (
-                <button className="btn btn-ghost btn-sm" style={{ fontSize: 12 }} onClick={() => setViewDate(toLocalDateStr(new Date()))}>Back to Today</button>
+                <button className="btn btn-ghost btn-sm" style={{ fontSize: 12 }} onClick={() => setViewDate(processingToday || toLocalDateStr(new Date()))}>Back to Today</button>
               )}
             </div>
             <div style={{ fontSize: 12, color: "#94a3b8" }}>

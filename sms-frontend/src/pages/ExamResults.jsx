@@ -63,6 +63,28 @@ export default function ExamResults() {
     finally { setLoading(false); }
   };
 
+  const downloadCard = async () => {
+    if (!selectedExam) return;
+    let studentId;
+    if (role==="student") {
+      studentId = myInfo?.id;
+    } else {
+      studentId = selectedChild?.id;
+    }
+    if (!studentId) return;
+    try {
+      const r = await client.get(`/exams/${selectedExam.id}/result-card/${studentId}`, { responseType: "blob" });
+      const url = window.URL.createObjectURL(new Blob([r.data], { type: "application/pdf" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `ResultCard_${selectedExam.name}.pdf`.replace(/\s+/g,"_");
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) { console.log("download error", e); }
+  };
+
   const pickChild = async (child) => {
     setSelectedChild(child);
     const exam = selectedExam || exams[0];
@@ -117,6 +139,9 @@ export default function ExamResults() {
             <div style={{padding:"20px 24px",background:results.is_pass?"#f0fdf4":"#fff8f8",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:16}}>
               <div>
                 <div style={{fontWeight:800,fontSize:20,color:"#0f172a"}}>{selectedExam?.name}</div>
+                <button onClick={downloadCard} style={{marginTop:10,padding:"8px 18px",background:"#0f4c35",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer"}}>
+                  Download Result Card
+                </button>
                 <div style={{fontSize:13,color:"#64748b",marginTop:4}}>{results.class_name}{results.section?" ("+results.section+")":""} · {selectedExam?.academic_year}</div>
               </div>
               <div style={{textAlign:"center"}}>

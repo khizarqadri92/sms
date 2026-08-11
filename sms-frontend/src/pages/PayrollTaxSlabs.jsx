@@ -130,7 +130,7 @@ export default function PayrollTaxSlabs() {
   if (loading) return <div style={{ padding: 60, textAlign: "center", color: "#64748b" }}>Loading...</div>;
 
   return (
-    <div style={{ maxWidth: 900, margin: "0 auto", padding: 24 }}>
+    <div style={{ margin: "0 auto", padding: 24 }}>
       <div style={{ marginBottom: 20 }}>
         <div style={{ fontSize: 22, fontWeight: 800, color: "#0f172a" }}>Income Tax Slabs</div>
         <div style={{ fontSize: 13, color: "#64748b" }}>Configure progressive annual tax brackets used to calculate the Income Tax deduction</div>
