@@ -31,6 +31,7 @@ const workflowApi = {
   // Meta
   getModules:        ()             => client.get("/workflow/modules/list"),
   getRoles:          ()             => client.get("/workflow/roles/list"),
+  getDesignations:   ()             => client.get("/workflow/designations/list"),
   getModuleLinks:    ()             => client.get("/workflow/module-links"),
   getModuleLink:     (mod, entity)  => client.get(`/workflow/module-links/${mod}/${entity}`),
   getConditionFields:(mod, entity)  => client.get("/workflow/condition-fields", { params: { module: mod, entity_type: entity } }),

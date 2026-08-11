@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import payrollApi from "../api/payrollApi";
+import { useAuth } from "../auth/AuthContext";
 
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
@@ -12,10 +13,11 @@ const STATUS_COLORS = {
 };
 const STATUS_LABELS = {
   draft: "Draft (HR Configuring)", hr_submitted: "With Finance", pending_approval: "Pending Approval",
-  approved: "Approved", released: "Released",
+  approved: "Approved", released: "Completed",
 };
 
 export default function PayrollRuns() {
+  const { can } = useAuth();
   const now = new Date();
   const [runs, setRuns] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -78,6 +80,59 @@ export default function PayrollRuns() {
       payrollApi.hrSummaryPayrollRun(run.id).then(r => setHrSummary(r.data.data || [])).catch(() => setHrSummary([]));
     } else {
       payrollApi.getPayslips(run.id).then(r => setPayslips(r.data.data || [])).catch(() => setPayslips([]));
+    }
+  };
+
+  const downloadSlip = async (runId, staffId, staffName) => {
+    try {
+      const r = await payrollApi.downloadSalarySlip(runId, staffId);
+      const url = window.URL.createObjectURL(new Blob([r.data], { type: "application/pdf" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `SalarySlip_${staffName}.pdf`.replace(/\s+/g,"_");
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      showFlash("error", "Failed to download salary slip.");
+    }
+  };
+
+  const sendAllSlips = async (runId) => {
+    if (!window.confirm("Send salary slip notification to all employees in this run?")) return;
+    try {
+      const r = await payrollApi.sendPayslips(runId);
+      showFlash("success", r.data.message || "Salary slips sent.");
+    } catch (e) {
+      showFlash("error", e.response?.data?.message || "Failed to send salary slips.");
+    }
+  };
+
+  const downloadPayroll = async (runId) => {
+    try {
+      const r = await payrollApi.downloadPayrollRun(runId);
+      const url = window.URL.createObjectURL(new Blob([r.data], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Payroll_${runId}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e) {
+      showFlash("error", "Failed to download payroll.");
+    }
+  };
+
+  const markDone = async (runId) => {
+    if (!window.confirm("Mark adjustments as done for this period? Make sure all incentives/arrears have been entered.")) return;
+    try {
+      await payrollApi.markAdjustmentsDone(runId);
+      showFlash("success", "Adjustments marked done.");
+      load(true);
+    } catch (e) {
+      showFlash("error", e.response?.data?.message || "Failed.");
     }
   };
 
@@ -145,7 +200,7 @@ export default function PayrollRuns() {
   if (loading) return <div style={{ padding: 60, textAlign: "center", color: "#64748b" }}>Loading...</div>;
 
   return (
-    <div style={{ maxWidth: 950, margin: "0 auto", padding: 24 }}>
+    <div style={{ margin: "0 auto", padding: 24 }}>
       <div style={{ marginBottom: 20 }}>
         <div style={{ fontSize: 22, fontWeight: 800, color: "#0f172a" }}>Payroll Runs</div>
         <div style={{ fontSize: 13, color: "#64748b" }}>Generate, review, and approve monthly payroll</div>
@@ -161,29 +216,31 @@ export default function PayrollRuns() {
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "flex-end" }}>
-        <div>
-          <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Month</label>
-          <select className="form-input" style={{ fontSize: 13, width: 160 }} value={newMonth} onChange={e => setNewMonth(e.target.value)}>
-            {MONTH_NAMES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
-          </select>
+      {can("payroll.create_run") && (
+        <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "flex-end" }}>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Month</label>
+            <select className="form-input" style={{ fontSize: 13, width: 160 }} value={newMonth} onChange={e => setNewMonth(e.target.value)}>
+              {MONTH_NAMES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Year</label>
+            <input type="number" className="form-input" style={{ fontSize: 13, width: 100 }} value={newYear} onChange={e => setNewYear(e.target.value)} />
+          </div>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>From</label>
+            <input type="date" className="form-input" style={{ fontSize: 13, width: 150 }} value={newFromDate} onChange={e => setNewFromDate(e.target.value)} />
+          </div>
+          <div>
+            <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>To</label>
+            <input type="date" className="form-input" style={{ fontSize: 13, width: 150 }} value={newToDate} onChange={e => setNewToDate(e.target.value)} />
+          </div>
+          <button className="btn btn-primary btn-sm" style={{ color: "#fff" }} disabled={creating} onClick={createRun}>
+            {creating ? "Starting..." : "Start Payroll Process"}
+          </button>
         </div>
-        <div>
-          <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Year</label>
-          <input type="number" className="form-input" style={{ fontSize: 13, width: 100 }} value={newYear} onChange={e => setNewYear(e.target.value)} />
-        </div>
-        <div>
-          <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>From</label>
-          <input type="date" className="form-input" style={{ fontSize: 13, width: 150 }} value={newFromDate} onChange={e => setNewFromDate(e.target.value)} />
-        </div>
-        <div>
-          <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>To</label>
-          <input type="date" className="form-input" style={{ fontSize: 13, width: 150 }} value={newToDate} onChange={e => setNewToDate(e.target.value)} />
-        </div>
-        <button className="btn btn-primary btn-sm" style={{ color: "#fff" }} disabled={creating} onClick={createRun}>
-          {creating ? "Creating..." : "+ New Payroll Run"}
-        </button>
-      </div>
+      )}
 
       <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -211,7 +268,11 @@ export default function PayrollRuns() {
                   </td>
                   <td style={{ padding: "10px 14px", fontSize: 13 }}>{r.adjustments_count}</td>
                   <td style={{ padding: "10px 14px" }}>
-                    <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => openRun(r)}>View</button>
+                    {r.status === "draft" && !r.adjustments_done ? (
+                      <button className="btn btn-primary btn-sm" style={{ fontSize: 11, color: "#fff" }} onClick={() => markDone(r.id)}>Adjustment Done</button>
+                    ) : (
+                      <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => openRun(r)}>View</button>
+                    )}
                   </td>
                 </tr>
               );
@@ -278,8 +339,20 @@ export default function PayrollRuns() {
                 </div>
               )}
               {viewingRun.status === "released" && (
-                <div style={{ marginBottom: 16, padding: "10px 14px", background: "#ecfdf5", borderRadius: 8, fontSize: 13, color: "#047857", fontWeight: 600 }}>
-                  Released for salary transfer. This run is now permanently frozen.
+                <div style={{ marginBottom: 16, padding: "10px 14px", background: "#ecfdf5", borderRadius: 8, fontSize: 13, color: "#047857", fontWeight: 600, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                  <span>Released for salary transfer. This run is now permanently frozen.</span>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    {can("payroll.send_slips") && (
+                      <button className="btn btn-ghost btn-sm" style={{ color: "#0f4c35" }} onClick={() => sendAllSlips(viewingRun.id)}>
+                        Send Salary Slip to All Employees
+                      </button>
+                    )}
+                    {can("payroll.manage") && (
+                      <button className="btn btn-primary btn-sm" style={{ color: "#fff" }} onClick={() => downloadPayroll(viewingRun.id)}>
+                        Download Payroll
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -357,10 +430,14 @@ export default function PayrollRuns() {
                               <td style={{ padding: "8px 10px", fontSize: 13 }}>{Number(p.gross_earnings).toLocaleString()}</td>
                               <td style={{ padding: "8px 10px", fontSize: 13, color: "#dc2626" }}>{Number(p.total_deductions).toLocaleString()}</td>
                               <td style={{ padding: "8px 10px", fontSize: 13, fontWeight: 700 }}>{Number(p.net_pay).toLocaleString()}</td>
-                              <td style={{ padding: "8px 10px" }}>
+                              <td style={{ padding: "8px 10px", display: "flex", gap: 6 }}>
                                 <button className="btn btn-ghost btn-sm" style={{ fontSize: 10 }}
                                   onClick={() => setExpandedStaffId(expandedStaffId === p.id ? null : p.id)}>
                                   {expandedStaffId === p.id ? "Hide" : "Details"}
+                                </button>
+                                <button className="btn btn-ghost btn-sm" style={{ fontSize: 10, color: "#0f4c35" }}
+                                  onClick={() => downloadSlip(viewingRun.id, p.staff_id, p.staff_name)}>
+                                  Salary Slip
                                 </button>
                               </td>
                             </tr>

@@ -117,6 +117,13 @@ def get_security_public_settings(user_id: int = Depends(get_current_user_id), db
     return ok(data={k: v for k, v in all_data.items() if k in allowed_keys})
 
 
+@router.get("/regional-format-public")
+def get_regional_format_public(user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+    cur = get_cur(db)
+    cur.execute("SELECT * FROM sp_get_settings_by_category(%s::varchar)", ("regional_format",))
+    return ok(data={r["key"]: r["value"] for r in cur.fetchall()})
+
+
 @router.get("/school-info-public")
 def get_school_info_public(user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
     cur = get_cur(db)

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import attendanceApi from "../api/attendanceApi";
+import processingDateApi from "../api/processingDateApi";
 
 function formatDuration(ms) {
   if (ms == null || ms < 0) return "-";
@@ -43,6 +44,7 @@ export default function MyAttendance() {
   const [today, setToday]       = useState(null);
   const [history, setHistory]   = useState([]);
   const [loading, setLoading]   = useState(true);
+  const [processingToday, setProcessingToday] = useState(null);
   const [toggling, setToggling] = useState(false);
   const [toggleMsg, setToggleMsg] = useState(null);
   const [flash, setFlash]       = useState(null);
@@ -78,16 +80,28 @@ export default function MyAttendance() {
   const [correctionError, setCorrectionError] = useState(null);
   const [correctionSaving, setCorrectionSaving] = useState(false);
   const [myCorrectionRequests, setMyCorrectionRequests] = useState([]);
-  const [viewMonth, setViewMonth] = useState(() => { const d = new Date(); d.setDate(1); return d; });
-  const monthStart = toLocalDateStr(new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1));
-  const monthEnd = toLocalDateStr(new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 0));
-  const daysInMonth = new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 0).getDate();
+  const [viewMonth, setViewMonth] = useState(null);
+
+  useEffect(() => {
+    processingDateApi.get().then(r => {
+      const d = new Date(r.data.data.current_processing_date + "T00:00:00");
+      setProcessingToday(d);
+      setViewMonth(new Date(d.getFullYear(), d.getMonth(), 1));
+    }).catch(() => {
+      const d = new Date();
+      setProcessingToday(d);
+      setViewMonth(new Date(d.getFullYear(), d.getMonth(), 1));
+    });
+  }, []);
+  const monthStart = viewMonth ? toLocalDateStr(new Date(viewMonth.getFullYear(), viewMonth.getMonth(), 1)) : null;
+  const monthEnd = viewMonth ? toLocalDateStr(new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 0)) : null;
+  const daysInMonth = viewMonth ? new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 0).getDate() : 0;
   const statusByDate = {};
   monthlyStatus.forEach(d => { statusByDate[d.status_date] = d; });
   const goPrevMonth = () => setViewMonth(v => new Date(v.getFullYear(), v.getMonth() - 1, 1));
   const goNextMonth = () => setViewMonth(v => new Date(v.getFullYear(), v.getMonth() + 1, 1));
-  const isCurrentOrFutureMonth = viewMonth.getFullYear() > new Date().getFullYear() ||
-    (viewMonth.getFullYear() === new Date().getFullYear() && viewMonth.getMonth() >= new Date().getMonth());
+  const isCurrentOrFutureMonth = !viewMonth || !processingToday || viewMonth.getFullYear() > processingToday.getFullYear() ||
+    (viewMonth.getFullYear() === processingToday.getFullYear() && viewMonth.getMonth() >= processingToday.getMonth());
 
   const showFlash = (type, msg) => { setFlash({ type, msg }); setTimeout(() => setFlash(null), 4000); };
 
@@ -141,6 +155,7 @@ export default function MyAttendance() {
 
   // History + daily status are both scoped to the currently viewed month
   useEffect(() => {
+    if (!monthStart || !monthEnd) return;
     attendanceApi.getMyHistory({ from_date: monthStart, to_date: monthEnd })
       .then(r => setHistory(r.data.data || [])).catch(() => {});
     attendanceApi.getMyDailyStatus({ from_date: monthStart, to_date: monthEnd })
@@ -197,10 +212,10 @@ export default function MyAttendance() {
   const selectedDaySessions = selectedDay ? (historyByDate[selectedDay] || []) : [];
   const selectedDayStatusRow = selectedDay ? statusByDate[selectedDay] : null;
 
-  if (loading) return <div style={{ padding: 60, textAlign: "center", color: "#64748b" }}>Loading...</div>;
+  if (loading || !viewMonth) return <div style={{ padding: 60, textAlign: "center", color: "#64748b" }}>Loading...</div>;
 
   return (
-    <div style={{ maxWidth: 800, margin: "0 auto", padding: 24 }}>
+    <div style={{ margin: "0 auto", padding: 24 }}>
       <div style={{ marginBottom: 20 }}>
         <div style={{ fontSize: 22, fontWeight: 800, color: "#0f172a" }}>My Attendance</div>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -309,7 +324,7 @@ export default function MyAttendance() {
             {Array.from({ length: daysInMonth }).map((_, i) => {
               const dayNum = i + 1;
               const dateStr = toLocalDateStr(new Date(viewMonth.getFullYear(), viewMonth.getMonth(), dayNum));
-              if (dateStr > toLocalDateStr(new Date())) return null;
+              if (processingToday && dateStr > toLocalDateStr(processingToday)) return null;
               const statusRow = statusByDate[dateStr];
               const sessions = historyByDate[dateStr] || [];
               const colors = statusRow ? (STATUS_COLORS[statusRow.status] || STATUS_COLORS.pending) : STATUS_COLORS.pending;
@@ -467,7 +482,7 @@ export default function MyAttendance() {
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Date *</label>
-                  <input type="date" className="form-input" style={{ width: "100%", fontSize: 13 }} max={toLocalDateStr(new Date())}
+                  <input type="date" className="form-input" style={{ width: "100%", fontSize: 13 }} max={processingToday ? toLocalDateStr(processingToday) : undefined}
                     value={correctionForm.request_date} onChange={e => setCorrectionForm(p => ({ ...p, request_date: e.target.value, update_field: "" }))} />
                 </div>
 

@@ -59,6 +59,9 @@ export default function HRStaff() {
   const [payrollSaving, setPayrollSaving] = useState(false);
   const [payrollMsg, setPayrollMsg] = useState(null);
   const [basicSalaryMode, setBasicSalaryMode] = useState("individual");
+  const [bankForm, setBankForm] = useState(null);
+  const [bankSaving, setBankSaving] = useState(false);
+  const [bankMsg, setBankMsg] = useState(null);
 
   useEffect(() => {
     if (detailTab === "salary" && selected?.id) {
@@ -76,6 +79,24 @@ export default function HRStaff() {
     }
   }, [detailTab, selected?.id]);
 
+  useEffect(() => {
+    if (detailTab === "bankinfo" && selected?.id) {
+      setBankMsg(null);
+      payrollApi.getStaffBankInfo(selected.id).then(r => setBankForm(r.data.data)).catch(() => {});
+    }
+  }, [detailTab, selected?.id]);
+  const saveBankInfo = async () => {
+    setBankMsg(null);
+    setBankSaving(true);
+    try {
+      await payrollApi.updateStaffBankInfo(selected.id, bankForm);
+      setBankMsg({ type: "success", text: "Bank information saved." });
+    } catch (e) {
+      setBankMsg({ type: "error", text: e.response?.data?.message || e.response?.data?.detail?.message || "Failed to save." });
+    } finally {
+      setBankSaving(false);
+    }
+  };
   const savePayrollProfile = async () => {
     setPayrollMsg(null);
     setPayrollSaving(true);
@@ -335,7 +356,7 @@ export default function HRStaff() {
           {/* Right: Detail */}
           {selected && (
             <div style={{flex:1,overflowY:"auto",background:"#f8fafc"}}>
-              <div style={{padding:20,maxWidth:720,margin:"0 auto"}}>
+              <div style={{padding:20,maxWidth:900,margin:"0 auto"}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16}}>
                   <div style={{display:"flex",gap:14,alignItems:"flex-start"}}>
                     {selected.profile_photo ?
@@ -373,13 +394,13 @@ export default function HRStaff() {
                 </div>
 
                 {/* Detail Tabs */}
-                <div style={{display:"flex",gap:0,marginBottom:16,borderBottom:"1px solid #e2e8f0"}}>
-                  {["info","education","experience","documents","contacts","salary"].map(t=>(
+                <div style={{display:"flex",gap:0,marginBottom:16,borderBottom:"1px solid #e2e8f0",overflowX:"auto"}}>
+                  {["info","education","experience","documents","contacts","salary","bankinfo"].map(t=>(
                     <button key={t} onClick={()=>setDetailTab(t)}
-                      style={{padding:"8px 16px",border:"none",cursor:"pointer",fontSize:13,fontWeight:600,background:"transparent",
+                      style={{padding:"8px 14px",border:"none",cursor:"pointer",fontSize:13,fontWeight:600,background:"transparent",whiteSpace:"nowrap",
                         borderBottom:detailTab===t?"2px solid #2563eb":"2px solid transparent",
                         color:detailTab===t?"#2563eb":"#64748b"}}>
-                      {({info:"Info",education:"Education",experience:"Experience",documents:"Documents",contacts:"Emergency Contacts",salary:"Salary"})[t]}
+                      {({info:"Info",education:"Education",experience:"Experience",documents:"Documents",contacts:"Emergency Contacts",salary:"Salary",bankinfo:"Bank Info"})[t]}
                     </button>
                   ))}
                 </div>
@@ -810,10 +831,74 @@ export default function HRStaff() {
                       </div>
                     )}
 
+                    <div style={{marginBottom:14}}>
+                      <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:6}}>Salary Transfer Mode</label>
+                      <div style={{display:"flex",gap:14,flexWrap:"wrap"}}>
+                        {[["bank_transfer","Bank Transfer"],["cash","By Hand (Cash)"],["cheque","Cheque"]].map(([val,label])=>(
+                          <label key={val} style={{display:"flex",gap:6,alignItems:"center",fontSize:13,cursor:canEdit?"pointer":"default"}}>
+                            <input type="radio" disabled={!canEdit} checked={payrollForm.transfer_mode===val}
+                              onChange={()=>setPayrollForm(p=>({...p,transfer_mode:val}))} />
+                            {label}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
                     {canEdit && (
                       <div style={{display:"flex",justifyContent:"flex-end"}}>
                         <button className="btn btn-primary btn-sm" style={{color:"#fff"}} disabled={payrollSaving} onClick={savePayrollProfile}>
                           {payrollSaving?"Saving...":"Save Salary Profile"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {!detailLoading && detailTab==="bankinfo" && bankForm && (
+                  <div style={{background:"#fff",padding:16,borderRadius:8,border:"1px solid #e2e8f0"}}>
+                    <div style={{fontWeight:700,fontSize:14,marginBottom:14}}>Bank Information</div>
+                    {bankMsg && (
+                      <div style={{padding:"8px 12px",borderRadius:6,marginBottom:12,fontSize:13,
+                        background:bankMsg.type==="success"?"#f0fdf4":"#fef2f2",
+                        color:bankMsg.type==="success"?"#166534":"#991b1b"}}>
+                        {bankMsg.text}
+                      </div>
+                    )}
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+                      <div>
+                        <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Bank Name</label>
+                        <input className="form-input" style={{fontSize:13}} disabled={!canEdit}
+                          value={bankForm.bank_name ?? ""} onChange={e=>setBankForm(p=>({...p,bank_name:e.target.value}))} />
+                      </div>
+                      <div>
+                        <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Account Title</label>
+                        <input className="form-input" style={{fontSize:13}} disabled={!canEdit}
+                          value={bankForm.account_title ?? ""} onChange={e=>setBankForm(p=>({...p,account_title:e.target.value}))} />
+                      </div>
+                      <div>
+                        <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Account Number</label>
+                        <input className="form-input" style={{fontSize:13}} disabled={!canEdit}
+                          value={bankForm.account_number ?? ""} onChange={e=>setBankForm(p=>({...p,account_number:e.target.value}))} />
+                      </div>
+                      <div>
+                        <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>IBAN</label>
+                        <input className="form-input" style={{fontSize:13}} disabled={!canEdit}
+                          value={bankForm.iban ?? ""} onChange={e=>setBankForm(p=>({...p,iban:e.target.value}))} />
+                      </div>
+                      <div>
+                        <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Branch Name</label>
+                        <input className="form-input" style={{fontSize:13}} disabled={!canEdit}
+                          value={bankForm.branch_name ?? ""} onChange={e=>setBankForm(p=>({...p,branch_name:e.target.value}))} />
+                      </div>
+                      <div>
+                        <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Branch Code</label>
+                        <input className="form-input" style={{fontSize:13}} disabled={!canEdit}
+                          value={bankForm.branch_code ?? ""} onChange={e=>setBankForm(p=>({...p,branch_code:e.target.value}))} />
+                      </div>
+                    </div>
+                    {canEdit && (
+                      <div style={{display:"flex",justifyContent:"flex-end"}}>
+                        <button className="btn btn-primary btn-sm" style={{color:"#fff"}} disabled={bankSaving} onClick={saveBankInfo}>
+                          {bankSaving?"Saving...":"Save Bank Information"}
                         </button>
                       </div>
                     )}

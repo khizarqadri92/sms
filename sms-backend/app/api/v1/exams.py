@@ -990,6 +990,223 @@ def get_student_results(exam_id: int, student_id: int, user_id: int = Depends(re
     return ok(data=result)
 
 
+@router.get("/{exam_id}/result-card/{student_id}")
+def get_result_card_pdf(exam_id: int, student_id: int, user_id: int = Depends(require_permission("exam.view")), db=Depends(get_db)):
+    import base64, io
+    from datetime import datetime
+    from fastapi.responses import StreamingResponse
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.lib import colors
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.enums import TA_CENTER
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image as RLImage, HRFlowable
+
+    cur = get_cur(db)
+    cur.execute("""
+        SELECT er.*, s.first_name, s.last_name, s.enrollment_no, c.name as class_name, c.section
+        FROM exam_results er JOIN students s ON s.id=er.student_id
+        JOIN classes c ON c.id=er.class_id
+        WHERE er.exam_id=%s AND er.student_id=%s
+    """, (exam_id, student_id))
+    row = cur.fetchone()
+    if not row: fail("Results not found", 404)
+    result = dict(row)
+
+    cur.execute("""SELECT e.name, ay.name AS academic_year FROM exams e
+        LEFT JOIN academic_years ay ON ay.id = e.academic_year_id WHERE e.id=%s""", (exam_id,))
+    exam = cur.fetchone()
+    exam_name = exam["name"] if exam else "Exam"
+    academic_year = exam["academic_year"] if exam and exam["academic_year"] else ""
+
+    cur.execute("""
+        SELECT sub.name as subject_name, es.total_marks, em.marks_obtained, em.is_absent
+        FROM exam_marks em JOIN exam_subjects es ON es.id=em.exam_subject_id
+        JOIN subjects sub ON sub.id=es.subject_id
+        WHERE em.exam_id=%s AND em.student_id=%s ORDER BY sub.name
+    """, (exam_id, student_id))
+    subjects = [dict(r) for r in cur.fetchall()]
+
+    cur.execute("SELECT key, value FROM system_settings WHERE category=%s", ("school_info",))
+    settings = {r["key"]: r["value"] for r in cur.fetchall()}
+    school_name = settings.get("school_name", "School")
+    school_address = settings.get("school_address", "")
+    school_city = settings.get("school_city", "")
+    school_phone = settings.get("school_phone", "")
+    school_logo_data = settings.get("school_logo", "")
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, topMargin=15*mm, bottomMargin=15*mm, leftMargin=18*mm, rightMargin=18*mm)
+    styles = getSampleStyleSheet()
+
+    title_style = ParagraphStyle("SchoolTitle", parent=styles["Title"], fontSize=18, spaceAfter=2, textColor=colors.HexColor("#0f4c35"))
+    sub_style = ParagraphStyle("SchoolSub", parent=styles["Normal"], fontSize=9, alignment=TA_CENTER, textColor=colors.HexColor("#475569"))
+    exam_title_style = ParagraphStyle("ExamTitle", parent=styles["Heading2"], fontSize=13, alignment=TA_CENTER, spaceBefore=10, spaceAfter=4, textColor=colors.HexColor("#0f172a"))
+
+    story = []
+
+    logo_flowable = None
+    if school_logo_data and "base64," in school_logo_data:
+        try:
+            b64 = school_logo_data.split("base64,")[1]
+            logo_bytes = base64.b64decode(b64)
+            logo_flowable = RLImage(io.BytesIO(logo_bytes), width=20*mm, height=20*mm)
+        except Exception:
+            logo_flowable = None
+
+    addr_line = ", ".join([p for p in [school_address, school_city] if p])
+    school_info_para = [
+        Paragraph(school_name, title_style),
+        Paragraph(addr_line, sub_style),
+    ]
+    if school_phone:
+        school_info_para.append(Paragraph("Phone: " + school_phone, sub_style))
+
+    if logo_flowable:
+        header_table = Table([[logo_flowable, school_info_para]], colWidths=[25*mm, 145*mm])
+        header_table.setStyle(TableStyle([("VALIGN", (0,0), (-1,-1), "MIDDLE"), ("ALIGN", (0,0), (0,0), "CENTER")]))
+        story.append(header_table)
+    else:
+        story.extend(school_info_para)
+
+    story.append(Spacer(1, 6))
+    story.append(HRFlowable(width="100%", thickness=1.2, color=colors.HexColor("#0f4c35")))
+    story.append(Paragraph("STUDENT REPORT CARD", exam_title_style))
+    story.append(Paragraph(exam_name + " &bull; Academic Year " + str(academic_year), sub_style))
+    story.append(Spacer(1, 14))
+
+    is_pass = result.get("is_pass")
+    student_info = [
+        ["Student Name:", result["first_name"] + " " + result["last_name"], "Enrollment No:", result.get("enrollment_no") or "-"],
+        ["Class:", result["class_name"] + (" (" + result["section"] + ")" if result.get("section") else ""),
+         "Position:", ("#" + str(result["class_position"])) if result.get("class_position") else "-"],
+    ]
+    info_table = Table(student_info, colWidths=[32*mm, 60*mm, 32*mm, 58*mm])
+    info_table.setStyle(TableStyle([
+        ("FONTNAME", (0,0), (0,-1), "Helvetica-Bold"),
+        ("FONTNAME", (2,0), (2,-1), "Helvetica-Bold"),
+        ("FONTSIZE", (0,0), (-1,-1), 10),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 6),
+        ("TOPPADDING", (0,0), (-1,-1), 6),
+        ("LINEBELOW", (0,0), (-1,-1), 0.5, colors.HexColor("#e2e8f0")),
+    ]))
+    story.append(info_table)
+    story.append(Spacer(1, 16))
+
+    table_data = [["Subject", "Total Marks", "Obtained", "Percentage", "Result"]]
+    for s in subjects:
+        total = float(s["total_marks"]) if s.get("total_marks") else 0
+        if s.get("is_absent"):
+            table_data.append([s["subject_name"], "%.0f" % total, "Absent", "-", "Absent"])
+        else:
+            obt = float(s["marks_obtained"]) if s.get("marks_obtained") is not None else 0
+            pct = round(obt/total*100) if total else 0
+            table_data.append([s["subject_name"], "%.0f" % total, "%.0f" % obt, str(pct)+"%", "Pass" if pct>=40 else "Fail"])
+
+    subj_table = Table(table_data, colWidths=[55*mm, 30*mm, 30*mm, 30*mm, 37*mm], repeatRows=1)
+    subj_style = [
+        ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#0f4c35")),
+        ("TEXTCOLOR", (0,0), (-1,0), colors.white),
+        ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
+        ("FONTSIZE", (0,0), (-1,-1), 9.5),
+        ("ALIGN", (1,0), (-1,-1), "CENTER"),
+        ("GRID", (0,0), (-1,-1), 0.5, colors.HexColor("#e2e8f0")),
+        ("ROWBACKGROUNDS", (0,1), (-1,-1), [colors.white, colors.HexColor("#f8fafc")]),
+        ("TOPPADDING", (0,0), (-1,-1), 6),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 6),
+    ]
+    for i, s in enumerate(subjects, start=1):
+        if s.get("is_absent"):
+            subj_style.append(("TEXTCOLOR", (2,i), (2,i), colors.HexColor("#dc2626")))
+            subj_style.append(("TEXTCOLOR", (4,i), (4,i), colors.HexColor("#dc2626")))
+        else:
+            total = float(s["total_marks"]) if s.get("total_marks") else 0
+            obt = float(s["marks_obtained"]) if s.get("marks_obtained") is not None else 0
+            pct = round(obt/total*100) if total else 0
+            col = colors.HexColor("#166534") if pct >= 40 else colors.HexColor("#dc2626")
+            subj_style.append(("TEXTCOLOR", (4,i), (4,i), col))
+    subj_table.setStyle(TableStyle(subj_style))
+    story.append(subj_table)
+    story.append(Spacer(1, 18))
+
+    total_marks = float(result["total_marks"]) if result.get("total_marks") else 0
+    marks_obtained = float(result["marks_obtained"]) if result.get("marks_obtained") else 0
+    percentage = float(result["percentage"]) if result.get("percentage") else 0
+    grade = result.get("grade") or "-"
+    result_color = colors.HexColor("#166534") if is_pass else colors.HexColor("#dc2626")
+    result_bg = colors.HexColor("#f0fdf4") if is_pass else colors.HexColor("#fef2f2")
+
+    summary_data = [
+        ["Total Marks", "Marks Obtained", "Percentage", "Grade", "Result"],
+        ["%.0f" % total_marks, "%.0f" % marks_obtained, "%.1f%%" % percentage, grade, "PASS" if is_pass else "FAIL"],
+    ]
+    summary_table = Table(summary_data, colWidths=[36*mm, 36*mm, 36*mm, 36*mm, 38*mm])
+    summary_table.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#f1f5f9")),
+        ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
+        ("FONTNAME", (0,1), (-1,1), "Helvetica-Bold"),
+        ("FONTSIZE", (0,0), (-1,-1), 10),
+        ("FONTSIZE", (0,1), (-1,1), 13),
+        ("ALIGN", (0,0), (-1,-1), "CENTER"),
+        ("GRID", (0,0), (-1,-1), 0.5, colors.HexColor("#e2e8f0")),
+        ("TEXTCOLOR", (4,1), (4,1), result_color),
+        ("BACKGROUND", (4,1), (4,1), result_bg),
+        ("TOPPADDING", (0,0), (-1,-1), 8),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 8),
+    ]))
+    story.append(summary_table)
+    story.append(Spacer(1, 40))
+
+    def _get_signature_image(uid):
+        if not uid: return None
+        cur.execute("SELECT signature FROM user_signatures WHERE user_id=%s", (uid,))
+        r = cur.fetchone()
+        if not r or not r["signature"] or "base64," not in r["signature"]: return None
+        try:
+            sig_bytes = base64.b64decode(r["signature"].split("base64,")[1])
+            return RLImage(io.BytesIO(sig_bytes), width=45*mm, height=18*mm)
+        except Exception:
+            return None
+
+    cur.execute("""SELECT t.user_id FROM class_teachers ct JOIN teachers t ON t.id = ct.teacher_id
+        WHERE ct.class_id=%s AND ct.is_primary=true LIMIT 1""", (result["class_id"],))
+    ct_row = cur.fetchone()
+    class_teacher_sig = _get_signature_image(ct_row["user_id"]) if ct_row else None
+
+    cur.execute("""SELECT u.id FROM users u JOIN user_roles ur ON ur.user_id=u.id
+        JOIN roles r ON r.id=ur.role_id WHERE r.name='principal' LIMIT 1""")
+    principal_row = cur.fetchone()
+    principal_sig = _get_signature_image(principal_row["id"]) if principal_row else None
+
+    blank_sig = Paragraph("&nbsp;", styles["Normal"])
+    sig_data = [
+        [class_teacher_sig or blank_sig, "", principal_sig or blank_sig],
+        ["_______________________", "", "_______________________"],
+        ["Class Teacher", "", "Principal"],
+    ]
+    sig_table = Table(sig_data, colWidths=[65*mm, 30*mm, 65*mm], rowHeights=[16*mm, None, None])
+    sig_table.setStyle(TableStyle([
+        ("ALIGN", (0,0), (-1,-1), "CENTER"),
+        ("VALIGN", (0,0), (-1,0), "BOTTOM"),
+        ("FONTSIZE", (0,1), (-1,-1), 9),
+        ("TEXTCOLOR", (0,2), (-1,2), colors.HexColor("#64748b")),
+        ("TOPPADDING", (0,0), (-1,-1), 0),
+        ("BOTTOMPADDING", (0,0), (-1,-1), 0),
+        ("TOPPADDING", (0,2), (-1,2), 3),
+    ]))
+    story.append(sig_table)
+    story.append(Spacer(1, 10))
+    story.append(Paragraph("Generated on " + datetime.now().strftime("%d %B %Y"),
+        ParagraphStyle("Footer", parent=styles["Normal"], fontSize=7, alignment=TA_CENTER, textColor=colors.HexColor("#94a3b8"))))
+
+    doc.build(story)
+    buf.seek(0)
+
+    safe_name = (result["first_name"] + "_" + result["last_name"] + "_" + exam_name).replace(" ", "_")
+    return StreamingResponse(buf, media_type="application/pdf",
+        headers={"Content-Disposition": 'attachment; filename="ResultCard_' + safe_name + '.pdf"'})
+
+
 @router.post("/{exam_id}/send-reminder")
 def send_reminder(exam_id: int, body: ReminderIn, user_id: int = Depends(require_permission("exam.manage")), db=Depends(get_db)):
     if not body.user_id: fail("user_id required", 400)

@@ -54,4 +54,5 @@ export const examsApi = {
   sendReminder:        (examId,data)    => client.post("/exams/"+examId+"/send-reminder", data),
   // Results
   getResults:      (id)         => client.get("/exams/"+id+"/results"),
+  downloadResultCard: (examId, studentId) => client.get("/exams/"+examId+"/result-card/"+studentId, {responseType:"blob"}),
 };

@@ -1,0 +1,99 @@
+.pf-page {
+  padding: 24px;
+}
+
+.pf-hero {
+  margin-bottom: 20px;
+}
+
+.pf-hero h1 {
+  margin: 0 0 4px 0;
+}
+
+.pf-toolbar {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.pf-toolbar .form-input {
+  flex: 1;
+  max-width: 320px;
+}
+
+.pf-card {
+  background: var(--card-bg, #fff);
+  border-radius: 10px;
+  padding: 20px;
+  margin-top: 12px;
+}
+
+.pf-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.pf-detail-sub {
+  color: #666;
+  margin: 4px 0 0 0;
+  font-size: 13px;
+}
+
+.pf-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.pf-stat {
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  border-radius: 8px;
+  background: var(--stat-bg, #f7f7f9);
+}
+
+.pf-stat-label {
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.pf-stat-value {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.pf-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.pf-table th, .pf-table td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid #eee;
+}
+
+.pf-row-clickable {
+  cursor: pointer;
+}
+
+.pf-row-clickable:hover {
+  background: #f5f7fb;
+}
+
+.pf-empty-row {
+  text-align: center;
+  color: #888;
+  padding: 24px;
+}
+
+.pf-loading, .pf-empty {
+  padding: 40px;
+  text-align: center;
+  color: #666;
+}

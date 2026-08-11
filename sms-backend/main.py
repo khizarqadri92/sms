@@ -88,7 +88,13 @@ from app.api.v1.discipline import router as discipline_router
 from app.api.v1.hr import router as hr_router
 from app.api.v1.staff_attendance import router as staff_attendance_router
 from app.api.v1.payroll import router as payroll_router
+from app.api.v1.provident_fund import router as provident_fund_router
+from app.api.v1.income_tax import router as income_tax_router
 from app.api.v1.reports import router as reports_router
+from app.api.v1.report_permissions import router as report_permissions_router
+from app.api.v1.request_permissions import router as request_permissions_router
+from app.api.v1.processing_date import router as processing_date_router
+from app.api.v1.resignation import router as resignation_router
 from app.api.v1.discounts import router as discounts_router
 from app.api.v1.finance import router as finance_router
 from app.api.v1.exams import router as exams_router
@@ -122,7 +128,18 @@ app.include_router(discipline_router, prefix="/api/v1/discipline")
 app.include_router(hr_router, prefix="/api/v1")
 app.include_router(staff_attendance_router, prefix="/api/v1/staff-attendance")
 app.include_router(payroll_router, prefix="/api/v1/payroll")
+app.include_router(provident_fund_router, prefix="/api/v1/payroll/pf")
+app.include_router(income_tax_router, prefix="/api/v1/payroll/income-tax")
 app.include_router(reports_router, prefix="/api/v1/reports")
+app.include_router(report_permissions_router, prefix="/api/v1/admin")
+app.include_router(request_permissions_router, prefix="/api/v1/admin")
+app.include_router(processing_date_router, prefix="/api/v1/system")
+
+@app.on_event("startup")
+def _start_processing_date_scheduler():
+    from app.utils.processing_date_scheduler import start_scheduler
+    start_scheduler()
+app.include_router(resignation_router, prefix="/api/v1/resignation")
 os.makedirs("uploads", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 app.include_router(discounts_router, prefix="/api/v1/discounts")

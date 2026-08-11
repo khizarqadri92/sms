@@ -1,8 +1,10 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
 import studentsApi   from "../api/studentsApi";
 import attendanceApi from "../api/attendanceApi";
 import teachersApi   from "../api/teachersApi";
+import { useProcessingToday } from "../hooks/useProcessingToday";
+import DatePicker from "../components/DatePicker";
 import { useAuth }   from "../auth/AuthContext";
 
 const today = () => new Date().toISOString().split("T")[0];
@@ -50,7 +52,9 @@ function TeacherAttendance() {
   const params   = new URLSearchParams(location.search);
   const [myClasses,  setMyClasses]  = useState([]);
   const [classId,    setClassId]    = useState(params.get("class_id") || "");
-  const [date,       setDate]       = useState(today());
+  const processingToday = useProcessingToday();
+  const [date,       setDate]       = useState(processingToday);
+  useEffect(() => { setDate(processingToday); }, [processingToday]);
   const [students,   setStudents]   = useState([]);
   const [records,    setRecords]    = useState({});
   const [existing,   setExisting]   = useState({});
@@ -171,14 +175,14 @@ function TeacherAttendance() {
           </div>
           <div className="form-group" style={{ marginBottom:0 }}>
             <label className="form-label">Date</label>
-            <input type="date" className="form-control" value={date} max={today()}
-              onChange={e => {
-                if (!isWorkingDay(e.target.value)) {
+            <DatePicker value={date} max={processingToday}
+              onChange={(val) => {
+                if (!isWorkingDay(val)) {
                   setErr("Selected date is not a working day.");
                   return;
                 }
                 setErr("");
-                setDate(e.target.value);
+                setDate(val);
               }}
               style={{ width:180 }} />
           </div>
@@ -279,8 +283,10 @@ function TeacherAttendance() {
 function StudentAttendance() {
   const [records,   setRecords]   = useState([]);
   const [summary,   setSummary]   = useState(null);
+  const processingToday = useProcessingToday();
   const [from,      setFrom]      = useState(monthStart());
-  const [to,        setTo]        = useState(today());
+  const [to,        setTo]        = useState(processingToday);
+  useEffect(() => { setTo(processingToday); }, [processingToday]);
   const [loading,   setLoading]   = useState(true);
   const [attConfig, setAttConfig] = useState("incharge_only");
   const [subjects,  setSubjects]  = useState([]);
@@ -326,11 +332,11 @@ function StudentAttendance() {
         <div style={{ display:"flex", gap:14, flexWrap:"wrap", alignItems:"flex-end" }}>
           <div className="form-group" style={{ marginBottom:0 }}>
             <label className="form-label">From</label>
-            <input type="date" className="form-control" style={{ width:160 }} value={from} onChange={e=>setFrom(e.target.value)} />
+            <DatePicker value={from} onChange={setFrom} style={{ width:160 }} />
           </div>
           <div className="form-group" style={{ marginBottom:0 }}>
             <label className="form-label">To</label>
-            <input type="date" className="form-control" style={{ width:160 }} value={to} onChange={e=>setTo(e.target.value)} />
+            <DatePicker value={to} onChange={setTo} style={{ width:160 }} />
           </div>
           {attConfig==="all_teachers" && subjects.length>0 && (
             <div className="form-group" style={{ marginBottom:0 }}>
@@ -397,8 +403,10 @@ function ParentAttendance() {
   const [children,  setChildren]  = useState([]);
   const [selChild,  setSelChild]  = useState("");
   const [records,   setRecords]   = useState([]);
+  const processingToday = useProcessingToday();
   const [from,      setFrom]      = useState(monthStart());
-  const [to,        setTo]        = useState(today());
+  const [to,        setTo]        = useState(processingToday);
+  useEffect(() => { setTo(processingToday); }, [processingToday]);
   const [loading,   setLoading]   = useState(false);
   const [attConfig, setAttConfig] = useState("incharge_only");
   const [subjects,  setSubjects]  = useState([]);
@@ -458,11 +466,11 @@ function ParentAttendance() {
           </div>
           <div className="form-group" style={{ marginBottom:0 }}>
             <label className="form-label">From</label>
-            <input type="date" className="form-control" style={{ width:150 }} value={from} onChange={e=>setFrom(e.target.value)} />
+            <DatePicker value={from} onChange={setFrom} style={{ width:150 }} />
           </div>
           <div className="form-group" style={{ marginBottom:0 }}>
             <label className="form-label">To</label>
-            <input type="date" className="form-control" style={{ width:150 }} value={to} onChange={e=>setTo(e.target.value)} />
+            <DatePicker value={to} onChange={setTo} style={{ width:150 }} />
           </div>
           {attConfig==="all_teachers" && subjects.length>0 && (
             <div className="form-group" style={{ marginBottom:0 }}>
@@ -518,7 +526,9 @@ function ParentAttendance() {
 
 /* ── Principal: all classes report ───────────────────────────── */
 function PrincipalAttendance() {
-  const [selDate,  setSelDate]  = useState(today());
+  const processingToday = useProcessingToday();
+  const [selDate,  setSelDate]  = useState(processingToday);
+  useEffect(() => { setSelDate(processingToday); }, [processingToday]);
   const [selClass, setSelClass] = useState("");
   const [classes,  setClasses]  = useState([]);
   const [summary,  setSummary]  = useState([]);
@@ -574,7 +584,7 @@ function PrincipalAttendance() {
       <div style={{background:"#fff",borderRadius:12,padding:"16px 20px",border:"1px solid #e2e8f0",marginBottom:20,display:"flex",gap:16,alignItems:"flex-end",flexWrap:"wrap"}}>
         <div>
           <label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>Date</label>
-          <input type="date" value={selDate} onChange={e=>{setSelDate(e.target.value);setSelClass("");setDetail([]);}} style={{padding:"9px 12px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:13}} />
+          <DatePicker value={selDate} onChange={(val)=>{setSelDate(val);setSelClass("");setDetail([]);}} style={{width:160}} />
         </div>
         <div>
           <label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>Class</label>

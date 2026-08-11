@@ -1,6 +1,7 @@
-﻿import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import client from "../api/client";
 import academicsApi from "../api/academicsApi";
+import { printReport, exportToCSV, exportToPDF } from "../utils/reportExport";
 
 const today = () => new Date().toISOString().split("T")[0];
 const monthStart = () => new Date().toISOString().slice(0,7) + "-01";
@@ -77,6 +78,18 @@ export default function StudentAttendanceReport() {
     return sortDir==="asc"?va-vb:vb-va;
   });
 
+  const columns = [
+    { label: "Student", value: s => `${s.first_name} ${s.last_name}` },
+    { label: "Enrollment", value: s => s.enrollment_no },
+    { label: "Class", value: s => `${s.class_name}${s.section?" ("+s.section+")":""}` },
+    { label: "Present", value: s => s.present||0 },
+    { label: "Absent", value: s => s.absent||0 },
+    { label: "Late", value: s => s.late||0 },
+    { label: "On Leave", value: s => s.on_leave||0 },
+    { label: "Total Days", value: s => s.total_days||0 },
+    { label: "Attendance %", value: s => (s.pct||0)+"%" },
+  ];
+
   const avgPct  = filtered.length>0?(filtered.reduce((a,s)=>a+(s.pct||0),0)/filtered.length).toFixed(1):0;
   const lowAtt  = filtered.filter(s=>(s.pct||0)<75).length;
   const perfect = filtered.filter(s=>(s.absent||0)===0&&(s.on_leave||0)===0).length;
@@ -91,8 +104,16 @@ export default function StudentAttendanceReport() {
         {hasRun&&<button onClick={reset} style={{padding:"7px 16px",background:"#fff",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:12,fontWeight:600,cursor:"pointer",color:"#64748b"}}>Reset</button>}
       </div>
 
+      {hasRun && filtered.length>0 && (
+        <div className="no-print" style={{display:"flex",justifyContent:"flex-end",gap:8,marginBottom:12}}>
+          <button className="btn btn-ghost btn-sm" onClick={printReport}>Print</button>
+          <button className="btn btn-ghost btn-sm" onClick={()=>exportToCSV(columns, filtered, "Student_Attendance")}>Export CSV</button>
+          <button className="btn btn-ghost btn-sm" onClick={()=>exportToPDF("Student Attendance", columns, filtered, "Student_Attendance")}>Export PDF</button>
+        </div>
+      )}
+
       {/* Filter Builder */}
-      <div style={{background:"#fff",borderRadius:12,border:"1px solid #e2e8f0",padding:"20px",marginBottom:20}}>
+      <div className="no-print" style={{background:"#fff",borderRadius:12,border:"1px solid #e2e8f0",padding:"20px",marginBottom:20}}>
         <div style={{fontWeight:700,fontSize:14,color:"#0f172a",marginBottom:16}}>Report Conditions</div>
 
         {/* Quick presets */}

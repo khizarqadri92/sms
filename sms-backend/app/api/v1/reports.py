@@ -69,3 +69,53 @@ def attendance_report_monthly(staff_id: int, month: int, year: int,
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_attendance_daily_status(%s,%s,%s)", (staff_id, from_date, to_date))
     return ok(data=[dict(r) for r in cur.fetchall()])
+
+
+
+@router.get("/employee-salaries")
+def employee_salaries_report(
+        department_id: Optional[int] = None, staff_id: Optional[int] = None,
+        month: Optional[int] = None, year: Optional[int] = None,
+        user_id: int = Depends(require_permission("reports.employee_salaries")), db=Depends(get_db)):
+    cur = get_cur(db)
+    where = []
+    params = []
+    if department_id:
+        where.append("department_id = %s"); params.append(department_id)
+    if staff_id:
+        where.append("staff_id = %s"); params.append(staff_id)
+    if month:
+        where.append("month = %s"); params.append(month)
+    if year:
+        where.append("year = %s"); params.append(year)
+    where_clause = ("WHERE " + " AND ".join(where)) if where else ""
+    cur.execute(f"SELECT * FROM v_employee_salaries_report {where_clause} ORDER BY year DESC, month DESC, first_name", params)
+    return ok(data=[dict(r) for r in cur.fetchall()])
+
+
+@router.get("/expenditure-details")
+def expenditure_details_report(
+        department_id: Optional[int] = None, expenditure_type: Optional[str] = None,
+        month: Optional[int] = None, year: Optional[int] = None,
+        user_id: int = Depends(require_permission("reports.expenditure")), db=Depends(get_db)):
+    cur = get_cur(db)
+    where = []
+    params = []
+    if department_id:
+        where.append("department_id = %s"); params.append(department_id)
+    if expenditure_type:
+        where.append("expenditure_type = %s"); params.append(expenditure_type)
+    if month:
+        where.append("EXTRACT(MONTH FROM invoice_date) = %s"); params.append(month)
+    if year:
+        where.append("EXTRACT(YEAR FROM invoice_date) = %s"); params.append(year)
+    where_clause = ("WHERE " + " AND ".join(where)) if where else ""
+    cur.execute(f"SELECT * FROM v_expenditure_details_report {where_clause} ORDER BY invoice_date DESC", params)
+    return ok(data=[dict(r) for r in cur.fetchall()])
+
+
+@router.get("/expenditure-types-list")
+def expenditure_types_list(user_id: int = Depends(require_permission("reports.expenditure")), db=Depends(get_db)):
+    cur = get_cur(db)
+    cur.execute("SELECT DISTINCT expenditure_type FROM v_expenditure_details_report WHERE expenditure_type IS NOT NULL ORDER BY expenditure_type")
+    return ok(data=[r["expenditure_type"] for r in cur.fetchall()])

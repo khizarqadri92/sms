@@ -1,4 +1,4 @@
-﻿@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -68,4 +68,13 @@ input, select, textarea { font-family: inherit; }
 
 .profile-avatar {
   background: linear-gradient(135deg, var(--theme-primary, #2563eb), #93c5fd) !important;
+}
+
+@media print {
+  .no-print { display: none !important; }
+  .topnav { display: none !important; }
+  .ribbon-cats { display: none !important; }
+  .ribbon-items { display: none !important; }
+  .hero-banner { display: none !important; }
+  body { background: #fff !important; }
 }

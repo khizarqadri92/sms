@@ -1,5 +1,6 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import notificationsApi from "../api/notificationsApi";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
 const TYPE_STYLES = {
   reminder: { bg:"#fffbeb", dot:"#f59e0b", border:"#fde68a" },
@@ -11,6 +12,7 @@ const TYPE_STYLES = {
 };
 
 export default function Notifications() {
+  const { formatDateTime } = useRegionalSettings();
   const [notifs,  setNotifs]  = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter,  setFilter]  = useState("all"); // all | unread | read
@@ -88,7 +90,7 @@ export default function Notifications() {
                   <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:4 }}>
                     <div style={{ fontWeight: n.is_read?500:700, fontSize:14, color:"#0f172a" }}>{n.title}</div>
                     <div style={{ fontSize:11, color:"#94a3b8", whiteSpace:"nowrap", marginLeft:12 }}>
-                      {new Date(n.created_at).toLocaleString("en-PK",{month:"short",day:"numeric",hour:"2-digit",minute:"2-digit"})}
+                      {formatDateTime(n.created_at)}
                     </div>
                   </div>
                   {n.message && <div style={{ fontSize:13, color:"#64748b", lineHeight:1.5 }}>{n.message}</div>}

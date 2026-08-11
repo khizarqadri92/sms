@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import reportsApi from "../api/reportsApi";
 import hrApi from "../api/hrApi";
+import { printReport, exportToCSV, exportToPDF } from "../utils/reportExport";
 
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
@@ -84,6 +85,21 @@ export default function EmployeeAttendance() {
     return counts;
   })();
 
+  const monthlyColumns = [
+    { label: "Employee", value: s => `${s.first_name} ${s.last_name}` },
+    { label: "Code", value: s => s.employee_code || "-" },
+    { label: "Department", value: s => s.department_name || "-" },
+    { label: "Designation", value: s => s.designation_name || "-" },
+  ];
+  const dailyColumns = [
+    { label: "Employee", value: s => `${s.first_name} ${s.last_name}` },
+    { label: "Department", value: s => s.department_name || "-" },
+    { label: "Status", value: s => STATUS_LABELS[s.status] || s.status },
+    { label: "Hours", value: s => Number(s.total_hours || 0).toFixed(1) },
+  ];
+  const exportColumns = reportType === "monthly" ? monthlyColumns : dailyColumns;
+  const exportRows = reportType === "monthly" ? directory : filteredDaily;
+
   return (
     <div style={{ maxWidth: 950, margin: "0 auto", padding: 24 }}>
       <div style={{ marginBottom: 20 }}>
@@ -101,7 +117,13 @@ export default function EmployeeAttendance() {
         ))}
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
+      <div className="no-print" style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12 }}>
+        <button className="btn btn-ghost btn-sm" onClick={printReport}>Print</button>
+        <button className="btn btn-ghost btn-sm" onClick={()=>exportToCSV(exportColumns, exportRows, "Employee_Attendance")}>Export CSV</button>
+        <button className="btn btn-ghost btn-sm" onClick={()=>exportToPDF("Employee Attendance", exportColumns, exportRows, "Employee_Attendance")}>Export PDF</button>
+      </div>
+
+      <div className="no-print" style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
         <div>
           <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Department</label>
           <select className="form-input" style={{ fontSize: 13, width: 180 }} value={deptFilter} onChange={e => setDeptFilter(e.target.value)}>

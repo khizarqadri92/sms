@@ -1,4 +1,4 @@
-﻿/* â”€â”€ Shell â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+/* â”€â”€ Shell â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 .shell {
   display: flex;
   flex-direction: column;
@@ -841,8 +841,10 @@
 }
 
 .ribbon-cat.active {
-  color: #fff;
-  border-bottom-color: #60a5fa;
+  background: #fff;
+  color: var(--nav-active-color, #1e3a5f);
+  border-bottom-color: transparent;
+  border-radius: 6px 6px 0 0;
 }
 
 .ribbon-items {
@@ -895,3 +897,43 @@
 
 /* topnav links section (right side) */
 .topnav-links { display: none; }
+
+
+/* ?? Global form input/select baseline ??????????????????????????
+   Many pages use className="form-input"/"form-select" but only a
+   few page-specific CSS files (Students.css, Teachers.css, Users.css)
+   define these rules. Any page that doesn't import one of those gets
+   completely unstyled, browser-default inputs. RoleLayout.css is
+   loaded on every page (it wraps all routes), so defining the
+   baseline here guarantees consistent styling app-wide. Page-specific
+   CSS files still load after this and can override as needed. ?????*/
+input.form-input,
+select.form-input,
+textarea.form-input,
+.form-input,
+.form-control,
+.form-select {
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  background: #fff;
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  font-family: inherit;
+  color: #1f2937;
+}
+select.form-input,
+select.form-select {
+  cursor: pointer;
+}
+.form-input:focus,
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--theme-primary, #2563eb);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+.form-input::placeholder {
+  color: #94a3b8;
+}

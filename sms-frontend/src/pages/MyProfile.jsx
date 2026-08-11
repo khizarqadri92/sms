@@ -133,7 +133,7 @@ export default function MyProfile() {
   if(loading) return <div style={{padding:60,textAlign:"center",color:"#64748b"}}>Loading profile...</div>;
 
   return (
-    <div style={{maxWidth:860,margin:"0 auto",padding:24}}>
+    <div style={{margin:"0 auto",padding:24}}>
       {/* Header Card */}
       <div style={{background:"#fff",borderRadius:12,border:"1px solid #e2e8f0",padding:24,marginBottom:20,display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
         <div style={{display:"flex",gap:16,alignItems:"center"}}>

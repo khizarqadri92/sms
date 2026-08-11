@@ -107,7 +107,7 @@ export default function StaffLeave() {
   if(loading) return <div style={{padding:60,textAlign:"center",color:"#64748b"}}>Loading...</div>;
 
   return (
-    <div style={{maxWidth:900,margin:"0 auto",padding:24}}>
+    <div style={{margin:"0 auto",padding:24}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20}}>
         <h2 style={{margin:0,fontSize:20,fontWeight:700}}>My Leave</h2>
         <button className="btn btn-primary btn-sm" style={{color:"#fff"}} onClick={()=>{setFormError(null);setShowForm(true);}}>

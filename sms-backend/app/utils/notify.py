@@ -1,15 +1,17 @@
-﻿"""Central notification helper — call from any endpoint to send notifications."""
+"""Central notification helper — call from any endpoint to send notifications."""
 import psycopg2.extras
 from app.db.connection import get_db
+from app.utils.processing_date import get_processing_datetime
 
 def send_notification(user_id: int, title: str, body: str, ntype: str = "info", link: str = None):
     """Send a single notification."""
     db  = get_db()
     cur = db.cursor()
+    proc_time = get_processing_datetime(db)
     cur.execute("""
-        INSERT INTO notifications (user_id, title, body, type, link)
-        VALUES (%s, %s, %s, %s, %s)
-    """, (user_id, title, body, ntype, link))
+        INSERT INTO notifications (user_id, title, body, type, link, created_at)
+        VALUES (%s, %s, %s, %s, %s, %s)
+    """, (user_id, title, body, ntype, link, proc_time))
     db.commit()
 
 def send_to_class(class_id: int, title: str, body: str, ntype: str = "info", link: str = None,

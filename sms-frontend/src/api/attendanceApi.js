@@ -1,6 +1,13 @@
 import client from "./client";
 
 const attendanceApi = {
+  // Student attendance (separate module from staff-attendance below)
+  getConfig:  ()                            => client.get("/attendance/config"),
+  mark:       (data)                        => client.post("/attendance/mark", data),
+  getByClass: (classId, date, subjectId)    => client.get(`/attendance/class/${classId}`, { params: { date, subject_id: subjectId || undefined } }),
+  getByStudent: (studentId, params)         => client.get(`/attendance/student/${studentId}`, { params }),
+  getMy:      (params)                      => client.get("/attendance/my", { params }),
+  getTeacherReport: (params)                => client.get("/attendance/teacher-report", { params }),
   // Self-service
   getMyToday:      ()          => client.get("/staff-attendance/my/today"),
   getMyHistory:    (params)    => client.get("/staff-attendance/my/history", { params }),

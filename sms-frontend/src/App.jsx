@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./auth/AuthContext";
+import { RegionalSettingsProvider } from "./context/RegionalSettingsContext";
 import IdleLock         from "./auth/IdleLock";
 import PrivateRoute     from "./auth/PrivateRoute";
 import RoleLayout       from "./layouts/RoleLayout";
@@ -33,6 +34,7 @@ import AdminAttendanceReport    from "./pages/AdminAttendanceReport";
 import Announcements          from "./pages/Announcements";
 import TeacherAttendanceReport  from "./pages/TeacherAttendanceReport";
 import StudentAttendanceReport  from "./pages/StudentAttendanceReport";
+import MyClassAttendanceReport  from "./pages/MyClassAttendanceReport";
 import Discipline         from "./pages/Discipline";
 import HRStaff           from "./pages/HRStaff";
 import HRLeave           from "./pages/HRLeave";
@@ -44,8 +46,15 @@ import PayrollDesignationGrades from "./pages/PayrollDesignationGrades";
 import PayrollTaxSlabs from "./pages/PayrollTaxSlabs";
 import PayrollRuns from "./pages/PayrollRuns";
 import EmployeeAttendance from "./pages/EmployeeAttendance";
+import EmployeeSalariesReport from "./pages/EmployeeSalariesReport";
+import ExpenditureDetailsReport from "./pages/ExpenditureDetailsReport";
 import StaffLeave        from "./pages/StaffLeave";
 import MyAttendance      from "./pages/MyAttendance";
+import MyPayslips        from "./pages/MyPayslips";
+import MyResignation     from "./pages/MyResignation";
+import Resignations      from "./pages/Resignations";
+import ProvidentFund     from "./pages/ProvidentFund";
+import IncomeTax         from "./pages/IncomeTax";
 import MyProfile         from "./pages/MyProfile";
 import HRSetup           from "./pages/HRSetup";
 import ConfigPage        from "./pages/ConfigPage";
@@ -84,6 +93,8 @@ import PurchaseOrders        from "./pages/PurchaseOrders";
 import ProcurementDashboard from "./pages/ProcurementDashboard";
 import WorkQueue from "./pages/WorkQueue";
 import WorkflowBuilder from "./pages/WorkflowBuilder";
+import ReportPermissions from "./pages/ReportPermissions";
+import RequestPermissions from "./pages/RequestPermissions";
 import GRN from "./pages/GRN";
 import Stock from "./pages/Stock";
 import VendorInvoices from "./pages/VendorInvoices";
@@ -99,11 +110,12 @@ export default function App() {
   return (
     <ThemeProvider>
     <AuthProvider>
+    <RegionalSettingsProvider>
       <IdleLock />
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
-          <Route path="/403"   element={<Forbidden />} />
+          <Route path="/403"   element={<PrivateRoute><RoleLayout><Forbidden /></RoleLayout></PrivateRoute>} />
           <Route path="/"      element={<Navigate to="/dashboard" replace />} />
 
           <Route path="/dashboard" element={
@@ -149,9 +161,10 @@ export default function App() {
             </PrivateRoute>
           }/>
           <Route path="/announcements" element={<PrivateRoute permission="settings.view"><RoleLayout><Announcements /></RoleLayout></PrivateRoute>} />
-          <Route path="/admin-attendance"         element={<PrivateRoute permission="attendance.view"><RoleLayout><AdminAttendanceReport /></RoleLayout></PrivateRoute>} />
-          <Route path="/teacher-attendance-report" element={<PrivateRoute permission="attendance.view"><RoleLayout><TeacherAttendanceReport /></RoleLayout></PrivateRoute>} />
-          <Route path="/student-attendance-report" element={<PrivateRoute permission="attendance.view"><RoleLayout><StudentAttendanceReport /></RoleLayout></PrivateRoute>} />
+          <Route path="/admin-attendance"         element={<PrivateRoute permission="reports.attendance_hub"><RoleLayout><AdminAttendanceReport /></RoleLayout></PrivateRoute>} />
+          <Route path="/teacher-attendance-report" element={<PrivateRoute permission="reports.attendance_hub"><RoleLayout><TeacherAttendanceReport /></RoleLayout></PrivateRoute>} />
+          <Route path="/student-attendance-report" element={<PrivateRoute permission="reports.attendance_hub"><RoleLayout><StudentAttendanceReport /></RoleLayout></PrivateRoute>} />
+          <Route path="/attendance-report" element={<PrivateRoute><RoleLayout><MyClassAttendanceReport /></RoleLayout></PrivateRoute>} />
 
           <Route path="/users" element={
             <PrivateRoute permission="users.view">
@@ -181,15 +194,20 @@ export default function App() {
               <RoleLayout><Finance /></RoleLayout>
             </PrivateRoute>
           }/>
+          <Route path="/finance/setup" element={
+            <PrivateRoute permission="finance.view">
+              <RoleLayout><Finance /></RoleLayout>
+            </PrivateRoute>
+          }/>
 
           <Route path="/locked-students" element={
-            <PrivateRoute permission="students.view">
+            <PrivateRoute permission="reports.locked_students">
               <RoleLayout><LockedStudents /></RoleLayout>
             </PrivateRoute>
           }/>
 
           <Route path="/fee-report" element={
-            <PrivateRoute>
+            <PrivateRoute permission="reports.fee_report">
               <RoleLayout><FeeReport /></RoleLayout>
             </PrivateRoute>
           }/>
@@ -231,6 +249,8 @@ export default function App() {
           }/>
 
                     <Route path="/leaves"         element={<PrivateRoute><RoleLayout><Leaves /></RoleLayout></PrivateRoute>} />
+          <Route path="/payroll/provident-fund" element={<PrivateRoute permission="payroll.pf.view_all"><RoleLayout><ProvidentFund /></RoleLayout></PrivateRoute>} />
+          <Route path="/payroll/income-tax" element={<PrivateRoute permission="payroll.income_tax.view_all"><RoleLayout><IncomeTax /></RoleLayout></PrivateRoute>} />
           <Route path="/syllabus"       element={<PrivateRoute><RoleLayout><Syllabus /></RoleLayout></PrivateRoute>} />
           <Route path="/library"        element={<PrivateRoute><RoleLayout><LibrarianDashboard /></RoleLayout></PrivateRoute>} />
           <Route path="/library/catalog" element={<PrivateRoute permission="library.view"><RoleLayout><LibraryCatalog /></RoleLayout></PrivateRoute>} />
@@ -258,15 +278,20 @@ export default function App() {
           <Route path="/my-profile"          element={<PrivateRoute><RoleLayout><MyProfile /></RoleLayout></PrivateRoute>} />
               <Route path="/staff-leave"         element={<PrivateRoute><RoleLayout><StaffLeave /></RoleLayout></PrivateRoute>} />
               <Route path="/my-attendance"      element={<PrivateRoute><RoleLayout><MyAttendance /></RoleLayout></PrivateRoute>} />
+              <Route path="/my-payslips"        element={<PrivateRoute><RoleLayout><MyPayslips /></RoleLayout></PrivateRoute>} />
+              <Route path="/my-resignation"     element={<PrivateRoute><RoleLayout><MyResignation /></RoleLayout></PrivateRoute>} />
               <Route path="/hr/leave"            element={<PrivateRoute permission="hr.view"><RoleLayout><HRLeave /></RoleLayout></PrivateRoute>} />
               <Route path="/hr/attendance"       element={<PrivateRoute permission="hr.view"><RoleLayout><AttendanceDashboard /></RoleLayout></PrivateRoute>} />
+              <Route path="/hr/resignations"      element={<PrivateRoute permission="hr.view" requestType="resignation"><RoleLayout><Resignations /></RoleLayout></PrivateRoute>} />
               <Route path="/payroll/setup"       element={<PrivateRoute permission="payroll.view"><RoleLayout><PayrollSetup /></RoleLayout></PrivateRoute>} />
               <Route path="/payroll/grades"       element={<PrivateRoute permission="payroll.view"><RoleLayout><PayrollGrades /></RoleLayout></PrivateRoute>} />
               <Route path="/payroll/adjustments"   element={<PrivateRoute permission="payroll.view"><RoleLayout><PayrollAdjustments /></RoleLayout></PrivateRoute>} />
               <Route path="/payroll/designation-grades" element={<PrivateRoute permission="payroll.view"><RoleLayout><PayrollDesignationGrades /></RoleLayout></PrivateRoute>} />
               <Route path="/payroll/tax-slabs" element={<PrivateRoute permission="payroll.view"><RoleLayout><PayrollTaxSlabs /></RoleLayout></PrivateRoute>} />
               <Route path="/payroll/runs" element={<PrivateRoute permission="payroll.edit"><RoleLayout><PayrollRuns /></RoleLayout></PrivateRoute>} />
-              <Route path="/reports/employee-attendance" element={<PrivateRoute permission="hr.view"><RoleLayout><EmployeeAttendance /></RoleLayout></PrivateRoute>} />
+              <Route path="/reports/employee-attendance" element={<PrivateRoute permission="reports.employee_attendance"><RoleLayout><EmployeeAttendance /></RoleLayout></PrivateRoute>} />
+              <Route path="/reports/employee-salaries" element={<PrivateRoute permission="reports.employee_salaries"><RoleLayout><EmployeeSalariesReport /></RoleLayout></PrivateRoute>} />
+              <Route path="/reports/expenditure-details" element={<PrivateRoute permission="reports.expenditure"><RoleLayout><ExpenditureDetailsReport /></RoleLayout></PrivateRoute>} />
               <Route path="/my-department-attendance" element={<PrivateRoute><RoleLayout><AttendanceDashboard /></RoleLayout></PrivateRoute>} />
               <Route path="/hr/staff"            element={<PrivateRoute permission="hr.view"><RoleLayout><HRStaff /></RoleLayout></PrivateRoute>} />
               <Route path="/hr/setup"            element={<PrivateRoute permission="hr.designations"><RoleLayout><HRSetup /></RoleLayout></PrivateRoute>} />
@@ -285,6 +310,8 @@ export default function App() {
           <Route path="/procurement/stock" element={<PrivateRoute permission="procurement.view"><RoleLayout><Stock /></RoleLayout></PrivateRoute>} />
           <Route path="/procurement/grn" element={<PrivateRoute permission="procurement.view"><RoleLayout><GRN /></RoleLayout></PrivateRoute>} />
           <Route path="/workflow-builder" element={<PrivateRoute><RoleLayout><WorkflowBuilder /></RoleLayout></PrivateRoute>} />
+              <Route path="/report-permissions" element={<PrivateRoute permission="users.manage_roles"><RoleLayout><ReportPermissions /></RoleLayout></PrivateRoute>} />
+              <Route path="/request-permissions" element={<PrivateRoute permission="users.manage_roles"><RoleLayout><RequestPermissions /></RoleLayout></PrivateRoute>} />
           <Route path="/work-queue" element={<PrivateRoute><RoleLayout><WorkQueue /></RoleLayout></PrivateRoute>} />
           <Route path="/procurement"    element={<PrivateRoute><RoleLayout><ProcurementDashboard /></RoleLayout></PrivateRoute>} />
           <Route path="/leave-approval" element={<PrivateRoute><RoleLayout><LeaveApproval /></RoleLayout></PrivateRoute>} />
@@ -316,6 +343,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </BrowserRouter>
+    </RegionalSettingsProvider>
     </AuthProvider>
     </ThemeProvider>
   );

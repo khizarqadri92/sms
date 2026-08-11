@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { configApi } from "../api/configApi";
 import { examsApi } from "../api/examsApi";
+import hrApi from "../api/hrApi";
 
 const DEPT_OPTIONS = [
   {key:"finance",   label:"Finance",   icon:"💰"},
@@ -38,6 +39,29 @@ export default function ConfigPage() {
   });
   const [examTypes,    setExamTypes]    = useState([]);
   const [gradingScale, setGradingScale] = useState([]);
+  const [policySettings, setPolicySettings] = useState({
+    probation_duration_days: 90, notice_period_duration_days: 30,
+    resignation_withdrawal_allowed: true, resignation_withdrawal_max_step: 3,
+  });
+  const [policySaving, setPolicySaving] = useState(false);
+  const [policyMsg, setPolicyMsg] = useState(null);
+
+  useEffect(() => {
+    hrApi.getPolicySettings().then(r => { if (r.data.data) setPolicySettings(r.data.data); }).catch(() => {});
+  }, []);
+
+  const savePolicySettings = async () => {
+    setPolicyMsg(null);
+    setPolicySaving(true);
+    try {
+      await hrApi.updatePolicySettings(policySettings);
+      setPolicyMsg({ type: "success", text: "Workflow settings saved." });
+    } catch (e) {
+      setPolicyMsg({ type: "error", text: e.response?.data?.message || "Failed to save." });
+    } finally {
+      setPolicySaving(false);
+    }
+  };
   const [gradingMode,  setGradingMode]  = useState("score");
   const [examConfig,   setExamConfig]   = useState({});
   const [newExamType,    setNewExamType]    = useState({name:"",code:"",weight:0,order_no:1});
@@ -99,7 +123,7 @@ export default function ConfigPage() {
 
       {/* Main Tabs */}
       <div style={{display:"flex",borderBottom:"1px solid var(--color-border-tertiary)",marginBottom:20}}>
-        {[{key:"withdrawal",label:"Withdrawal"},{key:"discipline",label:"Discipline"},{key:"exam",label:"Exam & Grading"}].map(t=>(
+        {[{key:"withdrawal",label:"Withdrawal"},{key:"discipline",label:"Discipline"},{key:"exam",label:"Exam & Grading"},{key:"workflow",label:"Workflow"}].map(t=>(
           <button key={t.key} onClick={()=>setActiveTab(t.key)} style={{padding:"10px 24px",border:"none",borderBottom:"2px solid "+(activeTab===t.key?"#2563eb":"transparent"),background:"transparent",color:activeTab===t.key?"#2563eb":"var(--color-text-secondary)",fontWeight:activeTab===t.key?600:400,fontSize:14,cursor:"pointer"}}>
             {t.label}
           </button>
@@ -107,6 +131,57 @@ export default function ConfigPage() {
       </div>
 
       {/* ── WITHDRAWAL CONFIG ── */}
+      {activeTab==="workflow" && (
+        <div style={{display:"flex",flexDirection:"column",gap:16}}>
+          <div className="section-card">
+            <div style={{fontWeight:700,fontSize:15,marginBottom:14}}>HR Policy Settings</div>
+            {policyMsg && (
+              <div style={{padding:"8px 12px",borderRadius:6,marginBottom:12,fontSize:13,
+                background:policyMsg.type==="success"?"#f0fdf4":"#fef2f2",color:policyMsg.type==="success"?"#166534":"#991b1b"}}>
+                {policyMsg.text}
+              </div>
+            )}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:16,marginBottom:16}}>
+              <div>
+                <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Probation Duration (days)</label>
+                <input type="number" className="form-input" style={{width:"100%"}} value={policySettings.probation_duration_days}
+                  onChange={e=>setPolicySettings(p=>({...p,probation_duration_days:Number(e.target.value)}))} />
+              </div>
+              <div>
+                <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Notice Period (days)</label>
+                <input type="number" className="form-input" style={{width:"100%"}} value={policySettings.notice_period_duration_days}
+                  onChange={e=>setPolicySettings(p=>({...p,notice_period_duration_days:Number(e.target.value)}))} />
+              </div>
+            </div>
+            <div style={{borderTop:"1px solid var(--color-border-tertiary)",paddingTop:16}}>
+              <div style={{fontWeight:700,fontSize:14,marginBottom:10}}>Resignation Withdrawal</div>
+              <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:14}}>
+                <Toggle checked={policySettings.resignation_withdrawal_allowed}
+                  onChange={()=>setPolicySettings(p=>({...p,resignation_withdrawal_allowed:!p.resignation_withdrawal_allowed}))} />
+                <span style={{fontSize:13}}>Allow employees to withdraw a submitted resignation</span>
+              </div>
+              {policySettings.resignation_withdrawal_allowed && (
+                <div style={{maxWidth:280}}>
+                  <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>
+                    Allow withdrawal up to workflow step number
+                  </label>
+                  <input type="number" min={1} className="form-input" style={{width:"100%"}} value={policySettings.resignation_withdrawal_max_step}
+                    onChange={e=>setPolicySettings(p=>({...p,resignation_withdrawal_max_step:Number(e.target.value)}))} />
+                  <div style={{fontSize:11,color:"var(--color-text-secondary)",marginTop:4}}>
+                    e.g. 1 = only before Manager approval, 2 = also before HR acceptance, etc.
+                  </div>
+                </div>
+              )}
+            </div>
+            <div style={{display:"flex",justifyContent:"flex-end",marginTop:16}}>
+              <button className="btn btn-primary btn-sm" style={{color:"#fff"}} disabled={policySaving} onClick={savePolicySettings}>
+                {policySaving?"Saving...":"Save Workflow Settings"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {activeTab==="withdrawal" && (
         <div style={{display:"flex",flexDirection:"column",gap:16}}>
           <div className="section-card">
