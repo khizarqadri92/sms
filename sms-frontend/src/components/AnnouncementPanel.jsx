@@ -1,7 +1,10 @@
-﻿import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { useTheme } from "../auth/ThemeContext";
 import announcementsApi from "../api/announcementsApi";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
+import { useProcessingToday } from "../hooks/useProcessingToday";
+import DatePicker from "./DatePicker";
 
 function darkenColor(hex, amount=40) {
   try {
@@ -22,6 +25,7 @@ const PCFG = {
 const getCfg = (a) => a.ann_type==="system" ? PCFG.system : (PCFG[a.priority]||PCFG.normal);
 
 export default function AnnouncementPanel({ canManage }) {
+  const { formatDate } = useRegionalSettings();
   const { theme }                   = useTheme();
   const [anns,       setAnns]       = useState([]);
   const [loading,    setLoading]    = useState(true);
@@ -160,7 +164,7 @@ export default function AnnouncementPanel({ canManage }) {
                       {a.body}
                     </div>
                     <div style={{ fontSize:10, color:"#94a3b8", marginTop:4, display:"flex", gap:6, alignItems:"center" }}>
-                      <span>{new Date(a.created_at).toLocaleDateString("en-PK",{day:"2-digit",month:"short",year:"numeric"})}</span>
+                      <span>{formatDate(a.created_at)}</span>
                       {a.creator_name && a.ann_type!=="system" && <><span>·</span><span>{a.creator_name}</span></>}
                       {!a.is_read && (
                         <span style={{ marginLeft:"auto", fontSize:9, color:"#2563eb", fontWeight:600 }}>● NEW</span>
@@ -195,6 +199,7 @@ export default function AnnouncementPanel({ canManage }) {
 
 /* ── Detail Modal ─────────────────────────────────────────────── */
 function AnnDetailModal({ ann, canManage, onClose, onDeleted }) {
+  const { formatDate } = useRegionalSettings();
   const cfg = getCfg(ann);
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.45)", display:"flex",
@@ -216,7 +221,7 @@ function AnnDetailModal({ ann, canManage, onClose, onDeleted }) {
             </div>
             <div style={{ fontWeight:700, fontSize:16, color:"#1e3a5f" }}>{ann.title}</div>
             <div style={{ fontSize:11, color:"#94a3b8", marginTop:4 }}>
-              {new Date(ann.created_at).toLocaleDateString("en-PK",{day:"2-digit",month:"long",year:"numeric"})}
+              {formatDate(ann.created_at)}
               {ann.creator_name && ann.ann_type!=="system" && " · "+ann.creator_name}
             </div>
           </div>
@@ -251,10 +256,12 @@ function AnnDetailModal({ ann, canManage, onClose, onDeleted }) {
 
 /* ── Create Modal ─────────────────────────────────────────────── */
 function CreateAnnModal({ onClose, onCreated }) {
+  const processingToday = useProcessingToday();
   const [form,    setForm]    = useState({
     title:"", body:"", priority:"normal", target_role:"all",
     target_class:"", start_date:new Date().toISOString().split("T")[0], end_date:""
   });
+  useEffect(() => { setForm(f => ({ ...f, start_date: processingToday })); }, [processingToday]);
   const [classes, setClasses] = useState([]);
   const [saving,  setSaving]  = useState(false);
   const [err,     setErr]     = useState("");
@@ -334,8 +341,8 @@ function CreateAnnModal({ onClose, onCreated }) {
             </div>
             <div>
               <label style={labelStyle}>Expires <span style={{ fontWeight:400, color:"#94a3b8" }}>(optional)</span></label>
-              <input type="date" style={inputStyle} value={form.end_date}
-                onChange={e=>setForm({...form,end_date:e.target.value})} />
+              <DatePicker style={inputStyle} value={form.end_date}
+                onChange={val=>setForm({...form,end_date:val})} />
             </div>
           </div>
         </div>

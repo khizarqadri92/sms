@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useCallback } from "react";
 import attendanceApi from "../api/attendanceApi";
 import processingDateApi from "../api/processingDateApi";
+import { useProcessingNow } from "../hooks/useProcessingNow";
+import DatePicker from "../components/DatePicker";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
 function formatDuration(ms) {
   if (ms == null || ms < 0) return "-";
@@ -22,8 +25,11 @@ function fmtTime(iso) {
   if (!iso) return "-";
   return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
-function fmtDateLabel(dateStr) {
-  return new Date(dateStr + "T00:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+const WEEKDAY_SHORT = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+function fmtDateLabel(dateStr, formatDate) {
+  const d = new Date(dateStr + "T00:00:00");
+  const weekday = WEEKDAY_SHORT[d.getDay()];
+  return formatDate ? `${weekday}, ${formatDate(d)}` : d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
 }
 
 const STATUS_LABELS = {
@@ -41,6 +47,8 @@ const STATUS_COLORS = {
 };
 
 export default function MyAttendance() {
+  const { formatDate, formatTime } = useRegionalSettings();
+  const fmtTime = (iso) => iso ? formatTime(iso) : "-";
   const [today, setToday]       = useState(null);
   const [history, setHistory]   = useState([]);
   const [loading, setLoading]   = useState(true);
@@ -48,7 +56,7 @@ export default function MyAttendance() {
   const [toggling, setToggling] = useState(false);
   const [toggleMsg, setToggleMsg] = useState(null);
   const [flash, setFlash]       = useState(null);
-  const [now, setNow]           = useState(new Date());
+  const now = useProcessingNow();
   const [monthlyStatus, setMonthlyStatus] = useState([]);
   const [selectedDay, setSelectedDay] = useState(null);
   const [showCorrectionForm, setShowCorrectionForm] = useState(false);
@@ -88,7 +96,7 @@ export default function MyAttendance() {
       setProcessingToday(d);
       setViewMonth(new Date(d.getFullYear(), d.getMonth(), 1));
     }).catch(() => {
-      const d = new Date();
+      const d = now;
       setProcessingToday(d);
       setViewMonth(new Date(d.getFullYear(), d.getMonth(), 1));
     });
@@ -161,11 +169,6 @@ export default function MyAttendance() {
     attendanceApi.getMyDailyStatus({ from_date: monthStart, to_date: monthEnd })
       .then(r => setMonthlyStatus(r.data.data || [])).catch(() => {});
   }, [monthStart, monthEnd]);
-
-  useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 30000);
-    return () => clearInterval(timer);
-  }, []);
 
   const handleToggle = async () => {
     setToggling(true);
@@ -341,7 +344,7 @@ export default function MyAttendance() {
                   style={{ borderBottom: "1px solid #f1f5f9", cursor: "pointer" }}
                   onMouseEnter={e => e.currentTarget.style.background = "#f8fafc"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                  <td style={{ padding: "10px 16px", fontSize: 13, fontWeight: 600 }}>{fmtDateLabel(dateStr)}</td>
+                  <td style={{ padding: "10px 16px", fontSize: 13, fontWeight: 600 }}>{fmtDateLabel(dateStr, formatDate)}</td>
                   <td style={{ padding: "10px 16px" }}>
                     <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 10, background: colors.bg, color: colors.color }}>
                       {STATUS_LABELS[statusRow?.status] || statusRow?.status || "-"}
@@ -372,7 +375,7 @@ export default function MyAttendance() {
           <div style={{ background: "#fff", borderRadius: 12, width: "100%", maxWidth: 480, boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}
             onClick={e => e.stopPropagation()}>
             <div style={{ padding: "14px 20px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>{fmtDateLabel(selectedDay)}</div>
+              <div style={{ fontWeight: 700, fontSize: 16 }}>{fmtDateLabel(selectedDay, formatDate)}</div>
               <button className="btn btn-ghost btn-sm" onClick={() => setSelectedDay(null)}>Close</button>
             </div>
             <div style={{ padding: 20 }}>
@@ -446,7 +449,7 @@ export default function MyAttendance() {
                 const sc = statusColors[r.status] || statusColors.pending;
                 return (
                   <tr key={r.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                    <td style={{ padding: "10px 16px", fontSize: 13 }}>{fmtDateLabel(r.request_date)}</td>
+                    <td style={{ padding: "10px 16px", fontSize: 13 }}>{fmtDateLabel(r.request_date, formatDate)}</td>
                     <td style={{ padding: "10px 16px", fontSize: 13 }}>{r.requested_clock_in?.slice(0, 5) || "-"}</td>
                     <td style={{ padding: "10px 16px", fontSize: 13 }}>{r.requested_clock_out?.slice(0, 5) || "-"}</td>
                     <td style={{ padding: "10px 16px", fontSize: 12, color: "#64748b", maxWidth: 200 }}>
@@ -482,8 +485,8 @@ export default function MyAttendance() {
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                 <div>
                   <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Date *</label>
-                  <input type="date" className="form-input" style={{ width: "100%", fontSize: 13 }} max={processingToday ? toLocalDateStr(processingToday) : undefined}
-                    value={correctionForm.request_date} onChange={e => setCorrectionForm(p => ({ ...p, request_date: e.target.value, update_field: "" }))} />
+                  <DatePicker style={{ width: "100%", fontSize: 13 }} max={processingToday ? toLocalDateStr(processingToday) : undefined}
+                    value={correctionForm.request_date} onChange={val => setCorrectionForm(p => ({ ...p, request_date: val, update_field: "" }))} />
                 </div>
 
                 {existingMarks && (

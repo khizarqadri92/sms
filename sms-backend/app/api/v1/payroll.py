@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from app.fastapi_auth import get_current_user_id
 from app.fastapi_db import get_db, get_cur as _get_cur
+from app.utils.processing_date import get_processing_datetime
 from app.utils.processing_date import get_processing_date, get_processing_datetime
 from psycopg2.extras import Json
 
@@ -693,9 +694,9 @@ def _get_month_attendance_stats(db, staff_id, from_date, to_date):
     half_day = sum(1 for r in rows if r["status"] == "half_day")
     on_leave = sum(1 for r in rows if r["status"] == "on_leave")
 
-    cur.execute("""SELECT COALESCE(SUM(EXTRACT(EPOCH FROM (COALESCE(clock_out_at, NOW()) - clock_in_at)) / 3600.0), 0) AS total_hours
+    cur.execute("""SELECT COALESCE(SUM(EXTRACT(EPOCH FROM (COALESCE(clock_out_at, %s) - clock_in_at)) / 3600.0), 0) AS total_hours
         FROM staff_attendance_sessions WHERE staff_id=%s AND clock_in_at::date BETWEEN %s AND %s""",
-        (staff_id, from_date, to_date))
+        (get_processing_datetime(db), staff_id, from_date, to_date))
     total_hours = float(cur.fetchone()["total_hours"])
     return present, absent, half_day, on_leave, total_hours
 

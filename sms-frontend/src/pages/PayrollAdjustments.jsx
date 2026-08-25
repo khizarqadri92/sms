@@ -1,12 +1,19 @@
 import React, { useState, useEffect, useCallback } from "react";
 import payrollApi from "../api/payrollApi";
+import { useProcessingToday } from "../hooks/useProcessingToday";
 
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
 export default function PayrollAdjustments() {
-  const now = new Date();
+  const processingToday = useProcessingToday();
+  const now = new Date(processingToday);
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
+  useEffect(() => {
+    const d = new Date(processingToday);
+    setMonth(d.getMonth() + 1);
+    setYear(d.getFullYear());
+  }, [processingToday]);
   const [adjustments, setAdjustments] = useState([]);
   const [staffList, setStaffList] = useState([]);
   const [variableComponents, setVariableComponents] = useState([]);

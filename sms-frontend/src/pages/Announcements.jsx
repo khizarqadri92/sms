@@ -1,12 +1,15 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthContext";
 import client from "../api/client";
 import academicsApi from "../api/academicsApi";
+import { useProcessingToday } from "../hooks/useProcessingToday";
+import DatePicker from "../components/DatePicker";
 
 const today = () => new Date().toISOString().split("T")[0];
 const futureDate = (days=30) => { const d=new Date(); d.setDate(d.getDate()+days); return d.toISOString().split("T")[0]; };
 
 export default function Announcements() {
+  const processingToday = useProcessingToday();
   const { user } = useAuth();
   const role = user?.roles?.[0]||"";
   const [announcements, setAnnouncements] = useState([]);
@@ -18,6 +21,10 @@ export default function Announcements() {
     target_role:"all", target_class:"", link:"", link_label:"View",
     start_date:today(), end_date:futureDate(30)
   });
+  useEffect(() => {
+    const d = new Date(processingToday); d.setDate(d.getDate()+30);
+    setForm(f => ({ ...f, start_date: processingToday, end_date: d.toISOString().split("T")[0] }));
+  }, [processingToday]);
   const [saving, setSaving] = useState(false);
 
   useEffect(()=>{
@@ -43,7 +50,8 @@ export default function Announcements() {
         target_class: form.target_class ? Number(form.target_class) : null,
       });
       setShowForm(false);
-      setForm({title:"",body:"",type:"info",priority:"normal",target_role:"all",target_class:"",link:"",link_label:"View",start_date:today(),end_date:futureDate(30)});
+      const fd = new Date(processingToday); fd.setDate(fd.getDate()+30);
+      setForm({title:"",body:"",type:"info",priority:"normal",target_role:"all",target_class:"",link:"",link_label:"View",start_date:processingToday,end_date:fd.toISOString().split("T")[0]});
       load();
     } catch(e){}
     finally { setSaving(false); }
@@ -132,11 +140,11 @@ export default function Announcements() {
             </div>
             <div>
               <label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>Start Date</label>
-              <input type="date" value={form.start_date} onChange={e=>setForm(f=>({...f,start_date:e.target.value}))} style={{width:"100%",padding:"9px 12px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:13}} />
+              <DatePicker value={form.start_date} onChange={val=>setForm(f=>({...f,start_date:val}))} style={{width:"100%",padding:"9px 12px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:13}} />
             </div>
             <div>
               <label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>End Date</label>
-              <input type="date" value={form.end_date} onChange={e=>setForm(f=>({...f,end_date:e.target.value}))} style={{width:"100%",padding:"9px 12px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:13}} />
+              <DatePicker value={form.end_date} onChange={val=>setForm(f=>({...f,end_date:val}))} style={{width:"100%",padding:"9px 12px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:13}} />
             </div>
           </div>
           <div style={{display:"flex",gap:10}}>

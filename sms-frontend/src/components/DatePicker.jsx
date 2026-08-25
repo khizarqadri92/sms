@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
+import { useProcessingToday } from "../hooks/useProcessingToday";
 
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const WEEKDAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
@@ -7,8 +8,10 @@ const WEEKDAY_SHORT = ["Su","Mo","Tu","We","Th","Fr","Sa"];
 
 export default function DatePicker({ value, onChange, disabled, min, max, style, placeholder }) {
   const { formatDate, settings } = useRegionalSettings();
+  const processingToday = useProcessingToday();
   const [open, setOpen] = useState(false);
   const [viewDate, setViewDate] = useState(() => (value ? new Date(value) : new Date()));
+  useEffect(() => { if (!value) setViewDate(new Date(processingToday)); }, [processingToday]);
   const wrapperRef = useRef(null);
 
   useEffect(() => {
@@ -63,6 +66,13 @@ export default function DatePicker({ value, onChange, disabled, min, max, style,
 
   const selectedDateObj = value ? new Date(value) : null;
 
+  const minYear = min ? new Date(min).getFullYear() : year - 100;
+  const maxYear = max ? new Date(max).getFullYear() : year + 20;
+  const yearLo = Math.min(minYear, year);
+  const yearHi = Math.max(maxYear, year);
+  const yearOptions = [];
+  for (let y = yearHi; y >= yearLo; y--) yearOptions.push(y);
+
   return (
     <div ref={wrapperRef} style={{ position: "relative", display: "inline-block", ...style }}>
       <input
@@ -78,45 +88,74 @@ export default function DatePicker({ value, onChange, disabled, min, max, style,
       {open && (
         <div style={{
           position: "absolute", zIndex: 2000, top: "100%", left: 0, marginTop: 4, background: "#fff",
-          border: "1px solid #e2e8f0", borderRadius: 8, boxShadow: "0 4px 12px rgba(0,0,0,0.1)", padding: 12, width: 260,
+          border: "1px solid #e2e8f0", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.15)", width: 272,
+          overflow: "hidden",
         }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-            <button type="button" onClick={() => setViewDate(new Date(year, month - 1, 1))}
-              style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, padding: "2px 8px" }}>
-              &#8249;
-            </button>
-            <div style={{ fontWeight: 600, fontSize: 13 }}>{MONTH_NAMES[month]} {year}</div>
-            <button type="button" onClick={() => setViewDate(new Date(year, month + 1, 1))}
-              style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, padding: "2px 8px" }}>
-              &#8250;
-            </button>
+          {/* Header: theme-colored, shows the currently selected date in the configured format */}
+          <div style={{
+            background: "var(--theme-primary, #2563eb)", color: "#fff", padding: "14px 16px 16px",
+          }}>
+            <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.6, opacity: 0.85, textTransform: "uppercase" }}>
+              Select date
+            </div>
+            <div style={{ fontSize: 20, fontWeight: 700, marginTop: 4, lineHeight: 1.2 }}>
+              {formatDate(selectedDateObj || processingToday)}
+            </div>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2, marginBottom: 4 }}>
-            {weekdayLabels.map((w, i) => (
-              <div key={i} style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", textAlign: "center" }}>{w}</div>
+
+          <div style={{ padding: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 4 }}>
+              <button type="button" onClick={() => setViewDate(new Date(year, month - 1, 1))}
+                style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, padding: "2px 6px", flexShrink: 0, color: "#475569" }}>
+                &#8249;
+              </button>
+              <select
+                value={month}
+                onChange={(e) => setViewDate(new Date(year, Number(e.target.value), 1))}
+                style={{ fontWeight: 600, fontSize: 12, border: "none", borderRadius: 6, padding: "3px 2px", background: "transparent", cursor: "pointer", flex: 1, minWidth: 0, color: "#0f172a" }}
+              >
+                {MONTH_NAMES.map((m, i) => <option key={i} value={i}>{m}</option>)}
+              </select>
+              <select
+                value={year}
+                onChange={(e) => setViewDate(new Date(Number(e.target.value), month, 1))}
+                style={{ fontWeight: 600, fontSize: 12, border: "none", borderRadius: 6, padding: "3px 2px", background: "transparent", cursor: "pointer", width: 68, flexShrink: 0, color: "#0f172a" }}
+              >
+                {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
+              </select>
+              <button type="button" onClick={() => setViewDate(new Date(year, month + 1, 1))}
+                style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, padding: "2px 6px", flexShrink: 0, color: "#475569" }}>
+                &#8250;
+              </button>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2, marginBottom: 4 }}>
+              {weekdayLabels.map((w, i) => (
+                <div key={i} style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", textAlign: "center" }}>{w}</div>
+              ))}
+            </div>
+            {weeks.map((week, wi) => (
+              <div key={wi} style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2 }}>
+                {week.map((d, di) => {
+                  const disabledDay = isDisabledDay(d);
+                  const selected = selectedDateObj && d &&
+                    selectedDateObj.getFullYear() === year && selectedDateObj.getMonth() === month && selectedDateObj.getDate() === d;
+                  return (
+                    <button key={di} type="button" disabled={!d || disabledDay}
+                      onClick={() => d && !disabledDay && selectDate(d)}
+                      style={{
+                        padding: "7px 0", fontSize: 12, border: "none", borderRadius: "50%",
+                        cursor: d && !disabledDay ? "pointer" : "default",
+                        background: selected ? "var(--theme-primary, #2563eb)" : "transparent",
+                        color: !d ? "transparent" : disabledDay ? "#cbd5e1" : selected ? "#fff" : "#0f172a",
+                        fontWeight: selected ? 700 : 400,
+                      }}>
+                      {d || ""}
+                    </button>
+                  );
+                })}
+              </div>
             ))}
           </div>
-          {weeks.map((week, wi) => (
-            <div key={wi} style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2 }}>
-              {week.map((d, di) => {
-                const disabledDay = isDisabledDay(d);
-                const selected = selectedDateObj && d &&
-                  selectedDateObj.getFullYear() === year && selectedDateObj.getMonth() === month && selectedDateObj.getDate() === d;
-                return (
-                  <button key={di} type="button" disabled={!d || disabledDay}
-                    onClick={() => d && !disabledDay && selectDate(d)}
-                    style={{
-                      padding: "6px 0", fontSize: 12, border: "none", borderRadius: 6,
-                      cursor: d && !disabledDay ? "pointer" : "default",
-                      background: selected ? "#2563eb" : "transparent",
-                      color: !d ? "transparent" : disabledDay ? "#cbd5e1" : selected ? "#fff" : "#0f172a",
-                    }}>
-                    {d || ""}
-                  </button>
-                );
-              })}
-            </div>
-          ))}
         </div>
       )}
     </div>

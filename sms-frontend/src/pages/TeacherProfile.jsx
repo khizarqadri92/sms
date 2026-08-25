@@ -1,7 +1,9 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { useParams, useNavigate } from "react-router-dom";
 import teachersApi from "../api/teachersApi";
+import DatePicker from "../components/DatePicker";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
 const ALL_TABS = [
   { label:"Profile",   perm:null },
@@ -12,9 +14,9 @@ const ALL_TABS = [
 ];
 const DAYS  = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 
-function formatDate(dateStr) {
+function formatDate(dateStr, fmt) {
   if (!dateStr) return "N/A";
-  try { return new Date(dateStr).toLocaleDateString("en-US"); }
+  try { return fmt ? fmt(dateStr) : new Date(dateStr).toLocaleDateString("en-US"); }
   catch { return dateStr; }
 }
 
@@ -25,6 +27,7 @@ function formatDateInput(dateStr) {
 }
 
 export default function TeacherProfile() {
+  const { formatDate: fmtDate, formatDateTime } = useRegionalSettings();
   const { can } = useAuth();
   const { id }                  = useParams();
   const navigate                = useNavigate();
@@ -63,8 +66,8 @@ export default function TeacherProfile() {
     ["Gender",         teacher.gender          || "N/A"],
     ["Specialization", teacher.specialization  || "N/A"],
     ["Qualification",  teacher.qualification   || "N/A"],
-    ["Join Date",      formatDate(teacher.join_date)],
-    ["Date of Birth",  formatDate(teacher.date_of_birth)],
+    ["Join Date",      formatDate(teacher.join_date, fmtDate)],
+    ["Date of Birth",  formatDate(teacher.date_of_birth, fmtDate)],
     ["Subjects",       (teacher.subjects?.length || 0) + " assigned"],
     ["Classes",        (teacher.classes?.length  || 0) + " assigned"],
   ];
@@ -122,6 +125,7 @@ onClick={() => setTab(t.label)}
 }
 
 function ProfileTab({ teacher }) {
+  const { formatDate: fmtDate, formatDateTime } = useRegionalSettings();
   const { can } = useAuth();
   return (
     <div>
@@ -137,7 +141,7 @@ function ProfileTab({ teacher }) {
           ["Gender",         teacher.gender         || "N/A"],
           ["Qualification",  teacher.qualification  || "N/A"],
           ["Specialization", teacher.specialization || "N/A"],
-          ["Join Date",      teacher.join_date ? new Date(teacher.join_date).toLocaleDateString("en-US") : "N/A"],
+          ["Join Date",      formatDate(teacher.join_date, fmtDate)],
           ["Status",         teacher.status         || "N/A"],
         ].map(([label, value]) => (
           <div key={label} className="profile-detail">
@@ -153,8 +157,8 @@ function ProfileTab({ teacher }) {
         {[
           ["User ID",    String(teacher.user_id || "N/A")],
           ["Active",     teacher.is_active   ? "Yes" : "No"],
-          ["Last Login", teacher.last_login_at ? new Date(teacher.last_login_at).toLocaleString() : "Never"],
-          ["Created",    formatDate(teacher.created_at)],
+          ["Last Login", teacher.last_login_at ? formatDateTime(teacher.last_login_at) : "Never"],
+          ["Created",    formatDate(teacher.created_at, fmtDate)],
         ].map(([label, value]) => (
           <div key={label} className="profile-detail">
             <span className="profile-detail-label">{label}</span>
@@ -231,11 +235,11 @@ function EditTab({ teacher, onSaved }) {
           </div>
           <div className="form-group">
             <label className="form-label">Date of Birth</label>
-            <input className="form-control" type="date" name="date_of_birth" value={form.date_of_birth} onChange={handleChange} />
+            <DatePicker value={form.date_of_birth} onChange={val => setForm(f => ({ ...f, date_of_birth: val }))} />
           </div>
           <div className="form-group">
             <label className="form-label">Join Date</label>
-            <input className="form-control" type="date" name="join_date" value={form.join_date} onChange={handleChange} />
+            <DatePicker value={form.join_date} onChange={val => setForm(f => ({ ...f, join_date: val }))} />
           </div>
           <div className="form-group">
             <label className="form-label">Qualification</label>
@@ -462,6 +466,9 @@ function ClassesTab({ teacher }) {
             >
               <div className="stat-card-value" style={{ fontSize:20 }}>{c.name}{c.section ? " (" + c.section + ")" : ""}</div>
               <div className="stat-card-label">{c.student_count} students</div>
+              {c.subject_names && (
+                <div style={{ fontSize:11, color:"#16a34a", fontWeight:500, marginTop:4 }}>{c.subject_names}</div>
+              )}
               {c.is_primary && (
                 <div style={{ marginTop:6 }}>
                   <span className="badge badge-primary" style={{ fontSize:10 }}>Class Teacher</span>

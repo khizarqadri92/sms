@@ -2,6 +2,7 @@ import client from "./client";
 
 const processingDateApi = {
   get:     ()     => client.get("/system/processing-date"),
+  getDatetime: () => client.get("/system/processing-datetime"),
   advance: ()     => client.post("/system/processing-date/advance"),
   set:     (data) => client.put("/system/processing-date", data),
   getTime:       ()     => client.get("/system/processing-time"),

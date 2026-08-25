@@ -1,8 +1,9 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { examsApi } from "../api/examsApi";
 import academicsApi from "../api/academicsApi";
+import DatePicker from "../components/DatePicker";
 
 const STATUS_STYLES = {
   draft:      { bg:"#f1f5f9", color:"#475569", label:"Draft" },
@@ -176,11 +177,11 @@ export default function Exams() {
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
                   <div>
                     <label style={{display:"block",fontSize:12,fontWeight:600,color:"#374151",marginBottom:6}}>Start Date</label>
-                    <input type="date" className="form-control" value={createForm.start_date} onChange={e=>setCreateForm(f=>({...f,start_date:e.target.value}))} />
+                    <DatePicker value={createForm.start_date} onChange={val=>setCreateForm(f=>({...f,start_date:val}))} />
                   </div>
                   <div>
                     <label style={{display:"block",fontSize:12,fontWeight:600,color:"#374151",marginBottom:6}}>End Date</label>
-                    <input type="date" className="form-control" value={createForm.end_date} onChange={e=>setCreateForm(f=>({...f,end_date:e.target.value}))} />
+                    <DatePicker value={createForm.end_date} onChange={val=>setCreateForm(f=>({...f,end_date:val}))} />
                   </div>
                 </div>
               </div>

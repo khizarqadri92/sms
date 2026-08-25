@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from app.fastapi_auth import get_current_user_id
 from app.fastapi_db import get_db, get_cur
+from app.utils.processing_date import get_processing_datetime
 from app.fastapi_permissions import require_permission
 
 router = APIRouter()
@@ -55,10 +56,21 @@ def get_processing_time(db=Depends(get_db)):
                      "updated_by": row["updated_by"] if row else None, "updated_at": str(row["updated_at"]) if row else None})
 
 
+@router.get("/processing-datetime")
+def get_processing_datetime_endpoint(user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+    """Returns the full combined processing datetime (advanced DATE + real/offset
+    TIME-OF-DAY), for frontend components that need a live "processing now"
+    clock (e.g. elapsed-time calculations, default month views) instead of
+    relying on the browser's real Date()."""
+    from app.utils.processing_date import get_processing_datetime
+    dt = get_processing_datetime(db)
+    return ok(data={"processing_datetime": dt.isoformat()})
+
+
 @router.post("/processing-time/set-automatic")
 def set_processing_time_automatic(user_id: int = Depends(require_permission("users.manage_roles")), db=Depends(get_db)):
     cur = get_cur(db)
-    cur.execute("UPDATE processing_time SET mode=\'auto\', time_offset_seconds=0, updated_by=%s, updated_at=NOW() WHERE id=(SELECT id FROM processing_time ORDER BY id LIMIT 1)", (user_id,))
+    cur.execute("UPDATE processing_time SET mode=\'auto\', time_offset_seconds=0, updated_by=%s, updated_at=%s WHERE id=(SELECT id FROM processing_time ORDER BY id LIMIT 1)", (user_id, get_processing_datetime(db)))
     db.commit()
     return ok(message="Processing time set to automatic (follows real clock).")
 
@@ -89,7 +101,7 @@ def set_processing_time_manual(body: SetManualTimeIn,
     now = datetime.now(_tz.utc)
     offset_seconds = int((target - now).total_seconds())
     cur = get_cur(db)
-    cur.execute("UPDATE processing_time SET mode=\'manual\', time_offset_seconds=%s, updated_by=%s, updated_at=NOW() WHERE id=(SELECT id FROM processing_time ORDER BY id LIMIT 1)",
-        (offset_seconds, user_id))
+    cur.execute("UPDATE processing_time SET mode=\'manual\', time_offset_seconds=%s, updated_by=%s, updated_at=%s WHERE id=(SELECT id FROM processing_time ORDER BY id LIMIT 1)",
+        (offset_seconds, user_id, get_processing_datetime(db)))
     db.commit()
     return ok(message="Manual processing time set.")

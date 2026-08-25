@@ -14,6 +14,7 @@ def run_fee_auto_generation(app, force=False):
     Returns a dict describing what happened, for the caller to report back.
     """
     from app.db.connection import get_db
+    from app.utils.processing_date import get_processing_datetime
 
     with app.app_context():
         db_conn = get_db()
@@ -29,7 +30,7 @@ def run_fee_auto_generation(app, force=False):
         if not force and settings.get("fee_auto_generate_enabled") != "true":
             return {"ran": False, "reason": "Auto-generation is disabled."}
 
-        now = _dt.now()
+        now = get_processing_datetime(db_conn)
         today = now.date()
         target_day = int(settings.get("fee_auto_generate_day") or 1)
         this_month_str = today.strftime("%Y-%m")
@@ -80,8 +81,8 @@ def run_fee_auto_generation(app, force=False):
         total = result["generated"]
 
         cur.execute(
-            "UPDATE system_settings SET value = %s, updated_at = NOW() WHERE key = 'fee_auto_generate_last_run'",
-            (this_month_str,),
+            "UPDATE system_settings SET value = %s, updated_at = %s WHERE key = 'fee_auto_generate_last_run'",
+            (this_month_str, now),
         )
         db_conn.commit()
 

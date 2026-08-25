@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import studentsApi from "../api/studentsApi";
 import InvoiceTimelineModal from "../components/InvoiceTimelineModal";
+import { useProcessingToday } from "../hooks/useProcessingToday";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
+import DatePicker from "../components/DatePicker";
 
 export default function Children() {
   const [children, setChildren] = useState([]);
@@ -149,10 +152,12 @@ function ChildOverview({ child }) {
 }
 
 function ChildAttendance({ child }) {
+  const processingToday = useProcessingToday();
   const [records,  setRecords]  = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [from,     setFrom]     = useState(new Date().toISOString().slice(0,7)+"-01");
   const [to,       setTo]       = useState(new Date().toISOString().split("T")[0]);
+  useEffect(() => { setFrom(processingToday.slice(0,7)+"-01"); setTo(processingToday); }, [processingToday]);
 
   useEffect(() => {
     if (!child?.id) return;
@@ -172,8 +177,8 @@ function ChildAttendance({ child }) {
       <div className="section-card-header">
         <span className="section-card-title">{child.first_name}&apos;s Attendance</span>
         <div style={{ display:"flex", gap:8 }}>
-          <input type="date" className="form-control" style={{ width:140, fontSize:12 }} value={from} onChange={e=>setFrom(e.target.value)} />
-          <input type="date" className="form-control" style={{ width:140, fontSize:12 }} value={to}   onChange={e=>setTo(e.target.value)} />
+          <DatePicker style={{ width:140, fontSize:12 }} value={from} onChange={val=>setFrom(val)} />
+          <DatePicker style={{ width:140, fontSize:12 }} value={to} onChange={val=>setTo(val)} />
         </div>
       </div>
 
@@ -216,6 +221,7 @@ function ChildAttendance({ child }) {
 
 
 function ChildGrades({ child }) {
+  const { formatDate } = useRegionalSettings();
   const [grades,  setGrades]  = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -243,7 +249,7 @@ function ChildGrades({ child }) {
               <td><strong style={{ color:"#2563eb" }}>{g.marks_obtained}</strong></td>
               <td style={{ color:"#64748b" }}>{g.total_marks}</td>
               <td><span className="badge badge-primary">{g.grade || "N/A"}</span></td>
-              <td style={{ fontSize:12, color:"#64748b" }}>{g.exam_date ? new Date(g.exam_date).toLocaleDateString("en-US") : "N/A"}</td>
+              <td style={{ fontSize:12, color:"#64748b" }}>{g.exam_date ? formatDate(g.exam_date) : "N/A"}</td>
             </tr>
           ))}
         </tbody>
@@ -281,6 +287,8 @@ const downloadInvoicePdf = async (invoiceId) => {
 };
 
 function ChildFees({ child }) {
+  const processingToday = useProcessingToday();
+  const { formatDate } = useRegionalSettings();
   const [summary,     setSummary]     = useState(null);
   const [loading,     setLoading]     = useState(true);
   const [showPayment, setShowPayment] = useState(null);
@@ -349,7 +357,7 @@ function ChildFees({ child }) {
             <tbody>
               {invoices.map(inv => {
                 const balance = Number(inv.net_amount) - Number(inv.paid_amount || 0);
-                const isOverdue = inv.due_date && new Date(inv.due_date) < new Date() && inv.status !== "paid";
+                const isOverdue = inv.due_date && new Date(inv.due_date) < new Date(processingToday) && inv.status !== "paid";
                 return (
                   <tr key={inv.id} onClick={() => inv.status === "paid" && setTimelineInvoiceId(inv.id)} style={{ cursor: inv.status === "paid" ? "pointer" : "default" }}>
                     <td>
@@ -367,7 +375,7 @@ function ChildFees({ child }) {
                     <td style={{ color:"#16a34a" }}>Rs. {Number(inv.paid_amount||0).toLocaleString()}</td>
                     <td style={{ color:"#dc2626", fontWeight:700 }}>Rs. {Number(balance).toLocaleString()}</td>
                     <td style={{ fontSize:12, color: isOverdue ? "#dc2626" : "#64748b", fontWeight: isOverdue ? 700 : 400 }}>
-                      {inv.due_date ? new Date(inv.due_date).toLocaleDateString("en-US") : "N/A"}
+                      {inv.due_date ? formatDate(inv.due_date) : "N/A"}
                       {isOverdue && <div style={{ fontSize:10, color:"#dc2626" }}>Overdue</div>}
                     </td>
                     <td><span className={"badge " + statusBadge(inv.status)} style={{ textTransform:"capitalize" }}>{inv.status}</span></td>

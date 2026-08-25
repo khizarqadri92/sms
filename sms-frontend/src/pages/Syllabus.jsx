@@ -2,11 +2,16 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { syllabusApi } from "../api/syllabusApi";
 import academicsApi from "../api/academicsApi";
+import DatePicker from "../components/DatePicker";
+import { useProcessingToday } from "../hooks/useProcessingToday";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
 const MONTH_NAMES = ["","January","February","March","April","May","June","July","August","September","October","November","December"];
 const SUBJECT_COLORS = ["#2563eb","#059669","#dc2626","#7c3aed","#d97706","#db2777","#0891b2","#65a30d","#ea580c","#6366f1"];
 
 export default function Syllabus() {
+  const processingToday = useProcessingToday();
+  const { formatDate } = useRegionalSettings();
   const { user, can } = useAuth();
   const roles     = user?.roles || [];
   const role      = roles[0] || "";
@@ -221,7 +226,7 @@ export default function Syllabus() {
 
   const markTopic = async (tid, action) => {
     try {
-      await syllabusApi.markTopic(selected.id, tid, { action, covered_at: new Date().toISOString().split("T")[0], note: "" });
+      await syllabusApi.markTopic(selected.id, tid, { action, covered_at: processingToday, note: "" });
       flash("success", action === "cover" ? "Topic marked as covered." : "Topic uncovered.");
       await loadSelected(selected.id);
       loadList(undefined, selected.id);
@@ -423,8 +428,8 @@ export default function Syllabus() {
                                       {t.description && <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 3, whiteSpace: "pre-wrap" }}>{t.description}</div>}
                                       <div style={{ display: "flex", gap: 6, marginTop: 5, flexWrap: "wrap" }}>
                                         {t.planned_week && <span style={{ fontSize: 11, background: "#eff6ff", color: "#1d4ed8", padding: "1px 8px", borderRadius: 10, fontWeight: 600 }}>Week {t.planned_week}</span>}
-                                        {t.planned_date && <span style={{ fontSize: 11, background: "#f0fdf4", color: "#166534", padding: "1px 8px", borderRadius: 10, fontWeight: 600 }}>By {new Date(t.planned_date).toLocaleDateString("en-GB",{day:"2-digit",month:"short"})}</span>}
-                                        {t.covered_at && <span style={{ fontSize: 11, background: "#dcfce7", color: "#166534", padding: "1px 8px", borderRadius: 10, fontWeight: 600 }}>Covered {new Date(t.covered_at).toLocaleDateString("en-GB",{day:"2-digit",month:"short"})}{t.covered_by_name?" by "+t.covered_by_name:""}</span>}
+                                        {t.planned_date && <span style={{ fontSize: 11, background: "#f0fdf4", color: "#166534", padding: "1px 8px", borderRadius: 10, fontWeight: 600 }}>By {formatDate(t.planned_date)}</span>}
+                                        {t.covered_at && <span style={{ fontSize: 11, background: "#dcfce7", color: "#166534", padding: "1px 8px", borderRadius: 10, fontWeight: 600 }}>Covered {formatDate(t.covered_at)}{t.covered_by_name?" by "+t.covered_by_name:""}</span>}
                                       </div>
                                     </div>
                                   </div>
@@ -581,8 +586,8 @@ export default function Syllabus() {
                       </div>
                       <div className="form-group">
                         <label className="form-label">Target Date</label>
-                        <input className="form-control" type="date" value={w.planned_date}
-                          onChange={e => setMonthForm(f => { const wks=[...f.weeks]; wks[i]={...wks[i],planned_date:e.target.value}; return {...f,weeks:wks}; })} />
+                        <DatePicker value={w.planned_date}
+                          onChange={val => setMonthForm(f => { const wks=[...f.weeks]; wks[i]={...wks[i],planned_date:val}; return {...f,weeks:wks}; })} />
                       </div>
                     </div>
                     <div className="form-group" style={{ marginBottom: 10 }}>
@@ -643,7 +648,7 @@ export default function Syllabus() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Target Date</label>
-                  <input className="form-control" type="date" value={editTopic.planned_date||""} onChange={e => setEditTopic(t => ({ ...t, planned_date: e.target.value }))} />
+                  <DatePicker value={editTopic.planned_date||""} onChange={val => setEditTopic(t => ({ ...t, planned_date: val }))} />
                 </div>
               </div>
             </div>

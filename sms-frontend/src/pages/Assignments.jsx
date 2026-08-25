@@ -2,6 +2,9 @@ import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../auth/AuthContext";
 import assignmentsApi from "../api/assignmentsApi";
 import diaryApi from "../api/diaryApi";
+import DatePicker from "../components/DatePicker";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
+import { useProcessingToday } from "../hooks/useProcessingToday";
 
 const today = () => new Date().toISOString().split("T")[0];
 const API   = process.env.REACT_APP_API_URL || "http://localhost:5000/api/v1";
@@ -51,6 +54,7 @@ export default function Assignments() {
 
 /* ── Create Assignment Modal ──────────────────────────────────── */
 function CreateModal({ onClose, onCreated }) {
+  const processingToday = useProcessingToday();
   const [form,    setForm]    = useState({ class_id:"", subject_id:"", title:"", description:"", due_date:"", total_marks:"20" });
   const [classes, setClasses] = useState([]);
   const [subjects,setSubjects]= useState([]);
@@ -137,7 +141,7 @@ function CreateModal({ onClose, onCreated }) {
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
             <div>
               <label style={{ display:"block", fontSize:12, fontWeight:600, color:"#64748b", marginBottom:6 }}>Due date *</label>
-              <input type="date" className="form-control" value={form.due_date} min={today()} onChange={e=>setForm({...form,due_date:e.target.value})} />
+              <DatePicker value={form.due_date} min={processingToday} onChange={val=>setForm({...form,due_date:val})} />
             </div>
             <div>
               <label style={{ display:"block", fontSize:12, fontWeight:600, color:"#64748b", marginBottom:6 }}>Total marks *</label>
@@ -493,6 +497,7 @@ function AssignmentCard({ a, onView, onDelete, isTeacher, compact }) {
 
 /* ── Submissions View ─────────────────────────────────────────── */
 function SubmissionsView({ assignment, onBack, readOnly }) {
+  const { formatDateTime } = useRegionalSettings();
   const [data,    setData]    = useState({ submissions:[], not_submitted:[] });
   const [loading, setLoading] = useState(true);
   const [forms,   setForms]   = useState({});
@@ -563,7 +568,7 @@ function SubmissionsView({ assignment, onBack, readOnly }) {
                     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
                       <div>
                         <div style={{ fontWeight:600, fontSize:13 }}>{sub.student_name}</div>
-                        <div style={{ fontSize:11, color:"#64748b" }}>{sub.enrollment_no} · {new Date(sub.submitted_at).toLocaleString("en-PK",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}</div>
+                        <div style={{ fontSize:11, color:"#64748b" }}>{sub.enrollment_no} · {formatDateTime(sub.submitted_at)}</div>
                       </div>
                       <div style={{ display:"flex", gap:8, alignItems:"center" }}>
                         {sub.marks!==null && <span className="badge badge-success">{sub.marks}/{assignment.total_marks}</span>}
@@ -885,6 +890,7 @@ function ParentAssignments() {
 
 /* ── Parent Submission Detail View ────────────────────────────── */
 function ParentSubmissionView({ assignment, studentId, onBack }) {
+  const { formatDateTime } = useRegionalSettings();
   const [sub,     setSub]     = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -932,7 +938,7 @@ function ParentSubmissionView({ assignment, studentId, onBack }) {
                 <div style={{ padding:"14px 16px", background:"#f0fdf4", borderRadius:10, border:"1px solid #bbf7d0" }}>
                   <div style={{ fontWeight:700, color:"#16a34a", fontSize:14, marginBottom:4 }}>✓ Submitted</div>
                   <div style={{ fontSize:12, color:"#64748b" }}>
-                    {new Date(sub.submitted_at).toLocaleString("en-PK",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})}
+                    {formatDateTime(sub.submitted_at)}
                   </div>
                 </div>
 

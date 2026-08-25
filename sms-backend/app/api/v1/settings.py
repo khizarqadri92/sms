@@ -33,6 +33,19 @@ class SettingsBody(BaseModel):
         extra = "allow"
 
 
+class TimingOverrideIn(BaseModel):
+    id: Optional[int] = None
+    label: str
+    day_of_week: Optional[int] = None
+    override_date: Optional[str] = None
+    start_time: str
+    end_time: str
+    break_start_time: Optional[str] = None
+    break_duration: Optional[int] = None
+    period_duration: int
+    is_active: bool = True
+
+
 @router.get("/public")
 def get_public_settings(db=Depends(get_db)):
     cur = get_cur(db)
@@ -162,3 +175,47 @@ def save_category_settings(cat: str, body: SettingsBody, user_id: int = Depends(
             print("[settings notify]", e)
 
     return ok(message="Settings saved.")
+
+
+@router.get("/school-timing/overrides")
+def list_timing_overrides(user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+    """Returns every configured day-specific timing override (either tied to
+    a recurring weekday, e.g. every Friday, or a specific calendar date, e.g.
+    Dec 24) - used by the Settings UI list and by the AI Timetable Generator
+    to know which days need a different start/end/break/period schedule."""
+    cur = get_cur(db)
+    cur.execute("SELECT * FROM sp_list_timing_overrides()")
+    rows = [dict(r) for r in cur.fetchall()]
+    for r in rows:
+        for k in ("start_time", "end_time", "break_start_time"):
+            if r.get(k) is not None:
+                r[k] = str(r[k])[:5]
+        if r.get("override_date") is not None:
+            r["override_date"] = str(r["override_date"])
+    return ok(data=rows)
+
+
+@router.put("/school-timing/overrides")
+def upsert_timing_override(body: TimingOverrideIn, user_id: int = Depends(require_permission("settings.manage")), db=Depends(get_db)):
+    """Creates a new override (id omitted) or updates an existing one (id
+    given). Exactly one of day_of_week/override_date must be set - enforced
+    by a DB check constraint as well as here for a clearer error message."""
+    if bool(body.day_of_week) == bool(body.override_date):
+        fail("Provide exactly one of day_of_week or override_date, not both or neither.", 400)
+    cur = get_cur(db)
+    cur.execute(
+        "SELECT sp_upsert_timing_override(%s::integer, %s::varchar, %s::smallint, %s::date, %s::time, %s::time, %s::time, %s::integer, %s::integer, %s::boolean)",
+        (body.id, body.label, body.day_of_week, body.override_date, body.start_time, body.end_time,
+         body.break_start_time, body.break_duration, body.period_duration, body.is_active)
+    )
+    new_id = cur.fetchone()["sp_upsert_timing_override"]
+    db.commit()
+    return ok(data={"id": new_id}, message="Timing override saved.")
+
+
+@router.delete("/school-timing/overrides/{id}")
+def delete_timing_override(id: int, user_id: int = Depends(require_permission("settings.manage")), db=Depends(get_db)):
+    cur = get_cur(db)
+    cur.execute("SELECT sp_delete_timing_override(%s)", (id,))
+    db.commit()
+    return ok(message="Timing override removed.")

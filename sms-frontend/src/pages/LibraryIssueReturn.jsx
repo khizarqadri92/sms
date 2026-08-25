@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import libraryApi from "../api/libraryApi";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
 function IssueBookModal({ onClose, onSaved }) {
   const [memberQuery, setMemberQuery] = useState("");
@@ -249,6 +250,7 @@ function ReturnModal({ issue, onClose, onSaved }) {
 }
 
 export default function LibraryIssueReturn() {
+  const { formatDate } = useRegionalSettings();
   const [issues, setIssues] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -416,8 +418,8 @@ export default function LibraryIssueReturn() {
                         <div style={{ fontSize: 11, color: "#94a3b8" }}>{i.library_card_no}</div>
                       </td>
                       <td>{i.accession_no}</td>
-                      <td style={{ fontSize: 12, color: "#64748b" }}>{new Date(i.issued_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}</td>
-                      <td>{new Date(i.due_date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}</td>
+                      <td style={{ fontSize: 12, color: "#64748b" }}>{formatDate(i.issued_at)}</td>
+                      <td>{formatDate(i.due_date)}</td>
                       <td><span className={"badge " + (statusBadge[i.current_status] || "badge-gray")} style={{ textTransform: "capitalize" }}>{i.current_status}</span></td>
                       <td>
                         {Number(i.fine_amount) > 0 ? (
@@ -474,7 +476,7 @@ export default function LibraryIssueReturn() {
                         <div>{r.first_name} {r.last_name}</div>
                         <div style={{ fontSize: 11, color: "#94a3b8" }}>{r.library_card_no} \u00b7 {r.member_type}</div>
                       </td>
-                      <td style={{ fontSize: 12, color: "#64748b" }}>{new Date(r.requested_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}</td>
+                      <td style={{ fontSize: 12, color: "#64748b" }}>{formatDate(r.requested_at)}</td>
                       <td>
                         {r.status === "available" ? (
                           <span className="badge badge-success">Ready for Pickup</span>

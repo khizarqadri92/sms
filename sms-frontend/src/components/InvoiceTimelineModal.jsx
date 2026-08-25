@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import studentsApi from "../api/studentsApi";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
 export default function InvoiceTimelineModal({ studentId, invoiceId, onClose }) {
+  const { formatDateTime } = useRegionalSettings();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -13,7 +15,7 @@ export default function InvoiceTimelineModal({ studentId, invoiceId, onClose }) 
       .finally(() => setLoading(false));
   }, [studentId, invoiceId]);
 
-  const fmtDateTime = d => d ? new Date(d).toLocaleString("en-US", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "-";
+  const fmtDateTime = d => d ? formatDateTime(d) : "-";
 
   let events = [];
   if (data) {

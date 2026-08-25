@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from app.fastapi_auth import get_current_user_id, get_jwt_claims
 from app.fastapi_permissions import require_permission
 from app.fastapi_db import get_db, get_cur as _get_cur
+from app.utils.processing_date import get_processing_datetime
 
 router = APIRouter()
 
@@ -505,11 +506,12 @@ def parent_respond(req_id: int, body: RequireActionIn, user_id: int = Depends(ge
     # Log parent response
     cur.execute("INSERT INTO withdrawal_activity_log (withdrawal_id, user_id, user_name, action, note, from_role) VALUES (%s,%s,%s,'parent_response',%s,%s)",
         (req_id, user_id, parent_name, note_text or "Response submitted.", linked_role))
+    _pn1 = get_processing_datetime(db)
     cur.execute("""
-        UPDATE work_queue_items SET status='completed', completed_by=%s, completed_at=NOW(), updated_at=NOW()
+        UPDATE work_queue_items SET status='completed', completed_by=%s, completed_at=%s, updated_at=%s
         WHERE module='withdrawal' AND entity_id=%s AND action_required='submit' AND status='pending'
         RETURNING created_by
-    """, (user_id, req_id))
+    """, (user_id, _pn1, _pn1, req_id))
     rows = cur.fetchall()
     db.commit()
     # Notify: the officer who created the action_required + current workflow step assignee
@@ -659,8 +661,8 @@ def submit_conduct(req_id: int, body: ConductIn, user_id: int = Depends(get_curr
             cur.execute("""UPDATE students SET status='withdrawn'
                 WHERE id=(SELECT student_id FROM withdrawal_requests WHERE id=%s)""", (req_id,))
             # Mark all pending WQ items for this request as completed
-            cur.execute("""UPDATE work_queue_items SET status='completed', completed_by=%s, completed_at=NOW()
-                WHERE module='withdrawal' AND entity_id=%s AND status='pending'""", (user_id, req_id))
+            cur.execute("""UPDATE work_queue_items SET status='completed', completed_by=%s, completed_at=%s
+                WHERE module='withdrawal' AND entity_id=%s AND status='pending'""", (user_id, get_processing_datetime(db), req_id))
         db.commit()
     except Exception as e:
         import traceback; traceback.print_exc()

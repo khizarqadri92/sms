@@ -30,6 +30,7 @@ import psycopg2.extras
 from datetime import date, datetime as _dt
 from app.db.connection import get_db
 from app.utils.notify import send_notification
+from app.utils.processing_date import get_processing_date, get_processing_datetime
 
 def _calculate_late_fee(late_fee_type, late_fee_amount, invoice_amount, days_overdue, grace_days):
     late_fee_amount = float(late_fee_amount or 0)
@@ -42,7 +43,7 @@ def _calculate_late_fee(late_fee_type, late_fee_amount, invoice_amount, days_ove
 def run_fee_reminders():
     db  = get_db()
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-    today = date.today()
+    today = get_processing_date(db)
 
     # Reconciliation safety net: reactivate any fee-locked account whose
     # invoices are all actually paid (covers drift from manual data fixes,
@@ -171,7 +172,7 @@ def run_fee_reminders_scheduled(app, force=False):
         )
         settings = {r["key"]: r["value"] for r in cur.fetchall()}
 
-        now = _dt.now()
+        now = get_processing_datetime(db)
         today_str = now.date().isoformat()
 
         if not force:
@@ -191,8 +192,8 @@ def run_fee_reminders_scheduled(app, force=False):
         results = run_fee_reminders()
 
         cur.execute(
-            "UPDATE system_settings SET value = %s, updated_at = NOW() WHERE key = 'fee_reminder_last_run'",
-            (today_str,),
+            "UPDATE system_settings SET value = %s, updated_at = %s WHERE key = 'fee_reminder_last_run'",
+            (today_str, now),
         )
         db.commit()
 

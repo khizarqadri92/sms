@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from app.fastapi_auth import get_current_user_id
 from app.fastapi_permissions import require_permission
 from app.fastapi_db import get_db, get_cur as _get_cur
+from app.utils.processing_date import get_processing_datetime, get_processing_date
 
 def get_cur(db):
     return _get_cur(db)
@@ -83,8 +84,8 @@ class DepartmentIn(BaseModel):
 @router.post("/departments")
 def create_department(body: DepartmentIn, user_id: int = Depends(require_permission("hr.designations")), db=Depends(get_db)):
     cur = get_cur(db)
-    cur.execute("INSERT INTO departments(name, parent_id, is_parent) VALUES(%s,%s,%s) ON CONFLICT(name) DO NOTHING RETURNING id",
-        (body.name, body.parent_id, body.is_parent))
+    cur.execute("INSERT INTO departments(name, parent_id, is_parent, created_at) VALUES(%s,%s,%s,%s) ON CONFLICT(name) DO NOTHING RETURNING id",
+        (body.name, body.parent_id, body.is_parent, get_processing_datetime(db)))
     row = cur.fetchone()
     if not row: fail("Department already exists.", 400)
     if body.parent_id:
@@ -242,9 +243,9 @@ def upload_document(staff_id: int,
     with open(file_path, "wb") as f:
         shutil.copyfileobj(file.file, f)
     cur = get_cur(db)
-    cur.execute("""INSERT INTO staff_documents(staff_id,doc_type,doc_name,file_path,uploaded_by)
-        VALUES(%s,%s,%s,%s,%s) RETURNING id""",
-        (staff_id, doc_type, doc_name, file_path, user_id))
+    cur.execute("""INSERT INTO staff_documents(staff_id,doc_type,doc_name,file_path,uploaded_by,uploaded_at)
+        VALUES(%s,%s,%s,%s,%s,%s) RETURNING id""",
+        (staff_id, doc_type, doc_name, file_path, user_id, get_processing_datetime(db)))
     new_id = cur.fetchone()["id"]
     db.commit()
     return ok(data={"id": new_id}, message="Document uploaded.")
@@ -725,8 +726,8 @@ def upload_my_document(
     with open(file_path, "wb") as f:
         shutil.copyfileobj(file.file, f)
     cur = get_cur(db)
-    cur.execute("INSERT INTO staff_documents(staff_id,doc_type,doc_name,file_path,uploaded_by) VALUES(%s,%s,%s,%s,%s) RETURNING id",
-        (staff_id, doc_type, doc_name, file_path, user_id))
+    cur.execute("INSERT INTO staff_documents(staff_id,doc_type,doc_name,file_path,uploaded_by,uploaded_at) VALUES(%s,%s,%s,%s,%s,%s) RETURNING id",
+        (staff_id, doc_type, doc_name, file_path, user_id, get_processing_datetime(db)))
     new_id = cur.fetchone()["id"]
     db.commit()
     return ok(data={"id": new_id}, message="Document uploaded.")
@@ -775,8 +776,8 @@ def get_staff_leave_types(user_id: int = Depends(require_permission("hr.view")),
 @router.post("/leave/types")
 def create_leave_type(body: LeaveTypeIn, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db)):
     cur = get_cur(db)
-    cur.execute("INSERT INTO leave_types(name, max_days_per_year, certificate_required, is_active, is_encashable) VALUES(%s,%s,%s,%s,%s) RETURNING id",
-        (body.name, body.max_days_per_year, body.certificate_required, body.is_active, body.is_encashable))
+    cur.execute("INSERT INTO leave_types(name, max_days_per_year, certificate_required, is_active, is_encashable, created_at) VALUES(%s,%s,%s,%s,%s,%s) RETURNING id",
+        (body.name, body.max_days_per_year, body.certificate_required, body.is_active, body.is_encashable, get_processing_datetime(db)))
     new_id = cur.fetchone()["id"]
     db.commit()
     return ok(data={"id": new_id}, message="Leave type created.")
@@ -806,11 +807,12 @@ def get_leave_policies(leave_type_id: Optional[int] = None, user_id: int = Depen
 def create_leave_policy(body: LeavePolicyIn, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("""INSERT INTO staff_leave_policies(leave_type_id, role_id, department_id,
-        days_per_year, carry_forward, is_paid, applies_to, gender)
-        VALUES(%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT(leave_type_id, role_id) DO UPDATE
+        days_per_year, carry_forward, is_paid, applies_to, gender, effective_from, created_at)
+        VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) ON CONFLICT(leave_type_id, role_id) DO UPDATE
         SET days_per_year=%s, carry_forward=%s, is_paid=%s, gender=%s RETURNING id""",
         (body.leave_type_id, body.role_id, body.department_id,
          body.days_per_year, body.carry_forward, body.is_paid, body.applies_to, body.gender or "all",
+         get_processing_date(db), get_processing_datetime(db),
          body.days_per_year, body.carry_forward, body.is_paid, body.gender or "all"))
     new_id = cur.fetchone()["id"]
     db.commit()
@@ -840,7 +842,7 @@ def init_leave_balances(year: int, user_id: int = Depends(require_permission("hr
 @router.patch("/leave/balances/{balance_id}")
 def adjust_leave_balance(balance_id: int, total_days: int, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db)):
     cur = get_cur(db)
-    cur.execute("UPDATE staff_leave_balances SET total_days=%s, updated_at=NOW() WHERE id=%s", (total_days, balance_id))
+    cur.execute("UPDATE staff_leave_balances SET total_days=%s, updated_at=%s WHERE id=%s", (total_days, get_processing_datetime(db), balance_id))
     db.commit()
     return ok(message="Balance adjusted.")
 
@@ -858,8 +860,8 @@ def review_leave_request(req_id: int, body: LeaveReviewIn,
         fail("Status must be approved or rejected", 400)
     cur = get_cur(db)
     cur.execute("""UPDATE staff_leave_requests SET status=%s, reviewed_by=%s,
-        reviewed_at=NOW(), review_note=%s WHERE id=%s""",
-        (body.status, user_id, body.review_note, req_id))
+        reviewed_at=%s, review_note=%s WHERE id=%s""",
+        (body.status, user_id, get_processing_datetime(db), body.review_note, req_id))
     # Update balance if approved
     if body.status == "approved":
         cur.execute("""UPDATE staff_leave_balances slb SET used_days=used_days+slr.total_days
@@ -958,9 +960,9 @@ def create_validation_rule(body: ValidationRuleIn, user_id: int = Depends(requir
         fail(f"Unknown rule type. Must be one of: {allowed}", 400)
     import json as _json
     cur = get_cur(db)
-    cur.execute("""INSERT INTO leave_validation_rules(name, leave_type_id, rule_type, config, is_active)
-        VALUES(%s,%s,%s,%s,%s) RETURNING id""",
-        (body.name, body.leave_type_id, body.rule_type, _json.dumps(body.config), body.is_active))
+    cur.execute("""INSERT INTO leave_validation_rules(name, leave_type_id, rule_type, config, is_active, created_at)
+        VALUES(%s,%s,%s,%s,%s,%s) RETURNING id""",
+        (body.name, body.leave_type_id, body.rule_type, _json.dumps(body.config), body.is_active, get_processing_datetime(db)))
     new_id = cur.fetchone()["id"]
     db.commit()
     return ok(data={"id": new_id}, message="Rule created.")
@@ -1022,10 +1024,10 @@ def validate_leave_rules(db, user_id, leave_type_id, from_date, to_date, total_d
                 fail(cfg.get("message") or "You already have a leave request for overlapping dates.", 400)
 
         elif rule_type == "advance_notice":
-            from datetime import date as _date
+            from app.utils.processing_date import get_processing_date as _get_proc_date
             min_notice = cfg.get("min_days_notice", 0)
             if from_date_obj is not None:
-                notice_days = (from_date_obj - _date.today()).days
+                notice_days = (from_date_obj - _get_proc_date(db)).days
                 if notice_days < min_notice:
                     fail(cfg.get("message") or f"{rule_name}: leave must be requested at least {min_notice} day(s) in advance.", 400)
 
@@ -1075,7 +1077,7 @@ def validate_leave_rules(db, user_id, leave_type_id, from_date, to_date, total_d
                     window_end = lwd_row["last_day"] if (lwd_row and lwd_row["last_day"]) else (window_start + _timedelta(days=srow["notice_period_duration_days"] or 30))
                     period_label = "notice"
 
-                if window_start and _date2.today() <= window_end:
+                if window_start and get_processing_date(db) <= window_end:
                     cur5 = get_cur(db)
                     cur5.execute("""SELECT COALESCE(SUM(total_days),0) AS used
                         FROM staff_leave_requests
@@ -1112,7 +1114,7 @@ def get_my_employment_status(user_id: int = Depends(get_current_user_id), db=Dep
     if not srow:
         return ok(data={"is_probation": False, "is_notice_period": False, "restrictions": []})
 
-    today = _d.today()
+    today = get_processing_date(db)
     probation_end = (srow["joining_date"] + _td(days=srow["probation_duration_days"] or 90)) if (srow["joining_date"] and srow["is_probationary"]) else None
     notice_end = None
     if srow["resignation_accepted_date"]:
@@ -1171,8 +1173,8 @@ def get_my_leave_types(user_id: int = Depends(get_current_user_id), db=Depends(g
 
 @router.get("/my-leave/balances")
 def get_my_leave_balances(user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
-    from datetime import date
-    year = date.today().year
+    from app.utils.processing_date import get_processing_date
+    year = get_processing_date(db).year
     cur = get_cur(db)
     # Get user role
     cur.execute("SELECT role_id FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=%s AND r.name NOT IN ('student','parent') LIMIT 1", (user_id,))
@@ -1295,12 +1297,13 @@ def apply_leave(body: LeaveApplyIn, user_id: int = Depends(get_current_user_id),
             fail("No leave policy configured for this leave type. Contact HR.", 400)
     validate_leave_rules(db, user_id, body.leave_type_id, body.from_date, body.to_date, total_days,
         body.certificate_type_id, bal["remaining"], d1)
-    cur.execute("""INSERT INTO staff_leave_requests(user_id, leave_type_id, from_date, to_date, total_days, reason, duration_type, half_day_from_time, half_day_to_time)
-        VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
+    cur.execute("""INSERT INTO staff_leave_requests(user_id, leave_type_id, from_date, to_date, total_days, reason, duration_type, half_day_from_time, half_day_to_time, applied_at)
+        VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
         (user_id, body.leave_type_id, body.from_date, body.to_date, total_days, body.reason,
          body.duration_type,
          body.half_day_from_time if body.duration_type == "half" else None,
-         body.half_day_to_time if body.duration_type == "half" else None))
+         body.half_day_to_time if body.duration_type == "half" else None,
+         get_processing_datetime(db)))
     new_id = cur.fetchone()["id"]
     db.commit()
     # Trigger workflow engine
@@ -1515,8 +1518,8 @@ def advance_leave_workflow(req_id: int, body: LeaveAdvanceIn,
             wf_status = result.get("status","")
             if wf_status in ("completed","approved"):
                 _c = get_cur(db)
-                _c.execute("UPDATE staff_leave_requests SET status='approved', reviewed_by=%s, reviewed_at=NOW(), review_note=%s WHERE id=%s",
-                    (user_id, body.note, req_id))
+                _c.execute("UPDATE staff_leave_requests SET status='approved', reviewed_by=%s, reviewed_at=%s, review_note=%s WHERE id=%s",
+                    (user_id, get_processing_datetime(db), body.note, req_id))
                 # Get leave details for balance deduction
                 _c.execute("""SELECT user_id, leave_type_id, total_days, EXTRACT(YEAR FROM from_date)::INT AS yr
                     FROM staff_leave_requests WHERE id=%s""", (req_id,))
@@ -1532,15 +1535,15 @@ def advance_leave_workflow(req_id: int, body: LeaveAdvanceIn,
                     pol = _c.fetchone()
                     entitled = pol["entitled"] if pol else 0
                     # Upsert balance with correct total_days
-                    _c.execute("""INSERT INTO staff_leave_balances(user_id,leave_type_id,year,total_days,used_days)
-                        VALUES(%s,%s,%s,%s,%s) ON CONFLICT(user_id,leave_type_id,year)
-                        DO UPDATE SET used_days=staff_leave_balances.used_days+%s""",
-                        (lr["user_id"],lr["leave_type_id"],lr["yr"],entitled,lr["total_days"],lr["total_days"]))
+                    _c.execute("""INSERT INTO staff_leave_balances(user_id,leave_type_id,year,total_days,used_days,created_at,updated_at)
+                        VALUES(%s,%s,%s,%s,%s,%s,%s) ON CONFLICT(user_id,leave_type_id,year)
+                        DO UPDATE SET used_days=staff_leave_balances.used_days+%s, updated_at=%s""",
+                        (lr["user_id"],lr["leave_type_id"],lr["yr"],entitled,lr["total_days"],get_processing_datetime(db),get_processing_datetime(db),lr["total_days"],get_processing_datetime(db)))
                 db.commit()
             elif wf_status in ("rejected",):
                 _c2 = get_cur(db)
-                _c2.execute("UPDATE staff_leave_requests SET status='rejected', reviewed_by=%s, reviewed_at=NOW(), review_note=%s WHERE id=%s",
-                    (user_id, body.note, req_id))
+                _c2.execute("UPDATE staff_leave_requests SET status='rejected', reviewed_by=%s, reviewed_at=%s, review_note=%s WHERE id=%s",
+                    (user_id, get_processing_datetime(db), body.note, req_id))
                 db.commit()
         return ok(message=f"Leave {body.action}d successfully.")
     except Exception as e:

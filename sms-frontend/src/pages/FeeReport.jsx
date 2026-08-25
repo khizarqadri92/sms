@@ -2,8 +2,9 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthContext";
 import financeApi from "../api/financeApi";
 import academicsApi from "../api/academicsApi";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
-const fmtDate = d => d ? new Date(d).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "-";
+
 const fmtMoney = n => "Rs. " + Number(n || 0).toLocaleString();
 
 const STATUS_BADGE = {
@@ -15,6 +16,8 @@ const STATUS_BADGE = {
 };
 
 function ReportTable({ rows, showStudent }) {
+  const { formatDate } = useRegionalSettings();
+  const fmtDate = d => d ? formatDate(d) : "-";
   if (rows.length === 0) return <div className="empty-state">No invoices found.</div>;
   return (
     <div className="table-container">

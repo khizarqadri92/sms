@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import procurementApi from "../api/procurementApi";
 import { useAutoOpenById } from "../hooks/useAutoOpenById";
+import DatePicker from "../components/DatePicker";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
 const statusBadge = (status) => ({
   draft: "badge-gray",
@@ -58,7 +60,7 @@ function CreatePOModal({ approvedPRs, vendors, onClose, onCreated }) {
           </div>
           <div className="form-group">
             <label className="form-label">Expected Delivery Date</label>
-            <input className="form-control" type="date" value={form.expected_delivery_date} onChange={e => setForm({ ...form, expected_delivery_date: e.target.value })} />
+            <DatePicker value={form.expected_delivery_date} onChange={val => setForm({ ...form, expected_delivery_date: val })} />
           </div>
           <div className="form-group">
             <label className="form-label">Terms</label>
@@ -121,6 +123,7 @@ function POItemRow({ item, editable, onSaved }) {
 }
 
 function PODetailModal({ poId, onClose, onChanged }) {
+  const { formatDate } = useRegionalSettings();
   const [po, setPo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -190,7 +193,7 @@ function PODetailModal({ poId, onClose, onChanged }) {
               </div>
               <div style={{ background: "#f8fafc", borderRadius: 8, padding: "10px 12px" }}>
                 <div style={{ fontSize: 11, color: "#64748b" }}>Expected Delivery</div>
-                <div style={{ fontSize: 13 }}>{po.expected_delivery_date ? new Date(po.expected_delivery_date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "-"}</div>
+                <div style={{ fontSize: 13 }}>{po.expected_delivery_date ? formatDate(po.expected_delivery_date) : "-"}</div>
               </div>
             </div>
             {po.terms && <div style={{ fontSize: 13, marginBottom: 16 }}><strong>Terms:</strong> {po.terms}</div>}

@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 from app.fastapi_auth import get_current_user_id
 from app.fastapi_db import get_db, get_cur as _get_cur
-from app.utils.processing_date import get_processing_date
+from app.utils.processing_date import get_processing_date, get_processing_datetime
 
 router = APIRouter()
 
@@ -117,7 +117,7 @@ def _compute_is_late_for_staff(db, staff_id, clock_in_dt):
 @router.post("/my/toggle")
 def my_toggle(user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
     staff_id = _get_staff_id_for_user(db, user_id)
-    is_late_value = _compute_is_late_for_staff(db, staff_id, datetime.now())
+    is_late_value = _compute_is_late_for_staff(db, staff_id, get_processing_datetime(db))
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_toggle_staff_attendance(%s,%s,%s,%s)", (staff_id, "web", user_id, is_late_value))
     row = dict(cur.fetchone())
@@ -193,7 +193,7 @@ def rfid_swipe(body: RfidSwipeIn, _=Depends(verify_device_key), db=Depends(get_d
     srow = cur.fetchone()
     if not srow:
         fail("Card not recognized or inactive.", 404)
-    is_late_value = _compute_is_late_for_staff(db, srow["staff_id"], datetime.now())
+    is_late_value = _compute_is_late_for_staff(db, srow["staff_id"], get_processing_datetime(db))
     cur.execute("SELECT * FROM sp_toggle_staff_attendance(%s,%s,%s,%s)", (srow["staff_id"], "rfid", None, is_late_value))
     row = dict(cur.fetchone())
     if row.get("error_msg"):
@@ -323,10 +323,10 @@ def attendance_dashboard(department_id: Optional[int] = None,
         (SELECT id FROM staff_attendance_sessions WHERE staff_id=s.id AND clock_out_at IS NULL ORDER BY clock_in_at DESC LIMIT 1) AS open_session_id,
         (SELECT clock_in_at FROM staff_attendance_sessions WHERE staff_id=s.id AND clock_out_at IS NULL ORDER BY clock_in_at DESC LIMIT 1) AS current_clock_in,
         (SELECT is_late FROM staff_attendance_sessions WHERE staff_id=s.id AND clock_out_at IS NULL ORDER BY clock_in_at DESC LIMIT 1) AS is_late,
-        EXISTS(SELECT 1 FROM staff_attendance_sessions WHERE staff_id=s.id AND clock_in_at::date = CURRENT_DATE) AS has_session_today
+        EXISTS(SELECT 1 FROM staff_attendance_sessions WHERE staff_id=s.id AND clock_in_at::date = %s) AS has_session_today
         FROM staff s LEFT JOIN departments d ON d.id=s.department_id
         WHERE s.status=\'active\' AND (%s::int[] IS NULL OR s.department_id = ANY(%s::int[]))
-        ORDER BY s.first_name""", (effective_filter, effective_filter))
+        ORDER BY s.first_name""", (get_processing_date(db), effective_filter, effective_filter))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 

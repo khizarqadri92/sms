@@ -3,7 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { withdrawalApi } from "../api/withdrawalApi";
 import workQueueApi from "../api/workQueueApi";
+import { useProcessingToday } from "../hooks/useProcessingToday";
+import DatePicker from "../components/DatePicker";
 import workflowApi from "../api/workflowApi";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 import studentsApi from "../api/studentsApi";
 import client from "../api/client";
 
@@ -26,13 +29,16 @@ const WITHDRAWAL_REASONS = [
   "Completion of studies",
   "Other",
 ];
-const fmtDate = (d) => d ? new Date(d).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}) : "-";
+
 const StatusBadge = ({status}) => {
   const s = STATUS_STYLES[status] || { bg:"#f1f5f9", color:"#475569", border:"#e2e8f0", label:status };
   return <span style={{ background:s.bg, color:s.color, border:"1px solid "+s.border, padding:"3px 10px", borderRadius:20, fontSize:11, fontWeight:600 }}>{s.label}</span>;
 };
 
 export default function Withdrawal() {
+  const processingToday = useProcessingToday();
+  const { formatDate } = useRegionalSettings();
+  const fmtDate = (d) => d ? formatDate(d) : "-";
   const { user, can } = useAuth();
   const role    = user?.roles?.[0] || "";
   const canApply   = can("withdrawal.apply");
@@ -121,7 +127,7 @@ export default function Withdrawal() {
     disciplinary_action:false, disciplinary_details:"", remarks:"", recommended_readmission:false
   });
   const [applyForm, setApplyForm] = useState({
-    student_id:"", reason:"", effective_date:new Date().toISOString().split("T")[0], document:null
+    student_id:"", reason:"", effective_date:processingToday, document:null
   });
 
   const flash = (type, msg) => { setToastType(type); setToast(msg); setTimeout(()=>setToast(""),3500); };
@@ -189,7 +195,7 @@ export default function Withdrawal() {
       if (applyForm.document) fd.append("document",applyForm.document);
       await withdrawalApi.apply(fd);
       flash("success","Withdrawal request submitted."); setShowApply(false);
-      setApplyForm({student_id:"",reason:"",effective_date:new Date().toISOString().split("T")[0],document:null});
+      setApplyForm({student_id:"",reason:"",effective_date:processingToday,document:null});
       load();
     } catch(e){ flash("error",e.response?.data?.message||"Failed."); }
     finally { setLoading(false); }
@@ -199,7 +205,7 @@ export default function Withdrawal() {
     setHistoryTab(tab); setHistoryLoading(true);
     try {
       if (tab === "attendance") {
-        const r = await client.get("/students/"+studentId+"/attendance", {params:{from:new Date(new Date().setMonth(new Date().getMonth()-3)).toISOString().split("T")[0],to:new Date().toISOString().split("T")[0]}});
+        const r = await client.get("/students/"+studentId+"/attendance", {params:{from:new Date(new Date(processingToday).setMonth(new Date(processingToday).getMonth()-3)).toISOString().split("T")[0],to:processingToday}});
         setHistoryData(prev => ({...prev, attendance: r.data.data||[]}));
       } else if (tab === "grades") {
         const r = await client.get("/students/"+studentId+"/grades");
@@ -808,7 +814,7 @@ export default function Withdrawal() {
               </div>
               <div className="form-group" style={{marginBottom:14}}>
                 <label className="form-label">Effective Date</label>
-                <input type="date" className="form-control" value={applyForm.effective_date} onChange={e=>setApplyForm(f=>({...f,effective_date:e.target.value}))} />
+                <DatePicker value={applyForm.effective_date} onChange={val=>setApplyForm(f=>({...f,effective_date:val}))} />
               </div>
               <div className="form-group">
                 <label className="form-label">Supporting Document (optional)</label>

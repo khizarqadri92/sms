@@ -3,6 +3,8 @@ import { disciplineApi } from "../api/disciplineApi";
 import { useAuth } from "../auth/AuthContext";
 import teachersApi from "../api/teachersApi";
 import DisciplineDetailModal from "../components/DisciplineDetailModal";
+import DatePicker from "../components/DatePicker";
+import { useProcessingToday } from "../hooks/useProcessingToday";
 
 const SEVERITY_LABELS = {1:"Minor",2:"Moderate",3:"Serious",4:"Severe",5:"Critical"};
 const SEVERITY_COLORS = {1:"#22c55e",2:"#f59e0b",3:"#f97316",4:"#ef4444",5:"#7c3aed"};
@@ -20,6 +22,7 @@ const STATUS_COLORS = {
 };
 
 export default function Discipline() {
+  const processingToday = useProcessingToday();
   const { user, permissions = [] } = useAuth();
   const hasPermission = (p) => permissions.includes(p);
   const [list, setList]             = useState([]);
@@ -167,8 +170,8 @@ export default function Discipline() {
               </div>
               <div style={{marginBottom:12}}>
                 <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Incident Date *</label>
-                <input type="date" className="form-input" style={{width:"100%"}} value={reportForm.incident_date}
-                  onChange={e => setReportForm(p=>({...p,incident_date:e.target.value}))} max={new Date().toISOString().split("T")[0]}/>
+                <DatePicker style={{width:"100%"}} value={reportForm.incident_date}
+                  onChange={val => setReportForm(p=>({...p,incident_date:val}))} max={processingToday}/>
               </div>
               <div style={{marginBottom:12}}>
                 <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Description *</label>

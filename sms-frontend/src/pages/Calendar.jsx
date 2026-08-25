@@ -1,6 +1,9 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthContext";
 import calendarApi from "../api/calendarApi";
+import { useProcessingToday } from "../hooks/useProcessingToday";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
+import DatePicker from "../components/DatePicker";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const DAYS   = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -15,11 +18,18 @@ function makeTypeStyle(color) {
 }
 
 export default function Calendar() {
+  const { formatDate } = useRegionalSettings();
   const { user } = useAuth();
   const canManage = user?.permissions?.includes("calendar.manage");
-  const today = new Date();
+  const processingToday = useProcessingToday();
+  const today = new Date(processingToday);
   const [year,   setYear]   = useState(today.getFullYear());
   const [month,  setMonth]  = useState(today.getMonth()+1);
+  useEffect(() => {
+    const d = new Date(processingToday);
+    setYear(d.getFullYear());
+    setMonth(d.getMonth()+1);
+  }, [processingToday]);
   const [events, setEvents] = useState([]);
   const [view,       setView]       = useState("calendar");
   const [eventTypes,  setEventTypes]  = useState([]);
@@ -157,7 +167,7 @@ export default function Calendar() {
             {selDate ? (
               <div style={{ background:"#fff", border:"1px solid #e2e8f0", borderRadius:12, padding:"16px" }}>
                 <div style={{ fontWeight:700, fontSize:14, color:"#1e3a5f", marginBottom:12 }}>
-                  {new Date(selDate+"T00:00:00").toLocaleDateString("en-PK",{weekday:"long",day:"numeric",month:"long"})}
+                  {(() => { const d = new Date(selDate+"T00:00:00"); return `${["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][d.getDay()]}, ${formatDate(d)}`; })()}
                 </div>
                 {selEvents.length===0 ? (
                   <div style={{ fontSize:13, color:"#94a3b8" }}>No events on this date.</div>
@@ -211,7 +221,7 @@ export default function Calendar() {
                         <div style={{ width:6, height:6, borderRadius:"50%", background:t.color, marginTop:5, flexShrink:0 }} />
                         <div>
                           <div style={{ fontSize:12, fontWeight:600, color:"#1e3a5f" }}>{e.title}</div>
-                          <div style={{ fontSize:11, color:"#94a3b8" }}>{e.event_date}{e.end_date&&e.end_date!==e.event_date?" — "+e.end_date:""}</div>
+                          <div style={{ fontSize:11, color:"#94a3b8" }}>{formatDate(e.event_date)}{e.end_date&&e.end_date!==e.event_date?" — "+formatDate(e.end_date):""}</div>
                         </div>
                       </div>
                     );
@@ -248,7 +258,7 @@ export default function Calendar() {
                       <div style={{ display:"flex", gap:6, marginTop:6 }}>
                         <span style={{ fontSize:10, padding:"2px 8px", borderRadius:20, background:t.color, color:"#fff" }}>{t.label}</span>
                         {e.is_holiday && <span style={{ fontSize:10, padding:"2px 8px", borderRadius:20, background:"#fee2e2", color:"#dc2626", border:"1px solid #fecaca" }}>Holiday</span>}
-                        {e.end_date && e.end_date!==e.event_date && <span style={{ fontSize:11, color:"#64748b" }}>Until {e.end_date}</span>}
+                        {e.end_date && e.end_date!==e.event_date && <span style={{ fontSize:11, color:"#64748b" }}>Until {formatDate(e.end_date)}</span>}
                       </div>
                     </div>
                     {canManage && (
@@ -313,11 +323,11 @@ function EventModal({ event, eventTypes, onClose, onSaved }) {
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
             <div>
               <label style={{ display:"block", fontSize:12, fontWeight:600, color:"#64748b", marginBottom:6 }}>Start Date *</label>
-              <input type="date" className="form-control" value={form.event_date} onChange={e=>setForm({...form,event_date:e.target.value})} />
+              <DatePicker value={form.event_date} onChange={val=>setForm({...form,event_date:val})} />
             </div>
             <div>
               <label style={{ display:"block", fontSize:12, fontWeight:600, color:"#64748b", marginBottom:6 }}>End Date <span style={{ fontWeight:400, color:"#94a3b8" }}>(optional)</span></label>
-              <input type="date" className="form-control" value={form.end_date||""} onChange={e=>setForm({...form,end_date:e.target.value})} />
+              <DatePicker value={form.end_date||""} onChange={val=>setForm({...form,end_date:val})} />
             </div>
           </div>
           <div>

@@ -3,6 +3,8 @@ import workQueueApi from "../api/workQueueApi";
 import AnnouncementTicker from '../components/AnnouncementTicker';
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
+import { useProcessingNow } from "../hooks/useProcessingNow";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 import dashboardApi from "../api/dashboardApi";
 import attendanceApi from "../api/attendanceApi";
 import notificationsApi from "../api/notificationsApi";
@@ -34,6 +36,8 @@ const NAV = {
       { label:"Academics",  path:"/academics"      },
       { label:"Syllabus",   path:"/syllabus"       },
       { label:"Exams",      path:"/exams",          perm:"exam.view", end:true },
+      { label:"Subject Schedule Setup", path:"/academic-setup" },
+      { label:"Teacher Assignment", path:"/teacher-assignment" },
     ]},
     { label:"Requests", cat:"Requests", items:[
       { label:"Withdrawal", path:"/withdrawal"     },
@@ -208,6 +212,8 @@ const NAV = {
     ]},
     { label:"Setup", cat:"Setup", items:[
       { label:"Leave Configuration", path:"/leave-setup" },
+      { label:"Subject Schedule Setup", path:"/academic-setup" },
+      { label:"Teacher Assignment", path:"/teacher-assignment" },
     ]},
     { label:"Reports",    cat:"Reports",    items:[
       { label:"Attendance",  path:"/admin-attendance"                                     },
@@ -671,6 +677,8 @@ function darkenColor(hex, amount = 40) {
 }
 
 export default function RoleLayout({ children }) {
+  const processingNow = useProcessingNow();
+  const { formatDate, formatDateTime } = useRegionalSettings();
   const { user, logout }        = useAuth();
   const { theme }               = useTheme();
   const location                = useLocation();
@@ -818,11 +826,9 @@ export default function RoleLayout({ children }) {
     ? user.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
     : "?";
   const firstName = user?.name?.split(" ")[0] || "there";
-  const hour      = new Date().getHours();
+  const hour      = processingNow.getHours();
   const greeting  = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-  const dateStr   = new Date().toLocaleDateString("en-US", {
-    weekday:"long", year:"numeric", month:"long", day:"numeric"
-  });
+  const dateStr   = `${["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][processingNow.getDay()]}, ${formatDate(processingNow)}`;
   const heroStats = buildHeroStats(role, stats);
 
   // Load school info
@@ -909,7 +915,7 @@ export default function RoleLayout({ children }) {
                         <div style={{ flex:1, minWidth:0 }}>
                           <div style={{ fontSize:13, fontWeight: n.is_read ? 500 : 700, color:"#0f172a", marginBottom:2 }}>{n.title}</div>
                           {n.message && <div style={{ fontSize:12, color:"#64748b", marginBottom:4 }}>{n.message}</div>}
-                          <div style={{ fontSize:11, color:"#94a3b8" }}>{new Date(n.created_at).toLocaleString("en-US", { month:"short", day:"numeric", hour:"2-digit", minute:"2-digit" })}</div>
+                          <div style={{ fontSize:11, color:"#94a3b8" }}>{formatDateTime(n.created_at)}</div>
                         </div>
                         <div style={{ display:"flex", gap:4, flexShrink:0 }} onClick={e => e.stopPropagation()}>
                           {!n.is_read && (

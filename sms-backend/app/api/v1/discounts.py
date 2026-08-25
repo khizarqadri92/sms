@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from app.fastapi_auth import get_current_user_id
 from app.fastapi_permissions import require_permission
 from app.fastapi_db import get_db, get_cur as _get_cur
+from app.utils.processing_date import get_processing_date
 
 router = APIRouter()
 
@@ -192,9 +193,9 @@ def discount_summary(student_id: int, user_id: int = Depends(require_permission(
         FROM student_discounts sd
         JOIN discount_types dt ON dt.id = sd.discount_type_id
         WHERE sd.student_id = %s AND sd.is_active = TRUE
-          AND (sd.valid_until IS NULL OR sd.valid_until >= CURRENT_DATE)
-          AND (sd.valid_from  IS NULL OR sd.valid_from  <= CURRENT_DATE)
-    """, (student_id,))
+          AND (sd.valid_until IS NULL OR sd.valid_until >= %s)
+          AND (sd.valid_from  IS NULL OR sd.valid_from  <= %s)
+    """, (student_id, get_processing_date(db), get_processing_date(db)))
     discounts = [dict(r) for r in cur.fetchall()]
     for d in discounts:
         for k in ("valid_from", "valid_until"):

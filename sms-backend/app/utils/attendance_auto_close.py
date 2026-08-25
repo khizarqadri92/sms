@@ -10,6 +10,7 @@ Config from system_settings (category=attendance):
 import psycopg2.extras
 from datetime import datetime as _dt
 from app.db.connection import get_db
+from app.utils.processing_date import get_processing_datetime
 
 
 def run_attendance_auto_close_scheduled(app, force=False):
@@ -28,7 +29,7 @@ def run_attendance_auto_close_scheduled(app, force=False):
         )
         settings = {r["key"]: r["value"] for r in cur.fetchall()}
 
-        now = _dt.now()
+        now = get_processing_datetime(db)
         today_str = now.date().isoformat()
 
         if not force:
@@ -50,8 +51,8 @@ def run_attendance_auto_close_scheduled(app, force=False):
         closed_count = result["closed_count"] if result else 0
 
         cur.execute(
-            "UPDATE system_settings SET value = %s, updated_at = NOW() WHERE key = \'attendance_auto_close_last_run\'",
-            (today_str,),
+            "UPDATE system_settings SET value = %s, updated_at = %s WHERE key = \'attendance_auto_close_last_run\'",
+            (today_str, now),
         )
         db.commit()
 

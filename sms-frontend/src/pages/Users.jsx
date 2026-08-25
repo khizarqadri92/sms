@@ -3,6 +3,7 @@ import { useAuth } from "../auth/AuthContext";
 import usersApi from "../api/usersApi";
 import CreateUserModal from "../components/users/CreateUserModal";
 import AssignRoleModal from "../components/users/AssignRoleModal";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
 function getRoleBadge(role) {
   const map = {
@@ -19,6 +20,7 @@ function getRoleBadge(role) {
 }
 
 export default function Users() {
+  const { formatDate } = useRegionalSettings();
   const { can } = useAuth();
   const [users, setUsers]       = useState([]);
   const [roles, setRoles]       = useState([]);
@@ -162,7 +164,7 @@ export default function Users() {
                       : <span className="badge badge-gray">No role</span>}
                   </td>
                   <td><span className={`badge ${u.is_active ? "badge-success" : "badge-danger"}`}>{u.is_active ? "Active" : "Inactive"}</span></td>
-                  <td style={{ fontSize:12, color:"#64748b" }}>{u.last_login_at ? new Date(u.last_login_at).toLocaleDateString() : "Never"}</td>
+                  <td style={{ fontSize:12, color:"#64748b" }}>{u.last_login_at ? formatDate(u.last_login_at) : "Never"}</td>
                   <td style={{ display:"flex", gap:6 }}>
                     <button className="btn btn-ghost btn-xs" onClick={() => setSelected(u)}>Assign Role</button>
                     {can("users.delete") && (

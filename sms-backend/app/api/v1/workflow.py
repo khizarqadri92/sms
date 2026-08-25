@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from app.fastapi_auth import get_current_user_id
 from app.fastapi_permissions import require_permission
 from app.fastapi_db import get_db, get_cur as _get_cur
+from app.utils.processing_date import get_processing_datetime
 
 router = APIRouter()
 
@@ -184,9 +185,9 @@ def update_workflow(wf_id: int, body: WorkflowDefIn,
     cur = get_cur(db)
     cur.execute("""
         UPDATE workflow_definitions SET name=%s, module=%s, entity_type=%s,
-        description=%s, is_active=%s, updated_at=NOW() WHERE id=%s
+        description=%s, is_active=%s, updated_at=%s WHERE id=%s
     """, (body.name, body.module, body.entity_type,
-          body.description, body.is_active, wf_id))
+          body.description, body.is_active, get_processing_datetime(db), wf_id))
     if cur.rowcount == 0: fail("Workflow not found.", 404)
     db.commit()
     return ok(message="Workflow updated.")

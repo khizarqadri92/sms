@@ -1,4 +1,4 @@
-﻿from reportlab.lib.pagesizes import A4, A5, landscape
+from reportlab.lib.pagesizes import A4, A5, landscape
 from reportlab.lib import colors
 from reportlab.lib.units import mm
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
@@ -7,6 +7,7 @@ from reportlab.lib.enums import TA_CENTER, TA_RIGHT, TA_LEFT
 from io import BytesIO
 from datetime import date, timedelta
 import psycopg2.extras
+from app.utils.processing_date import get_processing_date
 
 NAVY    = colors.HexColor("#1e3a5f")
 LBLUE   = colors.HexColor("#e8f0fe")
@@ -52,9 +53,9 @@ def get_invoice_data(db, invoice_id):
         FROM student_discounts sd
         JOIN discount_types dt ON dt.id = sd.discount_type_id
         WHERE sd.student_id = %s AND sd.is_active = TRUE
-          AND (sd.valid_until IS NULL OR sd.valid_until >= CURRENT_DATE)
-          AND (sd.valid_from  IS NULL OR sd.valid_from  <= CURRENT_DATE)
-    """, (inv["student_id"],))
+          AND (sd.valid_until IS NULL OR sd.valid_until >= %s)
+          AND (sd.valid_from  IS NULL OR sd.valid_from  <= %s)
+    """, (inv["student_id"], get_processing_date(db), get_processing_date(db)))
     inv["discounts"] = [dict(r) for r in cur.fetchall()]
     return inv
 

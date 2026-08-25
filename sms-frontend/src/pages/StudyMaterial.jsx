@@ -1,7 +1,8 @@
-﻿import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../auth/AuthContext";
 import materialsApi from "../api/materialsApi";
 import academicsApi from "../api/academicsApi";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
 const FILE_ICONS = {
   pdf: "📄", doc:"📝", docx:"📝", xls:"📊", xlsx:"📊",
@@ -21,12 +22,11 @@ function formatSize(bytes) {
   return (bytes/(1024*1024)).toFixed(1) + " MB";
 }
 
-function formatDate(dt) {
-  if (!dt) return "";
-  return new Date(dt).toLocaleDateString("en-PK", {day:"2-digit", month:"short", year:"numeric"});
-}
+
 
 export default function StudyMaterial() {
+  const { formatDate: fmtDate } = useRegionalSettings();
+  const formatDate = dt => dt ? fmtDate(dt) : "";
   const { user } = useAuth();
   const role = user?.roles?.[0];
   if (role === "student") return <StudentMaterials />;
@@ -356,6 +356,8 @@ function ParentMaterials() {
 
 /* ── Material Card Component ──────────────────────────────────── */
 function MaterialCard({ m, onDownload, onDelete, grid }) {
+  const { formatDate: fmtDate } = useRegionalSettings();
+  const formatDate = dt => dt ? fmtDate(dt) : "";
   const ext   = m.file_type || "";
   const icon  = FILE_ICONS[ext] || "📄";
   const color = FILE_COLORS[ext] || "#64748b";

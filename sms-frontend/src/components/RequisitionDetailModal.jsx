@@ -2,9 +2,9 @@ import React, { useState, useEffect } from "react";
 import procurementApi from "../api/procurementApi";
 import { useAuth } from "../auth/AuthContext";
 import workflowApi from "../api/workflowApi";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
-const fmtDate = (d) => d ? new Date(d).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "-";
-const fmtDateTime = (d) => d ? new Date(d).toLocaleString("en-US", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "-";
+
 
 const roleLabel = (role) => ({
   department_head: "Department Head",
@@ -25,6 +25,9 @@ const statusBadge = (status) => ({
 }[status] || "badge-gray");
 
 export default function RequisitionDetailModal({ requisitionId, onClose, onActed, showApprovalActions }) {
+  const { formatDate, formatDateTime } = useRegionalSettings();
+  const fmtDate = (d) => d ? formatDate(d) : "-";
+  const fmtDateTime = (d) => d ? formatDateTime(d) : "-";
   const [pr, setPr] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

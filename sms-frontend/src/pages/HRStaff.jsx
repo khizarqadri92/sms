@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import hrApi from "../api/hrApi";
 import payrollApi from "../api/payrollApi";
 import { useAuth } from "../auth/AuthContext";
+import { useProcessingToday } from "../hooks/useProcessingToday";
+import DatePicker from "../components/DatePicker";
 
 const STATUS_COLORS = {
   active:     {bg:"#f0fdf4",color:"#166534",border:"#bbf7d0"},
@@ -19,6 +21,7 @@ function roleLabel(name) {
 }
 
 export default function HRStaff() {
+  const processingToday = useProcessingToday();
   const { permissions = [] } = useAuth();
   const canCreate = permissions.includes("hr.create");
   const canEdit   = permissions.includes("hr.edit");
@@ -147,7 +150,7 @@ export default function HRStaff() {
     const start = new Date(joiningDate);
     const end = new Date(start);
     end.setDate(end.getDate() + (Number(policySettings.probation_duration_days)||90));
-    return new Date() <= end;
+    return new Date(processingToday) <= end;
   };
 
 
@@ -440,7 +443,7 @@ export default function HRStaff() {
                           </div>
                           <div>
                             <div style={{fontSize:11,fontWeight:600,marginBottom:3}}>Date of Birth</div>
-                            <input type="date" className="form-input" style={{width:"100%",fontSize:12}} value={infoForm.date_of_birth||""} onChange={e=>setInfoForm(p=>({...p,date_of_birth:e.target.value}))}/>
+                            <DatePicker style={{width:"100%",fontSize:12}} value={infoForm.date_of_birth||""} onChange={val=>setInfoForm(p=>({...p,date_of_birth:val}))}/>
                           </div>
                           <div>
                             <div style={{fontSize:11,fontWeight:600,marginBottom:3}}>Employment Type</div>
@@ -956,7 +959,7 @@ export default function HRStaff() {
                 </div>
                 <div>
                   <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Date of Birth</label>
-                  <input type="date" className="form-input" style={{width:"100%",fontSize:13}} value={form.date_of_birth} onChange={e=>setForm(p=>({...p,date_of_birth:e.target.value}))}/>
+                  <DatePicker style={{width:"100%",fontSize:13}} value={form.date_of_birth} onChange={val=>setForm(p=>({...p,date_of_birth:val}))}/>
                 </div>
                 <div style={{gridColumn:"1/-1",background:"#f8fafc",borderRadius:8,padding:12,border:"1px solid #e2e8f0"}}>
                   <div style={{fontSize:12,fontWeight:700,color:"#475569",marginBottom:10}}>DEPARTMENT & ROLE</div>
@@ -996,7 +999,7 @@ export default function HRStaff() {
                 </div>
                 <div>
                   <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Joining Date</label>
-                  <input type="date" className="form-input" style={{width:"100%",fontSize:13}} value={form.joining_date} onChange={e=>setForm(p=>({...p,joining_date:e.target.value}))}/>
+                  <DatePicker style={{width:"100%",fontSize:13}} value={form.joining_date} onChange={val=>setForm(p=>({...p,joining_date:val}))}/>
                 </div>
                 <div style={{gridColumn:"1/-1"}}>
                   <label style={{display:"flex",gap:8,alignItems:"center",fontSize:13,cursor:"pointer"}}>

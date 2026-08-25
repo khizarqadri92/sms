@@ -6,6 +6,7 @@ import teachersApi   from "../api/teachersApi";
 import { useProcessingToday } from "../hooks/useProcessingToday";
 import DatePicker from "../components/DatePicker";
 import { useAuth }   from "../auth/AuthContext";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
 const today = () => new Date().toISOString().split("T")[0];
 const monthStart = () => new Date().toISOString().slice(0,7) + "-01";
@@ -526,6 +527,7 @@ function ParentAttendance() {
 
 /* ── Principal: all classes report ───────────────────────────── */
 function PrincipalAttendance() {
+  const { formatDate } = useRegionalSettings();
   const processingToday = useProcessingToday();
   const [selDate,  setSelDate]  = useState(processingToday);
   useEffect(() => { setSelDate(processingToday); }, [processingToday]);
@@ -594,7 +596,7 @@ function PrincipalAttendance() {
           </select>
         </div>
         <div style={{fontSize:12,color:"#64748b",paddingBottom:4}}>
-          Showing attendance for <strong>{selDate}</strong>
+          Showing attendance for <strong>{formatDate(selDate)}</strong>
         </div>
       </div>
 
@@ -617,7 +619,7 @@ function PrincipalAttendance() {
       <div>
         {/* Class List */}
         <div style={{background:"#fff",borderRadius:12,border:"1px solid #e2e8f0",overflow:"hidden",marginBottom:selClass?16:0}}>
-          <div style={{padding:"12px 16px",borderBottom:"1px solid #f1f5f9",background:"#f8fafc",fontWeight:700,fontSize:13}}>Classes &mdash; {selDate}</div>
+          <div style={{padding:"12px 16px",borderBottom:"1px solid #f1f5f9",background:"#f8fafc",fontWeight:700,fontSize:13}}>Classes &mdash; {formatDate(selDate)}</div>
           {loading?<div style={{padding:20,textAlign:"center",color:"#94a3b8",fontSize:13}}>Loading...</div>:(
             <div>
               {summary.length===0&&<div style={{padding:20,textAlign:"center",color:"#94a3b8",fontSize:13}}>No attendance marked for this date.</div>}

@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import hrApi from "../api/hrApi";
 import { useAuth } from "../auth/AuthContext";
+import { useProcessingToday } from "../hooks/useProcessingToday";
+import DatePicker from "../components/DatePicker";
 
 const TABS = ["types","policies","validation_rules","balances","requests"];
 const TAB_LABELS = {types:"Leave Types", policies:"Leave Policies", validation_rules:"Leave Rules", balances:"Leave Balances", requests:"Leave Requests"};
@@ -13,6 +15,7 @@ const STATUS_COLORS = {
 };
 
 export default function HRLeave() {
+  const processingToday = useProcessingToday();
   const { permissions=[], can } = useAuth();
   const location = useLocation();
   const canEdit    = permissions.includes("hr.edit");
@@ -37,6 +40,7 @@ export default function HRLeave() {
   // Balances
   const [balances, setBalances]     = useState([]);
   const [balYear, setBalYear]       = useState(new Date().getFullYear());
+  useEffect(() => { setBalYear(new Date(processingToday).getFullYear()); }, [processingToday]);
   const [editBalId, setEditBalId]   = useState(null);
   const [editBalDays, setEditBalDays] = useState("");
 
@@ -515,13 +519,13 @@ export default function HRLeave() {
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
                     <div>
                       <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Blackout From *</label>
-                      <input type="date" className="form-input" style={{width:"100%",fontSize:13}} value={vRuleForm.blackout_from}
-                        onChange={e=>setVRuleForm(p=>({...p,blackout_from:e.target.value}))}/>
+                      <DatePicker style={{width:"100%",fontSize:13}} value={vRuleForm.blackout_from}
+                        onChange={val=>setVRuleForm(p=>({...p,blackout_from:val}))}/>
                     </div>
                     <div>
                       <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Blackout To *</label>
-                      <input type="date" className="form-input" style={{width:"100%",fontSize:13}} value={vRuleForm.blackout_to}
-                        onChange={e=>setVRuleForm(p=>({...p,blackout_to:e.target.value}))}/>
+                      <DatePicker style={{width:"100%",fontSize:13}} value={vRuleForm.blackout_to}
+                        onChange={val=>setVRuleForm(p=>({...p,blackout_to:val}))}/>
                     </div>
                   </div>
                 )}

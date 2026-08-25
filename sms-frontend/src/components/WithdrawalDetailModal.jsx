@@ -3,8 +3,11 @@ import React, { useState, useEffect } from "react";
 import { withdrawalApi } from "../api/withdrawalApi";
 import workflowApi from "../api/workflowApi";
 import { useAuth } from "../auth/AuthContext";
+import { useProcessingToday } from "../hooks/useProcessingToday";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
 export default function WithdrawalDetailModal({ requestId, onClose, onActed, wqItem }) {
+  const processingToday = useProcessingToday();
   const { user, roles: userRoles = [] } = useAuth();
   const [detail, setDetail]     = useState(null);
   const [wfStep, setWfStep]     = useState(null);
@@ -67,13 +70,14 @@ export default function WithdrawalDetailModal({ requestId, onClose, onActed, wqI
     }).catch(()=>{});
   }},[detail?.id, userRoles.length]);
 
-  const fmtDate = (d) => d ? new Date(d).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}) : "-";
+  const { formatDate, formatDateTime } = useRegionalSettings();
+  const fmtDate = (d) => d ? formatDate(d) : "-";
 
   const loadHist = async (studentId, tab) => {
     setHTab(tab); setHLoading(true);
     try {
       if (tab === "attendance") {
-        const r = await client.get("/students/"+studentId+"/attendance", {params:{from:new Date(new Date().setMonth(new Date().getMonth()-3)).toISOString().split("T")[0],to:new Date().toISOString().split("T")[0]}});
+        const r = await client.get("/students/"+studentId+"/attendance", {params:{from:new Date(new Date(processingToday).setMonth(new Date(processingToday).getMonth()-3)).toISOString().split("T")[0],to:processingToday}});
         setHData(prev => ({...prev, attendance: r.data.data||[]}));
       } else if (tab === "grades") {
         const r = await client.get("/students/"+studentId+"/grades");
@@ -176,8 +180,7 @@ export default function WithdrawalDetailModal({ requestId, onClose, onActed, wqI
                     {(detail.status||"Pending").replace(/_/g," ")}
                   </span>
                   {detail.effective_date&&<span style={{fontSize:12,color:"#94a3b8"}}>
-                    Effective: {new Date(detail.effective_date).toLocaleDateString("en-GB",
-                      {day:"numeric",month:"short",year:"numeric"})}</span>}
+                    Effective: {formatDate(detail.effective_date)}</span>}
                 </div>
               </div>
               <div style={{display:"flex",gap:8}}>
@@ -222,8 +225,7 @@ export default function WithdrawalDetailModal({ requestId, onClose, onActed, wqI
                     </div>
                     {step.by&&<div style={{fontSize:12,color:"#64748b"}}>{step.by}</div>}
                     {step.at&&<div style={{fontSize:11,color:"#94a3b8"}}>
-                      {new Date(step.at).toLocaleDateString("en-GB",
-                        {day:"numeric",month:"short",year:"numeric"})}
+                      {formatDate(step.at)}
                       {step.note&&<div style={{marginTop:4}}>
                         <span style={{fontSize:11,fontWeight:700,color:"#6b7280"}}>{step.by||step.label}: </span>
                         <span style={{fontStyle:"italic",color:"#374151"}}>{step.note}</span>
@@ -238,7 +240,7 @@ const stepActivity=activity.filter(a=>a.from_role===step.rawRole);return stepAct
                                 {a.action==="require_action"?"Request to parent: ":"Parent response: "}
                               </span>
                               <span style={{fontSize:12,color:"#374151",fontStyle:"italic"}}>{a.note}</span>
-                              <span style={{fontSize:10,color:"#9ca3af",marginLeft:6}}>{new Date(a.created_at).toLocaleString("en-GB")}</span>
+                              <span style={{fontSize:10,color:"#9ca3af",marginLeft:6}}>{formatDateTime(a.created_at)}</span>
                             </div>
                           ))}
                         </div>

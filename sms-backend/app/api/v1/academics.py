@@ -76,6 +76,20 @@ class AssignSubjectIn(BaseModel):
     subject_id: Any
 
 
+class SubjectDayAssignment(BaseModel):
+    subject_id: int
+    days: List[int]
+
+
+class ClassSubjectDaysIn(BaseModel):
+    assignments: List[SubjectDayAssignment]
+
+
+class ClassSubjectTeacherIn(BaseModel):
+    subject_id: int
+    teacher_id: int
+
+
 # ── My Classes / Subjects ─────────────────────────
 
 @router.get("/my-classes")
@@ -217,6 +231,67 @@ def remove_class_subject(id: int, subject_id: int, user_id: int = Depends(requir
     return ok(message="Subject removed.")
 
 
+@router.get("/classes/{id}/subject-days")
+def get_class_subject_days(id: int, user_id: int = Depends(require_permission("classes.view")), db=Depends(get_db)):
+    """Returns which weekdays each subject is configured to be taught on for
+    this class, e.g. Math=[1,3,5] (Mon/Wed/Fri). A subject with no rows here
+    hasn\'t been configured yet - the frontend should treat that as \'not
+    scheduled on any day\' rather than \'every day\'."""
+    cur = get_cur(db)
+    cur.execute("SELECT * FROM sp_get_class_subject_days(%s)", (id,))
+    return ok(data=[dict(r) for r in cur.fetchall()])
+
+
+@router.put("/classes/{id}/subject-days")
+def set_class_subject_days(id: int, body: ClassSubjectDaysIn, user_id: int = Depends(require_permission("classes.manage")), db=Depends(get_db)):
+    """Replaces this class\'s entire subject/day setup in one call - the
+    academic coordinator submits the full grid (subject -> days taught)
+    each time rather than incremental add/remove."""
+    import json
+    cur = get_cur(db)
+    payload = json.dumps([a.dict() for a in body.assignments])
+    cur.execute("SELECT sp_set_class_subject_days(%s, %s::jsonb)", (id, payload))
+    db.commit()
+    return ok(message="Subject/day setup saved.")
+
+
+@router.get("/classes/{id}/subject-teachers")
+def get_class_subject_teachers(id: int, user_id: int = Depends(require_permission("classes.view")), db=Depends(get_db)):
+    """For each subject this class has, returns the currently assigned
+    teacher (if any) plus the list of teachers qualified to teach it (i.e.
+    on teacher_subjects AND already attached to this class via
+    class_teachers) - used to populate the Teacher Assignment screen\'s
+    per-subject dropdown."""
+    cur = get_cur(db)
+    cur.execute("SELECT * FROM sp_get_class_subject_teacher_options(%s)", (id,))
+    return ok(data=[dict(r) for r in cur.fetchall()])
+
+
+@router.put("/classes/{id}/subject-teachers")
+def set_class_subject_teacher(id: int, body: ClassSubjectTeacherIn, user_id: int = Depends(require_permission("classes.manage")), db=Depends(get_db)):
+    """Fixes a single subject to exactly one teacher for this class - the
+    AI Timetable Generator then uses this teacher directly for that
+    class/subject instead of picking among several qualified options."""
+    cur = get_cur(db)
+    cur.execute("SELECT sp_set_class_subject_teacher(%s, %s, %s)", (id, body.subject_id, body.teacher_id))
+    db.commit()
+    return ok(message="Teacher assigned.")
+
+
+@router.post("/classes/{id}/subject-teachers/auto-assign")
+def auto_assign_class_subject_teachers(id: int, user_id: int = Depends(require_permission("classes.manage")), db=Depends(get_db)):
+    """For every subject on this class that doesn\'t yet have a fixed
+    teacher, picks any one qualified teacher (from teacher_subjects +
+    class_teachers) and assigns them. Existing assignments are left as-is
+    unless overwritten - the SP uses an upsert, so calling this again after
+    a manual change will re-pick for that subject too."""
+    cur = get_cur(db)
+    cur.execute("SELECT sp_auto_assign_class_subject_teachers(%s) AS assigned_count", (id,))
+    count = cur.fetchone()["assigned_count"]
+    db.commit()
+    return ok(data={"assigned_count": count}, message=f"{count} subject(s) auto-assigned.")
+
+
 # ── Subjects ─────────────────────────
 
 @router.get("/subjects")
@@ -299,6 +374,19 @@ def delete_timetable_entry(id: int, user_id: int = Depends(require_permission("t
     return ok(message="Timetable entry deleted.")
 
 
+@router.delete("/timetable/by-class/{class_id}")
+def delete_timetable_for_class(class_id: int, user_id: int = Depends(require_permission("timetable.manage")), db=Depends(get_db)):
+    """Clears every existing timetable entry for a class - used before
+    re-applying an AI-generated schedule, so re-generating and applying
+    again replaces the previous schedule instead of appending duplicate
+    entries alongside it."""
+    cur = get_cur(db)
+    cur.execute("SELECT sp_delete_timetable_for_class(%s) AS deleted_count", (class_id,))
+    count = cur.fetchone()["deleted_count"]
+    db.commit()
+    return ok(data={"deleted_count": count}, message=f"{count} existing entries cleared.")
+
+
 @router.get("/timetable/ai-context")
 def timetable_ai_context(user_id: int = Depends(require_permission("timetable.manage")), db=Depends(get_db)):
     cur = get_cur(db)
@@ -316,6 +404,20 @@ def timetable_ai_context(user_id: int = Depends(require_permission("timetable.ma
             for subj in subjects:
                 cur.execute("SELECT * FROM sp_get_subject_teachers_for_class(%s, %s)", (subj["id"], teacher_ids))
                 subj["available_teachers"] = [dict(r) for r in cur.fetchall()]
+        cur.execute("SELECT * FROM sp_get_class_subject_days(%s)", (cls["id"],))
+        day_map = {row["subject_id"]: row["days"] for row in [dict(r) for r in cur.fetchall()]}
+        for subj in subjects:
+            subj["configured_days"] = day_map.get(subj["id"], [])
+        # Fixed teacher assignments from the Teacher Assignment screen -
+        # when present, the AI generator should use this single teacher for
+        # the subject instead of choosing among the multiple qualified
+        # options in available_teachers, since the admin already balanced
+        # load across classes when assigning them.
+        if cls.get("class_type") != "montessori":
+            cur.execute("SELECT * FROM sp_get_class_subject_teacher_options(%s)", (cls["id"],))
+            fixed_map = {row["subject_id"]: row["assigned_teacher_id"] for row in [dict(r) for r in cur.fetchall()]}
+            for subj in subjects:
+                subj["fixed_teacher_id"] = fixed_map.get(subj["id"])
 
     return ok(data={"settings": settings, "classes": classes})
 

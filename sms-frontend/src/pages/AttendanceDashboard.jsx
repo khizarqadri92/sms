@@ -4,6 +4,8 @@ import hrApi from "../api/hrApi";
 import settingsApi from "../api/settingsApi";
 import processingDateApi from "../api/processingDateApi";
 import DatePicker from "../components/DatePicker";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
+import { useProcessingNow } from "../hooks/useProcessingNow";
 
 function fmtTime(iso) {
   if (!iso) return "-";
@@ -54,9 +56,11 @@ const TABS = ["live", "rfid", "settings", "schedule"];
 const TAB_LABELS = { live: "Live Status", rfid: "RFID Cards", settings: "Settings", schedule: "Schedule" };
 
 export default function AttendanceDashboard() {
+  const { formatDate, formatTime } = useRegionalSettings();
+  const fmtTime = (iso) => iso ? formatTime(iso) : "-";
   const [tab, setTab] = useState("live");
   const [flash, setFlash] = useState(null);
-  const [now, setNow] = useState(new Date());
+  const now = useProcessingNow();
   const showFlash = (type, msg) => { setFlash({ type, msg }); setTimeout(() => setFlash(null), 4000); };
 
   // Access mode: full HR (hr.view) vs restricted HOD (view-only, own department only)
@@ -167,7 +171,7 @@ export default function AttendanceDashboard() {
       setProcessingToday(d);
       setViewDate(d);
     }).catch(() => {
-      const d = toLocalDateStr(new Date());
+      const d = toLocalDateStr(now);
       setProcessingToday(d);
       setViewDate(d);
     });
@@ -197,11 +201,6 @@ export default function AttendanceDashboard() {
   useEffect(() => { if (tab === "rfid") loadRfidCards(); }, [tab, loadRfidCards]);
   useEffect(() => { if (tab === "settings") loadAttendanceSettings(); }, [tab, loadAttendanceSettings]);
   useEffect(() => { if (tab === "schedule") loadScheduleSettings(); }, [tab, loadScheduleSettings]);
-
-  useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 30000);
-    return () => clearInterval(timer);
-  }, []);
 
   const [statusThresholds, setStatusThresholds] = useState({
     min_present_hours: 6, min_half_day_hours: 3, max_absent_hours: 1, min_session_minutes: 0
@@ -249,7 +248,7 @@ export default function AttendanceDashboard() {
   };
 
   const [dayDetailExpanded, setDayDetailExpanded] = useState(false);
-  const [modalViewMonth, setModalViewMonth] = useState(new Date());
+  const [modalViewMonth, setModalViewMonth] = useState(now);
   const [modalDailyStatus, setModalDailyStatus] = useState([]);
 
   const loadModalDailyStatus = (staffId, monthDate) => {
@@ -264,7 +263,7 @@ export default function AttendanceDashboard() {
     setEditingSessionId(null);
     setDayDetailExpanded(false);
     setSessionForm({ clock_in_at: "", clock_out_at: "", notes: "" });
-    const initialMonth = !isLiveMode ? new Date(viewDate + "T00:00:00") : new Date((processingToday || toLocalDateStr(new Date())) + "T00:00:00");
+    const initialMonth = !isLiveMode ? new Date(viewDate + "T00:00:00") : new Date((processingToday || toLocalDateStr(now)) + "T00:00:00");
     setModalViewMonth(initialMonth);
     loadModalDailyStatus(staffId, initialMonth);
     try {
@@ -286,14 +285,14 @@ export default function AttendanceDashboard() {
 
   // Shared by both the day-summary card and the sessions table below it,
   // so expanding the summary shows sessions for the SAME date, not all-time.
-  const targetDateStr = !isLiveMode ? viewDate : (processingToday || toLocalDateStr(new Date()));
+  const targetDateStr = !isLiveMode ? viewDate : (processingToday || toLocalDateStr(now));
   const daySessions = sessions.filter(s => s.clock_in_at.slice(0, 10) === targetDateStr);
   const dayFirstIn = daySessions.length ? daySessions.reduce((a, b) => a.clock_in_at < b.clock_in_at ? a : b) : null;
   const dayOpenOnes = daySessions.filter(s => !s.clock_out_at);
   const dayClosedOnes = daySessions.filter(s => s.clock_out_at);
   const dayLastOut = dayClosedOnes.length ? dayClosedOnes.reduce((a, b) => a.clock_out_at > b.clock_out_at ? a : b) : null;
   const dayTotalMs = daySessions.reduce((sum, s) => {
-    const end = s.clock_out_at ? new Date(s.clock_out_at) : new Date();
+    const end = s.clock_out_at ? new Date(s.clock_out_at) : now;
     return sum + (end - new Date(s.clock_in_at));
   }, 0);
 
@@ -396,9 +395,9 @@ export default function AttendanceDashboard() {
                   Object.entries(STATUS_LABELS).map(([k, label]) => <option key={k} value={k}>{label}</option>)
                 )}
               </select>
-              <DatePicker value={viewDate} onChange={setViewDate} max={processingToday || toLocalDateStr(new Date())} style={{ width: 150 }} />
+              <DatePicker value={viewDate} onChange={setViewDate} max={processingToday || toLocalDateStr(now)} style={{ width: 150 }} />
               {!isLiveMode && (
-                <button className="btn btn-ghost btn-sm" style={{ fontSize: 12 }} onClick={() => setViewDate(processingToday || toLocalDateStr(new Date()))}>Back to Today</button>
+                <button className="btn btn-ghost btn-sm" style={{ fontSize: 12 }} onClick={() => setViewDate(processingToday || toLocalDateStr(now))}>Back to Today</button>
               )}
             </div>
             <div style={{ fontSize: 12, color: "#94a3b8" }}>
@@ -764,7 +763,7 @@ export default function AttendanceDashboard() {
                 <div onClick={() => setDayDetailExpanded(!dayDetailExpanded)}
                   style={{ padding: "12px 14px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f8fafc" }}>
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: 13 }}>{new Date(targetDateStr + "T00:00:00").toLocaleDateString(undefined, { weekday: "long", month: "short", day: "numeric" })}</div>
+                    <div style={{ fontWeight: 700, fontSize: 13 }}>{(() => { const d = new Date(targetDateStr + "T00:00:00"); return `${["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][d.getDay()]}, ${formatDate(d)}`; })()}</div>
                     <div style={{ fontSize: 12, color: "#64748b", marginTop: 3 }}>
                       {daySessions.length === 0 ? "No sessions recorded" : (
                         <>First in: <strong>{fmtTime(dayFirstIn.clock_in_at)}</strong> &middot; Last out: <strong>{dayLastOut ? fmtTime(dayLastOut.clock_out_at) : (dayOpenOnes.length ? "Still in" : "-")}</strong> &middot; Total: <strong>{formatDuration(dayTotalMs)}</strong></>

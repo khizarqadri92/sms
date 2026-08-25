@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import libraryApi from "../api/libraryApi";
+import DatePicker from "../components/DatePicker";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
 function AuthorFormModal({ author, onClose, onSaved }) {
   const [form, setForm] = useState({
@@ -45,7 +47,7 @@ function AuthorFormModal({ author, onClose, onSaved }) {
           </div>
           <div className="form-group">
             <label className="form-label">Date of Birth</label>
-            <input className="form-control" type="date" value={form.date_of_birth} onChange={e => setForm({ ...form, date_of_birth: e.target.value })} />
+            <DatePicker value={form.date_of_birth} onChange={val => setForm({ ...form, date_of_birth: val })} />
           </div>
           <div className="form-group">
             <label className="form-label">Biography</label>
@@ -62,6 +64,7 @@ function AuthorFormModal({ author, onClose, onSaved }) {
 }
 
 export default function LibraryAuthors() {
+  const { formatDate } = useRegionalSettings();
   const [authors, setAuthors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [success, setSuccess] = useState("");
@@ -131,7 +134,7 @@ export default function LibraryAuthors() {
                 <tr key={a.id}>
                   <td><strong>{a.name}</strong></td>
                   <td>{a.nationality || <span style={{ color: "#94a3b8" }}>-</span>}</td>
-                  <td>{a.date_of_birth ? new Date(a.date_of_birth).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : <span style={{ color: "#94a3b8" }}>-</span>}</td>
+                  <td>{a.date_of_birth ? formatDate(a.date_of_birth) : <span style={{ color: "#94a3b8" }}>-</span>}</td>
                   <td style={{ maxWidth: 260, fontSize: 12, color: "#64748b" }}>{a.bio ? (a.bio.length > 80 ? a.bio.slice(0, 80) + "..." : a.bio) : "-"}</td>
                   <td><span className={"badge " + (a.is_active ? "badge-success" : "badge-gray")}>{a.is_active ? "Active" : "Inactive"}</span></td>
                   <td style={{ display: "flex", gap: 6, flexWrap: "nowrap" }}>

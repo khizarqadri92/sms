@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import hrApi from "../api/hrApi";
 import { useAuth } from "../auth/AuthContext";
+import DatePicker from "../components/DatePicker";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
 const TABS = ["personal","education","experience","documents","contacts"];
 const TAB_LABELS = { personal:"Personal Info", education:"Education", experience:"Experience", documents:"Documents", contacts:"Emergency Contacts" };
@@ -10,6 +12,7 @@ const EMPTY_EDU = {degree:"",institution:"",field_of_study:"",start_year:"",end_
 const EMPTY_EXP = {company:"",designation:"",from_date:"",to_date:"",is_current:false,description:""};
 
 export default function MyProfile() {
+  const { formatDate } = useRegionalSettings();
   const { user } = useAuth();
   const [profile, setProfile]     = useState(null);
   const [loading, setLoading]     = useState(true);
@@ -106,6 +109,8 @@ export default function MyProfile() {
         <select className="form-input" style={{width:"100%",fontSize:13}} value={form[key]} onChange={e=>setForm(p=>({...p,[key]:e.target.value}))}>
           {opts.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
         </select>
+      ) : type === "date" ? (
+        <DatePicker style={{width:"100%",fontSize:13}} value={form[key]||""} onChange={val=>setForm(p=>({...p,[key]:val}))}/>
       ) : (
         <input type={type} className="form-input" style={{width:"100%",fontSize:13}} value={form[key]||""} onChange={e=>setForm(p=>({...p,[key]:e.target.value}))}/>
       )}
@@ -174,7 +179,7 @@ export default function MyProfile() {
           <span style={{padding:"4px 12px",background:"#f0fdf4",color:"#166534",border:"1px solid #bbf7d0",borderRadius:10,fontSize:12,fontWeight:600}}>
             {(profile?.status||"active").replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase())}
           </span>
-          <div style={{fontSize:11,color:"#94a3b8",marginTop:6}}>Joined: {profile?.joining_date||"—"}</div>
+          <div style={{fontSize:11,color:"#94a3b8",marginTop:6}}>Joined: {profile?.joining_date?formatDate(profile.joining_date):"—"}</div>
         </div>
       </div>
 
@@ -221,13 +226,13 @@ export default function MyProfile() {
                   {infoBox("First Name",profile?.first_name)}
                   {infoBox("Last Name",profile?.last_name)}
                   {infoBox("Gender",profile?.gender)}
-                  {infoBox("Date of Birth",profile?.date_of_birth)}
+                  {infoBox("Date of Birth",profile?.date_of_birth?formatDate(profile.date_of_birth):"")}
                   {infoBox("CNIC",profile?.cnic)}
                   {infoBox("Phone",profile?.phone)}
                   {infoBox("Email",profile?.email)}
                   {infoBox("Employee Code",profile?.employee_code?"#"+profile.employee_code:"—")}
                   {infoBox("Employment Type",profile?.employment_type?.replace(/_/g," "))}
-                  {infoBox("Joining Date",profile?.joining_date)}
+                  {infoBox("Joining Date",profile?.joining_date?formatDate(profile.joining_date):"")}
                   {profile?.address&&<div style={{gridColumn:"1/-1"}}>{infoBox("Address",profile.address)}</div>}
                 </div>
               </div>
@@ -332,7 +337,7 @@ export default function MyProfile() {
                     <div style={{flex:1}}>
                       <div style={{fontWeight:700,fontSize:14}}>{e.designation}</div>
                       <div style={{fontSize:13,color:"#475569"}}>{e.company}</div>
-                      <div style={{fontSize:11,color:"#94a3b8",marginTop:4}}>{e.from_date||"?"} — {e.is_current?"Present":e.to_date||"?"}</div>
+                      <div style={{fontSize:11,color:"#94a3b8",marginTop:4}}>{e.from_date?formatDate(e.from_date):"?"} — {e.is_current?"Present":(e.to_date?formatDate(e.to_date):"?")}</div>
                       {e.description&&<div style={{fontSize:12,color:"#64748b",marginTop:4}}>{e.description}</div>}
                     </div>
                     <div style={{display:"flex",gap:4,flexShrink:0}}>

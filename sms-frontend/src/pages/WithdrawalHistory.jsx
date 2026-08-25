@@ -1,8 +1,11 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { withdrawalApi } from "../api/withdrawalApi";
 import studentsApi from "../api/studentsApi";
 import client from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { useProcessingToday } from "../hooks/useProcessingToday";
+import DatePicker from "../components/DatePicker";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
 const STATUS_STYLES = {
   pending:           { bg:"#fef9c3", color:"#854d0e",  label:"Pending"           },
@@ -14,11 +17,14 @@ const STATUS_STYLES = {
   withdrawn:         { bg:"#f1f5f9", color:"#475569",  label:"Withdrawn"         },
 };
 const DEPT_LABELS = { finance:"Finance", library:"Library", admin:"Admin", hr:"HR", transport:"Transport" };
-const fmtDate = (d) => d ? new Date(d).toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}) : "-";
+
 const today = () => new Date().toISOString().split("T")[0];
 const monthStart = () => new Date().toISOString().slice(0,7)+"-01";
 
 export default function WithdrawalHistory() {
+  const processingToday = useProcessingToday();
+  const { formatDate } = useRegionalSettings();
+  const fmtDate = (d) => d ? formatDate(d) : "-";
   const { user } = useAuth();
   const [list,       setList]      = useState([]);
   const [detail,     setDetail]    = useState(null);
@@ -32,6 +38,7 @@ export default function WithdrawalHistory() {
   const [attSummary, setAttSummary]= useState(null);
   const [attFrom,    setAttFrom]   = useState(monthStart());
   const [attTo,      setAttTo]     = useState(today());
+  useEffect(() => { setAttFrom(processingToday.slice(0,7) + "-01"); setAttTo(processingToday); }, [processingToday]);
   const [gradesData, setGradesData]= useState([]);
   const [feesData,   setFeesData]  = useState(null);
   const [tabLoading, setTabLoading]= useState(false);
@@ -237,11 +244,11 @@ export default function WithdrawalHistory() {
                       <div style={{display:"flex",gap:12,marginBottom:16,flexWrap:"wrap",alignItems:"flex-end"}}>
                         <div className="form-group" style={{marginBottom:0}}>
                           <label className="form-label">From</label>
-                          <input type="date" className="form-control" style={{width:150}} value={attFrom} onChange={e=>setAttFrom(e.target.value)} />
+                          <DatePicker style={{width:150}} value={attFrom} onChange={val=>setAttFrom(val)} />
                         </div>
                         <div className="form-group" style={{marginBottom:0}}>
                           <label className="form-label">To</label>
-                          <input type="date" className="form-control" style={{width:150}} value={attTo} onChange={e=>setAttTo(e.target.value)} />
+                          <DatePicker style={{width:150}} value={attTo} onChange={val=>setAttTo(val)} />
                         </div>
                         <button className="btn btn-primary btn-sm" onClick={()=>loadTabData("attendance",detail.student_id)}>Load</button>
                       </div>
@@ -343,8 +350,8 @@ export default function WithdrawalHistory() {
                   <div style={{flex:1,height:1,background:"#e2e8f0"}} />
                 </div>
                 <div style={{padding:"10px 28px",display:"flex",justifyContent:"space-between",borderBottom:"1px solid #e2e8f0",fontSize:12}}>
-                  <span style={{color:"#64748b"}}>TC No: <strong>TC-{detail?.id}-{new Date().getFullYear()}</strong></span>
-                  <span style={{color:"#64748b"}}>Issue Date: <strong>{fmtDate(new Date().toISOString())}</strong></span>
+                  <span style={{color:"#64748b"}}>TC No: <strong>TC-{detail?.id}-{new Date(processingToday).getFullYear()}</strong></span>
+                  <span style={{color:"#64748b"}}>Issue Date: <strong>{fmtDate(processingToday)}</strong></span>
                 </div>
                 <div style={{padding:"16px 28px",borderBottom:"1px solid #e2e8f0"}}>
                   <div style={{fontSize:10,fontWeight:700,color:"#64748b",textTransform:"uppercase",letterSpacing:1,marginBottom:12}}>Student Information</div>

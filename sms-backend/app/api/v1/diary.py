@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from app.fastapi_auth import get_current_user_id
 from app.fastapi_permissions import require_permission
 from app.fastapi_db import get_db, get_cur as _get_cur
+from app.utils.processing_date import get_processing_date
 
 router = APIRouter()
 
@@ -200,7 +201,7 @@ def student_diary(date: Optional[str] = Query(None), user_id: int = Depends(requ
         fail("Student not found.", 404)
     class_id = row["cid"]
 
-    query_date = date or datetime.now().strftime("%Y-%m-%d")
+    query_date = date or get_processing_date(db).strftime("%Y-%m-%d")
     cur.execute("SELECT sp_check_diary_published(%s, %s) AS pub", (class_id, query_date))
     if not cur.fetchone()["pub"]:
         return ok(data={"entries": [], "published": False})
@@ -221,7 +222,7 @@ def student_diary(date: Optional[str] = Query(None), user_id: int = Depends(requ
 
 @router.get("/all-status")
 def all_classes_status(date: Optional[str] = Query(None), user_id: int = Depends(require_permission("diary.view")), db=Depends(get_db)):
-    query_date = date or datetime.now().strftime("%Y-%m-%d")
+    query_date = date or get_processing_date(db).strftime("%Y-%m-%d")
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_all_classes_diary_status(%s)", (query_date,))
     rows = [dict(r) for r in cur.fetchall()]

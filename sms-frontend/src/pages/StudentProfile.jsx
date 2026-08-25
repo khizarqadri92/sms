@@ -1,9 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { useParams, useNavigate } from "react-router-dom";
 import studentsApi  from "../api/studentsApi";
 import academicsApi from "../api/academicsApi";
+import DatePicker from "../components/DatePicker";
+import { useProcessingToday } from "../hooks/useProcessingToday";
 import usersApi      from "../api/usersApi";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
 const ALL_TABS = [
   { label:"Profile",    perm:null },
@@ -16,18 +19,23 @@ const ALL_TABS = [
   { label:"Siblings",   perm:null },
 ];
 
-function formatDate(dateStr) {
+const WEEKDAY_SHORT = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+function formatDate(dateStr, fmt) {
   if (!dateStr) return "N/A";
   try {
-    return new Date(dateStr).toLocaleDateString("en-US");
+    return fmt ? fmt(dateStr) : new Date(dateStr).toLocaleDateString("en-US");
   } catch {
     return dateStr;
   }
 }
 
-function formatDateLong(dateStr) {
+function formatDateLong(dateStr, fmt) {
   if (!dateStr) return "N/A";
   try {
+    if (fmt) {
+      const d = new Date(dateStr);
+      return `${WEEKDAY_SHORT[d.getDay()]}, ${fmt(dateStr)}`;
+    }
     return new Date(dateStr).toLocaleDateString("en-US", { weekday:"short", year:"numeric", month:"short", day:"numeric" });
   } catch {
     return dateStr;
@@ -45,6 +53,7 @@ function formatDateInput(dateStr) {
 
 export default function StudentProfile() {
   const { can } = useAuth();
+  const { formatDate: fmtDate } = useRegionalSettings();
   const { id }                    = useParams();
   const navigate                  = useNavigate();
   const [student,  setStudent]    = useState(null);
@@ -95,8 +104,8 @@ export default function StudentProfile() {
     ["Class",         (student.class_name ? student.class_name + (student.section ? " ("+student.section+")" : "") : "Not assigned")],
     ["Gender",        student.gender       || "N/A"],
     ["Blood Group",   student.blood_group  || "N/A"],
-    ["Date of Birth", formatDate(student.date_of_birth)],
-    ["Admission",     formatDate(student.admission_date)],
+    ["Date of Birth", formatDate(student.date_of_birth, fmtDate)],
+    ["Admission",     formatDate(student.admission_date, fmtDate)],
     ["Email",         student.email        || "N/A"],
     ["Phone",         student.phone        || "N/A"],
     ["Parent",        student.parent_name  || "Not linked"],
@@ -167,12 +176,13 @@ export default function StudentProfile() {
 
 function ProfileTab({ student }) {
   const { can } = useAuth();
+  const { formatDateTime, formatDate: fmtDate } = useRegionalSettings();
   const rows = [
     ["User ID",    String(student.user_id || "N/A")],
     ["Verified",   student.is_verified ? "Yes" : "No"],
     ["Active",     student.is_active   ? "Yes" : "No"],
-    ["Last Login", student.last_login_at ? new Date(student.last_login_at).toLocaleString() : "Never"],
-    ["Created",    formatDate(student.created_at)],
+    ["Last Login", student.last_login_at ? formatDateTime(student.last_login_at) : "Never"],
+    ["Created",    formatDate(student.created_at, fmtDate)],
   ];
   return (<>
     <div className="section-card">
@@ -292,7 +302,7 @@ function EditTab({ student, can, onSaved }) {
           </div>
           <div className="form-group">
             <label className="form-label">Date of Birth</label>
-            <input className="form-control" type="date" name="date_of_birth" value={form.date_of_birth} onChange={handleChange} />
+            <DatePicker value={form.date_of_birth} onChange={val => setForm({ ...form, date_of_birth: val })} />
           </div>
           <div className="form-group">
             <label className="form-label">Blood Group</label>
@@ -379,6 +389,8 @@ function EditTab({ student, can, onSaved }) {
 }
 
 function AttendanceTab({ studentId }) {
+  const processingToday = useProcessingToday();
+  const { formatDate: fmtDate } = useRegionalSettings();
   const [records,  setRecords]  = useState([]);
   const [summary,  setSummary]  = useState(null);
   const [loading,  setLoading]  = useState(true);
@@ -388,6 +400,12 @@ function AttendanceTab({ studentId }) {
     return d.toISOString().split("T")[0];
   });
   const [toDate, setTo] = useState(() => new Date().toISOString().split("T")[0]);
+  useEffect(() => {
+    const d = new Date(processingToday);
+    d.setDate(1);
+    setFrom(d.toISOString().split("T")[0]);
+    setTo(processingToday);
+  }, [processingToday]);
 
   useEffect(() => { fetchData(); }, [studentId, fromDate, toDate]);
 
@@ -440,9 +458,9 @@ function AttendanceTab({ studentId }) {
         <div className="section-card-header">
           <span className="section-card-title">Attendance Records</span>
           <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-            <input type="date" className="form-control" style={{ width:150 }} value={fromDate} onChange={e => setFrom(e.target.value)} />
+            <DatePicker style={{ width:150 }} value={fromDate} onChange={val => setFrom(val)} />
             <span style={{ color:"#94a3b8", fontSize:13 }}>to</span>
-            <input type="date" className="form-control" style={{ width:150 }} value={toDate} onChange={e => setTo(e.target.value)} />
+            <DatePicker style={{ width:150 }} value={toDate} onChange={val => setTo(val)} />
           </div>
         </div>
 
@@ -462,7 +480,7 @@ function AttendanceTab({ studentId }) {
                 }}
               >
                 <span style={{ fontSize:13, color:"#374151" }}>
-                  {formatDateLong(r.date)}
+                  {formatDateLong(r.date, fmtDate)}
                 </span>
                 <span className={"badge " + (statusClass[r.status] || "badge-gray")} style={{ textTransform:"capitalize" }}>
                   {r.status}
@@ -477,68 +495,103 @@ function AttendanceTab({ studentId }) {
 }
 
 function GradesTab({ studentId }) {
-  const [grades,  setGrades]  = useState([]);
-  const [loading, setLoading] = useState(true);
-
+  const { formatDate } = useRegionalSettings();
+  const [exams,    setExams]    = useState([]);
+  const [subjects, setSubjects] = useState([]);
+  const [loading,  setLoading]  = useState(true);
+  const [expandedExamId, setExpandedExamId] = useState(null);
   useEffect(() => {
     studentsApi.getGrades(studentId)
-      .then(res => setGrades(res.data.data || []))
+      .then(res => {
+        setExams(res.data.data?.exams || []);
+        setSubjects(res.data.data?.subjects || []);
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [studentId]);
-
   if (loading) return <div className="loading-state">Loading grades...</div>;
-  if (grades.length === 0) return <div className="empty-state">No published grades yet.</div>;
-
-  const exams = [...new Set(grades.map(g => g.exam_name))];
-
+  if (exams.length === 0) return <div className="empty-state">No published results yet.</div>;
   return (
-    <div>
-      {exams.map(examName => {
-        const examGrades = grades.filter(g => g.exam_name === examName);
-        const avg = (examGrades.reduce((s, g) => s + parseFloat(g.percentage || 0), 0) / examGrades.length).toFixed(1);
-        return (
-          <div key={examName} className="section-card">
-            <div className="section-card-header">
-              <span className="section-card-title">{examName}</span>
-              <span className="badge badge-primary">Avg: {avg}%</span>
-            </div>
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Subject</th>
-                  <th>Marks</th>
-                  <th>Total</th>
-                  <th>Percentage</th>
-                  <th>Grade</th>
-                  <th>Result</th>
+    <div className="section-card" style={{ padding: 0, overflow: "hidden" }}>
+      <table className="table">
+        <thead>
+          <tr>
+            <th>Exam</th>
+            <th>Date</th>
+            <th>Obtained / Total</th>
+            <th>Percentage</th>
+            <th>Grade</th>
+            <th>Class Position</th>
+            <th>Result</th>
+          </tr>
+        </thead>
+        <tbody>
+          {exams.map(ex => {
+            const isOpen = expandedExamId === ex.exam_id;
+            const examSubjects = subjects.filter(s => s.exam_id === ex.exam_id);
+            return (
+              <Fragment key={ex.exam_id}>
+                <tr
+                  onClick={() => setExpandedExamId(isOpen ? null : ex.exam_id)}
+                  style={{ cursor: "pointer", background: isOpen ? "var(--color-background-tertiary)" : "transparent" }}
+                >
+                  <td><strong>{ex.exam_name}</strong> <span style={{ marginLeft: 6, fontSize: 11, color: "#94a3b8" }}>{isOpen ? "▾" : "▸"}</span></td>
+                  <td>{formatDate(ex.start_date)}</td>
+                  <td><strong>{ex.marks_obtained}</strong> / {ex.total_marks}</td>
+                  <td>{ex.percentage}%</td>
+                  <td><span className="badge badge-primary">{ex.grade_letter}</span></td>
+                  <td>{ex.class_position ?? "-"}</td>
+                  <td>
+                    <span className={"badge " + (ex.is_pass ? "badge-success" : "badge-danger")}>
+                      {ex.is_pass ? "pass" : "fail"}
+                    </span>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {examGrades.map((g, i) => (
-                  <tr key={i}>
-                    <td><strong>{g.subject_name}</strong></td>
-                    <td><strong>{g.marks}</strong></td>
-                    <td>{g.total_marks}</td>
-                    <td>{g.percentage}%</td>
-                    <td><span className="badge badge-primary">{g.grade_letter}</span></td>
-                    <td>
-                      <span className={"badge " + (g.result === "pass" ? "badge-success" : "badge-danger")}>
-                        {g.result}
-                      </span>
+                {isOpen && (
+                  <tr>
+                    <td colSpan={7} style={{ padding: 0, background: "var(--color-background-secondary)" }}>
+                      <table className="table" style={{ margin: 0 }}>
+                        <thead>
+                          <tr>
+                            <th>Subject</th>
+                            <th>Marks</th>
+                            <th>Total</th>
+                            <th>Percentage</th>
+                            <th>Grade</th>
+                            <th>Result</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {examSubjects.map((g, i) => (
+                            <tr key={i}>
+                              <td><strong>{g.subject_name}</strong></td>
+                              <td><strong>{g.marks}</strong></td>
+                              <td>{g.total_marks}</td>
+                              <td>{g.percentage}%</td>
+                              <td><span className="badge badge-primary">{g.grade_letter}</span></td>
+                              <td>
+                                <span className={"badge " + (g.result === "pass" ? "badge-success" : "badge-danger")}>
+                                  {g.result}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        );
-      })}
+                )}
+              </Fragment>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 }
-
 function FeesTab({ studentId }) {
+  const processingToday = useProcessingToday();
+  const { formatDate: fmtDate } = useRegionalSettings();
   const [summary,     setSummary]     = useState(null);
   const [loading,     setLoading]     = useState(true);
   const [showPayment, setShowPayment] = useState(null);
@@ -626,8 +679,8 @@ function FeesTab({ studentId }) {
                     <td style={{ color:"#dc2626" }}>{inv.fine > 0 ? "+ Rs. " + Number(inv.fine).toLocaleString() : "—"}</td>
                     <td><strong>Rs. {Number(inv.net_amount).toLocaleString()}</strong></td>
                     <td style={{ color:"#16a34a" }}>Rs. {Number(inv.paid_amount || 0).toLocaleString()}</td>
-                    <td style={{ fontSize:12, color: inv.due_date && new Date(inv.due_date) < new Date() && inv.status !== "paid" ? "#dc2626" : "#64748b" }}>
-                      {inv.due_date ? new Date(inv.due_date).toLocaleDateString("en-US") : "N/A"}
+                    <td style={{ fontSize:12, color: inv.due_date && new Date(inv.due_date) < new Date(processingToday) && inv.status !== "paid" ? "#dc2626" : "#64748b" }}>
+                      {inv.due_date ? fmtDate(inv.due_date) : "N/A"}
                     </td>
                     <td>
                       <span className={statusBadge(inv.status)} style={{ textTransform:"capitalize" }}>{inv.status}</span>
@@ -734,6 +787,7 @@ function StudentPaymentModal({ invoice, onPaid, onClose }) {
 }
 
 function DiscountsTab({ studentId, can }) {
+  const { formatDate: fmtDate } = useRegionalSettings();
   const [discounts,  setDiscounts]  = useState([]);
   const [allTypes,   setAllTypes]   = useState([]);
   const [loading,    setLoading]    = useState(true);
@@ -844,11 +898,11 @@ function DiscountsTab({ studentId, can }) {
               </div>
               <div className="form-group">
                 <label className="form-label">Valid From</label>
-                <input className="form-control" type="date" value={form.valid_from} onChange={e => setForm({...form, valid_from:e.target.value})} />
+                <DatePicker value={form.valid_from} onChange={val => setForm({...form, valid_from:val})} />
               </div>
               <div className="form-group">
                 <label className="form-label">Valid Until</label>
-                <input className="form-control" type="date" value={form.valid_until} onChange={e => setForm({...form, valid_until:e.target.value})} />
+                <DatePicker value={form.valid_until} onChange={val => setForm({...form, valid_until:val})} />
               </div>
               <div className="form-group form-grid-full">
                 <label className="form-label">Notes</label>
@@ -874,8 +928,8 @@ function DiscountsTab({ studentId, can }) {
                     <span className="badge badge-success">
                       {d.discount_type === "percentage" ? d.discount_value + "% off" : "Rs. " + d.discount_value + " off"}
                     </span>
-                    {d.valid_from  && <span style={{ fontSize:11, color:"#64748b" }}>From: {new Date(d.valid_from).toLocaleDateString("en-US")}</span>}
-                    {d.valid_until && <span style={{ fontSize:11, color:"#64748b" }}>Until: {new Date(d.valid_until).toLocaleDateString("en-US")}</span>}
+                    {d.valid_from  && <span style={{ fontSize:11, color:"#64748b" }}>From: {fmtDate(d.valid_from)}</span>}
+                    {d.valid_until && <span style={{ fontSize:11, color:"#64748b" }}>Until: {fmtDate(d.valid_until)}</span>}
                     {d.notes && <span style={{ fontSize:11, color:"#64748b", fontStyle:"italic" }}>{d.notes}</span>}
                   </div>
                   <div style={{ fontSize:11, color:"#94a3b8", marginTop:2 }}>Assigned by: {d.assigned_by_name || "N/A"}</div>

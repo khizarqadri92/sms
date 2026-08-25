@@ -3,6 +3,8 @@ import { useSearchParams } from "react-router-dom";
 import studentsApi from "../api/studentsApi";
 import financeApi  from "../api/financeApi";
 import InvoiceTimelineModal from "../components/InvoiceTimelineModal";
+import { useProcessingToday } from "../hooks/useProcessingToday";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
 const fmtInvoiceMonth = (my) => {
   if (!my) return "";
@@ -23,6 +25,8 @@ const downloadInvoice = async (invoiceId) => {
 };
 
 export default function MyFees() {
+  const processingToday = useProcessingToday();
+  const { formatDate } = useRegionalSettings();
   const [summary,     setSummary]     = useState(null);
   const [searchParams] = useSearchParams();
   const [loading,     setLoading]     = useState(true);
@@ -137,7 +141,7 @@ export default function MyFees() {
                 <tbody>
                   {unpaid.map(inv => {
                     const balance = Number(inv.net_amount) - Number(inv.paid_amount || 0);
-                    const isOverdue = inv.due_date && new Date(inv.due_date) < new Date();
+                    const isOverdue = inv.due_date && new Date(inv.due_date) < new Date(processingToday);
                     return (
                       <tr key={inv.id}>
                         <td>
@@ -153,7 +157,7 @@ export default function MyFees() {
                         <td style={{ color:"#16a34a" }}>Rs. {Number(inv.paid_amount || 0).toLocaleString()}</td>
                         <td style={{ color:"#dc2626", fontWeight:700 }}>Rs. {Number(balance).toLocaleString()}</td>
                         <td style={{ fontSize:12, color: isOverdue ? "#dc2626" : "#64748b", fontWeight: isOverdue ? 700 : 400 }}>
-                          {inv.due_date ? new Date(inv.due_date).toLocaleDateString("en-US") : "N/A"}
+                          {inv.due_date ? formatDate(inv.due_date) : "N/A"}
                           {isOverdue && <div style={{ fontSize:10, color:"#dc2626" }}>Overdue</div>}
                         </td>
                         <td><span className={statusBadge(inv.status)} style={{ textTransform:"capitalize" }}>{inv.status}</span></td>
@@ -207,7 +211,7 @@ export default function MyFees() {
                         </div>
                       </td>
                       <td style={{ color:"#16a34a", fontWeight:700 }}>Rs. {Number(inv.net_amount).toLocaleString()}</td>
-                      <td style={{ fontSize:12, color:"#64748b" }}>{new Date(inv.issued_at).toLocaleDateString("en-US")}</td>
+                      <td style={{ fontSize:12, color:"#64748b" }}>{formatDate(inv.issued_at)}</td>
                       <td>
                       <div style={{ display:"flex", gap:6, alignItems:"center" }} onClick={e => e.stopPropagation()}>
                         <span className="badge badge-success">Paid</span>

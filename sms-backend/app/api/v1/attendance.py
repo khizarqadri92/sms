@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from app.fastapi_auth import get_current_user_id
 from app.fastapi_permissions import require_permission
 from app.fastapi_db import get_db, get_cur as _get_cur
+from app.utils.processing_date import get_processing_date
 
 router = APIRouter()
 
@@ -45,7 +46,7 @@ class MarkAttendanceIn(BaseModel):
 
 @router.post("/mark")
 def mark_attendance(body: MarkAttendanceIn, marked_by: int = Depends(require_permission("attendance.create")), db=Depends(get_db)):
-    att_date = body.date or date_cls.today().isoformat()
+    att_date = body.date or get_processing_date(db).isoformat()
     cur = get_cur(db)
 
     cur.execute("SELECT sp_check_holiday(%s::date) AS title", (att_date,))
@@ -63,8 +64,10 @@ def mark_attendance(body: MarkAttendanceIn, marked_by: int = Depends(require_per
 
     with _flask_app().app_context():
         from app.services.attendance_service import AttendanceService
+        _mark_payload = body.dict()
+        _mark_payload["date"] = att_date
         try:
-            result = AttendanceService().mark(body.dict(), marked_by)
+            result = AttendanceService().mark(_mark_payload, marked_by)
         except ValueError as e:
             fail(str(e), 400)
     return ok(data=result, message="Attendance recorded.")
@@ -99,7 +102,8 @@ def student_attendance(
 
 @router.get("/student/{student_id}/summary")
 def attendance_summary(student_id: int, month: Optional[str] = Query(None), user_id: int = Depends(require_permission("attendance.view"))):
-    month = month or date_cls.today().strftime("%Y-%m-01")
+    from app.db.connection import get_db as _get_flask_db
+    month = month or get_processing_date(_get_flask_db()).strftime("%Y-%m-01")
     with _flask_app().app_context():
         from app.services.attendance_service import AttendanceService
         data = AttendanceService().get_monthly_summary(student_id, month)
@@ -119,8 +123,8 @@ def my_attendance(
         fail("Student not found.", 404)
     student_id = row["sid"]
 
-    from_date = from_ or date_cls.today().strftime("%Y-%m-01")
-    to_date = to or date_cls.today().isoformat()
+    from_date = from_ or get_processing_date(db).strftime("%Y-%m-01")
+    to_date = to or get_processing_date(db).isoformat()
 
     cur.execute("SELECT * FROM sp_get_student_attendance_range(%s, %s, %s, %s)", (student_id, from_date, to_date, subject_id))
     rows = [dict(r) for r in cur.fetchall()]
@@ -141,8 +145,8 @@ def teacher_attendance_report(
     class_id: Optional[int] = Query(None),
     user_id: int = Depends(require_permission("attendance.view")), db=Depends(get_db),
 ):
-    from_date = from_ or date_cls.today().strftime("%Y-%m-01")
-    to_date = to or date_cls.today().isoformat()
+    from_date = from_ or get_processing_date(db).strftime("%Y-%m-01")
+    to_date = to or get_processing_date(db).isoformat()
     cur = get_cur(db)
 
     cur.execute("SELECT * FROM sp_get_teacher_incharge_classes(%s)", (user_id,))
@@ -177,7 +181,7 @@ def attendance_report(
     subject_id: Optional[int] = Query(None), breakdown: Optional[str] = Query(None),
     user_id: int = Depends(require_permission("attendance.report")), db=Depends(get_db),
 ):
-    report_date = date or date_cls.today().isoformat()
+    report_date = date or get_processing_date(db).isoformat()
     cur = get_cur(db)
     if breakdown == "true":
         cur.execute("SELECT * FROM sp_get_attendance_report_breakdown(%s, %s, %s)", (report_date, class_id, subject_id))
@@ -200,8 +204,8 @@ def admin_attendance_report(
     class_id: Optional[int] = Query(None),
     user_id: int = Depends(get_current_user_id), db=Depends(get_db),
 ):
-    from_date = from_ or date_cls.today().strftime("%Y-%m-01")
-    to_date = to or date_cls.today().isoformat()
+    from_date = from_ or get_processing_date(db).strftime("%Y-%m-01")
+    to_date = to or get_processing_date(db).isoformat()
     cur = get_cur(db)
 
     cur.execute("SELECT * FROM sp_get_admin_report_classes(%s)", (class_id,))
@@ -232,8 +236,8 @@ def student_attendance_report(
     class_id: Optional[int] = Query(None), search: Optional[str] = Query(""),
     user_id: int = Depends(get_current_user_id), db=Depends(get_db),
 ):
-    from_date = from_ or date_cls.today().strftime("%Y-%m-01")
-    to_date = to or date_cls.today().isoformat()
+    from_date = from_ or get_processing_date(db).strftime("%Y-%m-01")
+    to_date = to or get_processing_date(db).isoformat()
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_student_attendance_report(%s, %s, %s, %s)", (class_id, search.strip() if search else None, from_date, to_date))
     rows = [dict(r) for r in cur.fetchall()]

@@ -121,6 +121,19 @@ def my_classes(user_id: int = Depends(get_current_user_id)):
         data = TeacherService().get_classes(teacher["id"])
     return ok(data=data)
 
+@router.get("/me/timetable")
+def my_timetable(user_id: int = Depends(get_current_user_id)):
+    with _flask_app().app_context():
+        from app.services.teacher_service import TeacherService
+        teacher = TeacherService().get_by_user_id(user_id)
+    if not teacher:
+        fail("Teacher profile not found.", 404)
+    with _flask_app().app_context():
+        from app.services.teacher_service import TeacherService
+        data = TeacherService().get_timetable(teacher["id"])
+    return ok(data=data)
+
+
 @router.get("/meta/subjects")
 def get_all_subjects(user_id: int = Depends(require_permission("teachers.view"))):
     with _flask_app().app_context():

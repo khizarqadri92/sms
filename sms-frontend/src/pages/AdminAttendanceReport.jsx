@@ -1,11 +1,14 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import client from "../api/client";
 import academicsApi from "../api/academicsApi";
+import { useProcessingToday } from "../hooks/useProcessingToday";
+import DatePicker from "../components/DatePicker";
 
 const today = () => new Date().toISOString().split("T")[0];
 const monthStart = () => new Date().toISOString().slice(0,7) + "-01";
 
 export default function AdminAttendanceReport() {
+  const processingToday = useProcessingToday();
   const [classes,  setClasses]  = useState([]);
   const [report,   setReport]   = useState([]);
   const [loading,  setLoading]  = useState(false);
@@ -14,6 +17,7 @@ export default function AdminAttendanceReport() {
   // Filters
   const [from,      setFrom]      = useState(monthStart());
   const [to,        setTo]        = useState(today());
+  useEffect(() => { setFrom(processingToday.slice(0,7)+"-01"); setTo(processingToday); }, [processingToday]);
   const [classId,   setClassId]   = useState("");
   const [sortBy,    setSortBy]    = useState("name");
   const [sortDir,   setSortDir]   = useState("asc");
@@ -38,7 +42,7 @@ export default function AdminAttendanceReport() {
   };
 
   const reset = () => {
-    setFrom(monthStart()); setTo(today()); setClassId("");
+    setFrom(processingToday.slice(0,7)+"-01"); setTo(processingToday); setClassId("");
     setSortBy("name"); setSortDir("asc"); setMinPct(""); setMaxPct(""); setStatusFilter("");
     setReport([]); setHasRun(false);
   };
@@ -83,11 +87,11 @@ export default function AdminAttendanceReport() {
         <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(180px,1fr))",gap:14,marginBottom:16}}>
           <div>
             <label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>From Date</label>
-            <input type="date" value={from} onChange={e=>setFrom(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:13}} />
+            <DatePicker value={from} onChange={val=>setFrom(val)} style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:13}} />
           </div>
           <div>
             <label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>To Date</label>
-            <input type="date" value={to} onChange={e=>setTo(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:13}} />
+            <DatePicker value={to} onChange={val=>setTo(val)} style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:13}} />
           </div>
           <div>
             <label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>Class</label>

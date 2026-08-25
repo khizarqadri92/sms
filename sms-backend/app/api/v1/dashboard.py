@@ -6,6 +6,7 @@ Single endpoint, pure SQL, no SPs, no chr() stubs.
 from fastapi import APIRouter, Depends
 from app.fastapi_auth import get_current_user_id
 from app.fastapi_db import get_db, get_cur as _get_cur
+from app.utils.processing_date import get_processing_date
 
 router = APIRouter()
 
@@ -45,16 +46,16 @@ def get_stats(user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
     cur.execute("""
         SELECT COALESCE(SUM(amount_paid), 0) AS total
         FROM payments
-        WHERE DATE_TRUNC('month', paid_at) = DATE_TRUNC('month', CURRENT_DATE)
-    """)
+        WHERE DATE_TRUNC('month', paid_at) = DATE_TRUNC('month', %s::date)
+    """, (get_processing_date(db),))
     collected_month = cur.fetchone()["total"]
 
     # ── School-wide attendance today ──────────────────────────
     cur.execute("""
         SELECT COUNT(*) AS total,
                COUNT(*) FILTER (WHERE status = 'present') AS present
-        FROM attendance WHERE date = CURRENT_DATE
-    """)
+        FROM attendance WHERE date = %s
+    """, (get_processing_date(db),))
     att = cur.fetchone()
     school_att_total   = att["total"]   or 0
     school_att_present = att["present"] or 0
@@ -85,8 +86,8 @@ def get_stats(user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
             FROM attendance a
             JOIN students s ON s.id = a.student_id
             JOIN class_teachers ct ON ct.class_id = s.class_id
-            WHERE ct.teacher_id = %s AND a.date = CURRENT_DATE
-        """, (tid,))
+            WHERE ct.teacher_id = %s AND a.date = %s
+        """, (tid, get_processing_date(db)))
         t_att = cur.fetchone()
         teacher_att_total   = t_att["total"]   or 0
         teacher_att_present = t_att["present"] or 0

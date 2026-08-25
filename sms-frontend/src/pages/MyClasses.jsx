@@ -4,8 +4,10 @@ import teachersApi from "../api/teachersApi";
 import academicsApi from "../api/academicsApi";
 import settingsApi from "../api/settingsApi";
 import financeApi from "../api/financeApi";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
 export default function MyClasses() {
+  const { formatDate } = useRegionalSettings();
   const navigate               = useNavigate();
   const [teacher, setTeacher]  = useState(null);
   const [loading, setLoading]  = useState(true);
@@ -16,6 +18,15 @@ export default function MyClasses() {
   const [attConfig, setAttConfig] = useState("incharge_only");
   const [lockedStudents, setLockedStudents] = useState([]);
   const [loadingLocked,  setLoadingLocked]  = useState(false);
+  const [tab, setTab] = useState("list");
+  useEffect(() => {
+    const handler = (e) => {
+      const sub = e.detail?.sub;
+      if (["list", "timetable", "overview"].includes(sub)) setTab(sub);
+    };
+    window.addEventListener("subnav-change", handler);
+    return () => window.removeEventListener("subnav-change", handler);
+  }, []);
 
   useEffect(() => {
     Promise.all([
@@ -49,7 +60,7 @@ export default function MyClasses() {
     }
   };
 
-  const fmtLockedDate = d => d ? new Date(d).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "-";
+  const fmtLockedDate = d => d ? formatDate(d) : "-";
 
   if (loading) return <div className="loading-state">Loading your classes...</div>;
 
@@ -68,7 +79,9 @@ export default function MyClasses() {
 
       {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
 
-      {!error && teacher && (
+      {!error && teacher && tab === "timetable" && <MyTimetableTab />}
+      {!error && teacher && tab === "overview" && <MyClassOverviewTab classes={teacher.classes || []} />}
+      {!error && teacher && tab === "list" && (
         <>
           {/* Classes */}
           <div style={{ marginBottom: 24 }}>
@@ -280,6 +293,135 @@ export default function MyClasses() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+
+const TT_DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+
+function MyTimetableTab() {
+  const [timetable, setTimetable] = useState([]);
+  const [loading,   setLoading]   = useState(true);
+
+  useEffect(() => {
+    teachersApi.getMyTimetable()
+      .then(res => setTimetable(res.data.data || []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <div className="loading-state">Loading timetable...</div>;
+  if (timetable.length === 0) return (
+    <div className="section-card">
+      <div className="empty-state">No timetable assigned yet. Contact academic coordinator to set up timetable.</div>
+    </div>
+  );
+
+  // One row per class this teacher teaches, one column per weekday -
+  // matches the table layout used in the admin\'s timetable view, instead
+  // of a per-day card list that made it hard to see a class\'s whole week
+  // at a glance.
+  const classRowsMap = new Map();
+  for (const slot of timetable) {
+    if (!classRowsMap.has(slot.class_id)) {
+      classRowsMap.set(slot.class_id, { class_id: slot.class_id, class_name: slot.class_name, section: slot.section });
+    }
+  }
+  const classRows = [...classRowsMap.values()].sort((a, b) =>
+    (a.class_name + (a.section || "")).localeCompare(b.class_name + (b.section || ""))
+  );
+
+  return (
+    <div className="section-card" style={{ padding: 0, overflow: "auto" }}>
+      <div className="section-card-header" style={{ padding: "16px 20px" }}>
+        <span className="section-card-title">My Weekly Timetable</span>
+        <span className="badge badge-gray">{timetable.length} periods</span>
+      </div>
+      <table className="table" style={{ minWidth: 700 }}>
+        <thead>
+          <tr>
+            <th>Class</th>
+            {TT_DAYS.map(day => <th key={day}>{day}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {classRows.map(row => (
+            <tr key={row.class_id}>
+              <td><strong>{row.class_name}{row.section ? ` (${row.section})` : ""}</strong></td>
+              {TT_DAYS.map(day => {
+                const slots = timetable
+                  .filter(t => t.class_id === row.class_id && t.day_name === day)
+                  .sort((a, b) => (a.start_time || "").localeCompare(b.start_time || ""));
+                return (
+                  <td key={day} style={{ verticalAlign: "top" }}>
+                    {slots.length === 0 ? (
+                      <span style={{ color: "#cbd5e1" }}>&mdash;</span>
+                    ) : (
+                      slots.map((slot, i) => (
+                        <div key={i} style={{ background: "#ede9fe", borderLeft: "2px solid #7c3aed", borderRadius: 3, padding: "3px 6px", marginBottom: 4 }}>
+                          <div style={{ fontWeight: 600, fontSize: 11, color: "#5b21b6" }}>{slot.subject_name}</div>
+                          <div style={{ fontSize: 10, color: "#7c3aed" }}>
+                            {slot.start_time ? slot.start_time.slice(0, 5) : ""} - {slot.end_time ? slot.end_time.slice(0, 5) : ""}
+                          </div>
+                          {slot.room_number && <div style={{ fontSize: 9, color: "#94a3b8" }}>Room: {slot.room_number}</div>}
+                        </div>
+                      ))
+                    )}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function MyClassOverviewTab({ classes }) {
+  if (!classes || classes.length === 0) {
+    return (
+      <div className="section-card">
+        <div className="empty-state">No classes assigned to you yet.</div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
+      {classes.map(c => (
+        <div key={c.id} style={{
+          background: "#ffffff", borderRadius: 12,
+          border: "1px solid #e2e8f0",
+          borderLeft: c.is_primary ? "4px solid #4f46e5" : "4px solid #c7d2fe",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+          padding: "16px 20px",
+        }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 17, color: "#0f172a" }}>
+                {c.name}
+                {c.section && <span style={{ fontWeight: 400, color: "#64748b", fontSize: 14, marginLeft: 6 }}>({c.section})</span>}
+              </div>
+              <div style={{ fontSize: 13, color: "#64748b", marginTop: 3 }}>
+                {c.student_count} student{c.student_count !== 1 ? "s" : ""}
+                {c.class_type && <span style={{ marginLeft: 8, background: "#f1f5f9", color: "#475569", padding: "1px 8px", borderRadius: 10, fontSize: 11 }}>{c.class_type}</span>}
+              </div>
+            </div>
+            {c.is_primary && (
+              <span style={{ background: "#ede9fe", color: "#4f46e5", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, whiteSpace: "nowrap" }}>
+                Class Teacher
+              </span>
+            )}
+          </div>
+          {c.subject_names && (
+            <div style={{ fontSize: 12, color: "#16a34a", fontWeight: 500, marginTop: 6 }}>
+              Teaching: {c.subject_names}
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import libraryApi from "../api/libraryApi";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
 function ResolveMissingModal({ copy, onClose, onSaved }) {
   const [saving, setSaving] = useState(false);
@@ -34,6 +35,7 @@ function ResolveMissingModal({ copy, onClose, onSaved }) {
 }
 
 function AuditPanel({ audit, onCompleted }) {
+  const { formatDate, formatTime } = useRegionalSettings();
   const [identifier, setIdentifier] = useState("");
   const [items, setItems] = useState([]);
   const [progress, setProgress] = useState(audit);
@@ -90,7 +92,7 @@ function AuditPanel({ audit, onCompleted }) {
         <span className="section-card-title">Audit in Progress</span>
       </div>
       <div style={{ fontSize: 13, color: "#64748b", marginBottom: 12 }}>
-        Started by {progress.started_by_name} on {new Date(progress.started_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
+        Started by {progress.started_by_name} on {formatDate(progress.started_at)}
       </div>
 
       <div style={{ marginBottom: 16 }}>
@@ -118,7 +120,7 @@ function AuditPanel({ audit, onCompleted }) {
           items.map(it => (
             <div key={it.copy_id} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid #f1f5f9", fontSize: 13 }}>
               <span>{it.book_title} ({it.accession_no})</span>
-              <span style={{ color: "#94a3b8", fontSize: 11 }}>{new Date(it.verified_at).toLocaleTimeString()}</span>
+              <span style={{ color: "#94a3b8", fontSize: 11 }}>{formatTime(it.verified_at)}</span>
             </div>
           ))
         )}

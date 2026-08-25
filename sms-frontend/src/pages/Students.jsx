@@ -3,8 +3,10 @@ import { useAuth } from "../auth/AuthContext";
 import { useNavigate } from "react-router-dom";
 import studentsApi from "../api/studentsApi";
 import CreateStudentModal from "../components/students/CreateStudentModal";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
 export default function Students() {
+  const { formatDate } = useRegionalSettings();
   const { can } = useAuth();
   const navigate                    = useNavigate();
   const [students, setStudents]     = useState([]);
@@ -115,7 +117,7 @@ export default function Students() {
                   <td style={{ textTransform:"capitalize" }}>{s.gender || <span style={{ color:"#94a3b8" }}>â€”</span>}</td>
                   <td><span className={`badge ${s.status === "active" ? "badge-success" : "badge-danger"}`}>{s.status}</span></td>
                   <td style={{ fontSize:12, color:"#64748b" }}>
-                    {s.admission_date ? new Date(s.admission_date).toLocaleDateString() : "â€”"}
+                    {s.admission_date ? formatDate(s.admission_date) : "â€”"}
                   </td>
                   <td>
                     <button className="btn btn-ghost btn-xs" onClick={() => navigate(`/students/${s.id}`)}>
