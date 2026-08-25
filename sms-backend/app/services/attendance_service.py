@@ -1,4 +1,4 @@
-﻿from typing import Dict, List
+from typing import Dict, List
 from datetime import date
 from app.repositories.attendance_repository import AttendanceRepository
 
@@ -17,7 +17,7 @@ class AttendanceService:
             records    = records,
             class_id   = payload["class_id"],
             subject_id = payload.get("subject_id"),
-            date       = payload.get("date", date.today().isoformat()),
+            date       = payload["date"],
             marked_by  = marked_by,
         )
 

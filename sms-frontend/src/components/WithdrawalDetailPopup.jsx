@@ -2,8 +2,10 @@ import React, { useState, useEffect } from "react";
 import { withdrawalApi } from "../api/withdrawalApi";
 import workflowApi from "../api/workflowApi";
 import { useAuth } from "../auth/AuthContext";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
 export default function WithdrawalDetailPopup({ item, onClose, onActed }) {
+  const { formatDate } = useRegionalSettings();
   const { user, roles: userRoles = [] } = useAuth();
   const [detail, setDetail] = useState(null);
   const [wfStep, setWfStep] = useState(null);
@@ -100,7 +102,7 @@ export default function WithdrawalDetailPopup({ item, onClose, onActed }) {
                     {detail.status?.replace(/_/g," ")||"Pending"}
                   </span>
                   <span style={{fontSize:12,color:"#94a3b8"}}>Effective: {
-                    detail.effective_date ? new Date(detail.effective_date).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"}) : "—"
+                    detail.effective_date ? formatDate(detail.effective_date) : "—"
                   }</span>
                 </div>
               </>}
@@ -156,7 +158,7 @@ export default function WithdrawalDetailPopup({ item, onClose, onActed }) {
                       </div>
                       <div style={{fontSize:12,color:"#64748b"}}>{s.assigned_role?.replace(/_/g," ")}</div>
                       {s.actioned_at&&<div style={{fontSize:11,color:"#94a3b8"}}>
-                        {new Date(s.actioned_at).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}
+                        {formatDate(s.actioned_at)}
                       </div>}
                     </div>
                   </div>

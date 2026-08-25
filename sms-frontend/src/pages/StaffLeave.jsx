@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from "react";
 import hrApi from "../api/hrApi";
+import DatePicker from "../components/DatePicker";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
 const STATUS_COLORS = {
   pending:   {bg:"#fefce8",color:"#854d0e",border:"#fef08a"},
@@ -9,6 +11,7 @@ const STATUS_COLORS = {
 };
 
 export default function StaffLeave() {
+  const { formatDate, formatDateTime } = useRegionalSettings();
   const [leaveTypes, setLeaveTypes]   = useState([]);
   const [balances, setBalances]       = useState([]);
   const [requests, setRequests]       = useState([]);
@@ -222,14 +225,14 @@ export default function StaffLeave() {
                     {r.leave_type_name}
                     {r.duration_type==="half"&&<div style={{fontSize:10,color:"#c2410c",fontWeight:700,marginTop:2}}>Half Leave ({r.half_day_from_time?.slice(0,5)} - {r.half_day_to_time?.slice(0,5)})</div>}
                   </td>
-                  <td style={{padding:"10px 12px",fontSize:13,color:"#475569"}}>{r.from_date}</td>
-                  <td style={{padding:"10px 12px",fontSize:13,color:"#475569"}}>{r.to_date}</td>
+                  <td style={{padding:"10px 12px",fontSize:13,color:"#475569"}}>{formatDate(r.from_date)}</td>
+                  <td style={{padding:"10px 12px",fontSize:13,color:"#475569"}}>{formatDate(r.to_date)}</td>
                   <td style={{padding:"10px 12px",fontSize:13,textAlign:"center",fontWeight:700}}>{r.total_days}</td>
                   <td style={{padding:"10px 12px",fontSize:12,color:"#64748b",maxWidth:200}}>
                     <div style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={r.reason}>{r.reason}</div>
                     {r.review_note&&<div style={{fontSize:11,color:"#7c3aed",marginTop:2}}>Note: {r.review_note}</div>}
                   </td>
-                  <td style={{padding:"10px 12px",fontSize:12,color:"#94a3b8",whiteSpace:"nowrap"}}>{r.applied_at?.slice(0,10)}</td>
+                  <td style={{padding:"10px 12px",fontSize:12,color:"#94a3b8",whiteSpace:"nowrap"}}>{r.applied_at ? formatDateTime(r.applied_at) : "-"}</td>
                   <td style={{padding:"10px 12px"}}>
                     <span style={{padding:"3px 10px",borderRadius:10,fontSize:11,fontWeight:700,whiteSpace:"nowrap",
                       background:ss(r.status).bg,color:ss(r.status).color,border:"1px solid "+ss(r.status).border}}>
@@ -306,20 +309,20 @@ export default function StaffLeave() {
                 {form.duration_type==="half" ? (
                   <div>
                     <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Date *</label>
-                    <input type="date" className="form-input" style={{width:"100%",fontSize:13}}
-                      value={form.from_date} onChange={e=>setForm(p=>({...p,from_date:e.target.value,to_date:e.target.value}))}/>
+                    <DatePicker style={{width:"100%",fontSize:13}}
+                      value={form.from_date} onChange={val=>setForm(p=>({...p,from_date:val,to_date:val}))}/>
                   </div>
                 ) : (
                   <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
                     <div>
                       <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>From Date *</label>
-                      <input type="date" className="form-input" style={{width:"100%",fontSize:13}}
-                        value={form.from_date} onChange={e=>setForm(p=>({...p,from_date:e.target.value}))}/>
+                      <DatePicker style={{width:"100%",fontSize:13}}
+                        value={form.from_date} onChange={val=>setForm(p=>({...p,from_date:val}))}/>
                     </div>
                     <div>
                       <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>To Date *</label>
-                      <input type="date" className="form-input" style={{width:"100%",fontSize:13}}
-                        value={form.to_date} onChange={e=>setForm(p=>({...p,to_date:e.target.value}))}/>
+                      <DatePicker style={{width:"100%",fontSize:13}}
+                        value={form.to_date} onChange={val=>setForm(p=>({...p,to_date:val}))}/>
                     </div>
                   </div>
                 )}

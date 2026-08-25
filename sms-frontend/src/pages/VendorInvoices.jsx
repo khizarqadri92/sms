@@ -3,6 +3,8 @@ import procurementApi from "../api/procurementApi";
 import workflowApi from "../api/workflowApi";
 import { useAutoOpenById } from "../hooks/useAutoOpenById";
 import { useAuth } from "../auth/AuthContext";
+import DatePicker from "../components/DatePicker";
+import { useProcessingToday } from "../hooks/useProcessingToday";
 
 const statusBadge = (s) => ({
   pending:  { cls: "badge-warning", label: "Pending Verification" },
@@ -16,6 +18,7 @@ const statusBadge = (s) => ({
 const METHOD_LABELS = { bank_transfer:"Bank Transfer", cash:"Cash", cheque:"Cheque", online:"Online Transfer" };
 
 export default function VendorInvoices() {
+  const processingToday = useProcessingToday();
   const { can } = useAuth();
   const [invoices, setInvoices]     = useState([]);
   const [loading, setLoading]       = useState(true);
@@ -70,7 +73,7 @@ export default function VendorInvoices() {
   const openCreate = () => {
     setShowCreate(true);
     setSelectedPO(null); setGRNs([]);
-    setForm({ vendor_invoice_no:"", invoice_date:new Date().toISOString().slice(0,10), grn_id:"", notes:"" });
+    setForm({ vendor_invoice_no:"", invoice_date:processingToday, grn_id:"", notes:"" });
     setItems([{ description:"", quantity:1, unit_price:0, tax_percent:0, po_item_id:"" }]);
     procurementApi.getPurchaseOrders({ status:"issued" })
       .then(r => setPOs(r.data.data || [])).catch(()=>{});
@@ -249,7 +252,7 @@ export default function VendorInvoices() {
                     </div>
                     <div>
                       <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6 }}>Invoice Date *</label>
-                      <input type="date" className="form-input" value={form.invoice_date} onChange={e=>setForm(f=>({...f,invoice_date:e.target.value}))} />
+                      <DatePicker value={form.invoice_date} onChange={val=>setForm(f=>({...f,invoice_date:val}))} />
                     </div>
                     <div>
                       <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6 }}>Linked GRN</label>
@@ -452,7 +455,7 @@ export default function VendorInvoices() {
                 </div>
                 <div>
                   <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6 }}>Payment Date</label>
-                  <input type="date" className="form-input" value={payForm.payment_date||new Date().toISOString().slice(0,10)} onChange={e=>setPayForm(f=>({...f,payment_date:e.target.value}))} />
+                  <DatePicker value={payForm.payment_date||processingToday} onChange={val=>setPayForm(f=>({...f,payment_date:val}))} />
                 </div>
               </div>
               <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12 }}>

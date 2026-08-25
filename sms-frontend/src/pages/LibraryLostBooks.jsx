@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import libraryApi from "../api/libraryApi";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
 function ResolveModal({ copy, onClose, onSaved }) {
   const [resolution, setResolution] = useState("replace");
@@ -59,6 +60,7 @@ function ResolveModal({ copy, onClose, onSaved }) {
 }
 
 export default function LibraryLostBooks() {
+  const { formatDate } = useRegionalSettings();
   const [copies, setCopies] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -112,7 +114,7 @@ export default function LibraryLostBooks() {
                   <td><strong>{c.book_title}</strong></td>
                   <td>{c.accession_no}</td>
                   <td>{c.first_name ? `${c.first_name} ${c.last_name}` : <span style={{ color: "#94a3b8" }}>Unknown</span>}</td>
-                  <td style={{ fontSize: 12, color: "#64748b" }}>{c.last_returned_at ? new Date(c.last_returned_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "-"}</td>
+                  <td style={{ fontSize: 12, color: "#64748b" }}>{c.last_returned_at ? formatDate(c.last_returned_at) : "-"}</td>
                   <td>
                     {Number(c.fine_amount) > 0 ? (
                       <span style={{ color: c.fine_status === "pending" ? "#dc2626" : "#16a34a", fontWeight: 600 }}>

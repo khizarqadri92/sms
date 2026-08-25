@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import workflowApi from "../api/workflowApi";
 import { leavesApi } from "../api/leavesApi";
 import { useAuth } from "../auth/AuthContext";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
 const STATUS_COLORS = {
   pending:     { bg: "#fef9c3", color: "#854d0e" },
@@ -13,9 +14,11 @@ const STATUS_COLORS = {
 
 const FILTERS = ["pending", "recommended", "approved", "rejected", "all"];
 
-const fmtDate = (d) => { if (!d) return ''; const s = String(d); if (s.includes(' ')) { const parts = s.split(' '); return parts[1] + ' ' + parts[2] + ' ' + parts[3]; } return new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }); };
+
 
 export default function LeaveApproval() {
+  const { formatDate, formatDateTime } = useRegionalSettings();
+  const fmtDate = (d) => d ? formatDate(d) : "";
   const { user } = useAuth();
   const perms        = user?.permissions || [];
   const roles        = user?.roles || [];
@@ -224,7 +227,7 @@ export default function LeaveApproval() {
                     }}>{lr.status}</span>
                   </td>
                   <td style={{ padding: "12px 14px", fontSize: 12, color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>
-                    {new Date(lr.applied_at).toLocaleDateString()}
+                    {formatDate(lr.applied_at)}
                   </td>
                   <td style={{ padding: "12px 14px", whiteSpace: "nowrap" }}>
                     <button className="btn btn-ghost btn-sm" onClick={() => setDetail(lr)}>View</button>
@@ -260,7 +263,7 @@ export default function LeaveApproval() {
                 { label: "To",         value: fmtDate(detail.to_date) },
                 { label: "Total Days", value: detail.total_days + " day" + (detail.total_days !== 1 ? "s" : "") },
                 { label: "Reason",     value: detail.reason },
-                { label: "Applied By", value: detail.applied_by_name + " on " + new Date(detail.applied_at).toLocaleString() },
+                { label: "Applied By", value: detail.applied_by_name + " on " + formatDateTime(detail.applied_at) },
                 detail.recommender_name && { label: "Recommended By", value: detail.recommender_name + (detail.recommender_note ? " - " + detail.recommender_note : "") },
                 detail.approver_name    && { label: "Actioned By",    value: detail.approver_name },
                 detail.approver_note    && { label: "Approver Note",  value: detail.approver_note },

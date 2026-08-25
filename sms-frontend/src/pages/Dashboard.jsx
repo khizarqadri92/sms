@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthContext";
+import { useProcessingToday } from "../hooks/useProcessingToday";
 import HRDashboard          from "./HRDashboard";
 import LibrarianDashboard    from "./LibrarianDashboard";
 import ProcurementDashboard  from "./ProcurementDashboard";
@@ -81,7 +82,8 @@ function StudentDashboard({ user }) {
     });
   }, []);
 
-  const today = new Date().getDay();
+  const processingToday = useProcessingToday();
+  const today = new Date(processingToday).getDay();
   const dayMap = {1:"1",2:"2",3:"3",4:"4",5:"5"};
   const todaySlots = timetable.filter(s => String(s.day_of_week)===dayMap[today]).sort((a,b)=>a.start_time>b.start_time?1:-1);
   const dayNames = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];

@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthContext";
 import academicsApi from "../api/academicsApi";
 import teachersApi  from "../api/teachersApi";
+import settingsApi from "../api/settingsApi";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
+import DatePicker from "../components/DatePicker";
 
 const TABS = ["Academic Years", "Classes", "Subjects", "Timetable", "Class Overview"];
 const DAYS = [
@@ -43,6 +46,7 @@ export default function Academics() {
 
 /* ── Academic Years ──────────────────────────────────────────── */
 function YearsTab() {
+  const { formatDate } = useRegionalSettings();
   const { can } = useAuth();
   const [years,    setYears]    = useState([]);
   const [loading,  setLoading]  = useState(true);
@@ -114,11 +118,11 @@ function YearsTab() {
               <div className="form-group" />
               <div className="form-group">
                 <label className="form-label">Start Date *</label>
-                <input className="form-control" type="date" value={form.start_date} onChange={e => setForm({...form, start_date:e.target.value})} required />
+                <DatePicker value={form.start_date} onChange={val => setForm({...form, start_date:val})} />
               </div>
               <div className="form-group">
                 <label className="form-label">End Date *</label>
-                <input className="form-control" type="date" value={form.end_date} onChange={e => setForm({...form, end_date:e.target.value})} required />
+                <DatePicker value={form.end_date} onChange={val => setForm({...form, end_date:val})} />
               </div>
             </div>
             <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
@@ -147,8 +151,8 @@ function YearsTab() {
               {years.map(y => (
                 <tr key={y.id}>
                   <td><strong>{y.name}</strong></td>
-                  <td>{y.start_date ? new Date(y.start_date).toLocaleDateString("en-US") : "N/A"}</td>
-                  <td>{y.end_date   ? new Date(y.end_date).toLocaleDateString("en-US")   : "N/A"}</td>
+                  <td>{y.start_date ? formatDate(y.start_date) : "N/A"}</td>
+                  <td>{y.end_date   ? formatDate(y.end_date)   : "N/A"}</td>
                   <td>
                     {y.is_active
                       ? <span className="badge badge-success">Active</span>
@@ -523,7 +527,7 @@ function TimetableTab() {
   const [error,     setError]     = useState("");
 
   useEffect(() => { fetchMeta(); }, []);
-  useEffect(() => { if (classId) fetchSlots(); }, [classId]);
+  useEffect(() => { fetchSlots(); }, [classId]);
 
   const fetchMeta = async () => {
     try {
@@ -558,7 +562,7 @@ function TimetableTab() {
   const fetchSlots = async () => {
     setLoading(true);
     try {
-      const res = await academicsApi.getTimetable({ class_id: classId });
+      const res = await academicsApi.getTimetable(classId ? { class_id: classId } : {});
       setSlots(res.data.data || []);
     } catch {}
     finally { setLoading(false); }
@@ -627,6 +631,13 @@ function TimetableTab() {
           onApply={async (slots) => {
             setApplying(true);
             try {
+              // Clear each affected class\'s existing timetable first, so
+              // applying a regenerated schedule replaces the previous one
+              // instead of appending duplicate entries alongside it.
+              const affectedClassIds = [...new Set(slots.map(s => s.class_id))];
+              for (const classId of affectedClassIds) {
+                try { await academicsApi.deleteTimetableForClass(classId); } catch {}
+              }
               let saved = 0, skipped = 0;
               for (const s of slots) {
                 try {
@@ -1069,14 +1080,26 @@ function ClassSubjectsModal({ classItem, onClose }) {
 function AITimetableGenerator({ onApply, applying, aiError, setAIError }) {
   const [loading,   setLoading]   = useState(false);
   const [result,    setResult]    = useState(null);
+  const [missedAssignments, setMissedAssignments] = useState([]);
   const [context,   setContext]   = useState(null);
   const [feedback,  setFeedback]  = useState("");
   const [classes,   setClasses]   = useState([]);
 
+  const [dayOverrides, setDayOverrides] = useState({});
   useEffect(() => {
     academicsApi.getTimetableAIContext().then(r => {
       setContext(r.data.data);
       setClasses((r.data.data.classes || []).map(c => c.id));
+    }).catch(() => {});
+    settingsApi.getTimingOverrides().then(r => {
+      // Only recurring-weekday overrides apply to a weekly generated
+      // timetable - a specific-date override is a one-off exception and
+      // doesn't fit a recurring weekly schedule, so it's ignored here.
+      const map = {};
+      for (const o of (r.data.data || [])) {
+        if (o.is_active && o.day_of_week) map[String(o.day_of_week)] = o;
+      }
+      setDayOverrides(map);
     }).catch(() => {});
   }, []);
 
@@ -1116,7 +1139,7 @@ function AITimetableGenerator({ onApply, applying, aiError, setAIError }) {
 
     const teachers = cls.teachers || [];
     const incharge = teachers.find(t2 => t2.is_primary);
-    const subjects = (cls.subjects || []).filter(s2 => s2.teachers && s2.teachers.length > 0);
+    const subjects = (cls.subjects || []).filter(s2 => s2.available_teachers && s2.available_teachers.length > 0);
 
     // Build busy teacher slots
     const busyMap = {};
@@ -1130,7 +1153,7 @@ function AITimetableGenerator({ onApply, applying, aiError, setAIError }) {
       : "";
 
     const subjStr = subjects.map(s2 =>
-      s2.id + ":" + s2.name + "[t=" + s2.teachers.map(t2 => t2.teacher_id||t2.id).join(",") + "]"
+      s2.id + ":" + s2.name + "[t=" + s2.available_teachers.map(t2 => t2.teacher_id||t2.id).join(",") + "]"
     ).join("; ");
 
     const isMont = cls.class_type === "montessori";
@@ -1157,7 +1180,7 @@ function AITimetableGenerator({ onApply, applying, aiError, setAIError }) {
 
   const generate = async () => {
     if (!context) return;
-    setLoading(true); setAIError(""); setResult(null);
+    setLoading(true); setAIError(""); setResult(null); setMissedAssignments([]);
     try {
       const selectedClasses2 = (context.classes || []).filter(c =>
         classes.includes(c.id) &&
@@ -1173,22 +1196,49 @@ function AITimetableGenerator({ onApply, applying, aiError, setAIError }) {
       const s2f = context?.settings || {};
       const toMf = t => { const [h,m] = t.split(":").map(Number); return h*60+m; };
       const toTf = m => String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0");
-      const pmf  = parseInt(s2f.period_duration||"45");
-      const bsMf = toMf(s2f.break_start_time||"11:15");
-      const beMf = bsMf + parseInt(s2f.break_duration||"30");
-      const dsMf = toMf(s2f.school_start_time||"08:00") + 15;
-      const deMf = toMf(s2f.school_end_time||"14:00");
-      const pSlots = [];
-      let ttf = dsMf;
-      while (ttf < deMf) {
-        if (ttf >= bsMf && ttf < beMf) { ttf = beMf; continue; }
-        if (ttf < bsMf && ttf + pmf > bsMf) { pSlots.push([toTf(ttf), toTf(bsMf)]); ttf = beMf; continue; }
-        if (ttf + pmf > deMf) break;
-        pSlots.push([toTf(ttf), toTf(ttf+pmf)]);
-        ttf += pmf;
-      }
+      // Computes this day's period slots - uses the day-specific timing
+      // override if one is configured for this weekday (e.g. a Friday
+      // short day with an earlier end time and no break), otherwise falls
+      // back to the school's default timing settings.
+      const getPeriodSlotsForDay = (day) => {
+        const ov = dayOverrides[day];
+        const pmf  = parseInt((ov ? ov.period_duration : s2f.period_duration) || "45");
+        const hasBreak = ov ? !!ov.break_start_time : true;
+        const bsMf = hasBreak ? toMf((ov ? ov.break_start_time : s2f.break_start_time) || "11:15") : null;
+        const beMf = hasBreak ? bsMf + parseInt((ov ? ov.break_duration : s2f.break_duration) || "30") : null;
+        const dsMf = toMf((ov ? ov.start_time : s2f.school_start_time) || "08:00") + 15;
+        const deMf = toMf((ov ? ov.end_time : s2f.school_end_time) || "14:00");
+        const slots = [];
+        let hasLeftover = false;
+        let ttf = dsMf;
+        while (ttf < deMf) {
+          if (hasBreak && ttf >= bsMf && ttf < beMf) { ttf = beMf; continue; }
+          if (hasBreak && ttf < bsMf && ttf + pmf > bsMf) { slots.push([toTf(ttf), toTf(bsMf)]); ttf = beMf; continue; }
+          if (ttf + pmf > deMf) {
+            if (deMf - ttf >= 15) { slots.push([toTf(ttf), toTf(deMf)]); hasLeftover = true; }
+            break;
+          }
+          slots.push([toTf(ttf), toTf(ttf+pmf)]);
+          ttf += pmf;
+        }
+        return { slots, hasLeftover };
+      };
+      // If a subject has a fixed teacher from the Teacher Assignment
+      // screen, use only that one teacher rather than every qualified
+      // option - the admin already balanced load across classes when
+      // making that assignment, so trying alternates here would undo that
+      // balancing and is also why "still overloaded" showed up before this
+      // was wired in.
+      const teachersToTry = (subj) => subj.fixed_teacher_id
+        ? [{ teacher_id: subj.fixed_teacher_id }]
+        : (subj.available_teachers || []);
       const wDays = (s2f.working_days||"1,2,3,4,5").split(",");
       const allSlots = [];
+      // Subjects that could not be placed today because every teacher who
+      // could teach them was already booked elsewhere at every remaining
+      // period - surfaced to the admin afterward as a capacity warning
+      // rather than silently dropped.
+      const missed = [];
       // Track teacher usage: teacher_id -> Set of "day-time"
       const teacherBusy = {};
       const isBusy = (tid, day, time) => (teacherBusy[tid]||new Set()).has(day+"-"+time);
@@ -1196,82 +1246,225 @@ function AITimetableGenerator({ onApply, applying, aiError, setAIError }) {
         if (!teacherBusy[tid]) teacherBusy[tid] = new Set();
         teacherBusy[tid].add(day+"-"+time);
       };
+      const unmarkBusy = (tid, day, time) => {
+        if (teacherBusy[tid]) teacherBusy[tid].delete(day+"-"+time);
+      };
 
-      for (const cls of selectedClasses2) {
-        const incharge = (cls.teachers||[]).find(t => t.is_primary);
-        const inchargeId = incharge ? incharge.id : null;
-        // Get all subjects with their teachers
-        const subjects = (cls.subjects||[]).filter(s => (s.teachers||[]).length > 0);
-        const numSubj = subjects.length;
-        const numPeriods = pSlots.length;
-        if (!numSubj) continue;
+      // Day is the outer loop (not class) so that classes sharing a
+      // teacher are considered together, day by day, rather than one class
+      // completing its entire week (and claiming every slot a shared
+      // teacher has) before the next class gets any turn at all.
+            const generateForDay = (day, di) => {
+        // hasLeftover marks whether the final entry in allSlots is that
+        // shortened "leftover" period. fullSlots excludes it - a class is
+        // only ever offered the leftover period if it genuinely has more
+        // subjects than full-length periods to place them in; otherwise
+        // the day just ends after the last full period for that class,
+        // rather than a subject getting pushed into an awkward 15-minute
+        // slot while a full period sits empty elsewhere.
+        const { slots: allPSlots, hasLeftover } = getPeriodSlotsForDay(day);
+        const fullPSlots = hasLeftover ? allPSlots.slice(0, -1) : allPSlots;
+        const toMins = t => { const [h,m] = t.split(":").map(Number); return h*60+m; };
+        const orderOf = (slots) => Array.from({length: slots.length}, (_, i) => i).sort((a, b) => {
+          const durA = toMins(slots[a][1]) - toMins(slots[a][0]);
+          const durB = toMins(slots[b][1]) - toMins(slots[b][0]);
+          return durB - durA || a - b;
+        });
 
-        // Incharge subjects (for first period)
-        const inchargeSubjs = inchargeId
-          ? subjects.filter(s => (s.teachers||[]).some(t => (t.teacher_id||t.id)===inchargeId))
-          : [];
-        const inchargeSubjIds = new Set(inchargeSubjs.map(s => s.id));
-        const otherSubjs = subjects.filter(s => !inchargeSubjIds.has(s.id));
-
-        for (let di = 0; di < wDays.length; di++) {
-          const day = wDays[di];
-          // Rotate subject order for this day: shift by di to vary across days
-          // Incharge subject always first
+        // Build each class's rotated subject list for today first, without
+        // assigning anything yet, so every class enters the round-robin
+        // on equal footing.
+        const classDayState = [];
+        for (const cls of selectedClasses2) {
+          const incharge = (cls.teachers||[]).find(t => t.is_primary);
+          const inchargeId = incharge ? incharge.id : null;
+          const subjects = (cls.subjects||[]).filter(s => teachersToTry(s).length > 0);
+          if (!subjects.length) continue;
+          // Only subjects configured for this specific weekday are eligible
+          // today (via Subject Schedule Setup). A subject with no days
+          // configured at all hasn't been set up yet - treat that as
+          // available every day, so classes that haven't used the new
+          // setup still generate a full timetable as before.
+          const daySubjectPool = subjects.filter(s => {
+            const cfg = s.configured_days || [];
+            return cfg.length === 0 || cfg.map(String).includes(day);
+          });
+          if (!daySubjectPool.length) continue;
+          const inchargeSubjs = inchargeId
+            ? daySubjectPool.filter(s => teachersToTry(s).some(t => (t.teacher_id||t.id)===inchargeId))
+            : [];
+          const inchargeSubjIds = new Set(inchargeSubjs.map(s => s.id));
+          const otherSubjs = daySubjectPool.filter(s => !inchargeSubjIds.has(s.id));
           const rotated = [];
           if (inchargeSubjs.length > 0) {
             rotated.push(inchargeSubjs[di % inchargeSubjs.length]);
           }
-          // Fill remaining with other subjects, rotated
           const remaining = [...inchargeSubjs.filter(s=>!rotated.includes(s)), ...otherSubjs];
           const startIdx = di % Math.max(remaining.length, 1);
           for (let i = 0; i < remaining.length; i++) {
             rotated.push(remaining[(startIdx + i) % remaining.length]);
           }
-          // Ensure no duplicates
           const seen = new Set();
           const daySubjects = [];
           for (const s of rotated) {
             if (!seen.has(s.id)) { seen.add(s.id); daySubjects.push(s); }
           }
+          const pSlots = (hasLeftover && daySubjectPool.length > fullPSlots.length) ? allPSlots : fullPSlots;
+          classDayState.push({ cls, daySubjects, usedPeriods: new Set(), periodAssignments: new Map(), pSlots, numPeriods: pSlots.length, periodOrder: orderOf(pSlots) });
+        }
 
-          // Assign one subject per period slot - each subject exactly once
-          for (let pi = 0; pi < numPeriods; pi++) {
-            const [pStart, pEnd] = pSlots[pi];
-            // Use modulo only if fewer subjects than periods, otherwise 1:1
-            const subj = daySubjects[pi < daySubjects.length ? pi : pi % daySubjects.length];
-            // Find available teacher for this subject at this slot
-            const teachers = subj.teachers || [];
-            let assigned = false;
-            for (const tchr of teachers) {
-              const tid = tchr.teacher_id || tchr.id;
-              if (isBusy(tid, day, pStart)) continue;
-              allSlots.push({
-                class_id: cls.id,
-                subject_id: subj.id,
-                teacher_id: tid,
-                day_of_week: day,
-                start_time: pStart,
-                end_time: pEnd
-              });
-              markBusy(tid, day, pStart);
-              assigned = true;
-              break;
+        // Places a subject into a specific already-tracked period for a
+        // class, recording it in both allSlots (for the final result) and
+        // this class's own periodAssignments map (so a later swap attempt
+        // can find and move it if needed).
+        const placeInPeriod = (state, subj, tid, pi) => {
+          const [pStart, pEnd] = state.pSlots[pi];
+          const slot = {
+            class_id: state.cls.id,
+            subject_id: subj.id,
+            teacher_id: tid,
+            day_of_week: day,
+            start_time: pStart,
+            end_time: pEnd
+          };
+          allSlots.push(slot);
+          markBusy(tid, day, pStart);
+          state.usedPeriods.add(pi);
+          state.periodAssignments.set(pi, { subj, tid, slot });
+        };
+
+        // Recursively searches this class's own schedule for a period
+        // where `tid` is free, allowing a chain of displacements: if every
+        // period tid could use is occupied, try moving that occupant to
+        // some other period their own teacher is free for - which may
+        // itself require displacing whoever is there, and so on. This is
+        // an augmenting-path style search (as used in bipartite matching)
+        // rather than a single-level swap, so it can resolve conflicts a
+        // one-step swap can't: e.g. period A needs teacher X, occupied by
+        // a subject whose teacher Y is free at period B, which is occupied
+        // by a subject whose teacher Z is free at period C (genuinely
+        // empty) - three moves resolving one placement. Mutates state only
+        // once a full chain to a genuinely free period is confirmed; a
+        // failed branch leaves nothing changed, so trying the next teacher
+        // option or next candidate period is always safe.
+        const findFreeSlotForTeacher = (state, tid, visited) => {
+          for (const pi of state.periodOrder) {
+            if (visited.has(pi)) continue;
+            const [pStart] = state.pSlots[pi];
+            if (isBusy(tid, day, pStart)) continue;
+            if (!state.usedPeriods.has(pi)) return pi;
+            visited.add(pi);
+            const occupant = state.periodAssignments.get(pi);
+            if (!occupant) continue;
+            for (const otchr of teachersToTry(occupant.subj)) {
+              const otid = otchr.teacher_id || otchr.id;
+              const newPi = findFreeSlotForTeacher(state, otid, visited);
+              if (newPi === null) continue;
+              const [oldStart] = state.pSlots[pi];
+              const [newStart, newEnd] = state.pSlots[newPi];
+              unmarkBusy(otid, day, oldStart);
+              markBusy(otid, day, newStart);
+              occupant.slot.start_time = newStart;
+              occupant.slot.end_time = newEnd;
+              state.usedPeriods.delete(pi);
+              state.usedPeriods.add(newPi);
+              state.periodAssignments.delete(pi);
+              state.periodAssignments.set(newPi, occupant);
+              return pi;
             }
-            if (!assigned) {
-              // Force assign without conflict check (fallback)
-              const tchr = teachers[0];
-              if (tchr) {
-                const tid = tchr.teacher_id || tchr.id;
-                allSlots.push({
-                  class_id: cls.id, subject_id: subj.id, teacher_id: tid,
-                  day_of_week: day, start_time: pStart, end_time: pEnd
-                });
-              }
+          }
+          return null;
+        };
+
+        const tryAssignSubject = (state, subj) => {
+          const teachers = teachersToTry(subj);
+          for (const tchr of teachers) {
+            const tid = tchr.teacher_id || tchr.id;
+            const pi = findFreeSlotForTeacher(state, tid, new Set());
+            if (pi !== null) {
+              placeInPeriod(state, subj, tid, pi);
+              return true;
             }
+          }
+          return false;
+        };
+
+        // Build one task per (class, subject) still needing a slot today,
+        // then schedule the most constrained tasks first - the ones whose
+        // teacher is needed by the most classes today - while the most
+        // periods are still free. Scheduling those greedily up front is
+        // what actually avoids missed subjects: leaving a heavily-shared
+        // teacher's assignments for later (as the old per-class round-robin
+        // did) meant they often ran out of free periods by the time their
+        // turn came, even though an earlier, less-contested subject could
+        // easily have shifted to a different period instead.
+        const tasks = [];
+        for (const state of classDayState) {
+          for (const subj of state.daySubjects) {
+            tasks.push({ state, subj });
+          }
+        }
+        const teacherDemand = {};
+        for (const task of tasks) {
+          for (const tchr of teachersToTry(task.subj)) {
+            const tid = tchr.teacher_id || tchr.id;
+            teacherDemand[tid] = (teacherDemand[tid] || 0) + 1;
+          }
+        }
+        const taskDemand = (task) => {
+          const teachers = teachersToTry(task.subj);
+          if (!teachers.length) return 0;
+          return Math.max(...teachers.map(t => teacherDemand[t.teacher_id || t.id] || 0));
+        };
+        tasks.sort((a, b) => taskDemand(b) - taskDemand(a));
+        for (const task of tasks) {
+          const ok = tryAssignSubject(task.state, task.subj);
+          if (!ok) {
+            missed.push({ class_name: task.state.cls.name + (task.state.cls.section?" ("+task.state.cls.section+")":""), subject_name: task.subj.name, day });
+          }
+        }
+      };
+
+      // The timetable should look the same every day Mon-Thu, with only
+      // Friday potentially different (e.g. a short day). So the actual
+      // constraint-solving only runs twice - once for a "template" day
+      // (the first non-Friday working day) and once for Friday - and the
+      // template day's result is simply copied onto the other non-Friday
+      // days rather than independently re-solved for each one. This also
+      // means any subject that could only be placed via a swap chain on
+      // the template day doesn't need to get re-resolved by chance on
+      // every other day too.
+      const FRIDAY = "5";
+      const templateDay = wDays.find(d => d !== FRIDAY) || wDays[0];
+      const templateIdx = wDays.indexOf(templateDay);
+      generateForDay(templateDay, templateIdx);
+      const templateSlotsByClass = {};
+      for (const slot of allSlots) {
+        if (slot.day_of_week !== templateDay) continue;
+        if (!templateSlotsByClass[slot.class_id]) templateSlotsByClass[slot.class_id] = [];
+        templateSlotsByClass[slot.class_id].push(slot);
+      }
+      for (const day of wDays) {
+        if (day === templateDay) continue;
+        if (day === FRIDAY) {
+          generateForDay(day, wDays.indexOf(day));
+          continue;
+        }
+        for (const classId of Object.keys(templateSlotsByClass)) {
+          for (const tSlot of templateSlotsByClass[classId]) {
+            allSlots.push({
+              class_id: tSlot.class_id,
+              subject_id: tSlot.subject_id,
+              teacher_id: tSlot.teacher_id,
+              day_of_week: day,
+              start_time: tSlot.start_time,
+              end_time: tSlot.end_time,
+            });
           }
         }
       }
       setResult(allSlots);
+      setMissedAssignments(missed);
     } catch (err) {
       setAIError("Generation failed: " + err.message);
     } finally { setLoading(false); }
@@ -1298,6 +1491,19 @@ function AITimetableGenerator({ onApply, applying, aiError, setAIError }) {
       </div>
 
       {aiError && <div className="alert alert-error">{aiError}</div>}
+      {missedAssignments.length > 0 && (
+        <div className="alert alert-error" style={{ fontSize: 12 }}>
+          <strong>{missedAssignments.length} subject-period(s) could not be scheduled</strong> - every
+          available teacher for these was already booked elsewhere at every remaining period that day.
+          This usually means a teacher is shared across more classes than there are periods to cover them.
+          <ul style={{ margin: "6px 0 0 18px", padding: 0 }}>
+            {missedAssignments.slice(0, 10).map((m, i) => (
+              <li key={i}>{m.class_name} - {m.subject_name} ({dayNames[m.day] || m.day})</li>
+            ))}
+            {missedAssignments.length > 10 && <li>...and {missedAssignments.length - 10} more.</li>}
+          </ul>
+        </div>
+      )}
 
       <div style={{ padding:"12px 0" }}>
         <div style={{ fontSize:13, color:"var(--color-text-secondary)", marginBottom:12 }}>
@@ -1371,7 +1577,7 @@ function AITimetableGenerator({ onApply, applying, aiError, setAIError }) {
                       {cls.name}{cls.section ? ` (${cls.section})` : ""}
                     </td>
                     {["1","2","3","4","5"].map(d => {
-                      const daySlots = cls.slots.filter(s => String(s.day_of_week) === d);
+                      const daySlots = cls.slots.filter(s => String(s.day_of_week) === d).sort((a, b) => (a.start_time || "").localeCompare(b.start_time || ""));
                       return (
                         <td key={d} style={{ padding:"3px 4px", verticalAlign:"top", border:"0.5px solid #f1f5f9" }}>
                           {daySlots.map((s, i) => {
@@ -1380,7 +1586,7 @@ function AITimetableGenerator({ onApply, applying, aiError, setAIError }) {
                             return (
                               <div key={i} style={{ background:"#ede9fe", borderLeft:"2px solid #7c3aed", borderRadius:3, padding:"2px 4px", marginBottom:2 }}>
                                 <div style={{ fontWeight:600, fontSize:10, color:"#5b21b6" }}>{subj?.name || "?"}</div>
-                                <div style={{ fontSize:9, color:"#7c3aed" }}>{s.start_time?.slice(0,5)}</div>
+                                <div style={{ fontSize:9, color:"#7c3aed" }}>{s.start_time?.slice(0,5)}-{s.end_time?.slice(0,5)}</div>
                                 <div style={{ fontSize:9, color:"#64748b" }}>{tchr?.name || "?"}</div>
                               </div>
                             );

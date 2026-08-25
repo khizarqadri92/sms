@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import procurementApi from "../api/procurementApi";
 import { useAutoOpenById } from "../hooks/useAutoOpenById";
+import { useProcessingToday } from "../hooks/useProcessingToday";
+import DatePicker from "../components/DatePicker";
 
 const statusBadge = (s) => ({
   draft:     { cls: "badge-warning",  label: "Draft" },
@@ -15,6 +17,7 @@ const conditionBadge = (c) => ({
 }[c] || { cls: "badge-gray", label: c });
 
 export default function GRN() {
+  const processingToday = useProcessingToday();
   const [grns, setGrns]             = useState([]);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState("");
@@ -29,6 +32,7 @@ export default function GRN() {
   const [selectedPO, setSelectedPO] = useState(null);
   const [poItems, setPOItems]       = useState([]);
   const [receivedDate, setRecDate]  = useState(new Date().toISOString().slice(0,10));
+  useEffect(() => { setRecDate(processingToday); }, [processingToday]);
   const [notes, setNotes]           = useState("");
   const [itemQtys, setItemQtys]     = useState({});
   const [itemConds, setItemConds]   = useState({});
@@ -53,7 +57,7 @@ export default function GRN() {
   const openCreate = () => {
     setShowCreate(true);
     setSelectedPO(null); setPOItems([]); setNotes(""); setItemQtys({}); setItemConds({}); setItemNotes({});
-    setRecDate(new Date().toISOString().slice(0,10));
+    setRecDate(processingToday);
     procurementApi.getPurchaseOrders({ status: "issued" })
       .then(r => setPOs(r.data.data || []))
       .catch(() => {});
@@ -252,7 +256,7 @@ export default function GRN() {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12, marginBottom: 16 }}>
                 <div>
                   <label style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, display: "block" }}>Received Date *</label>
-                  <input type="date" className="form-input" value={receivedDate} onChange={e => setRecDate(e.target.value)} />
+                  <DatePicker value={receivedDate} onChange={val => setRecDate(val)} />
                 </div>
                 <div>
                   <label style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, display: "block" }}>Notes</label>

@@ -1,7 +1,9 @@
-﻿import React, { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthContext";
 import usersApi from "../api/usersApi";
 import { useTheme, THEMES } from "../auth/ThemeContext";
+import { useProcessingToday } from "../hooks/useProcessingToday";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
 const ROLE_COLORS = {
   superadmin:           { bg:"#fef2f2", color:"#dc2626", border:"#fecaca" },
@@ -15,6 +17,7 @@ const ROLE_COLORS = {
 };
 
 export default function Profile() {
+  const { formatDate, formatDateTime } = useRegionalSettings();
   const { user, logout }      = useAuth();
   const { themeKey, theme, setTheme } = useTheme();
   const [studentProfile, setStudentProfile] = useState(null);
@@ -104,8 +107,8 @@ export default function Profile() {
               ["Phone",      profile.phone          || "N/A"],
               ["Verified",   profile.is_verified    ? "Yes" : "No"],
               ["Status",     profile.is_active      ? "Active" : "Inactive"],
-              ["Last Login", profile.last_login_at  ? new Date(profile.last_login_at).toLocaleString() : "Never"],
-              ["Member Since",profile.created_at    ? new Date(profile.created_at).toLocaleDateString("en-US") : "N/A"],
+              ["Last Login", profile.last_login_at  ? formatDateTime(profile.last_login_at) : "Never"],
+              ["Member Since",profile.created_at    ? formatDate(profile.created_at) : "N/A"],
             ].map(([label, value]) => (
               <div key={label} className="profile-detail">
                 <span className="profile-detail-label">{label}</span>
@@ -440,6 +443,7 @@ function ChangePassTab({ onSaved, onLogout }) {
 }
 
 function ActivityTab({ profile }) {
+  const { formatDateTime } = useRegionalSettings();
   return (
     <div>
       <div className="section-card" style={{ marginBottom:16 }}>
@@ -447,8 +451,8 @@ function ActivityTab({ profile }) {
           <span className="section-card-title">Account Activity</span>
         </div>
         {[
-          ["Account Created",  profile.created_at   ? new Date(profile.created_at).toLocaleString()   : "N/A"],
-          ["Last Login",       profile.last_login_at ? new Date(profile.last_login_at).toLocaleString(): "Never"],
+          ["Account Created",  profile.created_at   ? formatDateTime(profile.created_at)   : "N/A"],
+          ["Last Login",       profile.last_login_at ? formatDateTime(profile.last_login_at): "Never"],
           ["Account Status",   profile.is_active    ? "Active"   : "Inactive"],
           ["Email Verified",   profile.is_verified  ? "Verified" : "Not verified"],
           ["Assigned Roles",   (profile.roles || []).join(", ") || "None"],
@@ -545,6 +549,8 @@ function ThemeTab({ themeKey, setTheme }) {
 }
 
 function MyFeesTab({ userId, roles }) {
+  const { formatDate } = useRegionalSettings();
+  const processingToday = useProcessingToday();
   const [summary,     setSummary]     = useState(null);
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState("");
@@ -645,8 +651,8 @@ function MyFeesTab({ userId, roles }) {
                     <td>Rs. {Number(inv.amount).toLocaleString()}</td>
                     <td><strong>Rs. {Number(inv.net_amount).toLocaleString()}</strong></td>
                     <td style={{ color:"#16a34a" }}>Rs. {Number(inv.paid_amount || 0).toLocaleString()}</td>
-                    <td style={{ fontSize:12, color: inv.due_date && new Date(inv.due_date) < new Date() && inv.status !== "paid" ? "#dc2626" : "#64748b" }}>
-                      {inv.due_date ? new Date(inv.due_date).toLocaleDateString("en-US") : "N/A"}
+                    <td style={{ fontSize:12, color: inv.due_date && new Date(inv.due_date) < new Date(processingToday) && inv.status !== "paid" ? "#dc2626" : "#64748b" }}>
+                      {inv.due_date ? formatDate(inv.due_date) : "N/A"}
                     </td>
                     <td><span className={statusBadge(inv.status)} style={{ textTransform:"capitalize" }}>{inv.status}</span></td>
                     <td>

@@ -2,9 +2,11 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthContext";
 import quizzesApi from "../api/quizzesApi";
 import diaryApi from "../api/diaryApi";
+import { useProcessingNow } from "../hooks/useProcessingNow";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
 const now = () => new Date().toISOString().slice(0,16);
-const isExpired = (due) => new Date(due) < new Date();
+const isExpired = (due, nowValue) => new Date(due) < (nowValue || new Date());
 
 export default function Quizzes() {
   const { user } = useAuth();
@@ -17,6 +19,7 @@ export default function Quizzes() {
 
 /* ── Create Quiz Modal ────────────────────────────────────────── */
 function CreateQuizModal({ onClose, onCreated }) {
+  const processingNow = useProcessingNow();
   const [step,     setStep]     = useState(1); // 1=details, 2=questions
   const [form,     setForm]     = useState({ class_id:"", subject_id:"", title:"", description:"", due_date:"" });
   const [classes,  setClasses]  = useState([]);
@@ -101,7 +104,7 @@ function CreateQuizModal({ onClose, onCreated }) {
             </div>
             <div>
               <label style={{ display:"block", fontSize:12, fontWeight:600, color:"#64748b", marginBottom:6 }}>Due Date & Time *</label>
-              <input type="datetime-local" className="form-control" value={form.due_date} min={now()} onChange={e=>setForm({...form,due_date:e.target.value})} />
+              <input type="datetime-local" className="form-control" value={form.due_date} min={processingNow.toISOString().slice(0,16)} onChange={e=>setForm({...form,due_date:e.target.value})} />
             </div>
             <div style={{ display:"flex", justifyContent:"flex-end" }}>
               <button onClick={() => {
@@ -197,7 +200,9 @@ function CreateQuizModal({ onClose, onCreated }) {
 
 /* ── Quiz Card ────────────────────────────────────────────────── */
 function QuizCard({ q, onClick, onDelete, isTeacher }) {
-  const expired = isExpired(q.due_date);
+  const processingNow = useProcessingNow();
+  const { formatDateTime } = useRegionalSettings();
+  const expired = isExpired(q.due_date, processingNow);
   return (
     <div style={{ background:"#fff", border:"1px solid #e2e8f0", borderRadius:12, overflow:"hidden", cursor:"pointer" }}
       onClick={onClick}
@@ -234,7 +239,7 @@ function QuizCard({ q, onClick, onDelete, isTeacher }) {
               </span>
             )}
             <span style={{ fontSize:11, padding:"3px 10px", borderRadius:20, background:"#f8fafc", color:"#64748b", border:"1px solid #e2e8f0" }}>
-              📅 Due {new Date(q.due_date).toLocaleString("en-PK",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}
+              📅 Due {formatDateTime(q.due_date)}
             </span>
           </div>
         </div>
@@ -379,6 +384,7 @@ function TeacherQuizzes() {
 
 /* ── Quiz Results (teacher/principal) ─────────────────────────── */
 function QuizResults({ quiz, onBack, readOnly }) {
+  const { formatDateTime } = useRegionalSettings();
   const [data,    setData]    = useState({ submitted:[], not_submitted:[] });
   const [loading, setLoading] = useState(true);
 
@@ -442,7 +448,7 @@ function QuizResults({ quiz, onBack, readOnly }) {
                     </div>
                   </td>
                   <td style={{ padding:"10px 12px", color:"#94a3b8", fontSize:12 }}>
-                    {new Date(r.submitted_at).toLocaleString("en-PK",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}
+                    {formatDateTime(r.submitted_at)}
                   </td>
                 </tr>
               ))}
@@ -468,6 +474,7 @@ function QuizResults({ quiz, onBack, readOnly }) {
 
 /* ── Student View ─────────────────────────────────────────────── */
 function StudentQuizzes() {
+  const { formatDateTime } = useRegionalSettings();
   const [quizzes,  setQuizzes]  = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [selQuiz,  setSelQuiz]  = useState(null);
@@ -532,7 +539,7 @@ function StudentQuizzes() {
                   <span style={{ fontSize:11, padding:"3px 10px", borderRadius:20, background:"#f1f5f9", color:"#475569", border:"1px solid #e2e8f0" }}>{q.question_count} questions</span>
                   <span style={{ fontSize:11, padding:"3px 10px", borderRadius:20, background:"#eff6ff", color:"#2563eb", border:"1px solid #bfdbfe" }}>{q.total_marks} marks</span>
                   <span style={{ fontSize:11, padding:"3px 10px", borderRadius:20, background:"#f8fafc", color:"#64748b", border:"1px solid #e2e8f0" }}>
-                    Due: {new Date(q.due_date).toLocaleString("en-PK",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}
+                    Due: {formatDateTime(q.due_date)}
                   </span>
                 </div>
                 {q.my_submission ? (
@@ -540,7 +547,7 @@ function StudentQuizzes() {
                     <div>
                       <div style={{ fontWeight:700, color:"#16a34a", fontSize:14 }}>✓ Completed</div>
                       <div style={{ fontSize:12, color:"#64748b", marginTop:2 }}>
-                        Submitted: {new Date(q.my_submission.submitted_at).toLocaleString("en-PK",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}
+                        Submitted: {formatDateTime(q.my_submission.submitted_at)}
                       </div>
                     </div>
                     <div style={{ display:"flex", gap:12, alignItems:"center" }}>
@@ -885,6 +892,8 @@ function ParentQuizzes() {
 
 /* ── Parent Quiz Result ──────────────────────────────────────── */
 function ParentQuizResult({ quiz, studentId, onBack }) {
+  const processingNow = useProcessingNow();
+  const { formatDateTime } = useRegionalSettings();
   const [quizData, setQuizData] = useState(null);
   const [sub,      setSub]      = useState(null);
   const [loading,  setLoading]  = useState(true);
@@ -920,7 +929,7 @@ function ParentQuizResult({ quiz, studentId, onBack }) {
               <div style={{ fontSize:48, marginBottom:12 }}>⚠️</div>
               <div style={{ fontWeight:600, color:"#dc2626", fontSize:16 }}>Not Submitted</div>
               <div style={{ fontSize:13, color:"#64748b", marginTop:6 }}>
-                {isExpired(quiz.due_date) ? "Quiz expired without submission." : `Due: ${new Date(quiz.due_date).toLocaleString("en-PK")}`}
+                {isExpired(quiz.due_date, processingNow) ? "Quiz expired without submission." : `Due: ${formatDateTime(quiz.due_date)}`}
               </div>
             </div>
           ) : (
@@ -933,7 +942,7 @@ function ParentQuizResult({ quiz, studentId, onBack }) {
                 </div>
                 <div style={{ fontSize:18, fontWeight:700, color:"#7c3aed", marginTop:4 }}>{Math.round(sub.percentage)}%</div>
                 <div style={{ fontSize:12, color:"#64748b", marginTop:6 }}>
-                  Submitted: {new Date(sub.submitted_at).toLocaleString("en-PK",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})}
+                  Submitted: {formatDateTime(sub.submitted_at)}
                 </div>
               </div>
 
@@ -999,6 +1008,7 @@ function ParentQuizResult({ quiz, studentId, onBack }) {
 
 /* ── Principal View ───────────────────────────────────────────── */
 function PrincipalQuizzes() {
+  const { formatDateTime } = useRegionalSettings();
   const [classes,   setClasses]   = useState([]);
   const [selClass,  setSelClass]  = useState(null);
   const [quizzes,   setQuizzes]   = useState([]);
@@ -1077,7 +1087,7 @@ function PrincipalQuizzes() {
                       <div>
                         <div style={{ fontWeight:600, fontSize:13, color:"#1e3a5f" }}>{q.title}</div>
                         <div style={{ fontSize:11, color:"#64748b", marginTop:2 }}>
-                          {q.question_count}Q · {q.total_marks} marks · Due: {new Date(q.due_date).toLocaleString("en-PK",{day:"2-digit",month:"short",hour:"2-digit",minute:"2-digit"})} · {q.teacher_name}
+                          {q.question_count}Q · {q.total_marks} marks · Due: {formatDateTime(q.due_date)} · {q.teacher_name}
                         </div>
                       </div>
                       <div style={{ display:"flex", gap:8, alignItems:"center" }}>

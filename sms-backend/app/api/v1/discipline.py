@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from app.fastapi_auth import get_current_user_id, get_jwt_claims
 from app.fastapi_permissions import require_permission
 from app.fastapi_db import get_db, get_cur as _get_cur
+from app.utils.processing_date import get_processing_datetime
 
 router = APIRouter()
 
@@ -597,10 +598,10 @@ def submit_remarks(case_id: int, body: RemarksIn, user_id: int = Depends(require
     try:
         _wqr = get_cur(db)
         _wqr.execute("""UPDATE work_queue_items SET status='completed',
-            completed_by=%s, completed_at=NOW()
+            completed_by=%s, completed_at=%s
             WHERE module='discipline' AND entity_id=%s
             AND assigned_user_id=%s AND action_required='submit_remarks'""",
-            (user_id, case_id, user_id))
+            (user_id, get_processing_datetime(db), case_id, user_id))
         db.commit()
     except Exception as wqre:
         print("[remarks WQ complete]", wqre)
@@ -674,8 +675,8 @@ def forward_appeal(case_id: int, body: NoteIn, user_id: int = Depends(require_pe
                 cur2=get_cur(db)
                 if action=="reject":
                     cur2.execute("UPDATE discipline_cases SET status=(SELECT action_type FROM discipline_cases WHERE id=%s), appeal_outcome='rejected' WHERE id=%s AND status='appealed'", (case_id, case_id))
-                    cur2.execute("""UPDATE discipline_appeals SET outcome='rejected', response=%s, response_by=%s, response_at=NOW()
-                        WHERE case_id=%s""", (body.note or "Appeal rejected by coordinator.", user_id, case_id))
+                    cur2.execute("""UPDATE discipline_appeals SET outcome='rejected', response=%s, response_by=%s, response_at=%s
+                        WHERE case_id=%s""", (body.note or "Appeal rejected by coordinator.", user_id, get_processing_datetime(db), case_id))
                 db.commit()
                 return ok(message=msg)
         except Exception as e:
@@ -735,9 +736,9 @@ def respond_appeal(case_id: int, body: AppealRespondIn, user_id: int = Depends(r
         _ao = get_cur(db)
         outcome_val = "upheld" if body.outcome == "overturned" else "rejected"
         _ao.execute("UPDATE discipline_cases SET appeal_outcome=%s WHERE id=%s", (outcome_val, case_id))
-        _ao.execute("""UPDATE work_queue_items SET status='completed', completed_at=NOW(), completed_by=%s, entity_status=%s
+        _ao.execute("""UPDATE work_queue_items SET status='completed', completed_at=%s, completed_by=%s, entity_status=%s
             WHERE module='discipline' AND entity_id=%s AND action_required='view'""",
-            (user_id, outcome_val, case_id))
+            (get_processing_datetime(db), user_id, outcome_val, case_id))
         db.commit()
     except Exception as aoe:
         print("[appeal_outcome save]", aoe)

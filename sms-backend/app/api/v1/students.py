@@ -273,8 +273,9 @@ def student_attendance(
 
 @router.get("/{id}/attendance/summary")
 def attendance_summary(id: int, month: Optional[str] = Query(None), user_id: int = Depends(require_permission("attendance.view"))):
-    from datetime import date
-    month = month or date.today().strftime("%Y-%m-01")
+    from app.db.connection import get_db as _get_flask_db
+    from app.utils.processing_date import get_processing_date
+    month = month or get_processing_date(_get_flask_db()).strftime("%Y-%m-01")
     with _flask_app().app_context():
         from app.services.attendance_service import AttendanceService
         data = AttendanceService().get_monthly_summary(id, month)
@@ -283,25 +284,41 @@ def attendance_summary(id: int, month: Optional[str] = Query(None), user_id: int
 
 @router.get("/{id}/grades")
 def student_grades(id: int, user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
-    try:
-        with _flask_app().app_context():
-            from app.repositories.grade_repository import GradeRepository
-            data = GradeRepository().find_by_student(id)
-        return ok(data=data)
-    except Exception as e:
-        print("[grades error]", e)
-        # Fallback: query results directly
-        cur = get_cur(db)
-        cur.execute("""
-            SELECT sr.id, sub.name AS subject, e.title AS exam, sr.marks_obtained, sr.total_marks,
-                   sr.grade, e.exam_date AS date
-            FROM student_results sr
-            JOIN exams e ON e.id=sr.exam_id
-            JOIN subjects sub ON sub.id=e.subject_id
-            WHERE sr.student_id=%s ORDER BY e.exam_date DESC LIMIT 50
-        """, (id,))
-        rows = [dict(r) for r in cur.fetchall()]
-        return ok(data=rows)
+    """Returns exam summary rows (from exam_results) plus per-subject detail
+    (from exam_marks), tagged with exam_id so the frontend can expand a
+    summary row into its subject rows without a second round-trip."""
+    cur = get_cur(db)
+    cur.execute("""
+        SELECT er.exam_id, e.name AS exam_name, e.start_date,
+               er.total_marks, er.marks_obtained, er.percentage,
+               er.grade AS grade_letter, er.gpa, er.class_position, er.is_pass
+        FROM exam_results er
+        JOIN exams e ON e.id = er.exam_id
+        WHERE er.student_id = %s AND e.status = 'published'
+        ORDER BY e.start_date DESC
+    """, (id,))
+    exams = [dict(r) for r in cur.fetchall()]
+
+    cur.execute("""
+        SELECT em.id, em.exam_id, s.name AS subject_name, em.marks_obtained AS marks,
+               es.total_marks, em.is_absent,
+               ROUND((em.marks_obtained / NULLIF(es.total_marks,0) * 100), 2) AS percentage,
+               gs.grade AS grade_letter,
+               CASE WHEN em.is_absent THEN 'absent'
+                    WHEN em.marks_obtained >= es.passing_marks THEN 'pass'
+                    ELSE 'fail' END AS result
+        FROM exam_marks em
+        JOIN exam_subjects es ON es.id = em.exam_subject_id
+        JOIN exams e ON e.id = em.exam_id
+        JOIN subjects s ON s.id = em.subject_id
+        LEFT JOIN grading_scales gs ON gs.is_active = TRUE
+            AND ROUND((em.marks_obtained / NULLIF(es.total_marks,0) * 100), 2) BETWEEN gs.min_pct AND gs.max_pct
+        WHERE em.student_id = %s AND e.status = 'published'
+        ORDER BY s.name
+    """, (id,))
+    subjects = [dict(r) for r in cur.fetchall()]
+
+    return ok(data={"exams": exams, "subjects": subjects})
 
 
 @router.get("/{id}/siblings")

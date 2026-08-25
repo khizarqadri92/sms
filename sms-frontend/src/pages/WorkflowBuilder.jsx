@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import workflowApi from "../api/workflowApi";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
 const STEP_TYPES     = ["approve","accept","recommend","review","verify","clear","payment","finalize_settlement","finalize_exit","notify","publish","conduct","decide","hearing","assign_committee"];
 const ENTITY_STEP_TYPES = {
@@ -135,6 +136,7 @@ const EMPTY_STEP = {
 };
 
 export default function WorkflowBuilder() {
+  const { formatDate } = useRegionalSettings();
   const [workflows, setWorkflows]     = useState([]);
   const [roles, setRoles]             = useState([]);
   const [designations, setDesignations] = useState([]);
@@ -620,7 +622,7 @@ export default function WorkflowBuilder() {
                     <td style={{padding:"10px 14px",fontSize:13}}>#{inst.entity_id} <span style={{fontSize:11,color:"var(--color-text-secondary)"}}>{inst.entity_type}</span></td>
                     <td style={{padding:"10px 14px"}}><span className={`badge ${inst.status==="active"?"badge-warning":inst.status==="completed"?"badge-success":"badge-danger"}`}>{inst.status}</span></td>
                     <td style={{padding:"10px 14px",fontSize:13}}>Step {inst.current_step_order}/{inst.total_steps}{inst.pending_steps>0&&<span style={{marginLeft:6,fontSize:11,color:"#f59e0b"}}>({inst.pending_steps} pending)</span>}</td>
-                    <td style={{padding:"10px 14px",fontSize:12,color:"var(--color-text-secondary)"}}>{inst.created_at?new Date(inst.created_at).toLocaleDateString():"—"}</td>
+                    <td style={{padding:"10px 14px",fontSize:12,color:"var(--color-text-secondary)"}}>{inst.created_at?formatDate(inst.created_at):"—"}</td>
                   </tr>
                 ))}
               </tbody>

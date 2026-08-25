@@ -2,6 +2,9 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthContext";
 import diaryApi from "../api/diaryApi";
 import academicsApi from "../api/academicsApi";
+import { useProcessingToday } from "../hooks/useProcessingToday";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
+import DatePicker from "../components/DatePicker";
 
 const today = () => new Date().toISOString().split("T")[0];
 
@@ -16,8 +19,11 @@ export default function Diary() {
 
 /* ── Principal View: all classes publish status + remind ──────── */
 function PrincipalDiary() {
+  const processingToday = useProcessingToday();
+  const { formatTime } = useRegionalSettings();
   const [classes,   setClasses]   = useState([]);
   const [selDate,   setSelDate]   = useState(today());
+  useEffect(() => { setSelDate(processingToday); }, [processingToday]);
   const [loading,   setLoading]   = useState(false);
   const [reminding, setReminding] = useState({});
   const [msg,       setMsg]       = useState("");
@@ -48,7 +54,7 @@ function PrincipalDiary() {
     <div>
       <div className="page-header">
         <h1 className="page-heading">Daily Diary — Publish Status</h1>
-        <input type="date" className="form-control" style={{ maxWidth:180 }} value={selDate} onChange={e => setSelDate(e.target.value)} />
+        <DatePicker style={{ maxWidth:180 }} value={selDate} onChange={val => setSelDate(val)} />
       </div>
 
       {msg && <div style={{ background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:8, padding:"10px 14px", marginBottom:12, fontSize:13, color:"#16a34a" }}>{msg}</div>}
@@ -104,7 +110,7 @@ function PrincipalDiary() {
                     </div>
                   </div>
                   <span style={{ fontSize:11, color:"#16a34a", fontWeight:600 }}>
-                    {cls.published_at ? new Date(cls.published_at).toLocaleTimeString("en-PK",{hour:"2-digit",minute:"2-digit"}) : ""}
+                    {cls.published_at ? formatTime(cls.published_at) : ""}
                   </span>
                 </div>
               ))}
@@ -118,8 +124,10 @@ function PrincipalDiary() {
 
 /* ── Teacher / Incharge View ─────────────────────────────────── */
 function TeacherDiary({ role }) {
+  const processingToday = useProcessingToday();
   const [classes,   setClasses]   = useState([]);
   const [selDate,   setSelDate]   = useState(today());
+  useEffect(() => { setSelDate(processingToday); }, [processingToday]);
   const [activeTab, setActiveTab] = useState("incharge"); // "incharge" | "mysubjects"
 
   useEffect(() => {
@@ -136,7 +144,7 @@ function TeacherDiary({ role }) {
     <div>
       <div className="page-header">
         <h1 className="page-heading">Daily Diary</h1>
-        <input type="date" className="form-control" style={{ maxWidth:180 }} value={selDate} onChange={e => setSelDate(e.target.value)} />
+        <DatePicker style={{ maxWidth:180 }} value={selDate} onChange={val => setSelDate(val)} />
       </div>
 
       {/* Tab switcher */}
@@ -422,9 +430,11 @@ function MySubjectsSection({ classes, date }) {
 
 /* ── Student View ─────────────────────────────────────────────── */
 function StudentDiary() {
+  const processingToday = useProcessingToday();
   const [entries,   setEntries]   = useState([]);
   const [published, setPublished] = useState(false);
   const [selDate,   setSelDate]   = useState(today());
+  useEffect(() => { setSelDate(processingToday); }, [processingToday]);
   const [selSubj,   setSelSubj]   = useState(null);
   const [loading,   setLoading]   = useState(false);
   const [classInfo, setClassInfo] = useState(null);
@@ -451,7 +461,7 @@ function StudentDiary() {
     <div>
       <div className="page-header">
         <h1 className="page-heading">Daily Diary</h1>
-        <input type="date" className="form-control" style={{ maxWidth:180 }} value={selDate} onChange={e => setSelDate(e.target.value)} />
+        <DatePicker style={{ maxWidth:180 }} value={selDate} onChange={val => setSelDate(val)} />
       </div>
       {classInfo?.name && <div style={{ fontSize:13, color:"var(--color-text-secondary)", marginBottom:12 }}>
         Class: {classInfo.name}{classInfo.section ? " ("+classInfo.section+")" : ""}
@@ -470,11 +480,13 @@ function StudentDiary() {
 
 /* ── Parent View ──────────────────────────────────────────────── */
 function ParentDiary() {
+  const processingToday = useProcessingToday();
   const [children,  setChildren]  = useState([]);
   const [selChild,  setSelChild]  = useState("");
   const [entries,   setEntries]   = useState([]);
   const [published, setPublished] = useState(false);
   const [selDate,   setSelDate]   = useState(today());
+  useEffect(() => { setSelDate(processingToday); }, [processingToday]);
   const [selSubj,   setSelSubj]   = useState(null);
   const [loading,   setLoading]   = useState(false);
 
@@ -519,7 +531,7 @@ function ParentDiary() {
           <select className="form-control" style={{ maxWidth:180 }} value={selChild} onChange={e => setSelChild(e.target.value)}>
             {children.filter(c => c.status !== "withdrawn").map(c => <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>)}
           </select>
-          <input type="date" className="form-control" style={{ maxWidth:160 }} value={selDate} onChange={e => setSelDate(e.target.value)} />
+          <DatePicker style={{ maxWidth:160 }} value={selDate} onChange={val => setSelDate(val)} />
         </div>
       </div>
 

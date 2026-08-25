@@ -10,6 +10,9 @@ const settingsApi = {
   saveByCategory:   (cat, data) => client.post(`/settings/category/${cat}`, data),
   getFeeSettings:   ()       => client.get("/settings/fee"),
   updateFeeSettings:(data)   => client.put("/settings/fee", data),
+  getTimingOverrides:   ()       => client.get("/settings/school-timing/overrides"),
+  saveTimingOverride:   (data)   => client.put("/settings/school-timing/overrides", data),
+  deleteTimingOverride: (id)     => client.delete(`/settings/school-timing/overrides/${id}`),
 };
 
 export default settingsApi;

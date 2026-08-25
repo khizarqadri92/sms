@@ -3,6 +3,9 @@ import { useAuth } from "../auth/AuthContext";
 import financeApi  from "../api/financeApi";
 import studentsApi from "../api/studentsApi";
 import academicsApi from "../api/academicsApi";
+import DatePicker from "../components/DatePicker";
+import { useProcessingToday } from "../hooks/useProcessingToday";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 import discountsApi from "../api/discountsApi";
 
 // eslint-disable-next-line
@@ -57,6 +60,7 @@ export default function Finance() {
 
 /* â”€â”€ Dashboard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function FeeAutomationTab() {
+  const processingToday = useProcessingToday();
   const [settings, setSettings] = useState(null);
   const [enabled,  setEnabled]  = useState(false);
   const [day,      setDay]      = useState(1);
@@ -68,6 +72,7 @@ function FeeAutomationTab() {
   const [testMsg,  setTestMsg]  = useState("");
 
   const [manualMonth, setManualMonth] = useState(() => new Date().toISOString().slice(0,7));
+  useEffect(() => { setManualMonth(processingToday.slice(0,7)); }, [processingToday]);
   const [generating,  setGenerating]  = useState(false);
   const [genMsg,      setGenMsg]      = useState("");
 
@@ -219,11 +224,12 @@ function FeeAutomationTab() {
 }
 
 function DashboardTab() {
+  const processingToday = useProcessingToday();
   const [generating, setGenerating] = React.useState(false);
   const [genMsg,     setGenMsg]     = React.useState("");
 
   const handleGenerateMonthly = async () => {
-    const month = new Date().toLocaleString("en-US", { month:"long", year:"numeric" });
+    const month = new Date(processingToday).toLocaleString("en-US", { month:"long", year:"numeric" });
     if (!window.confirm("Generate monthly invoices for " + month + "? Duplicates will be skipped.")) return;
     setGenerating(true);
     try {
@@ -248,7 +254,7 @@ function DashboardTab() {
   if (loading) return <div className="loading-state">Loading finance dashboard...</div>;
   if (!stats)  return <div className="empty-state">No data available.</div>;
 
-  const monthName = new Date().toLocaleString("en-US", { month:"long", year:"numeric" });
+  const monthName = new Date(processingToday).toLocaleString("en-US", { month:"long", year:"numeric" });
   const collected_pct = stats.total_billed > 0
     ? Math.round((stats.total_collected / stats.total_billed) * 100)
     : 0;
@@ -501,6 +507,8 @@ function StructuresTab() {
 
 /* â”€â”€ Invoices â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function InvoicesTab() {
+  const processingToday = useProcessingToday();
+  const { formatDate } = useRegionalSettings();
   const { can } = useAuth();
   const [invoices,    setInvoices]    = useState([]);
   const [structures,  setStructures]  = useState([]);
@@ -676,7 +684,7 @@ function InvoicesTab() {
               </div>
               <div className="form-group">
                 <label className="form-label">Due Date *</label>
-                <input className="form-control" type="date" value={bulkForm.due_date} onChange={e => setBulkForm({...bulkForm, due_date:e.target.value})} required />
+                <DatePicker value={bulkForm.due_date} onChange={val => setBulkForm({...bulkForm, due_date:val})} />
               </div>
             </div>
             <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
@@ -721,7 +729,7 @@ function InvoicesTab() {
               </div>
               <div className="form-group">
                 <label className="form-label">Due Date</label>
-                <input className="form-control" type="date" value={form.due_date} onChange={e => setForm({...form, due_date:e.target.value})} />
+                <DatePicker value={form.due_date} onChange={val => setForm({...form, due_date:val})} />
               </div>
               <div className="form-group">
                 <label className="form-label">Discount (Rs.)</label>
@@ -772,8 +780,8 @@ function InvoicesTab() {
                   <td>Rs. {Number(inv.amount).toLocaleString()}</td>
                   <td><strong style={{ color:"#0f172a" }}>Rs. {Number(inv.net_amount).toLocaleString()}</strong></td>
                   <td style={{ color:"#16a34a", fontWeight:600 }}>Rs. {Number(inv.paid_amount || 0).toLocaleString()}</td>
-                  <td style={{ fontSize:12, color: inv.due_date && new Date(inv.due_date) < new Date() && inv.status !== "paid" ? "#dc2626" : "#64748b" }}>
-                    {inv.due_date ? new Date(inv.due_date).toLocaleDateString("en-US") : "N/A"}
+                  <td style={{ fontSize:12, color: inv.due_date && new Date(inv.due_date) < new Date(processingToday) && inv.status !== "paid" ? "#dc2626" : "#64748b" }}>
+                    {inv.due_date ? formatDate(inv.due_date) : "N/A"}
                   </td>
                   <td><span className={statusBadge(inv.status)} style={{ textTransform:"capitalize" }}>{inv.status}</span></td>
                   <td>
@@ -908,6 +916,7 @@ function ReceiptModal({ receiptSrc, onClose }) {
 }
 
 function InvoiceSettlementModal({ invoiceId, onClose }) {
+  const { formatDate } = useRegionalSettings();
   const [data,    setData]    = useState(null);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState("");
@@ -1002,7 +1011,7 @@ function InvoiceSettlementModal({ invoiceId, onClose }) {
                         <td style={{ padding:"8px", fontWeight:600 }}>Rs. {Number(p.amount_paid).toLocaleString()}</td>
                         <td style={{ padding:"8px", textTransform:"capitalize" }}>{p.method?.replace("_"," ")}</td>
                         <td style={{ padding:"8px" }}>{p.reference || "N/A"}</td>
-                        <td style={{ padding:"8px" }}>{new Date(p.paid_at).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</td>
+                        <td style={{ padding:"8px" }}>{formatDate(p.paid_at)}</td>
                         <td style={{ padding:"8px" }}>{p.is_verified ? <span className="badge badge-success">Verified</span> : <span className="badge badge-warning">Pending</span>}</td>
                       </tr>
                     ))}
@@ -1018,6 +1027,7 @@ function InvoiceSettlementModal({ invoiceId, onClose }) {
 }
 
 function PaymentsTab() {
+  const { formatDateTime } = useRegionalSettings();
   const [payments, setPayments] = useState([]);
   const [classes,  setClasses]  = useState([]);
   const [loading,  setLoading]  = useState(true);
@@ -1103,11 +1113,11 @@ function PaymentsTab() {
               </div>
               <div className="form-group">
                 <label className="form-label">From Date</label>
-                <input className="form-control" type="date" value={filters.from_date} onChange={e => setFilters({...filters, from_date:e.target.value})} />
+                <DatePicker value={filters.from_date} onChange={val => setFilters({...filters, from_date:val})} />
               </div>
               <div className="form-group">
                 <label className="form-label">To Date</label>
-                <input className="form-control" type="date" value={filters.to_date} onChange={e => setFilters({...filters, to_date:e.target.value})} />
+                <DatePicker value={filters.to_date} onChange={val => setFilters({...filters, to_date:val})} />
               </div>
             </div>
             <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
@@ -1165,7 +1175,7 @@ function PaymentsTab() {
                   ) : <span style={{ fontSize:11, color:"#94a3b8" }}>None</span>}
                 </td>
                 <td><span className={`badge ${p.invoice_status === "paid" ? "badge-success" : "badge-warning"}`} style={{ textTransform:"capitalize" }}>{p.invoice_status}</span></td>
-                <td style={{ fontSize:12, color:"#64748b" }}>{new Date(p.paid_at).toLocaleString("en-US", { month:"short", day:"numeric", year:"numeric", hour:"2-digit", minute:"2-digit" })}</td>
+                <td style={{ fontSize:12, color:"#64748b" }}>{formatDateTime(p.paid_at)}</td>
                 <td>
                   {p.receipt_image && !p.is_verified && (
                     <button className="btn btn-primary btn-xs" onClick={() => handleVerify(p.id)}>Verify</button>
@@ -1192,6 +1202,7 @@ function PaymentsTab() {
 
 
 function LockedAccountsTab() {
+  const { formatDate, formatDateTime } = useRegionalSettings();
   const { can } = useAuth();
   const [rows,    setRows]    = useState([]);
   const [classes, setClasses] = useState([]);
@@ -1224,7 +1235,7 @@ function LockedAccountsTab() {
     fetchRows(empty);
   };
 
-  const fmtLockedDate = d => d ? new Date(d).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "-";
+  const fmtLockedDate = d => d ? formatDate(d) : "-";
 
   const handleUnlock = async (studentId) => {
     if (!window.confirm("Unlock this student's account?")) return;
@@ -1272,11 +1283,11 @@ function LockedAccountsTab() {
               </div>
               <div className="form-group">
                 <label className="form-label">Due Date From</label>
-                <input className="form-control" type="date" value={filters.from_date} onChange={e => setFilters({...filters, from_date:e.target.value})} />
+                <DatePicker value={filters.from_date} onChange={val => setFilters({...filters, from_date:val})} />
               </div>
               <div className="form-group">
                 <label className="form-label">Due Date To</label>
-                <input className="form-control" type="date" value={filters.to_date} onChange={e => setFilters({...filters, to_date:e.target.value})} />
+                <DatePicker value={filters.to_date} onChange={val => setFilters({...filters, to_date:val})} />
               </div>
             </div>
             <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
@@ -1678,6 +1689,7 @@ function ChargeTypesTab() {
 }
 
 function ChargeSettlementTab() {
+  const { formatDate } = useRegionalSettings();
   const [regNo,   setRegNo]   = useState("");
   const [receipt, setReceipt] = useState("");
   const [rows,    setRows]    = useState([]);
@@ -1686,7 +1698,7 @@ function ChargeSettlementTab() {
   const [error,   setError]   = useState("");
   const [waivingId, setWaivingId] = useState(null);
 
-  const fmtDate = d => d ? new Date(d).toLocaleDateString("en-US", { year:"numeric", month:"short", day:"numeric" }) : "-";
+  const fmtDate = d => d ? formatDate(d) : "-";
 
   const handleSearch = () => {
     if (!regNo && !receipt) { setError("Enter a registration number or receipt number."); return; }
@@ -2052,7 +2064,8 @@ function ChargesTab() {
 }
 
 function SmartMonthlyForm({ onGenerated, onClose }) {
-  const now     = new Date();
+  const processingToday = useProcessingToday();
+  const now     = new Date(processingToday);
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year,  setYear]  = useState(now.getFullYear());
   const [dueDay,setDueDay]= useState(10);

@@ -2,6 +2,7 @@ import atexit
 from datetime import datetime
 from apscheduler.schedulers.background import BackgroundScheduler
 from app.db import connection as flask_db_module
+from app.utils.processing_date import get_processing_datetime
 
 
 def advance_processing_date_job():
@@ -73,9 +74,9 @@ def deactivate_expired_resignations_job():
             if user_id:
                 cur.execute("""
                     UPDATE users SET is_active=FALSE, deactivation_reason=\'resigned\',
-                        deactivation_comment=%s, deactivated_at=NOW()
+                        deactivation_comment=%s, deactivated_at=%s
                     WHERE id=%s
-                """, (f"Automatically deactivated - resignation last working day ({last_day}) has passed.", user_id))
+                """, (f"Automatically deactivated - resignation last working day ({last_day}) has passed.", get_processing_datetime(db), user_id))
 
             # If this person is a teacher, remove their class incharge / subject
             # teacher assignments and notify academic coordinators about the gap.
@@ -102,8 +103,8 @@ def deactivate_expired_resignations_job():
                     for (coord_id,) in cur.fetchall():
                         cur.execute("""
                             INSERT INTO notifications (user_id, title, body, type, created_at)
-                            VALUES (%s, %s, %s, %s, NOW())
-                        """, (coord_id, "Teacher Resigned - Class Coverage Needed", body, "warning"))
+                            VALUES (%s, %s, %s, %s, %s)
+                        """, (coord_id, "Teacher Resigned - Class Coverage Needed", body, "warning", get_processing_datetime(db)))
                     cur.execute("DELETE FROM class_teachers WHERE teacher_id=%s", (teacher_pk,))
         if expired:
             db.commit()

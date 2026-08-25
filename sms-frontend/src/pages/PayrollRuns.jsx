@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import payrollApi from "../api/payrollApi";
 import { useAuth } from "../auth/AuthContext";
+import { useProcessingToday } from "../hooks/useProcessingToday";
+import DatePicker from "../components/DatePicker";
 
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
@@ -18,13 +20,19 @@ const STATUS_LABELS = {
 
 export default function PayrollRuns() {
   const { can } = useAuth();
-  const now = new Date();
+  const processingToday = useProcessingToday();
+  const now = new Date(processingToday);
   const [runs, setRuns] = useState([]);
   const [loading, setLoading] = useState(true);
   const [flash, setFlash] = useState(null);
 
   const [newMonth, setNewMonth] = useState(now.getMonth() + 1);
   const [newYear, setNewYear] = useState(now.getFullYear());
+  useEffect(() => {
+    const d = new Date(processingToday);
+    setNewMonth(d.getMonth() + 1);
+    setNewYear(d.getFullYear());
+  }, [processingToday]);
   const [creating, setCreating] = useState(false);
 
   const defaultRange = (month, year) => {
@@ -230,11 +238,11 @@ export default function PayrollRuns() {
           </div>
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>From</label>
-            <input type="date" className="form-input" style={{ fontSize: 13, width: 150 }} value={newFromDate} onChange={e => setNewFromDate(e.target.value)} />
+            <DatePicker style={{ fontSize: 13, width: 150 }} value={newFromDate} onChange={val => setNewFromDate(val)} />
           </div>
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>To</label>
-            <input type="date" className="form-input" style={{ fontSize: 13, width: 150 }} value={newToDate} onChange={e => setNewToDate(e.target.value)} />
+            <DatePicker style={{ fontSize: 13, width: 150 }} value={newToDate} onChange={val => setNewToDate(val)} />
           </div>
           <button className="btn btn-primary btn-sm" style={{ color: "#fff" }} disabled={creating} onClick={createRun}>
             {creating ? "Starting..." : "Start Payroll Process"}

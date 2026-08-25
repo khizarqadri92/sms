@@ -100,6 +100,8 @@ import Stock from "./pages/Stock";
 import VendorInvoices from "./pages/VendorInvoices";
 import LeaveApproval from "./pages/LeaveApproval";
 import LeaveSetup    from "./pages/LeaveSetup";
+import AcademicSetup from "./pages/AcademicSetup";
+import TeacherAssignment from "./pages/TeacherAssignment";
 import Notifications     from "./pages/Notifications";
 import Assignments       from "./pages/Assignments";
 import Quizzes           from "./pages/Quizzes";
@@ -316,6 +318,8 @@ export default function App() {
           <Route path="/procurement"    element={<PrivateRoute><RoleLayout><ProcurementDashboard /></RoleLayout></PrivateRoute>} />
           <Route path="/leave-approval" element={<PrivateRoute><RoleLayout><LeaveApproval /></RoleLayout></PrivateRoute>} />
           <Route path="/leave-setup"    element={<PrivateRoute><RoleLayout><LeaveSetup /></RoleLayout></PrivateRoute>} />
+          <Route path="/academic-setup" element={<PrivateRoute><RoleLayout><AcademicSetup /></RoleLayout></PrivateRoute>} />
+          <Route path="/teacher-assignment" element={<PrivateRoute><RoleLayout><TeacherAssignment /></RoleLayout></PrivateRoute>} />
           <Route path="/notifications" element={
             <PrivateRoute>
               <RoleLayout><Notifications /></RoleLayout>

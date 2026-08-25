@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { leavesApi } from "../api/leavesApi";
 import { useAuth } from "../auth/AuthContext";
+import { useProcessingToday } from "../hooks/useProcessingToday";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
+import DatePicker from "../components/DatePicker";
 
 const STATUS_COLORS = {
   pending:     { bg: "#fef9c3", color: "#854d0e" },
@@ -9,9 +12,12 @@ const STATUS_COLORS = {
   rejected:    { bg: "#fee2e2", color: "#991b1b" },
 };
 
-const fmtDate = (d) => { if (!d) return ''; const s = String(d); if (s.includes(' ')) { const parts = s.split(' '); return parts[1] + ' ' + parts[2] + ' ' + parts[3]; } return new Date(d).toLocaleDateString('en-GB', { day:'2-digit', month:'short', year:'numeric' }); };
+
 
 export default function Leaves() {
+  const processingToday = useProcessingToday();
+  const { formatDate, formatDateTime } = useRegionalSettings();
+  const fmtDate = (d) => d ? formatDate(d) : "";
   const { user, can } = useAuth();
   const canApply = can("leave.apply");
   const role = user?.roles?.[0] || "";
@@ -131,7 +137,7 @@ export default function Leaves() {
     finally { setLoading(false); }
   };
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = processingToday;
 
   if (pageLoading) return <div className="loading-state">Loading...</div>;
 
@@ -221,7 +227,7 @@ export default function Leaves() {
                     <td style={{ padding: "12px 14px", color: "var(--color-text-secondary)" }}>{fmtDate(lr.to_date)}</td>
                     <td style={{ padding: "12px 14px" }}>{lr.total_days}</td>
                     <td style={{ padding: "12px 14px", color: "var(--color-text-secondary)", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{lr.reason}</td>
-                    <td style={{ padding: "12px 14px", color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>{new Date(lr.applied_at).toLocaleDateString()}</td>
+                    <td style={{ padding: "12px 14px", color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>{formatDate(lr.applied_at)}</td>
                     <td style={{ padding: "12px 14px" }}>
                       <span style={{
                         display: "inline-block", padding: "3px 12px", borderRadius: 20,
@@ -329,14 +335,14 @@ export default function Leaves() {
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
                 <div className="form-group">
                   <label className="form-label">From Date *</label>
-                  <input className="form-control" type="date" value={form.from_date} min={today}
-                    onChange={e => setForm(f => ({ ...f, from_date: e.target.value }))} />
+                  <DatePicker value={form.from_date} min={today}
+                    onChange={val => setForm(f => ({ ...f, from_date: val }))} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">To Date *</label>
-                  <input className="form-control" type="date" value={form.to_date}
+                  <DatePicker value={form.to_date}
                     min={form.from_date || today}
-                    onChange={e => setForm(f => ({ ...f, to_date: e.target.value }))} />
+                    onChange={val => setForm(f => ({ ...f, to_date: val }))} />
                 </div>
               </div>
 
@@ -401,7 +407,7 @@ export default function Leaves() {
                 { label: "To",          value: fmtDate(detail.to_date) },
                 { label: "Total Days",  value: detail.total_days + " day" + (detail.total_days !== 1 ? "s" : "") },
                 { label: "Reason",      value: detail.reason },
-                { label: "Applied On",  value: new Date(detail.applied_at).toLocaleString() },
+                { label: "Applied On",  value: formatDateTime(detail.applied_at) },
                 detail.recommender_name && { label: "Recommended By", value: detail.recommender_name + (detail.recommender_note ? " - " + detail.recommender_note : "") },
                 detail.approver_name    && { label: "Actioned By",    value: detail.approver_name },
                 detail.approver_note    && { label: "Approver Note",  value: detail.approver_note },

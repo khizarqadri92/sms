@@ -14,6 +14,7 @@ from pydantic import BaseModel
 from app.fastapi_auth import get_current_user_id, get_jwt_claims
 from app.fastapi_permissions import require_permission
 from app.fastapi_db import get_db, get_cur as _get_cur
+from app.utils.processing_date import get_processing_datetime
 
 router = APIRouter()
 
@@ -222,8 +223,8 @@ def update_formula(body: FormulaIn, user_id: int = Depends(require_permission("e
     cur.execute("SELECT id FROM academic_years WHERE is_active=TRUE LIMIT 1")
     ay = cur.fetchone()
     if not ay: fail("No active academic year", 404)
-    cur.execute("UPDATE result_formula SET formula=%s,total_weight=%s,is_configured=%s,formula_mode=%s,updated_by=%s,updated_at=NOW() WHERE academic_year_id=%s",
-                (json.dumps(formula), total, is_configured, formula_mode, user_id, ay["id"]))
+    cur.execute("UPDATE result_formula SET formula=%s,total_weight=%s,is_configured=%s,formula_mode=%s,updated_by=%s,updated_at=%s WHERE academic_year_id=%s",
+                (json.dumps(formula), total, is_configured, formula_mode, user_id, get_processing_datetime(db), ay["id"]))
     db.commit()
     return ok(message="Formula saved.")
 
@@ -312,7 +313,7 @@ def update_exam_config(body: ExamConfigIn, user_id: int = Depends(require_permis
     ay = cur.fetchone()
     if not ay: fail("No active academic year", 404)
     cur.execute("""UPDATE exam_config SET passing_pct=%s,max_fail_subjects=%s,allow_compartment=%s,
-        compartment_min_pct=%s,position_formula=%s,grading_mode=%s,updated_at=NOW(),updated_by=%s
+        compartment_min_pct=%s,position_formula=%s,grading_mode=%s,updated_at=%s,updated_by=%s
         WHERE academic_year_id=%s""",
         (body.passing_pct or 40, body.max_fail_subjects or 2,
          body.allow_compartment if body.allow_compartment is not None else True,
@@ -685,8 +686,8 @@ def save_marks(exam_id: int, body: MarksEntryIn, user_id: int = Depends(require_
 def submit_subject_marks(exam_id: int, body: SubmitMarksIn, user_id: int = Depends(require_permission("exam.marks")), db=Depends(get_db)):
     if not body.class_id or not body.subject_id: fail("class_id and subject_id required", 400)
     cur = get_cur(db)
-    cur.execute("UPDATE exam_subjects SET marks_submitted=TRUE, submitted_at=NOW(), submitted_by=%s WHERE exam_id=%s AND class_id=%s AND subject_id=%s",
-                (user_id, exam_id, body.class_id, body.subject_id))
+    cur.execute("UPDATE exam_subjects SET marks_submitted=TRUE, submitted_at=%s, submitted_by=%s WHERE exam_id=%s AND class_id=%s AND subject_id=%s",
+                (get_processing_datetime(db), user_id, exam_id, body.class_id, body.subject_id))
     db.commit()
 
     try:
@@ -793,14 +794,15 @@ def compile_results(exam_id: int, body: CompileIn, user_id: int = Depends(requir
 
     results.sort(key=lambda x: x["obtained"], reverse=True)
     for i, r in enumerate(results):
+        _compiled_at = get_processing_datetime(db)
         cur.execute("""
             INSERT INTO exam_results(exam_id,student_id,class_id,total_marks,marks_obtained,percentage,grade,gpa,class_position,is_pass,compiled_at)
-            VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,NOW())
+            VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
             ON CONFLICT(exam_id,student_id) DO UPDATE SET
-                total_marks=%s,marks_obtained=%s,percentage=%s,grade=%s,gpa=%s,class_position=%s,is_pass=%s,compiled_at=NOW()
+                total_marks=%s,marks_obtained=%s,percentage=%s,grade=%s,gpa=%s,class_position=%s,is_pass=%s,compiled_at=%s
         """, (exam_id, r["student_id"], class_id, total_possible, r["obtained"], r["pct"], r["grade"], r["gpa"],
-              i + 1, r["pct"] >= 40,
-              total_possible, r["obtained"], r["pct"], r["grade"], r["gpa"], i + 1, r["pct"] >= 40))
+              i + 1, r["pct"] >= 40, _compiled_at,
+              total_possible, r["obtained"], r["pct"], r["grade"], r["gpa"], i + 1, r["pct"] >= 40, _compiled_at))
 
     cur.execute("""SELECT COUNT(DISTINCT ec.class_id) as total, COUNT(DISTINCT er.class_id) as compiled
         FROM exam_classes ec LEFT JOIN exam_results er ON er.exam_id=%s AND er.class_id=ec.class_id
@@ -1196,7 +1198,7 @@ def get_result_card_pdf(exam_id: int, student_id: int, user_id: int = Depends(re
     ]))
     story.append(sig_table)
     story.append(Spacer(1, 10))
-    story.append(Paragraph("Generated on " + datetime.now().strftime("%d %B %Y"),
+    story.append(Paragraph("Generated on " + get_processing_datetime(db).strftime("%d %B %Y"),
         ParagraphStyle("Footer", parent=styles["Normal"], fontSize=7, alignment=TA_CENTER, textColor=colors.HexColor("#94a3b8"))))
 
     doc.build(story)

@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from "react";
 import libraryApi from "../api/libraryApi";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
-const fmtDate = (d) => d ? new Date(d).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "-";
-const fmtDateTime = (d) => d ? new Date(d).toLocaleString("en-US", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "-";
+
 
 function DetailModal({ record, onClose }) {
+  const { formatDate, formatDateTime } = useRegionalSettings();
+  const fmtDate = (d) => d ? formatDate(d) : "-";
+  const fmtDateTime = (d) => d ? formatDateTime(d) : "-";
   const isWaived = record.resolution === "waived";
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
@@ -71,6 +74,8 @@ function DetailModal({ record, onClose }) {
 }
 
 export default function LibraryFineHistory() {
+  const { formatDate } = useRegionalSettings();
+  const fmtDate = (d) => d ? formatDate(d) : "-";
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

@@ -1,14 +1,18 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthContext";
 import client from "../api/client";
 import academicsApi from "../api/academicsApi";
+import { useProcessingToday } from "../hooks/useProcessingToday";
+import DatePicker from "../components/DatePicker";
 
 const monthStart = () => new Date().toISOString().slice(0,7) + "-01";
 const today = () => new Date().toISOString().split("T")[0];
 
 export default function TeacherAttendanceReport() {
+  const processingToday = useProcessingToday();
   const [from,    setFrom]    = useState(today());
   const [to,      setTo]      = useState(today());
+  useEffect(() => { setFrom(processingToday); setTo(processingToday); }, [processingToday]);
   const [report,   setReport]   = useState([]);
   const [hasRun,   setHasRun]   = useState(false);
   const [sortDir,  setSortDir]  = useState("asc");
@@ -46,7 +50,7 @@ export default function TeacherAttendanceReport() {
       <div style={{background:"#fff",borderRadius:12,padding:"16px 20px",border:"1px solid #e2e8f0",marginBottom:20,display:"flex",gap:12,flexWrap:"wrap",alignItems:"flex-end"}}>
         <div>
           <label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>Date</label>
-          <input type="date" value={from} onChange={e=>{setFrom(e.target.value);setTo(e.target.value);}} style={{padding:"8px 12px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:13}} />
+          <DatePicker value={from} onChange={val=>{setFrom(val);setTo(val);}} style={{padding:"8px 12px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:13}} />
         </div>
         <div>
           <label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>Status</label>

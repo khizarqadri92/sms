@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from app.fastapi_auth import get_current_user_id
 from app.fastapi_permissions import require_permission
 from app.fastapi_db import get_db, get_cur as _get_cur
+from app.utils.processing_date import get_processing_datetime, get_processing_date
 
 router = APIRouter()
 
@@ -756,7 +757,7 @@ def submit_requisition(id: int, user_id: int = Depends(get_current_user_id), db=
     _wf_test = wf_engine._find_workflow(get_cur(db), "procurement", "purchase_requisition", _ctx)
     if _wf_test:
         # Engine-driven: bypass SP, just mark as submitted
-        cur.execute("UPDATE purchase_requisitions SET status='submitted', submitted_at=NOW() WHERE id=%s", (id,))
+        cur.execute("UPDATE purchase_requisitions SET status='submitted', submitted_at=%s WHERE id=%s", (get_processing_datetime(db), id,))
         db.commit()
     else:
         # Legacy: use SP with pr_approval_rules
@@ -1065,14 +1066,13 @@ def create_grn(body: GRNCreateIn, user_id: int = Depends(require_permission("pro
     # Generate GRN number
     cur.execute("SELECT NEXTVAL('grn_seq') AS seq")
     seq = cur.fetchone()["seq"]
-    from datetime import date
-    grn_number = f"GRN-{date.today().year}-{str(seq).zfill(4)}"
+    grn_number = f"GRN-{get_processing_date(db).year}-{str(seq).zfill(4)}"
     # Create GRN header
     cur.execute("""
         INSERT INTO goods_receipt_notes (grn_number, po_id, received_by, received_date, notes)
         VALUES (%s, %s, %s, %s, %s) RETURNING id
     """, (grn_number, body.po_id, user_id,
-          body.received_date or str(date.today()), body.notes or None))
+          body.received_date or str(get_processing_date(db)), body.notes or None))
     grn_id = cur.fetchone()["id"]
     # Insert GRN items
     for item in body.items:
@@ -1523,11 +1523,11 @@ def create_vendor_invoice(body: VendorInvoiceIn, user_id: int = Depends(require_
     cur.execute("""
         INSERT INTO vendor_invoices
             (vendor_invoice_no, po_id, grn_id, vendor_id, invoice_date, received_date,
-             subtotal, tax_amount, total_amount, status, notes, created_by)
-        VALUES (%s, %s, %s, %s, %s, CURRENT_DATE, %s, %s, %s, 'pending', %s, %s)
+             subtotal, tax_amount, total_amount, status, notes, created_by, created_at)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'pending', %s, %s, %s)
         RETURNING id
     """, (body.vendor_invoice_no, body.po_id, body.grn_id or None, po["vendor_id"],
-          body.invoice_date, subtotal, tax_total, total, body.notes or None, user_id))
+          body.invoice_date, get_processing_date(db), subtotal, tax_total, total, body.notes or None, user_id, get_processing_datetime(db)))
     inv_id = cur.fetchone()["id"]
 
     for item in items:
@@ -1637,7 +1637,7 @@ def verify_vendor_invoice(inv_id: int, user_id: int = Depends(require_permission
         if not _ok: fail('Workflow advance failed', 500)
         db.commit()
         return ok(message='Invoice verified.')
-    cur.execute("UPDATE vendor_invoices SET status='verified', verified_by=%s, verified_at=NOW() WHERE id=%s AND status='pending' RETURNING vendor_invoice_no, po_id", (user_id, inv_id))
+    cur.execute("UPDATE vendor_invoices SET status='verified', verified_by=%s, verified_at=%s WHERE id=%s AND status='pending' RETURNING vendor_invoice_no, po_id", (user_id, get_processing_datetime(db), inv_id))
     row = cur.fetchone()
     if not row: fail("Invoice not found or not in pending status.", 400)
     db.commit()
@@ -1664,7 +1664,7 @@ def approve_vendor_invoice(inv_id: int, user_id: int = Depends(require_permissio
         if not _ok: fail('Workflow advance failed', 500)
         db.commit()
         return ok(message='Invoice approved.')
-    cur.execute("UPDATE vendor_invoices SET status='approved', approved_by=%s, approved_at=NOW() WHERE id=%s AND status='verified' RETURNING vendor_invoice_no", (user_id, inv_id))
+    cur.execute("UPDATE vendor_invoices SET status='approved', approved_by=%s, approved_at=%s WHERE id=%s AND status='verified' RETURNING vendor_invoice_no", (user_id, get_processing_datetime(db), inv_id))
     row = cur.fetchone()
     if not row: fail("Invoice not found or not verified yet.", 400)
     db.commit()
@@ -1726,7 +1726,7 @@ def record_invoice_payment(inv_id: int, body: PaymentRecordIn, user_id: int = De
         INSERT INTO vendor_invoice_payments
             (invoice_id, amount, payment_date, payment_method, reference, notes, paid_by)
         VALUES (%s, %s, %s, %s, %s, %s, %s)
-    """, (inv_id, body.amount, body.payment_date or str(date_mod.today()),
+    """, (inv_id, body.amount, body.payment_date or str(get_processing_date(db)),
           body.payment_method or "bank_transfer", body.reference or None,
           body.notes or None, user_id))
 

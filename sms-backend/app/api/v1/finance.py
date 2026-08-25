@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from app.fastapi_auth import get_current_user_id, get_jwt_claims
 from app.fastapi_permissions import require_permission
 from app.fastapi_db import get_db, get_cur as _get_cur
+from app.utils.processing_date import get_processing_datetime, get_processing_date
 
 router = APIRouter()
 
@@ -460,7 +461,7 @@ def generate_monthly_invoices(body: MonthlyGenerateIn, user_id: int = Depends(re
         y, m = body.month.split("-")
         target_month = date(int(y), int(m), 1)
     else:
-        today = date.today()
+        today = get_processing_date(db)
         target_month = date(today.year, today.month, 1)
     cur = get_cur(db)
     total = _run_monthly_invoice_generation(cur, db, user_id, target_month)
@@ -469,8 +470,8 @@ def generate_monthly_invoices(body: MonthlyGenerateIn, user_id: int = Depends(re
 
 @router.post("/invoices/generate-smart-monthly")
 def generate_smart_monthly(body: SmartMonthlyIn, user_id: int = Depends(require_permission("finance.bulk")), db=Depends(get_db)):
-    yr = body.year or date.today().year
-    mo = body.month or date.today().month
+    yr = body.year or get_processing_date(db).year
+    mo = body.month or get_processing_date(db).month
     cur = get_cur(db)
     if body.due_day:
         due_day = body.due_day
@@ -575,20 +576,21 @@ def record_payment(body: PaymentIn, user_id: int = Depends(get_current_user_id),
     if receipt_image and len(receipt_image) > 2000000:
         fail("Receipt image too large. Max 1.5MB.", 400)
     auto_verified = receipt_image is None
+    _proc_now = get_processing_datetime(db)
     cur.execute("""
         INSERT INTO payments (invoice_id, amount_paid, method, reference, received_by, notes, receipt_image,
-                              is_verified, verified_by, verified_at)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, CASE WHEN %s THEN NOW() ELSE NULL END) RETURNING *
+                              is_verified, verified_by, verified_at, paid_at)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, CASE WHEN %s THEN %s ELSE NULL END, %s) RETURNING *
     """, (body.invoice_id, body.amount_paid, body.method or "cash", body.reference or None,
           user_id, body.notes or None, receipt_image, auto_verified,
-          user_id if auto_verified else None, auto_verified))
+          user_id if auto_verified else None, auto_verified, _proc_now, _proc_now))
     cur.execute("SELECT COALESCE(SUM(amount_paid),0) AS total_paid FROM payments WHERE invoice_id=%s", (body.invoice_id,))
     total_paid = float(cur.fetchone()["total_paid"])
     net_amount = float(invoice["net_amount"] or invoice["amount"])
     if receipt_image:
         cur.execute("UPDATE fee_invoices SET status='pending_verification' WHERE id=%s", (body.invoice_id,))
     elif total_paid >= net_amount:
-        cur.execute("UPDATE fee_invoices SET status='paid', paid_at=NOW() WHERE id=%s", (body.invoice_id,))
+        cur.execute("UPDATE fee_invoices SET status='paid', paid_at=%s WHERE id=%s", (get_processing_datetime(db), body.invoice_id,))
     elif total_paid > 0:
         cur.execute("UPDATE fee_invoices SET status='partial' WHERE id=%s", (body.invoice_id,))
     db.commit()
@@ -622,14 +624,14 @@ def verify_payment(pay_id: int, user_id: int = Depends(require_permission("finan
     cur.execute("SELECT * FROM payments WHERE id=%s", (pay_id,))
     payment = cur.fetchone()
     if not payment: fail("Payment not found.", 404)
-    cur.execute("UPDATE payments SET is_verified=TRUE, verified_by=%s, verified_at=NOW() WHERE id=%s", (user_id, pay_id))
+    cur.execute("UPDATE payments SET is_verified=TRUE, verified_by=%s, verified_at=%s WHERE id=%s", (user_id, get_processing_datetime(db), pay_id))
     cur.execute("SELECT COALESCE(SUM(amount_paid),0) AS total_paid FROM payments WHERE invoice_id=%s", (payment["invoice_id"],))
     total_paid = float(cur.fetchone()["total_paid"])
     cur.execute("SELECT net_amount, amount FROM fee_invoices WHERE id=%s", (payment["invoice_id"],))
     inv = cur.fetchone()
     net_amount = float(inv["net_amount"] or inv["amount"])
     if total_paid >= net_amount:
-        cur.execute("UPDATE fee_invoices SET status='paid', paid_at=NOW() WHERE id=%s", (payment["invoice_id"],))
+        cur.execute("UPDATE fee_invoices SET status='paid', paid_at=%s WHERE id=%s", (get_processing_datetime(db), payment["invoice_id"],))
         cur.execute("SELECT s.user_id FROM fee_invoices fi JOIN students s ON s.id = fi.student_id WHERE fi.id = %s", (payment["invoice_id"],))
         paid_stu = cur.fetchone()
         if paid_stu and paid_stu["user_id"]:
@@ -696,9 +698,9 @@ def finance_dashboard(user_id: int = Depends(require_permission("finance.view"))
         FROM fee_invoices WHERE status != 'cancelled'
     """)
     stats = dict(cur.fetchone())
-    cur.execute("SELECT COALESCE(SUM(amount_paid),0) AS collected_today FROM payments WHERE DATE(paid_at) = CURRENT_DATE")
+    cur.execute("SELECT COALESCE(SUM(amount_paid),0) AS collected_today FROM payments WHERE DATE(paid_at) = %s", (get_processing_date(db),))
     stats["collected_today"] = float(cur.fetchone()["collected_today"])
-    cur.execute("SELECT COALESCE(SUM(amount_paid),0) AS collected_month FROM payments WHERE DATE_TRUNC('month',paid_at) = DATE_TRUNC('month',CURRENT_DATE)")
+    cur.execute("SELECT COALESCE(SUM(amount_paid),0) AS collected_month FROM payments WHERE DATE_TRUNC('month',paid_at) = DATE_TRUNC('month',%s::date)", (get_processing_date(db),))
     stats["collected_month"] = float(cur.fetchone()["collected_month"])
     cur.execute("SELECT COUNT(*) AS cnt, COALESCE(SUM(amount_paid),0) AS amt FROM payments WHERE is_verified = FALSE")
     pv = cur.fetchone()
@@ -919,10 +921,11 @@ def update_auto_generate_settings(body: AutoGenSettingsIn, user_id: int = Depend
         fail("Time must be a valid 24-hour HH:MM value.", 400)
     time_str = "%02d:%02d" % (hh, mm)
     cur = get_cur(db)
-    cur.execute("UPDATE system_settings SET value=%s, updated_at=NOW() WHERE key=%s",
-                ("true" if body.enabled else "false", "fee_auto_generate_enabled"))
-    cur.execute("UPDATE system_settings SET value=%s, updated_at=NOW() WHERE key=%s", (str(body.day), "fee_auto_generate_day"))
-    cur.execute("UPDATE system_settings SET value=%s, updated_at=NOW() WHERE key=%s", (time_str, "fee_auto_generate_time"))
+    _pn = get_processing_datetime(db)
+    cur.execute("UPDATE system_settings SET value=%s, updated_at=%s WHERE key=%s",
+                ("true" if body.enabled else "false", _pn, "fee_auto_generate_enabled"))
+    cur.execute("UPDATE system_settings SET value=%s, updated_at=%s WHERE key=%s", (str(body.day), _pn, "fee_auto_generate_day"))
+    cur.execute("UPDATE system_settings SET value=%s, updated_at=%s WHERE key=%s", (time_str, _pn, "fee_auto_generate_time"))
     db.commit()
     return ok(message="Auto-generation settings updated.")
 
@@ -1072,8 +1075,8 @@ def save_discount_config(body: DiscountConfigIn, user_id: int = Depends(require_
     if body.sibling_rank_method not in ("class", "registration_no", "dob"):
         fail("Invalid sibling_rank_method.", 400)
     cur = get_cur(db)
-    cur.execute("UPDATE discount_apply_config SET on_all=%s, sibling_rank_method=%s::varchar, updated_at=NOW()",
-                (body.on_all, body.sibling_rank_method))
+    cur.execute("UPDATE discount_apply_config SET on_all=%s, sibling_rank_method=%s::varchar, updated_at=%s",
+                (body.on_all, body.sibling_rank_method, get_processing_datetime(db)))
     cur.execute("DELETE FROM discount_apply_fee_types")
     for fid in (body.fee_type_ids or []):
         cur.execute("INSERT INTO discount_apply_fee_types (fee_type_id) VALUES (%s) ON CONFLICT DO NOTHING", (fid,))
@@ -1105,14 +1108,15 @@ def _run_monthly_invoice_generation(cur, db, user_id, target_month):
         for s in students:
             cur.execute("SELECT id FROM fee_invoices WHERE student_id = %s AND month_year = %s", (s["id"], month_year))
             if cur.fetchone(): continue
+            _proc_year = get_processing_date(db).year
             cur.execute("""
                 INSERT INTO fee_invoices
                     (student_id, fee_structure_id, amount, due_date, issued_by,
-                     status, invoice_no, month_year, for_class_id)
+                     status, invoice_no, month_year, for_class_id, issued_at)
                 VALUES (%s, NULL, %s, %s, %s, 'unpaid',
-                    'INV-' || TO_CHAR(NOW(), 'YYYY') || '-' || LPAD(nextval('invoice_seq')::TEXT, 4, '0'),
-                    %s, %s) RETURNING id
-            """, (s["id"], ct["amount"], due_date, user_id, month_year, ct["class_id"]))
+                    'INV-' || %s::text || '-' || LPAD(nextval('invoice_seq')::TEXT, 4, '0'),
+                    %s, %s, %s) RETURNING id
+            """, (s["id"], ct["amount"], due_date, user_id, _proc_year, month_year, ct["class_id"], get_processing_datetime(db)))
             inv_id = cur.fetchone()["id"]
             cur.execute("""
                 INSERT INTO notifications (user_id, title, message, type, link)
@@ -1204,9 +1208,9 @@ def _run_smart_monthly_generation(cur, db, user_id, yr, mo, due_day=10):
                    COALESCE(sd.override_value, dt.value) AS discount_value
             FROM student_discounts sd JOIN discount_types dt ON dt.id = sd.discount_type_id
             WHERE sd.student_id = %s AND sd.is_active = TRUE
-              AND (sd.valid_from IS NULL OR sd.valid_from <= CURRENT_DATE)
-              AND (sd.valid_until IS NULL OR sd.valid_until >= CURRENT_DATE)
-        """, (st["student_id"],))
+              AND (sd.valid_from IS NULL OR sd.valid_from <= %s)
+              AND (sd.valid_until IS NULL OR sd.valid_until >= %s)
+        """, (st["student_id"], get_processing_date(db), get_processing_date(db)))
         for d in cur.fetchall():
             dv = float(d["discount_value"])
             amt = round(discountable * dv / 100, 2) if d["discount_type"] == "percentage" else min(dv, discountable)

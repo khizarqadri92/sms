@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import libraryApi from "../api/libraryApi";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
 function EnrollModal({ onClose, onSaved }) {
   const [memberType, setMemberType] = useState("student");
@@ -92,6 +93,7 @@ function EnrollModal({ onClose, onSaved }) {
 }
 
 export default function LibraryMembers() {
+  const { formatDate } = useRegionalSettings();
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -191,7 +193,7 @@ export default function LibraryMembers() {
                       <span style={{ color: "#16a34a" }}>Rs. 0</span>
                     )}
                   </td>
-                  <td style={{ fontSize: 12, color: "#64748b" }}>{new Date(m.joined_date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}</td>
+                  <td style={{ fontSize: 12, color: "#64748b" }}>{formatDate(m.joined_date)}</td>
                 </tr>
               ))}
             </tbody>

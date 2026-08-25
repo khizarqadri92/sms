@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from app.fastapi_auth import get_current_user_id
 from app.fastapi_permissions import require_permission
 from app.fastapi_db import get_db, get_cur as _get_cur
+from app.utils.processing_date import get_processing_date
 
 router = APIRouter()
 
@@ -102,7 +103,7 @@ def list_assignments(
     for r in rows:
         r["due_date"] = str(r["due_date"])
         r["created_at"] = str(r["created_at"])
-        r["is_overdue"] = r["due_date"] < date.today().isoformat()
+        r["is_overdue"] = r["due_date"] < get_processing_date(db).isoformat()
     return ok(data=rows)
 
 
@@ -118,7 +119,7 @@ def my_assignments(user_id: int = Depends(require_permission("assignment.create"
     for r in rows:
         r["due_date"] = str(r["due_date"])
         r["created_at"] = str(r["created_at"])
-        r["is_overdue"] = r["due_date"] < date.today().isoformat()
+        r["is_overdue"] = r["due_date"] < get_processing_date(db).isoformat()
     return ok(data=rows)
 
 
@@ -135,7 +136,7 @@ def student_assignments(user_id: int = Depends(require_permission("assignment.vi
         r["due_date"] = str(r["due_date"])
         r["created_at"] = str(r["created_at"])
         r["submitted_at"] = str(r["submitted_at"]) if r["submitted_at"] else None
-        r["is_overdue"] = r["due_date"] < date.today().isoformat()
+        r["is_overdue"] = r["due_date"] < get_processing_date(db).isoformat()
         r["can_submit"] = (not r["is_overdue"]) and (not r["submission_id"])
     return ok(data=rows)
 
@@ -173,7 +174,7 @@ def submit_assignment(
     if not asgn:
         fail("Assignment not found.", 404)
 
-    if str(asgn["due_date"]) < date.today().isoformat():
+    if str(asgn["due_date"]) < get_processing_date(db).isoformat():
         fail("Due date has passed. Submission not allowed.", 400)
 
     cur.execute("SELECT sp_check_already_submitted(%s, %s) AS submitted", (id, s["id"]))

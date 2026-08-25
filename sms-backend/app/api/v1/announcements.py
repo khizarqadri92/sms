@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from app.fastapi_auth import get_current_user_id
 from app.fastapi_permissions import require_permission
 from app.fastapi_db import get_db, get_cur as _get_cur
+from app.utils.processing_date import get_processing_date
 
 router = APIRouter()
 
@@ -95,7 +96,7 @@ def create_announcement(body: AnnouncementIn, user_id: int = Depends(require_per
         "SELECT * FROM sp_create_announcement(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
         (
             body.title, body.body, body.priority or "normal", body.target_role or "all",
-            body.target_class or None, user_id, body.start_date or str(date_cls.today()),
+            body.target_class or None, user_id, body.start_date or str(get_processing_date(db)),
             body.end_date or None, "manual", None, None, body.attachment or None,
         )
     )

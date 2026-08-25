@@ -2,6 +2,9 @@ import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../auth/AuthContext";
 import settingsApi from "../api/settingsApi";
 import processingDateApi from "../api/processingDateApi";
+import { useProcessingToday } from "../hooks/useProcessingToday";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
+import DatePicker from "../components/DatePicker";
 
 const TABS = ["ID Formats", "School Info", "Fee Settings", "School Timing", "Attendance Config"];
 
@@ -50,6 +53,7 @@ export default function Settings() {
 }
 
 function IdFormatsTab({ onSaved, canManage }) {
+  const processingToday = useProcessingToday();
   const [settings, setSettings]   = useState({});
   const [loading,  setLoading]    = useState(true);
   const [saving,   setSaving]     = useState(false);
@@ -173,8 +177,8 @@ function IdFormatsTab({ onSaved, canManage }) {
                 const year = settings[base+"_year"];
                 const digits = parseInt(settings[base+"_digits"]||"4");
                 const seq = "1".padStart(digits,"0");
-                if(year==="YYYY") return prefix+sep+new Date().getFullYear()+sep+seq;
-                if(year==="YY") return prefix+sep+String(new Date().getFullYear()).slice(2)+sep+seq;
+                if(year==="YYYY") return prefix+sep+new Date(processingToday).getFullYear()+sep+seq;
+                if(year==="YY") return prefix+sep+String(new Date(processingToday).getFullYear()).slice(2)+sep+seq;
                 return prefix+sep+seq;
               })()}
             </div>
@@ -417,6 +421,8 @@ function SchoolInfoTab({ onSaved, canManage }) {
 }
 
 function FeeSettingsTab({ onSaved, canManage }) {
+  const processingToday = useProcessingToday();
+  const { formatDate } = useRegionalSettings();
   const [form,    setForm]    = useState({
     fee_due_day:         "10",
     fee_grace_days:      "3",
@@ -465,12 +471,12 @@ function FeeSettingsTab({ onSaved, canManage }) {
 
   if (loading) return <div className="loading-state">Loading fee settings...</div>;
 
-  const exampleDueDate     = new Date(); exampleDueDate.setDate(parseInt(form.fee_due_day));
+  const exampleDueDate     = new Date(processingToday); exampleDueDate.setDate(parseInt(form.fee_due_day));
   const exampleReminder1   = new Date(exampleDueDate); exampleReminder1.setDate(exampleReminder1.getDate() + parseInt(form.fee_reminder1_days));
   const exampleReminder2   = new Date(exampleDueDate); exampleReminder2.setDate(exampleReminder2.getDate() + parseInt(form.fee_reminder2_days));
   const exampleLock        = new Date(exampleDueDate); exampleLock.setDate(exampleLock.getDate() + parseInt(form.fee_lock_days));
 
-  const fmt = d => d.toLocaleDateString("en-US", { month:"short", day:"numeric" });
+  const fmt = d => formatDate(d);
 
   return (
     <div>
@@ -753,6 +759,208 @@ function SchoolTimingTab({ onSaved, canManage }) {
         <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
           {saving ? "Saving..." : "Save Timing Settings"}
         </button>
+      )}
+
+      <TimingOverridesSection canManage={canManage} />
+    </div>
+  );
+}
+
+function TimingOverridesSection({ canManage }) {
+  const { formatDate } = useRegionalSettings();
+  const WEEKDAYS = [
+    { value: "1", label: "Monday" },
+    { value: "2", label: "Tuesday" },
+    { value: "3", label: "Wednesday" },
+    { value: "4", label: "Thursday" },
+    { value: "5", label: "Friday" },
+    { value: "6", label: "Saturday" },
+    { value: "7", label: "Sunday" },
+  ];
+  const EMPTY_FORM = {
+    id: null, label: "", mode: "weekday", day_of_week: "1", override_date: "",
+    start_time: "08:00", end_time: "12:00", break_start_time: "", break_duration: "",
+    period_duration: "40", is_active: true,
+  };
+  const [overrides, setOverrides] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const load = () => {
+    setLoading(true);
+    settingsApi.getTimingOverrides().then(r => setOverrides(r.data.data || [])).catch(() => {}).finally(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, []);
+
+  const startEdit = (o) => {
+    setForm({
+      id: o.id, label: o.label,
+      mode: o.day_of_week ? "weekday" : "date",
+      day_of_week: o.day_of_week ? String(o.day_of_week) : "1",
+      override_date: o.override_date || "",
+      start_time: o.start_time, end_time: o.end_time,
+      break_start_time: o.break_start_time || "", break_duration: o.break_duration ? String(o.break_duration) : "",
+      period_duration: String(o.period_duration), is_active: o.is_active,
+    });
+    setShowForm(true);
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Remove this timing override?")) return;
+    await settingsApi.deleteTimingOverride(id);
+    load();
+  };
+
+  const handleSave = async () => {
+    setSaving(true); setError("");
+    try {
+      const payload = {
+        id: form.id,
+        label: form.label,
+        day_of_week: form.mode === "weekday" ? parseInt(form.day_of_week) : null,
+        override_date: form.mode === "date" ? form.override_date : null,
+        start_time: form.start_time,
+        end_time: form.end_time,
+        break_start_time: form.break_start_time || null,
+        break_duration: form.break_duration ? parseInt(form.break_duration) : null,
+        period_duration: parseInt(form.period_duration),
+        is_active: form.is_active,
+      };
+      if (!payload.label) { setError("Label is required."); setSaving(false); return; }
+      if (form.mode === "date" && !payload.override_date) { setError("Date is required."); setSaving(false); return; }
+      await settingsApi.saveTimingOverride(payload);
+      setShowForm(false);
+      setForm(EMPTY_FORM);
+      load();
+    } catch (err) {
+      setError(err.response?.data?.message || "Failed to save override.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={{ marginTop: 24 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Day-Specific Timing Overrides</div>
+        {canManage && (
+          <button className="btn btn-secondary" onClick={() => { setForm(EMPTY_FORM); setShowForm(!showForm); setError(""); }}>
+            {showForm ? "Cancel" : "+ Add Override"}
+          </button>
+        )}
+      </div>
+      <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginBottom: 12 }}>
+        Configure a different schedule for a recurring weekday (e.g. every Friday is a short day) or a
+        specific calendar date (e.g. a half day before a holiday). The AI Timetable Generator and
+        attendance/period calculations will use these instead of the default schedule above on matching days.
+      </div>
+
+      {showForm && (
+        <div className="section-card" style={{ marginBottom: 16, background: "var(--color-background-secondary)" }}>
+          {error && <div className="alert alert-error">{error}</div>}
+          <div className="form-grid">
+            <div className="form-group form-grid-full">
+              <label className="form-label">Label *</label>
+              <input className="form-control" value={form.label} placeholder="e.g. Friday Short Day"
+                onChange={e => setForm({ ...form, label: e.target.value })} />
+            </div>
+            <div className="form-group form-grid-full">
+              <label className="form-label">Applies To</label>
+              <div style={{ display: "flex", gap: 16 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                  <input type="radio" checked={form.mode === "weekday"} onChange={() => setForm({ ...form, mode: "weekday" })} />
+                  Recurring weekday
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
+                  <input type="radio" checked={form.mode === "date"} onChange={() => setForm({ ...form, mode: "date" })} />
+                  Specific date
+                </label>
+              </div>
+            </div>
+            {form.mode === "weekday" ? (
+              <div className="form-group">
+                <label className="form-label">Weekday</label>
+                <select className="form-control" value={form.day_of_week} onChange={e => setForm({ ...form, day_of_week: e.target.value })}>
+                  {WEEKDAYS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+                </select>
+              </div>
+            ) : (
+              <div className="form-group">
+                <label className="form-label">Date</label>
+                <DatePicker value={form.override_date} onChange={val => setForm({ ...form, override_date: val })} />
+              </div>
+            )}
+            <div className="form-group">
+              <label className="form-label">Start Time</label>
+              <input className="form-control" type="time" value={form.start_time} onChange={e => setForm({ ...form, start_time: e.target.value })} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">End Time</label>
+              <input className="form-control" type="time" value={form.end_time} onChange={e => setForm({ ...form, end_time: e.target.value })} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Period Duration (minutes)</label>
+              <input className="form-control" type="number" min="15" max="120" value={form.period_duration} onChange={e => setForm({ ...form, period_duration: e.target.value })} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Break Start Time (optional)</label>
+              <input className="form-control" type="time" value={form.break_start_time} onChange={e => setForm({ ...form, break_start_time: e.target.value })} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Break Duration (minutes, optional)</label>
+              <input className="form-control" type="number" min="0" max="60" value={form.break_duration} onChange={e => setForm({ ...form, break_duration: e.target.value })} />
+            </div>
+            <div className="form-group">
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginTop: 24 }}>
+                <input type="checkbox" checked={form.is_active} onChange={e => setForm({ ...form, is_active: e.target.checked })} />
+                Active
+              </label>
+            </div>
+          </div>
+          <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+            {saving ? "Saving..." : form.id ? "Update Override" : "Add Override"}
+          </button>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="loading-state">Loading overrides...</div>
+      ) : overrides.length === 0 ? (
+        <div className="empty-state">No day-specific overrides configured.</div>
+      ) : (
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Label</th>
+              <th>Applies To</th>
+              <th>Timing</th>
+              <th>Status</th>
+              {canManage && <th></th>}
+            </tr>
+          </thead>
+          <tbody>
+            {overrides.map(o => (
+              <tr key={o.id}>
+                <td><strong>{o.label}</strong></td>
+                <td>{o.day_of_week ? WEEKDAYS.find(d => d.value === String(o.day_of_week))?.label : formatDate(o.override_date)}</td>
+                <td>
+                  {o.start_time}-{o.end_time}, {o.period_duration}min periods
+                  {o.break_start_time ? `, break ${o.break_start_time} (${o.break_duration}min)` : ""}
+                </td>
+                <td><span className={"badge " + (o.is_active ? "badge-success" : "badge-danger")}>{o.is_active ? "Active" : "Inactive"}</span></td>
+                {canManage && (
+                  <td style={{ display: "flex", gap: 6 }}>
+                    <button className="btn btn-ghost btn-sm" onClick={() => startEdit(o)}>Edit</button>
+                    <button className="btn btn-ghost btn-sm" style={{ color: "#dc2626" }} onClick={() => handleDelete(o.id)}>Remove</button>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   );

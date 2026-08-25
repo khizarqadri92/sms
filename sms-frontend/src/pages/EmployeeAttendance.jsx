@@ -2,6 +2,9 @@ import React, { useState, useEffect, useCallback } from "react";
 import reportsApi from "../api/reportsApi";
 import hrApi from "../api/hrApi";
 import { printReport, exportToCSV, exportToPDF } from "../utils/reportExport";
+import DatePicker from "../components/DatePicker";
+import { useProcessingToday } from "../hooks/useProcessingToday";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
@@ -24,7 +27,9 @@ function toLocalDateStr(d) {
 }
 
 export default function EmployeeAttendance() {
-  const now = new Date();
+  const { formatDate } = useRegionalSettings();
+  const processingToday = useProcessingToday();
+  const now = new Date(processingToday);
   const [reportType, setReportType] = useState("monthly");
   const [departments, setDepartments] = useState([]);
   const [deptFilter, setDeptFilter] = useState("");
@@ -151,7 +156,7 @@ export default function EmployeeAttendance() {
         ) : (
           <div>
             <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Date</label>
-            <input type="date" className="form-input" style={{ fontSize: 13 }} value={date} max={toLocalDateStr(new Date())} onChange={e => setDate(e.target.value)} />
+            <DatePicker style={{ fontSize: 13 }} value={date} max={processingToday} onChange={val => setDate(val)} />
           </div>
         )}
       </div>
@@ -262,7 +267,7 @@ export default function EmployeeAttendance() {
                           const colors = STATUS_COLORS[d.status] || STATUS_COLORS.pending;
                           return (
                             <tr key={d.status_date} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                              <td style={{ padding: "6px 10px", fontSize: 12 }}>{new Date(d.status_date + "T00:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}</td>
+                              <td style={{ padding: "6px 10px", fontSize: 12 }}>{(() => { const dd = new Date(d.status_date + "T00:00:00"); return `${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][dd.getDay()]}, ${formatDate(dd)}`; })()}</td>
                               <td style={{ padding: "6px 10px" }}>
                                 <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 8, background: colors.bg, color: colors.color }}>
                                   {STATUS_LABELS[d.status] || d.status}

@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import teachersApi from "../api/teachersApi";
+import DatePicker from "../components/DatePicker";
 
 export default function Teachers() {
   const { can } = useAuth();
@@ -148,7 +149,7 @@ export default function Teachers() {
               </div>
               <div className="form-group">
                 <label className="form-label">Join Date</label>
-                <input className="form-control" type="date" value={form.join_date} onChange={e => setForm({...form, join_date:e.target.value})} />
+                <DatePicker value={form.join_date} onChange={val => setForm({...form, join_date:val})} />
               </div>
               <div className="form-group">
                 <label className="form-label">Password *</label>

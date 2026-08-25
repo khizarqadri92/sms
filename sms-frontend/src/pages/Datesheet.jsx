@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { examsApi } from "../api/examsApi";
 import { useAuth } from "../auth/AuthContext";
+import DatePicker from "../components/DatePicker";
 
 export default function Datesheet() {
   const [exams,       setExams]       = useState([]);
@@ -230,7 +231,7 @@ export default function Datesheet() {
             <div style={{padding:"14px 20px",background:"#fafafa",borderBottom:"1px solid #f1f5f9"}}>
               <div style={{fontSize:10,fontWeight:700,color:"#94a3b8",textTransform:"uppercase",letterSpacing:".07em",marginBottom:10}}>Common for this day</div>
               <div style={{display:"flex",gap:14,flexWrap:"wrap"}}>
-                <div><div style={{fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>Exam Date *</div><input type="date" style={{padding:"8px 12px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:13,color:"#0f172a",background:"#fff"}} value={form.exam_date} onChange={e=>setForm(f=>({...f,exam_date:e.target.value,rows:Object.fromEntries(Object.entries(f.rows||{}).map(([k,v])=>([k,{...v,checked:false}]))),all_classes:false}))} /></div>
+                <div><div style={{fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>Exam Date *</div><DatePicker style={{padding:"8px 12px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:13,color:"#0f172a",background:"#fff"}} value={form.exam_date} onChange={val=>setForm(f=>({...f,exam_date:val,rows:Object.fromEntries(Object.entries(f.rows||{}).map(([k,v])=>([k,{...v,checked:false}]))),all_classes:false}))} /></div>
                 <div><div style={{fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>Start Time</div><input type="time" style={{padding:"8px 12px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:13,color:"#0f172a",background:"#fff",width:130}} value={form.start_time} onChange={e=>setForm(f=>({...f,start_time:e.target.value}))} /></div>
                 <div><div style={{fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>Duration (min)</div><input type="number" style={{padding:"8px 12px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:13,color:"#0f172a",background:"#fff",width:100}} value={form.duration_mins} onChange={e=>setForm(f=>({...f,duration_mins:e.target.value}))} /></div>
               </div>
@@ -404,7 +405,7 @@ export default function Datesheet() {
             <div style={{padding:"20px 24px",display:"flex",flexDirection:"column",gap:14}}>
               <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
                 <div><label style={{display:"block",fontSize:12,fontWeight:600,color:"#374151",marginBottom:5}}>Exam Date</label>
-                  <input type="date" value={editForm.exam_date} onChange={e=>setEditForm(f=>({...f,exam_date:e.target.value}))} style={{width:"100%",padding:"9px 12px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:13}} /></div>
+                  <DatePicker value={editForm.exam_date} onChange={val=>setEditForm(f=>({...f,exam_date:val}))} style={{width:"100%",padding:"9px 12px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:13}} /></div>
                 <div><label style={{display:"block",fontSize:12,fontWeight:600,color:"#374151",marginBottom:5}}>Start Time</label>
                   <input type="time" value={editForm.start_time} onChange={e=>setEditForm(f=>({...f,start_time:e.target.value}))} style={{width:"100%",padding:"9px 12px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:13}} /></div>
                 <div><label style={{display:"block",fontSize:12,fontWeight:600,color:"#374151",marginBottom:5}}>Duration (min)</label>

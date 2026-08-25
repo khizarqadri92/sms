@@ -12,6 +12,7 @@ from pydantic import BaseModel
 from app.fastapi_auth import get_current_user_id
 from app.fastapi_permissions import require_permission
 from app.fastapi_db import get_db, get_cur as _get_cur
+from app.utils.processing_date import get_processing_datetime
 
 router = APIRouter()
 
@@ -123,7 +124,7 @@ def list_quizzes(
 
     cur.execute("SELECT * FROM sp_list_quizzes(%s, %s, %s)", (student_id, class_id, subject_id))
     rows = serialize(cur.fetchall())
-    now = datetime.now().isoformat()
+    now = get_processing_datetime(db).isoformat()
     for r in rows:
         r["is_expired"] = r["due_date"] < now
         r["my_submission"] = None
@@ -145,7 +146,7 @@ def my_quizzes(user_id: int = Depends(require_permission("quiz.create")), db=Dep
         return ok(data=[])
     cur.execute("SELECT * FROM sp_get_my_teacher_quizzes(%s)", (row["tid"],))
     rows = serialize(cur.fetchall())
-    now = datetime.now().isoformat()
+    now = get_processing_datetime(db).isoformat()
     for r in rows:
         r["is_expired"] = r["due_date"] < now
     return ok(data=rows)
@@ -178,7 +179,7 @@ def get_quiz(id: int, user_id: int = Depends(require_permission("quiz.view")), d
     quiz = dict(quiz)
     quiz["due_date"] = str(quiz["due_date"])
     quiz["created_at"] = str(quiz["created_at"])
-    quiz["is_expired"] = quiz["due_date"] < datetime.now().isoformat()
+    quiz["is_expired"] = quiz["due_date"] < get_processing_datetime(db).isoformat()
 
     cur.execute("SELECT * FROM sp_get_quiz_questions(%s)", (id,))
     questions = [dict(r) for r in cur.fetchall()]

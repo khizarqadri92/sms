@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from app.fastapi_auth import get_current_user_id, get_jwt_claims
 from app.fastapi_permissions import require_permission
 from app.fastapi_db import get_db, get_cur as _get_cur
+from app.utils.processing_date import get_processing_datetime
 
 router = APIRouter()
 
@@ -90,11 +91,12 @@ def complete_item(
     db=Depends(get_db),
 ):
     cur = get_cur(db)
+    _pn = get_processing_datetime(db)
     cur.execute("""
         UPDATE work_queue_items
-        SET status='completed', completed_by=%s, completed_at=NOW(), updated_at=NOW()
+        SET status='completed', completed_by=%s, completed_at=%s, updated_at=%s
         WHERE id=%s AND status='pending'
-    """, (user_id, item_id))
+    """, (user_id, _pn, _pn, item_id))
     if cur.rowcount == 0:
         fail("Item not found or already completed.", 404)
     db.commit()
@@ -108,7 +110,7 @@ def cancel_item(
     db=Depends(get_db),
 ):
     cur = get_cur(db)
-    cur.execute("UPDATE work_queue_items SET status='cancelled', updated_at=NOW() WHERE id=%s AND status='pending'", (item_id,))
+    cur.execute("UPDATE work_queue_items SET status='cancelled', updated_at=%s WHERE id=%s AND status='pending'", (get_processing_datetime(db), item_id,))
     if cur.rowcount == 0:
         fail("Item not found or already actioned.", 404)
     db.commit()

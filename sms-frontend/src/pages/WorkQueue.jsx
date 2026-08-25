@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import WQActionModal from "../components/WQActionModal";
 import WithdrawalDetailModal from "../components/WithdrawalDetailModal";
 import DisciplineDetailModal from "../components/DisciplineDetailModal";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 import workQueueApi from "../api/workQueueApi";
 import { useAuth } from "../auth/AuthContext";
 
@@ -32,14 +33,15 @@ function timeAgo(dateStr) {
   return `${Math.floor(diff/86400)}d ago`;
 }
 
-function formatDate(dateStr) {
+function formatDate(dateStr, fmt) {
   if (!dateStr) return "—";
-  return new Date(dateStr).toLocaleDateString("en-PK", { day:"2-digit", month:"short", year:"numeric" });
+  return fmt ? fmt(dateStr) : new Date(dateStr).toLocaleDateString("en-PK", { day:"2-digit", month:"short", year:"numeric" });
 }
 
 const DEFAULT_COLOR = { bg_color:"#ffffff", border_color:"#e2e8f0", badge_color:"#64748b", text_color:"#374151", label:"Unknown" };
 
 export default function WorkQueue() {
+  const { formatDate: fmtDate } = useRegionalSettings();
   const navigate = useNavigate();
   const { can } = useAuth();
   const [items, setItems]             = useState([]);
@@ -297,7 +299,7 @@ export default function WorkQueue() {
                   {item.action_required==="view" ? "🔔 Notification" : (item.assignee_display || (item.assigned_role ? item.assigned_role.replace(/_/g," ") : "—"))}
                 </div>
                 <div style={{ fontSize:11, color:"var(--color-text-secondary)", display:"flex", flexDirection:"column", justifyContent:"center" }}>
-                  <div>{formatDate(item.created_at)}</div>
+                  <div>{formatDate(item.created_at, fmtDate)}</div>
                   <div style={{ marginTop:2, color:"#94a3b8" }}>{timeAgo(item.created_at)}</div>
                 </div>
                 <div style={{ display:"flex", alignItems:"center" }}>
@@ -345,7 +347,7 @@ export default function WorkQueue() {
                         { label:"Action Required", value: selectedItem.action_required },
                         { label:"Submitted By", value: selectedItem.submitter_name || selectedItem.created_by_name || "—" },
                         { label:"Assignee", value: selectedItem.assignee_display || selectedItem.assigned_role?.replace(/_/g," ") || "—" },
-                        { label:"Date Submitted", value: formatDate(selectedItem.created_at) },
+                        { label:"Date Submitted", value: formatDate(selectedItem.created_at, fmtDate) },
                         { label:"Priority", value: selectedItem.priority },
                       ].map(({label, value}) => (
                         <div key={label} style={{ background:"#f8fafc", borderRadius:8, padding:"8px 12px" }}>

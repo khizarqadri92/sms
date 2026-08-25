@@ -3,11 +3,14 @@ import { disciplineApi } from "../api/disciplineApi";
 import workflowApi from "../api/workflowApi";
 import { useAuth } from "../auth/AuthContext";
 import client from "../api/client";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
+import DatePicker from "./DatePicker";
 
 const SEVERITY_LABELS = {1:"Minor",2:"Moderate",3:"Serious",4:"Severe",5:"Critical"};
 const SEVERITY_COLORS = {1:"#22c55e",2:"#f59e0b",3:"#f97316",4:"#ef4444",5:"#7c3aed"};
 
 export default function DisciplineDetailModal({ caseId, onClose, onActed, wqItem }) {
+  const { formatDate } = useRegionalSettings();
   const { user, permissions = [], can } = useAuth();
   const userRoles = user?.roles || [];
   const [detail, setDetail] = useState(null);
@@ -193,7 +196,7 @@ export default function DisciplineDetailModal({ caseId, onClose, onActed, wqItem
                 <div style={{fontWeight:600,fontSize:11,color:"#166534",marginBottom:6,letterSpacing:"0.05em"}}>HEARING COMMITTEE</div>
                 <div style={{fontSize:13,color:"#374151"}}>
                   <strong>Head:</strong> {committeeInfo.head?.name||committeeInfo.head_name}
-                  {detail.hearing_date&&<span style={{marginLeft:12,fontSize:12,color:"#64748b"}}>📅 {new Date(detail.hearing_date).toLocaleDateString("en-GB")}</span>}
+                  {detail.hearing_date&&<span style={{marginLeft:12,fontSize:12,color:"#64748b"}}>📅 {formatDate(detail.hearing_date)}</span>}
                 </div>
                 {committeeInfo.members&&committeeInfo.members.length>0&&(
                   <div style={{marginTop:6,fontSize:12,color:"#64748b"}}>
@@ -224,7 +227,7 @@ export default function DisciplineDetailModal({ caseId, onClose, onActed, wqItem
                     </div>
                     {step.by&&<div style={{fontSize:12,color:"#64748b"}}>{step.by}</div>}
                     {step.at&&<div style={{fontSize:11,color:"#94a3b8"}}>
-                      {new Date(step.at).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}
+                      {formatDate(step.at)}
                       {step.note&&<span style={{fontStyle:"italic",marginLeft:6}}>"{step.note}"</span>}
                     </div>}
                   </div>
@@ -503,13 +506,13 @@ export default function DisciplineDetailModal({ caseId, onClose, onActed, wqItem
                     <div style={{display:"flex",gap:8,marginBottom:10}}>
                       <div style={{flex:1}}>
                         <div style={{fontSize:12,fontWeight:600,marginBottom:4}}>Suspension From</div>
-                        <input type="date" className="form-input" style={{width:"100%",fontSize:13}} value={decideForm.suspension_from}
-                          onChange={e=>setDecideForm(p=>({...p,suspension_from:e.target.value}))}/>
+                        <DatePicker style={{width:"100%",fontSize:13}} value={decideForm.suspension_from}
+                          onChange={val=>setDecideForm(p=>({...p,suspension_from:val}))}/>
                       </div>
                       <div style={{flex:1}}>
                         <div style={{fontSize:12,fontWeight:600,marginBottom:4}}>Suspension To</div>
-                        <input type="date" className="form-input" style={{width:"100%",fontSize:13}} value={decideForm.suspension_to}
-                          onChange={e=>setDecideForm(p=>({...p,suspension_to:e.target.value}))}/>
+                        <DatePicker style={{width:"100%",fontSize:13}} value={decideForm.suspension_to}
+                          onChange={val=>setDecideForm(p=>({...p,suspension_to:val}))}/>
                       </div>
                     </div>
                   )}
@@ -545,7 +548,7 @@ export default function DisciplineDetailModal({ caseId, onClose, onActed, wqItem
                   <div style={{fontSize:13,color:"#166534"}}>Your appeal has been submitted and is under review.</div>
                 ) : canAppeal ? (<>
                   {detail.appeal_deadline&&<div style={{fontSize:12,color:"#64748b",marginBottom:8}}>
-                    Appeal deadline: <strong>{new Date(detail.appeal_deadline).toLocaleDateString("en-GB",{day:"numeric",month:"short",year:"numeric"})}</strong>
+                    Appeal deadline: <strong>{formatDate(detail.appeal_deadline)}</strong>
                   </div>}
                   {!showAppeal ? (
                     <button className="btn btn-sm" style={{background:"#7c3aed",color:"#fff",fontSize:12}}

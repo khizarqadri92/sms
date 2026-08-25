@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import JsBarcode from "jsbarcode";
 import libraryApi from "../api/libraryApi";
+import DatePicker from "../components/DatePicker";
 
 function BarcodeCanvas({ value }) {
   const canvasRef = useRef(null);
@@ -241,7 +242,7 @@ function QuickAddModal({ kind, onClose, onSaved }) {
               </div>
               <div className="form-group">
                 <label className="form-label">Date of Birth</label>
-                <input className="form-control" type="date" value={form.date_of_birth} onChange={e => setForm({ ...form, date_of_birth: e.target.value })} />
+                <DatePicker value={form.date_of_birth} onChange={val => setForm({ ...form, date_of_birth: val })} />
               </div>
               <div className="form-group">
                 <label className="form-label">Biography</label>

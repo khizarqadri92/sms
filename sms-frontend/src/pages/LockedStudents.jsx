@@ -1,11 +1,15 @@
 import React, { useState, useEffect } from "react";
 import financeApi from "../api/financeApi";
 import academicsApi from "../api/academicsApi";
+import DatePicker from "../components/DatePicker";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 import { useAuth } from "../auth/AuthContext";
 
-const fmtDate = d => d ? new Date(d).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "-";
+
 
 export default function LockedStudents() {
+  const { formatDate } = useRegionalSettings();
+  const fmtDate = d => d ? formatDate(d) : "-";
   const { can } = useAuth();
   const [rows, setRows] = useState([]);
   const [classes, setClasses] = useState([]);
@@ -83,11 +87,11 @@ export default function LockedStudents() {
               </div>
               <div className="form-group">
                 <label className="form-label">Due Date From</label>
-                <input className="form-control" type="date" value={filters.from_date} onChange={e => setFilters({...filters, from_date:e.target.value})} />
+                <DatePicker value={filters.from_date} onChange={val => setFilters({...filters, from_date:val})} />
               </div>
               <div className="form-group">
                 <label className="form-label">Due Date To</label>
-                <input className="form-control" type="date" value={filters.to_date} onChange={e => setFilters({...filters, to_date:e.target.value})} />
+                <DatePicker value={filters.to_date} onChange={val => setFilters({...filters, to_date:val})} />
               </div>
             </div>
             <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>

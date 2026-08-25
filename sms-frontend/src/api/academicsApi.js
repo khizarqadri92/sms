@@ -16,12 +16,18 @@ const academicsApi = {
   getTimetable:      (params)     => client.get("/academics/timetable", { params }),
   createTimetable:   (data)       => client.post("/academics/timetable", data),
   deleteTimetable:   (id)         => client.delete(`/academics/timetable/${id}`),
+  deleteTimetableForClass: (id)   => client.delete(`/academics/timetable/by-class/${id}`),
   getClassTeachers:  (id)         => client.get(`/academics/classes/${id}/teachers`),
   aiGenerateTimetable: (prompt) => client.post('/academics/timetable/ai-generate', { prompt }),
   getTimetableAIContext: () => client.get('/academics/timetable/ai-context'),
   getClassSubjects:     (id)       => client.get(`/academics/classes/${id}/subjects`),
   assignClassSubject:   (id, data) => client.post(`/academics/classes/${id}/subjects`, data),
   removeClassSubject:   (id, sid)  => client.delete(`/academics/classes/${id}/subjects/${sid}`),
+  getClassSubjectDays:  (id)       => client.get(`/academics/classes/${id}/subject-days`),
+  setClassSubjectDays:  (id, data) => client.put(`/academics/classes/${id}/subject-days`, data),
+  getClassSubjectTeachers:  (id)       => client.get(`/academics/classes/${id}/subject-teachers`),
+  setClassSubjectTeacher:   (id, data) => client.put(`/academics/classes/${id}/subject-teachers`, data),
+  autoAssignSubjectTeachers:(id)       => client.post(`/academics/classes/${id}/subject-teachers/auto-assign`),
   assignClassTeacher:(id, data)   => client.post(`/academics/classes/${id}/teachers`, data),
 };
 

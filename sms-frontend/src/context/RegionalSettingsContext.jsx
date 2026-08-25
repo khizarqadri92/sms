@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import settingsApi from "../api/settingsApi";
 import { useAuth } from "../auth/AuthContext";
+import { useProcessingNow } from "../hooks/useProcessingNow";
 
 const DEFAULT_SETTINGS = {
   date_format: "DD/MM/YYYY",
@@ -25,6 +26,7 @@ const RegionalSettingsContext = createContext(null);
 
 export function RegionalSettingsProvider({ children }) {
   const { user } = useAuth();
+  const processingNow = useProcessingNow();
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
 
@@ -101,8 +103,8 @@ export function RegionalSettingsProvider({ children }) {
 
   const nowInSchoolTimezone = () => {
     try {
-      return new Date(new Date().toLocaleString("en-US", { timeZone: settings.timezone }));
-    } catch { return new Date(); }
+      return new Date(processingNow.toLocaleString("en-US", { timeZone: settings.timezone }));
+    } catch { return processingNow; }
   };
 
   const isWeekend = (input) => {

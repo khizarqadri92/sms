@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import libraryApi from "../api/libraryApi";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
 function PayModal({ fine, onClose, onSaved }) {
   const [amount, setAmount] = useState(fine.fine_amount);
@@ -56,6 +57,7 @@ function PayModal({ fine, onClose, onSaved }) {
 }
 
 export default function LibraryPendingFines() {
+  const { formatDate } = useRegionalSettings();
   const [fines, setFines] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -137,7 +139,7 @@ export default function LibraryPendingFines() {
                       {f.return_condition === "damaged" ? "Damage" : f.return_condition === "lost" ? "Lost" : "Overdue"}
                     </span>
                   </td>
-                  <td style={{ fontSize: 12, color: "#64748b" }}>{f.returned_at ? new Date(f.returned_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" }) : "Not returned yet"}</td>
+                  <td style={{ fontSize: 12, color: "#64748b" }}>{f.returned_at ? formatDate(f.returned_at) : "Not returned yet"}</td>
                   <td><strong style={{ color: "#dc2626" }}>Rs. {Number(f.fine_amount).toLocaleString()}</strong></td>
                   <td>
                     <button className="btn btn-primary btn-xs" onClick={() => setPayFine(f)}>Settle</button>

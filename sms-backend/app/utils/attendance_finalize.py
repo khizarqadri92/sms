@@ -56,8 +56,8 @@ def run_attendance_finalize_scheduled(app, force=False):
         finalized_count = result["finalized_count"] if result else 0
 
         cur.execute(
-            "UPDATE system_settings SET value = %s, updated_at = NOW() WHERE key = \'attendance_finalize_last_run\'",
-            (today_str,),
+            "UPDATE system_settings SET value = %s, updated_at = %s WHERE key = \'attendance_finalize_last_run\'",
+            (today_str, now),
         )
         db.commit()
 
