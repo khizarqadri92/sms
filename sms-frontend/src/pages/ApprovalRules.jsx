@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthContext";
 import procurementApi from "../api/procurementApi";
+import { useGovernanceMode } from "../hooks/useGovernanceMode";
 
 const APPROVER_ROLES = [
   { value: "department_head", label: "Department Head (of requesting dept.)" },
@@ -171,7 +172,8 @@ function conditionSummary(rule) {
 
 export default function ApprovalRules() {
   const { can } = useAuth();
-  const canConfigure = can("procurement.configure");
+  const { isGlobalLocked } = useGovernanceMode("procurement_approval_rules");
+  const canConfigure = can("procurement.configure") && !isGlobalLocked;
   const [rules, setRules] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -224,6 +226,11 @@ export default function ApprovalRules() {
         )}
       </div>
 
+      {isGlobalLocked && (
+        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+          Approval Rules are managed centrally by the superadmin. This list is read-only here.
+        </div>
+      )}
       <div style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>
         Configure who must approve a Purchase Requisition based on amount, department, item category, or emergency status. When a PR is submitted, the highest-priority rule whose conditions match is applied.
       </div>

@@ -12,6 +12,8 @@ from pydantic import BaseModel
 
 from app.fastapi_auth import get_current_user_id
 from app.fastapi_permissions import require_permission
+from app.fastapi_campus import get_current_campus_id, enforce_same_campus
+from app.fastapi_campus import catalog_campus_id, catalog_campus_id_for_write
 from app.fastapi_db import get_db, get_cur as _get_cur
 from app.utils.processing_date import get_processing_date
 
@@ -53,22 +55,22 @@ class SiblingTierIn(BaseModel):
 # ── Discount Types ────────────────────────────────────────────
 
 @router.get("/types")
-def list_types(user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db)):
+def list_types(user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("discount_types"))):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM discount_types ORDER BY name")
+    cur.execute("SELECT * FROM discount_types WHERE campus_id = %s OR campus_id IS NULL ORDER BY name", (campus_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.post("/types")
-def create_type(body: DiscountTypeIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db)):
+def create_type(body: DiscountTypeIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("discount_types"))):
     if not body.name:
         fail("name is required.", 400)
     cur = get_cur(db)
     try:
         cur.execute("""
-            INSERT INTO discount_types (name, description, type, value)
-            VALUES (%s, %s, %s, %s) RETURNING *
-        """, (body.name, body.description, body.type or "percentage", body.value or 0))
+            INSERT INTO discount_types (name, description, type, value, campus_id)
+            VALUES (%s, %s, %s, %s, %s) RETURNING *
+        """, (body.name, body.description, body.type or "percentage", body.value or 0, campus_id))
         db.commit()
         return ok(data=dict(cur.fetchone()))
     except Exception as e:
@@ -77,8 +79,11 @@ def create_type(body: DiscountTypeIn, user_id: int = Depends(require_permission(
 
 
 @router.put("/types/{type_id}")
-def update_type(type_id: int, body: DiscountTypeIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db)):
+def update_type(type_id: int, body: DiscountTypeIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("discount_types"))):
     cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM discount_types WHERE id=%s", (type_id,))
+    _row = cur.fetchone()
+    enforce_same_campus(_row["campus_id"] if _row else None, campus_id)
     cur.execute("""
         UPDATE discount_types
         SET name=%s, description=%s, type=%s, value=%s, is_active=%s
@@ -93,8 +98,11 @@ def update_type(type_id: int, body: DiscountTypeIn, user_id: int = Depends(requi
 
 
 @router.delete("/types/{type_id}")
-def deactivate_type(type_id: int, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db)):
+def deactivate_type(type_id: int, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("discount_types"))):
     cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM discount_types WHERE id=%s", (type_id,))
+    _row = cur.fetchone()
+    enforce_same_campus(_row["campus_id"] if _row else None, campus_id)
     cur.execute("UPDATE discount_types SET is_active=FALSE WHERE id=%s", (type_id,))
     db.commit()
     return ok(message="Discount type deactivated.")

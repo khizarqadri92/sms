@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthContext";
+import { useGovernanceMode } from "../hooks/useGovernanceMode";
 import academicsApi from "../api/academicsApi";
 import teachersApi  from "../api/teachersApi";
 import settingsApi from "../api/settingsApi";
@@ -16,8 +17,8 @@ const DAYS = [
   { value:6, label:"Saturday" },
 ];
 
-export default function Academics() {
-  const [tab, setTab] = useState("years");
+export default function Academics({ visibleTabs } = {}) {
+  const [tab, setTab] = useState(visibleTabs ? visibleTabs[0] : "years");
 
   useEffect(() => {
     const handler = (e) => {
@@ -35,11 +36,11 @@ export default function Academics() {
       <div className="page-header">
         <h1 className="page-heading">Academic Management</h1>
       </div>
-      {tab === "years"     && <YearsTab />}
-      {tab === "classes"   && <ClassesTab />}
-      {tab === "subjects"  && <SubjectsTab />}
-      {tab === "timetable" && <TimetableTab />}
-      {tab === "overview"   && <ClassOverviewTab />}
+      {tab === "years"     && (!visibleTabs || visibleTabs.includes("years")) && <YearsTab />}
+      {tab === "classes"   && (!visibleTabs || visibleTabs.includes("classes")) && <ClassesTab />}
+      {tab === "subjects"  && (!visibleTabs || visibleTabs.includes("subjects")) && <SubjectsTab />}
+      {tab === "timetable" && (!visibleTabs || visibleTabs.includes("timetable")) && <TimetableTab />}
+      {tab === "overview"   && (!visibleTabs || visibleTabs.includes("overview")) && <ClassOverviewTab />}
     </div>
   );
 }
@@ -48,6 +49,8 @@ export default function Academics() {
 function YearsTab() {
   const { formatDate } = useRegionalSettings();
   const { can } = useAuth();
+  const { isGlobalLocked } = useGovernanceMode("academic_years");
+  const canManage = can("academics.manage") && !isGlobalLocked;
   const [years,    setYears]    = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -97,11 +100,16 @@ function YearsTab() {
     <div>
       <div className="page-header" style={{ marginBottom:16 }}>
         <h2 style={{ fontSize:16, fontWeight:700, color:"#0f172a" }}>Academic Years</h2>
-        {can("academics.manage") && <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
+        {canManage && <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
           {showForm ? "Cancel" : "+ New Academic Year"}
         </button>}
       </div>
 
+      {isGlobalLocked && (
+        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+          Academic Years are managed centrally by the superadmin. This list is read-only here.
+        </div>
+      )}
       {success && <div className="alert alert-success">{success}</div>}
       {error   && <div className="alert alert-error">{error}</div>}
       {showForm && (
@@ -159,7 +167,7 @@ function YearsTab() {
                       : <span className="badge badge-gray">Inactive</span>}
                   </td>
                   <td>
-                      {!y.is_active && can("academics.manage") && (
+                      {!y.is_active && canManage && (
                         <button className="btn btn-ghost btn-xs" onClick={() => handleActivate(y.id)}>
                           Set Active
                         </button>
@@ -178,6 +186,8 @@ function YearsTab() {
 /* ── Classes ─────────────────────────────────────────────────── */
 function ClassesTab() {
   const { can } = useAuth();
+  const { isGlobalLocked } = useGovernanceMode("classes");
+  const canManage = can("classes.manage") && !isGlobalLocked;
   const [classes,  setClasses]  = useState([]);
   const [years,    setYears]    = useState([]);
   const [loading,  setLoading]  = useState(true);
@@ -240,9 +250,14 @@ function ClassesTab() {
     <div>
       <div className="page-header" style={{ marginBottom:16 }}>
         <h2 style={{ fontSize:16, fontWeight:700, color:"#0f172a" }}>Classes</h2>
-        {can("classes.manage") && <button className="btn btn-primary" onClick={openCreate}>+ New Class</button>}
+        {canManage && <button className="btn btn-primary" onClick={openCreate}>+ New Class</button>}
       </div>
 
+      {isGlobalLocked && (
+        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+          Classes are managed centrally by the superadmin. This list is read-only here.
+        </div>
+      )}
       {success && <div className="alert alert-success">{success}</div>}
       {error   && <div className="alert alert-error">{error}</div>}
 
@@ -330,8 +345,8 @@ function ClassesTab() {
                   <td style={{ display:"flex", gap:6 }}>
                     <button className="btn btn-primary btn-xs" onClick={() => setSelectedClass(c)}>Teachers</button>
                     <button className="btn btn-secondary btn-xs" onClick={() => setSelectedClassSubj(c)}>Subjects</button>
-                    {can("classes.manage") && <button className="btn btn-ghost btn-xs" onClick={() => openEdit(c)}>Edit</button>}
-                    {can("classes.manage") && <button className="btn btn-danger btn-xs" onClick={() => handleDelete(c.id)}>Delete</button>}
+                    {canManage && <button className="btn btn-ghost btn-xs" onClick={() => openEdit(c)}>Edit</button>}
+                    {canManage && <button className="btn btn-danger btn-xs" onClick={() => handleDelete(c.id)}>Delete</button>}
                 </td>
                 </tr>
               ))}
@@ -339,8 +354,8 @@ function ClassesTab() {
           </table>
         </div>
       )}
-      {selectedClass && <ClassDetail classItem={selectedClass} onClose={() => setSelectedClass(null)} />}
-      {selectedClassSubj && <ClassSubjectsModal classItem={selectedClassSubj} onClose={() => { setSelectedClassSubj(null); fetchData(); }} />}
+      {selectedClass && <ClassDetail classItem={selectedClass} onClose={() => setSelectedClass(null)} isGlobalLocked={isGlobalLocked} />}
+      {selectedClassSubj && <ClassSubjectsModal classItem={selectedClassSubj} onClose={() => { setSelectedClassSubj(null); fetchData(); }} isGlobalLocked={isGlobalLocked} />}
     </div>
   );
 }
@@ -348,6 +363,8 @@ function ClassesTab() {
 /* ── Subjects ────────────────────────────────────────────────── */
 function SubjectsTab() {
   const { can } = useAuth();
+  const { isGlobalLocked } = useGovernanceMode("subjects");
+  const canManage = can("subjects.manage") && !isGlobalLocked;
   const [subjects, setSubjects] = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -418,9 +435,14 @@ function SubjectsTab() {
     <div>
       <div className="page-header" style={{ marginBottom:16 }}>
         <h2 style={{ fontSize:16, fontWeight:700, color:"#0f172a" }}>Subjects</h2>
-        {can("subjects.manage") && <button className="btn btn-primary" onClick={openCreate}>+ New Subject</button>}
+        {canManage && <button className="btn btn-primary" onClick={openCreate}>+ New Subject</button>}
       </div>
 
+      {isGlobalLocked && (
+        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+          Subjects are managed centrally by the superadmin. This list is read-only here.
+        </div>
+      )}
       {success && <div className="alert alert-success">{success}</div>}
       {error   && <div className="alert alert-error">{error}</div>}
 
@@ -469,7 +491,7 @@ function SubjectsTab() {
                 <th>Credit Hours</th>
                 <th>Description</th>
                 <th>Status</th>
-                <th>Actions</th>
+                {canManage && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -484,14 +506,15 @@ function SubjectsTab() {
                       ? <span className="badge badge-success">Active</span>
                       : <span className="badge badge-danger">Inactive</span>}
                   </td>
-                  <td style={{ display:"flex", gap:6 }}>
-                    {can("subjects.manage") && <button className="btn btn-ghost btn-xs" onClick={() => openEdit(s)}>Edit</button>}
-                    {can("subjects.manage") && (
-                      s.is_active
+                  {canManage && (
+                    <td style={{ display:"flex", gap:6 }}>
+                      <button className="btn btn-ghost btn-xs" onClick={() => openEdit(s)}>Edit</button>
+                      {s.is_active
                         ? <button className="btn btn-danger btn-xs" onClick={() => handleDeactivate(s.id)}>Deactivate</button>
                         : <button className="btn btn-secondary btn-xs" onClick={() => handleReactivate(s.id)}>Activate</button>
-                    )}
-                  </td>
+                      }
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -847,8 +870,9 @@ function TimetableTab() {
 }
 
 
-export function ClassDetail({ classItem, onClose }) {
+export function ClassDetail({ classItem, onClose, isGlobalLocked }) {
   const { can } = useAuth();
+  const canManage = can("classes.manage") && !isGlobalLocked;
   const [classTeachers,  setClassTeachers]  = useState([]);
   const [allTeachers,    setAllTeachers]    = useState([]);
   const [classSubjects,  setClassSubjects]  = useState([]);
@@ -936,7 +960,7 @@ export function ClassDetail({ classItem, onClose }) {
                     {incharge.subject_names && <div style={{ fontSize:11, color:"#2563eb", marginTop:2 }}>{incharge.subject_names}</div>}
                     {isMontessori && <div style={{ fontSize:11, color:"#16a34a", fontWeight:600 }}>Teaches all subjects</div>}
                   </div>
-                  {can("classes.manage") && <button className="btn btn-danger btn-xs" onClick={() => handleRemove(incharge.teacher_id)}>Remove</button>}
+                  {canManage && <button className="btn btn-danger btn-xs" onClick={() => handleRemove(incharge.teacher_id)}>Remove</button>}
                 </div>
               ) : (
                 <div style={{ fontSize:12, color:"#94a3b8", marginBottom:16 }}>No class incharge assigned.</div>
@@ -952,7 +976,7 @@ export function ClassDetail({ classItem, onClose }) {
                         <span style={{ fontSize:11, color:"#64748b", marginLeft:8 }}>{t.employee_no}</span>
                         {t.subject_names && <span style={{ fontSize:11, color:"#2563eb", marginLeft:8 }}>{t.subject_names}</span>}
                       </div>
-                      {can("classes.manage") && <button className="btn btn-danger btn-xs" onClick={() => handleRemove(t.teacher_id)}>Remove</button>}
+                      {canManage && <button className="btn btn-danger btn-xs" onClick={() => handleRemove(t.teacher_id)}>Remove</button>}
                     </div>
                   ))}
                 </div>
@@ -976,7 +1000,7 @@ export function ClassDetail({ classItem, onClose }) {
                     Incharge
                   </label>
                 )}
-                {can("classes.manage") && (
+                {canManage && (
                   <button className="btn btn-primary" onClick={handleAssign} disabled={saving || !selectedTeacher}>
                     {saving ? "Assigning..." : isMontessori ? "Assign Incharge" : "Assign"}
                   </button>
@@ -993,8 +1017,9 @@ export function ClassDetail({ classItem, onClose }) {
 }
 
 
-function ClassSubjectsModal({ classItem, onClose }) {
+function ClassSubjectsModal({ classItem, onClose, isGlobalLocked }) {
   const { can } = useAuth();
+  const canManage = can("classes.manage") && !isGlobalLocked;
   const [classSubjects, setClassSubjects] = useState([]);
   const [allSubjects,   setAllSubjects]   = useState([]);
   const [selSubject,    setSelSubject]     = useState("");
@@ -1050,7 +1075,7 @@ function ClassSubjectsModal({ classItem, onClose }) {
                     <div key={s.id} style={{ display:"flex", alignItems:"center", gap:6, background:"#eff6ff", border:"1px solid #bfdbfe", borderRadius:20, padding:"5px 12px" }}>
                       <span style={{ fontSize:13, fontWeight:600, color:"#1d4ed8" }}>{s.subject_name}</span>
                       <span style={{ fontSize:11, color:"#64748b" }}>({s.code})</span>
-                      {can("classes.manage") && (
+                      {canManage && (
                         <button style={{ border:"none", background:"none", color:"#dc2626", cursor:"pointer", fontSize:16, lineHeight:1 }}
                           onClick={async () => { await academicsApi.removeClassSubject(classItem.id, s.subject_id); await fetchData(); }}>×</button>
                       )}
@@ -1058,7 +1083,7 @@ function ClassSubjectsModal({ classItem, onClose }) {
                   ))}
                 </div>
               )}
-              {can("classes.manage") && availableSubjects.length > 0 && (
+              {canManage && availableSubjects.length > 0 && (
                 <div style={{ display:"flex", gap:8 }}>
                   <select className="form-control" value={selSubject} onChange={e => setSelSubject(e.target.value)} style={{ flex:1 }}>
                     <option value="">Select subject...</option>

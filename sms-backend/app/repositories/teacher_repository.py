@@ -26,8 +26,8 @@ class TeacherRepository(BaseRepository):
         cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         offset = (page - 1) * per_page
         cur.execute(
-            "SELECT * FROM sp_list_teachers(%s, %s, %s, %s)",
-            (filters.get("status"), filters.get("search"), per_page, offset)
+            "SELECT * FROM sp_list_teachers(%s, %s, %s, %s, %s)",
+            (filters.get("status"), filters.get("search"), per_page, offset, filters.get("campus_id"))
         )
         return [dict(r) for r in cur.fetchall()]
 
@@ -35,14 +35,14 @@ class TeacherRepository(BaseRepository):
         filters = filters or {}
         db = get_db()
         cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        cur.execute("SELECT sp_count_teachers(%s, %s) AS cnt", (filters.get("status"), filters.get("search")))
+        cur.execute("SELECT sp_count_teachers(%s, %s, %s) AS cnt", (filters.get("status"), filters.get("search"), filters.get("campus_id")))
         return cur.fetchone()["cnt"]
 
     def create(self, data: Dict) -> Dict:
         db = get_db()
         cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute(
-            "SELECT * FROM sp_create_teacher(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+            "SELECT * FROM sp_create_teacher(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
             (
                 data["email"],
                 data["password_hash"],
@@ -55,6 +55,7 @@ class TeacherRepository(BaseRepository):
                 data.get("specialization") or None,
                 data.get("join_date") or None,
                 data.get("employee_no") or None,
+                data.get("campus_id") or None,
             )
         )
         row = cur.fetchone()

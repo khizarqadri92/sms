@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import payrollApi from "../api/payrollApi";
+import { useGovernanceMode } from "../hooks/useGovernanceMode";
 
 const CALC_LABELS = {
   fixed: "Fixed Amount",
@@ -10,6 +11,7 @@ const CALC_LABELS = {
 };
 
 export default function PayrollGrades() {
+  const { isGlobalLocked } = useGovernanceMode("payroll_grades");
   const [settings, setSettings] = useState({ basic_salary_mode: "individual", days_in_month_mode: "fixed_30", fixed_days_value: 30, pf_employer_contribution_mode: "same_as_employee", pf_employer_percentage: 0, pf_employer_fixed_amount: 0 });
   const [settingsMsg, setSettingsMsg] = useState(null);
   const [savingSettings, setSavingSettings] = useState(false);
@@ -311,9 +313,14 @@ export default function PayrollGrades() {
         </div>
       )}
 
+      {isGlobalLocked && (
+        <div style={{ marginBottom: 12, padding: "8px 12px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, fontSize: 12, color: "#92400e" }}>
+          Payroll Grades are managed centrally by the superadmin. This list is read-only here.
+        </div>
+      )}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
         <div style={{ fontWeight: 700, fontSize: 15 }}>Grades</div>
-        <button className="btn btn-primary btn-sm" style={{ color: "#fff" }} onClick={openAddGrade}>+ Add Grade</button>
+        {!isGlobalLocked && <button className="btn btn-primary btn-sm" style={{ color: "#fff" }} onClick={openAddGrade}>+ Add Grade</button>}
       </div>
 
       <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, overflow: "hidden" }}>
@@ -335,8 +342,12 @@ export default function PayrollGrades() {
                   {g.is_active ? <span style={{ color: "#166534" }}>Active</span> : <span style={{ color: "#dc2626" }}>Inactive</span>}
                 </td>
                 <td style={{ padding: "10px 14px", display: "flex", gap: 6 }}>
-                  <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => openManageComponents(g)}>Manage Components</button>
-                  <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => openEditGrade(g)}>Edit</button>
+                  {!isGlobalLocked && (
+                    <>
+                      <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => openManageComponents(g)}>Manage Components</button>
+                      <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => openEditGrade(g)}>Edit</button>
+                    </>
+                  )}
                 </td>
               </tr>
             ))}

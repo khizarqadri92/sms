@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import workflowApi from "../api/workflowApi";
+import { useGovernanceMode } from "../hooks/useGovernanceMode";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
 const STEP_TYPES     = ["approve","accept","recommend","review","verify","clear","payment","finalize_settlement","finalize_exit","notify","publish","conduct","decide","hearing","assign_committee"];
@@ -137,6 +138,7 @@ const EMPTY_STEP = {
 
 export default function WorkflowBuilder() {
   const { formatDate } = useRegionalSettings();
+  const { isGlobalLocked } = useGovernanceMode("workflow_definitions");
   const [workflows, setWorkflows]     = useState([]);
   const [roles, setRoles]             = useState([]);
   const [designations, setDesignations] = useState([]);
@@ -303,9 +305,14 @@ export default function WorkflowBuilder() {
       {tab==="workflows" && (
         <div style={{display:"grid",gridTemplateColumns:"300px 1fr",gap:20}}>
           <div>
+            {isGlobalLocked && (
+              <div style={{marginBottom:12,padding:"8px 12px",background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,fontSize:12,color:"#92400e"}}>
+                Workflows are managed centrally by the superadmin. This list is read-only here.
+              </div>
+            )}
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
               <div style={{fontWeight:700,fontSize:14}}>Workflows ({workflows.length})</div>
-              <button className="btn btn-primary btn-sm" style={{color:"#fff"}} onClick={()=>setShowNewWF(true)}>+ New</button>
+              {!isGlobalLocked && <button className="btn btn-primary btn-sm" style={{color:"#fff"}} onClick={()=>setShowNewWF(true)}>+ New</button>}
             </div>
 
             {showNewWF && (
@@ -360,10 +367,12 @@ export default function WorkflowBuilder() {
                       <div style={{fontSize:12,color:"var(--color-text-secondary)",marginTop:3}}>Code: <code>{detail.code}</code> · {detail.module} / {detail.entity_type}</div>
                       {detail.description && <div style={{fontSize:13,marginTop:6}}>{detail.description}</div>}
                     </div>
-                    <div style={{display:"flex",gap:8}}>
-                      <button className="btn btn-ghost btn-sm" onClick={()=>toggleActive(detail)}>{detail.is_active?"Deactivate":"Activate"}</button>
-                      <button className="btn btn-ghost btn-sm" style={{color:"#ef4444"}} onClick={()=>deleteWorkflow(detail.id)}>Delete</button>
-                    </div>
+                    {!isGlobalLocked && (
+                      <div style={{display:"flex",gap:8}}>
+                        <button className="btn btn-ghost btn-sm" onClick={()=>toggleActive(detail)}>{detail.is_active?"Deactivate":"Activate"}</button>
+                        <button className="btn btn-ghost btn-sm" style={{color:"#ef4444"}} onClick={()=>deleteWorkflow(detail.id)}>Delete</button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -473,7 +482,7 @@ export default function WorkflowBuilder() {
         <div>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
             <div style={{fontSize:14,color:"var(--color-text-secondary)"}}>Link workflows to modules with smart conditions.</div>
-            <button className="btn btn-primary" style={{color:"#fff"}} onClick={()=>setNewAssign(true)}>+ New Assignment</button>
+            {!isGlobalLocked && <button className="btn btn-primary" style={{color:"#fff"}} onClick={()=>setNewAssign(true)}>+ New Assignment</button>}
           </div>
 
           {showNewAssign && (
@@ -587,7 +596,7 @@ export default function WorkflowBuilder() {
                       <div style={{fontSize:12,color:"#94a3b8",fontStyle:"italic"}}>No conditions — matches all entities</div>
                     )}
                   </div>
-                  <button className="btn btn-ghost btn-sm" style={{color:"#ef4444",flexShrink:0}} onClick={()=>deleteAssignment(a.id)}>Remove</button>
+                  {!isGlobalLocked && <button className="btn btn-ghost btn-sm" style={{color:"#ef4444",flexShrink:0}} onClick={()=>deleteAssignment(a.id)}>Remove</button>}
                 </div>
               </div>
             ))}

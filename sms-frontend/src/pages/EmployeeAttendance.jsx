@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import reportsApi from "../api/reportsApi";
 import hrApi from "../api/hrApi";
 import { printReport, exportToCSV, exportToPDF } from "../utils/reportExport";
@@ -37,6 +37,18 @@ export default function EmployeeAttendance() {
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
   const [date, setDate] = useState(toLocalDateStr(now));
+  // useProcessingToday() starts with the browser's local date and corrects
+  // itself asynchronously once the real processing date is fetched - but
+  // month/year/date above only read it once via useState's initializer, so
+  // without this they would stay stuck on the local-date fallback forever.
+  // This runs again (and only again) when processingToday's value actually
+  // changes - i.e. once, when the real value replaces the initial fallback.
+  useEffect(() => {
+    const d = new Date(processingToday);
+    setMonth(d.getMonth() + 1);
+    setYear(d.getFullYear());
+    setDate(toLocalDateStr(d));
+  }, [processingToday]);
 
   const [directory, setDirectory] = useState([]);
   const [dailyData, setDailyData] = useState([]);
@@ -106,7 +118,7 @@ export default function EmployeeAttendance() {
   const exportRows = reportType === "monthly" ? directory : filteredDaily;
 
   return (
-    <div style={{ maxWidth: 950, margin: "0 auto", padding: 24 }}>
+    <div style={{ margin: "0 auto", padding: 24 }}>
       <div style={{ marginBottom: 20 }}>
         <div style={{ fontSize: 22, fontWeight: 800, color: "#0f172a" }}>Attendance Report</div>
         <div style={{ fontSize: 13, color: "#64748b" }}>Monthly or daily attendance, filterable by department and employee</div>

@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from "react";
 import hrApi from "../api/hrApi";
 import { useAuth } from "../auth/AuthContext";
+import { useGovernanceMode } from "../hooks/useGovernanceMode";
 
 export default function HRSetup() {
   const { permissions = [] } = useAuth();
+  const { isGlobalLocked: subDeptsLocked } = useGovernanceMode("sub_departments");
+  const { isGlobalLocked: designationsLocked } = useGovernanceMode("designations");
   const canManage = permissions.includes("hr.designations");
+  const canManageSubDepts = canManage && !subDeptsLocked;
+  const canManageDesignations = canManage && !designationsLocked;
 
   const [departments, setDepartments]       = useState([]);
   const [allRoles, setAllRoles]             = useState([]);
@@ -49,7 +54,12 @@ export default function HRSetup() {
         {/* Departments */}
         {card("Departments",
           <>
-            {canManage&&(
+            {subDeptsLocked&&(
+              <div style={{marginBottom:12,padding:"8px 12px",background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,fontSize:12,color:"#92400e"}}>
+                Sub-departments are managed centrally by the superadmin.
+              </div>
+            )}
+            {canManageSubDepts&&(
               <div style={{marginBottom:12,padding:12,background:"#f8fafc",borderRadius:8,border:"1px solid #e2e8f0"}}>
                 <div style={{fontWeight:600,fontSize:12,marginBottom:8,color:"#334155"}}>Add Sub-Department</div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr auto",gap:8,alignItems:"flex-end"}}>
@@ -140,7 +150,12 @@ export default function HRSetup() {
         {/* Designations */}
         {card("Designations",
           <>
-            {canManage&&(
+            {designationsLocked&&(
+              <div style={{marginBottom:12,padding:"8px 12px",background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,fontSize:12,color:"#92400e"}}>
+                Designations are managed centrally by the superadmin.
+              </div>
+            )}
+            {canManageDesignations&&(
               <>
               <div style={{display:"flex",gap:6,marginBottom:12}}>
                 <input className="form-input" placeholder="Designation name *" style={{flex:1,fontSize:12}}
@@ -181,7 +196,7 @@ export default function HRSetup() {
                     <div style={{fontSize:13,fontWeight:600}}>{d.name}</div>
                     {d.department_name&&<div style={{fontSize:11,color:"#64748b"}}>{d.department_name}</div>}
                   </div>
-                  {canManage&&<button className="btn btn-ghost btn-sm" style={{color:"#dc2626",fontSize:11}}
+                  {canManageDesignations&&<button className="btn btn-ghost btn-sm" style={{color:"#dc2626",fontSize:11}}
                     onClick={async()=>{await hrApi.deleteDesignation(d.id);loadAll();}}>Remove</button>}
                 </div>
               ))}

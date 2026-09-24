@@ -12,11 +12,45 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from app.fastapi_auth import get_current_user_id, get_jwt_claims
+from app.fastapi_campus import get_settings_campus_id
+from app.fastapi_campus import get_current_campus_id
+from app.fastapi_campus import catalog_campus_id, catalog_campus_id_for_write
+from app.fastapi_campus import enforce_same_campus
 from app.fastapi_permissions import require_permission
 from app.fastapi_db import get_db, get_cur as _get_cur
 from app.utils.processing_date import get_processing_datetime
 
 router = APIRouter()
+
+
+def verify_exam_campus(exam_id: int, campus_id: Optional[int] = Depends(get_current_campus_id), db=Depends(get_db)):
+    """
+    Lightweight dependency, added to every /{exam_id}/... route's signature,
+    that blocks access to an exam_id belonging to a different campus - the
+    same pattern used for discipline case_id routes. An exam is considered
+    to belong to a campus if it has at least one class assigned there
+    (matching the filter sp_get_exams uses for listing). Before any class
+    is assigned yet, the exam's creator's own campus is used instead, so
+    the brief window between creating an exam and assigning classes to it
+    isn't an open gap.
+    """
+    cur = get_cur(db)
+    cur.execute("""
+        SELECT c.campus_id FROM exam_classes ec JOIN classes c ON c.id = ec.class_id
+        WHERE ec.exam_id = %s
+    """, (exam_id,))
+    class_campus_ids = {r["campus_id"] for r in cur.fetchall()}
+    if class_campus_ids:
+        if campus_id is not None and campus_id not in class_campus_ids:
+            enforce_same_campus(-1, campus_id)
+    else:
+        cur.execute("""
+            SELECT u.campus_id FROM exams e JOIN users u ON u.id = e.created_by
+            WHERE e.id = %s
+        """, (exam_id,))
+        row = cur.fetchone()
+        creator_campus_id = row["campus_id"] if row else None
+        enforce_same_campus(creator_campus_id, campus_id)
 
 
 def get_cur(db):
@@ -196,9 +230,9 @@ def update_component(comp_id: int, body: ComponentIn, user_id: int = Depends(req
 # ─── Formula ─────────────────────────────────────────────────────────────────
 
 @router.get("/formula")
-def get_formula(user_id: int = Depends(require_permission("exam.view")), db=Depends(get_db)):
+def get_formula(user_id: int = Depends(require_permission("exam.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_settings_campus_id)):
     cur = get_cur(db)
-    cur.execute("SELECT id FROM academic_years WHERE is_active=TRUE LIMIT 1")
+    cur.execute("SELECT id FROM academic_years WHERE is_active=TRUE AND (campus_id = %s OR campus_id IS NULL) ORDER BY campus_id NULLS LAST LIMIT 1", (campus_id,))
     ay = cur.fetchone()
     if not ay: fail("No active academic year", 404)
     cur.execute("SELECT * FROM result_formula WHERE academic_year_id=%s", (ay["id"],))
@@ -214,13 +248,13 @@ def get_formula(user_id: int = Depends(require_permission("exam.view")), db=Depe
 
 
 @router.put("/formula")
-def update_formula(body: FormulaIn, user_id: int = Depends(require_permission("exam.config")), db=Depends(get_db)):
+def update_formula(body: FormulaIn, user_id: int = Depends(require_permission("exam.config")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_settings_campus_id)):
     formula = body.formula or []
     total = sum(float(c.get("weight", 0)) for c in formula)
     formula_mode = body.formula_mode or "percentage"
     is_configured = abs(total - 100) < 0.5 if formula_mode == "percentage" else len(formula) > 0
     cur = get_cur(db)
-    cur.execute("SELECT id FROM academic_years WHERE is_active=TRUE LIMIT 1")
+    cur.execute("SELECT id FROM academic_years WHERE is_active=TRUE AND (campus_id = %s OR campus_id IS NULL) ORDER BY campus_id NULLS LAST LIMIT 1", (campus_id,))
     ay = cur.fetchone()
     if not ay: fail("No active academic year", 404)
     cur.execute("UPDATE result_formula SET formula=%s,total_weight=%s,is_configured=%s,formula_mode=%s,updated_by=%s,updated_at=%s WHERE academic_year_id=%s",
@@ -232,24 +266,27 @@ def update_formula(body: FormulaIn, user_id: int = Depends(require_permission("e
 # ─── Exam Types ───────────────────────────────────────────────────────────────
 
 @router.get("/types")
-def get_exam_types(user_id: int = Depends(require_permission("exam.view")), db=Depends(get_db)):
+def get_exam_types(user_id: int = Depends(require_permission("exam.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("exam_types"))):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM exam_types ORDER BY order_no")
+    cur.execute("SELECT * FROM exam_types WHERE campus_id = %s OR campus_id IS NULL ORDER BY order_no", (campus_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.post("/types")
-def create_exam_type(body: ExamTypeIn, user_id: int = Depends(require_permission("exam.config")), db=Depends(get_db)):
+def create_exam_type(body: ExamTypeIn, user_id: int = Depends(require_permission("exam.config")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("exam_types"))):
     cur = get_cur(db)
-    cur.execute("INSERT INTO exam_types(name,code,weight,order_no) VALUES(%s,%s,%s,%s) RETURNING id",
-                (body.name, body.code, body.weight or 0, body.order_no or 1))
+    cur.execute("INSERT INTO exam_types(name,code,weight,order_no,campus_id) VALUES(%s,%s,%s,%s,%s) RETURNING id",
+                (body.name, body.code, body.weight or 0, body.order_no or 1, campus_id))
     db.commit()
     return ok(data={"id": cur.fetchone()["id"]}, message="Exam type created.")
 
 
 @router.put("/types/{type_id}")
-def update_exam_type(type_id: int, body: ExamTypeIn, user_id: int = Depends(require_permission("exam.config")), db=Depends(get_db)):
+def update_exam_type(type_id: int, body: ExamTypeIn, user_id: int = Depends(require_permission("exam.config")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("exam_types"))):
     cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM exam_types WHERE id=%s", (type_id,))
+    _row = cur.fetchone()
+    enforce_same_campus(_row["campus_id"] if _row else None, campus_id)
     cur.execute("""UPDATE exam_types SET name=%s,weight=%s,order_no=%s,is_active=%s,
                    publish_mode=%s,require_datesheet_approval=%s,include_in_final=%s,
                    datesheet_submit_role=%s,datesheet_approve_role=%s,datesheet_publish_role=%s
@@ -289,9 +326,9 @@ def update_grading(body: GradingIn, user_id: int = Depends(require_permission("e
 # ─── Exam Config ──────────────────────────────────────────────────────────────
 
 @router.get("/exam-config")
-def get_exam_config(user_id: int = Depends(require_permission("exam.view")), db=Depends(get_db)):
+def get_exam_config(user_id: int = Depends(require_permission("exam.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_settings_campus_id)):
     cur = get_cur(db)
-    cur.execute("SELECT id FROM academic_years WHERE is_active=TRUE LIMIT 1")
+    cur.execute("SELECT id FROM academic_years WHERE is_active=TRUE AND (campus_id = %s OR campus_id IS NULL) ORDER BY campus_id NULLS LAST LIMIT 1", (campus_id,))
     ay = cur.fetchone()
     if not ay: fail("No active academic year", 404)
     cur.execute("SELECT * FROM exam_config WHERE academic_year_id=%s", (ay["id"],))
@@ -307,9 +344,9 @@ def get_exam_config(user_id: int = Depends(require_permission("exam.view")), db=
 
 
 @router.put("/exam-config")
-def update_exam_config(body: ExamConfigIn, user_id: int = Depends(require_permission("exam.config")), db=Depends(get_db)):
+def update_exam_config(body: ExamConfigIn, user_id: int = Depends(require_permission("exam.config")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_settings_campus_id)):
     cur = get_cur(db)
-    cur.execute("SELECT id FROM academic_years WHERE is_active=TRUE LIMIT 1")
+    cur.execute("SELECT id FROM academic_years WHERE is_active=TRUE AND (campus_id = %s OR campus_id IS NULL) ORDER BY campus_id NULLS LAST LIMIT 1", (campus_id,))
     ay = cur.fetchone()
     if not ay: fail("No active academic year", 404)
     cur.execute("""UPDATE exam_config SET passing_pct=%s,max_fail_subjects=%s,allow_compartment=%s,
@@ -331,6 +368,7 @@ def list_exams(
     class_id: Optional[str] = Query(None),
     user_id: int = Depends(require_permission("exam.view")),
     claims: dict = Depends(get_jwt_claims), db=Depends(get_db),
+    campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
     roles = claims.get("roles", [])
     role = roles[0] if roles else ""
@@ -347,13 +385,13 @@ def list_exams(
         elif not class_id and incharge:
             effective_class_id = incharge[0]
 
-    cur.execute("SELECT * FROM sp_get_exams(%s, NULL)", (effective_class_id,))
+    cur.execute("SELECT * FROM sp_get_exams(%s, NULL, %s)", (effective_class_id, campus_id))
     rows = [fmt(dict(r), DATE_KEYS) for r in cur.fetchall()]
     return ok(data=rows)
 
 
 @router.get("/{exam_id}")
-def get_exam(exam_id: int, user_id: int = Depends(require_permission("exam.view")), db=Depends(get_db)):
+def get_exam(exam_id: int, user_id: int = Depends(require_permission("exam.view")), db=Depends(get_db), _exam_check: None = Depends(verify_exam_campus)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_exam_detail(%s)", (exam_id,))
     row = cur.fetchone()
@@ -370,9 +408,9 @@ def get_exam(exam_id: int, user_id: int = Depends(require_permission("exam.view"
 
 
 @router.post("/")
-def create_exam(body: ExamCreateIn, user_id: int = Depends(require_permission("exam.manage")), db=Depends(get_db)):
+def create_exam(body: ExamCreateIn, user_id: int = Depends(require_permission("exam.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
-    cur.execute("SELECT id FROM academic_years WHERE is_active=TRUE LIMIT 1")
+    cur.execute("SELECT id FROM academic_years WHERE is_active=TRUE AND (campus_id = %s OR campus_id IS NULL) ORDER BY campus_id NULLS LAST LIMIT 1", (campus_id,))
     ay = cur.fetchone()
     if not ay: fail("No active academic year", 404)
 
@@ -407,7 +445,7 @@ def create_exam(body: ExamCreateIn, user_id: int = Depends(require_permission("e
 
 
 @router.put("/{exam_id}")
-def update_exam(exam_id: int, body: ExamUpdateIn, user_id: int = Depends(require_permission("exam.manage")), db=Depends(get_db)):
+def update_exam(exam_id: int, body: ExamUpdateIn, user_id: int = Depends(require_permission("exam.manage")), db=Depends(get_db), _exam_check: None = Depends(verify_exam_campus)):
     cur = get_cur(db)
     cur.execute("UPDATE exams SET name=%s,start_date=%s,end_date=%s WHERE id=%s",
                 (body.name, body.start_date or None, body.end_date or None, exam_id))
@@ -416,7 +454,7 @@ def update_exam(exam_id: int, body: ExamUpdateIn, user_id: int = Depends(require
 
 
 @router.delete("/{exam_id}")
-def delete_exam(exam_id: int, user_id: int = Depends(require_permission("exam.manage")), db=Depends(get_db)):
+def delete_exam(exam_id: int, user_id: int = Depends(require_permission("exam.manage")), db=Depends(get_db), _exam_check: None = Depends(verify_exam_campus)):
     cur = get_cur(db)
     cur.execute("SELECT status FROM exams WHERE id=%s", (exam_id,))
     row = cur.fetchone()
@@ -429,7 +467,7 @@ def delete_exam(exam_id: int, user_id: int = Depends(require_permission("exam.ma
 
 
 @router.put("/{exam_id}/status")
-def update_status(exam_id: int, body: StatusUpdateIn, user_id: int = Depends(require_permission("exam.manage")), db=Depends(get_db)):
+def update_status(exam_id: int, body: StatusUpdateIn, user_id: int = Depends(require_permission("exam.manage")), db=Depends(get_db), _exam_check: None = Depends(verify_exam_campus)):
     cur = get_cur(db)
     cur.execute("UPDATE exams SET status=%s WHERE id=%s", (body.status, exam_id))
     db.commit()
@@ -439,7 +477,7 @@ def update_status(exam_id: int, body: StatusUpdateIn, user_id: int = Depends(req
 # ─── Subjects ─────────────────────────────────────────────────────────────────
 
 @router.get("/{exam_id}/subjects")
-def get_exam_subjects_list(exam_id: int, user_id: int = Depends(require_permission("exam.view")), db=Depends(get_db)):
+def get_exam_subjects_list(exam_id: int, user_id: int = Depends(require_permission("exam.view")), db=Depends(get_db), _exam_check: None = Depends(verify_exam_campus)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_exam_subjects(%s)", (exam_id,))
     rows = [fmt(dict(r), DATE_KEYS) for r in cur.fetchall()]
@@ -447,7 +485,7 @@ def get_exam_subjects_list(exam_id: int, user_id: int = Depends(require_permissi
 
 
 @router.get("/{exam_id}/available-subjects")
-def get_available_subjects(exam_id: int, user_id: int = Depends(require_permission("exam.manage")), db=Depends(get_db)):
+def get_available_subjects(exam_id: int, user_id: int = Depends(require_permission("exam.manage")), db=Depends(get_db), _exam_check: None = Depends(verify_exam_campus)):
     cur = get_cur(db)
     cur.execute("""
         SELECT DISTINCT s.id, s.name, s.code,
@@ -463,7 +501,7 @@ def get_available_subjects(exam_id: int, user_id: int = Depends(require_permissi
 
 
 @router.post("/{exam_id}/subjects")
-def add_subject(exam_id: int, body: SubjectAddIn, user_id: int = Depends(require_permission("exam.manage")), db=Depends(get_db)):
+def add_subject(exam_id: int, body: SubjectAddIn, user_id: int = Depends(require_permission("exam.manage")), db=Depends(get_db), _exam_check: None = Depends(verify_exam_campus)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_add_exam_subject(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
                 (exam_id, body.class_id, body.subject_id, body.teacher_id or None,
@@ -477,7 +515,7 @@ def add_subject(exam_id: int, body: SubjectAddIn, user_id: int = Depends(require
 
 
 @router.delete("/{exam_id}/subjects/{subject_id}")
-def delete_exam_subject(exam_id: int, subject_id: int, user_id: int = Depends(require_permission("exam.manage")), db=Depends(get_db)):
+def delete_exam_subject(exam_id: int, subject_id: int, user_id: int = Depends(require_permission("exam.manage")), db=Depends(get_db), _exam_check: None = Depends(verify_exam_campus)):
     cur = get_cur(db)
     cur.execute("SELECT e.status FROM exams e WHERE e.id=%s", (exam_id,))
     row = cur.fetchone()
@@ -491,7 +529,7 @@ def delete_exam_subject(exam_id: int, subject_id: int, user_id: int = Depends(re
 # ─── Datesheet ────────────────────────────────────────────────────────────────
 
 @router.get("/{exam_id}/datesheet")
-def get_datesheet(exam_id: int, user_id: int = Depends(require_permission("exam.view")), db=Depends(get_db)):
+def get_datesheet(exam_id: int, user_id: int = Depends(require_permission("exam.view")), db=Depends(get_db), _exam_check: None = Depends(verify_exam_campus)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_exam_detail(%s)", (exam_id,))
     row = cur.fetchone()
@@ -511,7 +549,7 @@ def get_datesheet(exam_id: int, user_id: int = Depends(require_permission("exam.
 
 
 @router.post("/{exam_id}/datesheet/submit")
-def submit_datesheet(exam_id: int, user_id: int = Depends(require_permission("exam.manage")), db=Depends(get_db)):
+def submit_datesheet(exam_id: int, user_id: int = Depends(require_permission("exam.manage")), db=Depends(get_db), _exam_check: None = Depends(verify_exam_campus)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_exam_subjects(%s)", (exam_id,))
     if not cur.fetchall(): fail("Add subjects to datesheet before submitting.", 400)
@@ -538,7 +576,7 @@ def submit_datesheet(exam_id: int, user_id: int = Depends(require_permission("ex
 
 
 @router.post("/{exam_id}/datesheet/approve")
-def approve_datesheet(exam_id: int, user_id: int = Depends(require_permission("exam.approve")), db=Depends(get_db)):
+def approve_datesheet(exam_id: int, user_id: int = Depends(require_permission("exam.approve")), db=Depends(get_db), _exam_check: None = Depends(verify_exam_campus)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_approve_datesheet(%s,%s)", (exam_id, user_id))
     result = cur.fetchone()
@@ -563,7 +601,7 @@ def approve_datesheet(exam_id: int, user_id: int = Depends(require_permission("e
 
 
 @router.post("/{exam_id}/datesheet/publish")
-def publish_datesheet(exam_id: int, user_id: int = Depends(require_permission("exam.manage")), db=Depends(get_db)):
+def publish_datesheet(exam_id: int, user_id: int = Depends(require_permission("exam.manage")), db=Depends(get_db), _exam_check: None = Depends(verify_exam_campus)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_exam_subjects(%s)", (exam_id,))
     if not cur.fetchall(): fail("Add subjects to the datesheet before publishing.", 400)
@@ -615,7 +653,7 @@ def publish_datesheet(exam_id: int, user_id: int = Depends(require_permission("e
 # ─── Marks Entry ──────────────────────────────────────────────────────────────
 
 @router.post("/{exam_id}/open")
-def open_marks(exam_id: int, user_id: int = Depends(require_permission("exam.manage")), db=Depends(get_db)):
+def open_marks(exam_id: int, user_id: int = Depends(require_permission("exam.manage")), db=Depends(get_db), _exam_check: None = Depends(verify_exam_campus)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_open_marks_entry(%s,%s)", (exam_id, user_id))
     result = cur.fetchone()
@@ -671,7 +709,7 @@ def get_marks_entry(
 
 
 @router.post("/{exam_id}/marks-entry")
-def save_marks(exam_id: int, body: MarksEntryIn, user_id: int = Depends(require_permission("exam.marks")), db=Depends(get_db)):
+def save_marks(exam_id: int, body: MarksEntryIn, user_id: int = Depends(require_permission("exam.marks")), db=Depends(get_db), _exam_check: None = Depends(verify_exam_campus)):
     if not body.class_id or not body.subject_id: fail("class_id and subject_id required", 400)
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_save_exam_marks(%s,%s,%s,%s,%s)",
@@ -683,7 +721,7 @@ def save_marks(exam_id: int, body: MarksEntryIn, user_id: int = Depends(require_
 
 
 @router.post("/{exam_id}/submit-subject-marks")
-def submit_subject_marks(exam_id: int, body: SubmitMarksIn, user_id: int = Depends(require_permission("exam.marks")), db=Depends(get_db)):
+def submit_subject_marks(exam_id: int, body: SubmitMarksIn, user_id: int = Depends(require_permission("exam.marks")), db=Depends(get_db), _exam_check: None = Depends(verify_exam_campus)):
     if not body.class_id or not body.subject_id: fail("class_id and subject_id required", 400)
     cur = get_cur(db)
     cur.execute("UPDATE exam_subjects SET marks_submitted=TRUE, submitted_at=%s, submitted_by=%s WHERE exam_id=%s AND class_id=%s AND subject_id=%s",
@@ -708,7 +746,7 @@ def submit_subject_marks(exam_id: int, body: SubmitMarksIn, user_id: int = Depen
 
 
 @router.get("/{exam_id}/class-marks-summary")
-def get_class_marks_summary(exam_id: int, class_id: Optional[int] = Query(None), user_id: int = Depends(require_permission("exam.view")), db=Depends(get_db)):
+def get_class_marks_summary(exam_id: int, class_id: Optional[int] = Query(None), user_id: int = Depends(require_permission("exam.view")), db=Depends(get_db), _exam_check: None = Depends(verify_exam_campus)):
     if not class_id: fail("class_id required", 400)
     cur = get_cur(db)
     cur.execute("""
@@ -760,7 +798,7 @@ def get_class_marks_summary(exam_id: int, class_id: Optional[int] = Query(None),
 # ─── Compile & Approve & Publish ─────────────────────────────────────────────
 
 @router.post("/{exam_id}/compile-results")
-def compile_results(exam_id: int, body: CompileIn, user_id: int = Depends(require_permission("exam.compile")), db=Depends(get_db)):
+def compile_results(exam_id: int, body: CompileIn, user_id: int = Depends(require_permission("exam.compile")), db=Depends(get_db), _exam_check: None = Depends(verify_exam_campus)):
     if not body.class_id: fail("class_id required", 400)
     class_id = body.class_id
     cur = get_cur(db)
@@ -815,7 +853,7 @@ def compile_results(exam_id: int, body: CompileIn, user_id: int = Depends(requir
 
 
 @router.get("/{exam_id}/compilation-status")
-def get_compilation_status(exam_id: int, user_id: int = Depends(require_permission("exam.view")), db=Depends(get_db)):
+def get_compilation_status(exam_id: int, user_id: int = Depends(require_permission("exam.view")), db=Depends(get_db), _exam_check: None = Depends(verify_exam_campus)):
     cur = get_cur(db)
     cur.execute("""
         SELECT ec.class_id, c.name as class_name, c.section,
@@ -839,7 +877,7 @@ def get_compilation_status(exam_id: int, user_id: int = Depends(require_permissi
 
 
 @router.post("/{exam_id}/approve")
-def approve_results(exam_id: int, user_id: int = Depends(require_permission("exam.approve")), db=Depends(get_db)):
+def approve_results(exam_id: int, user_id: int = Depends(require_permission("exam.approve")), db=Depends(get_db), _exam_check: None = Depends(verify_exam_campus)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_approve_exam_results(%s,%s)", (exam_id, user_id))
     result = cur.fetchone()
@@ -862,7 +900,7 @@ def approve_results(exam_id: int, user_id: int = Depends(require_permission("exa
 
 
 @router.post("/{exam_id}/publish")
-def publish_results(exam_id: int, user_id: int = Depends(require_permission("exam.publish")), db=Depends(get_db)):
+def publish_results(exam_id: int, user_id: int = Depends(require_permission("exam.publish")), db=Depends(get_db), _exam_check: None = Depends(verify_exam_campus)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_publish_exam_results(%s,%s)", (exam_id, user_id))
     result = cur.fetchone()
@@ -925,7 +963,7 @@ def get_results(
 
 
 @router.get("/{exam_id}/class-results/{class_id}")
-def get_class_results(exam_id: int, class_id: int, user_id: int = Depends(require_permission("exam.view")), db=Depends(get_db)):
+def get_class_results(exam_id: int, class_id: int, user_id: int = Depends(require_permission("exam.view")), db=Depends(get_db), _exam_check: None = Depends(verify_exam_campus)):
     cur = get_cur(db)
     cur.execute("""
         SELECT s.id, s.first_name, s.last_name, s.enrollment_no,
@@ -963,7 +1001,7 @@ def get_class_results(exam_id: int, class_id: int, user_id: int = Depends(requir
 
 
 @router.get("/{exam_id}/student-results/{student_id}")
-def get_student_results(exam_id: int, student_id: int, user_id: int = Depends(require_permission("exam.view")), db=Depends(get_db)):
+def get_student_results(exam_id: int, student_id: int, user_id: int = Depends(require_permission("exam.view")), db=Depends(get_db), _exam_check: None = Depends(verify_exam_campus)):
     cur = get_cur(db)
     cur.execute("""
         SELECT er.*, s.first_name, s.last_name, s.enrollment_no, c.name as class_name, c.section
@@ -993,7 +1031,7 @@ def get_student_results(exam_id: int, student_id: int, user_id: int = Depends(re
 
 
 @router.get("/{exam_id}/result-card/{student_id}")
-def get_result_card_pdf(exam_id: int, student_id: int, user_id: int = Depends(require_permission("exam.view")), db=Depends(get_db)):
+def get_result_card_pdf(exam_id: int, student_id: int, user_id: int = Depends(require_permission("exam.view")), db=Depends(get_db), _exam_check: None = Depends(verify_exam_campus)):
     import base64, io
     from datetime import datetime
     from fastapi.responses import StreamingResponse
@@ -1210,7 +1248,7 @@ def get_result_card_pdf(exam_id: int, student_id: int, user_id: int = Depends(re
 
 
 @router.post("/{exam_id}/send-reminder")
-def send_reminder(exam_id: int, body: ReminderIn, user_id: int = Depends(require_permission("exam.manage")), db=Depends(get_db)):
+def send_reminder(exam_id: int, body: ReminderIn, user_id: int = Depends(require_permission("exam.manage")), db=Depends(get_db), _exam_check: None = Depends(verify_exam_campus)):
     if not body.user_id: fail("user_id required", 400)
     try:
         from app.utils.notify import send_notification
@@ -1225,7 +1263,7 @@ def send_reminder(exam_id: int, body: ReminderIn, user_id: int = Depends(require
 # ─── Legacy marks endpoints (kept for compatibility) ─────────────────────────
 
 @router.get("/{exam_id}/subjects/{subject_id}/marks")
-def get_marks(exam_id: int, subject_id: int, user_id: int = Depends(require_permission("exam.view")), db=Depends(get_db)):
+def get_marks(exam_id: int, subject_id: int, user_id: int = Depends(require_permission("exam.view")), db=Depends(get_db), _exam_check: None = Depends(verify_exam_campus)):
     cur = get_cur(db)
     cur.execute("SELECT id FROM exam_subjects WHERE exam_id=%s AND subject_id=%s", (exam_id, subject_id))
     es = cur.fetchone()
@@ -1235,7 +1273,7 @@ def get_marks(exam_id: int, subject_id: int, user_id: int = Depends(require_perm
 
 
 @router.post("/{exam_id}/subjects/{subject_id}/marks")
-def enter_marks(exam_id: int, subject_id: int, body: dict, user_id: int = Depends(require_permission("exam.marks")), db=Depends(get_db)):
+def enter_marks(exam_id: int, subject_id: int, body: dict, user_id: int = Depends(require_permission("exam.marks")), db=Depends(get_db), _exam_check: None = Depends(verify_exam_campus)):
     marks = body.get("marks", []) if isinstance(body, dict) else []
     cur = get_cur(db)
     cur.execute("SELECT id FROM exam_subjects WHERE exam_id=%s AND subject_id=%s", (exam_id, subject_id))
@@ -1252,7 +1290,7 @@ def enter_marks(exam_id: int, subject_id: int, body: dict, user_id: int = Depend
 
 
 @router.post("/{exam_id}/subjects/{subject_id}/submit")
-def submit_marks(exam_id: int, subject_id: int, user_id: int = Depends(require_permission("exam.marks")), db=Depends(get_db)):
+def submit_marks(exam_id: int, subject_id: int, user_id: int = Depends(require_permission("exam.marks")), db=Depends(get_db), _exam_check: None = Depends(verify_exam_campus)):
     cur = get_cur(db)
     cur.execute("SELECT id FROM exam_subjects WHERE exam_id=%s AND subject_id=%s", (exam_id, subject_id))
     es = cur.fetchone()

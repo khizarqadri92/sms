@@ -330,8 +330,17 @@ export default function DisciplineDetailModal({ caseId, onClose, onActed, wqItem
                   <div style={{fontWeight:700,fontSize:13,marginBottom:10,color:"#0f172a"}}>ASSIGN COMMITTEE & SCHEDULE HEARING</div>
                   <div style={{marginBottom:10}}>
                     <div style={{fontSize:12,fontWeight:600,marginBottom:4}}>Hearing Date & Time *</div>
-                    <input type="datetime-local" className="form-input" style={{width:"100%",fontSize:13}}
-                      value={committee.hearing_date} onChange={e=>setCommittee(p=>({...p,hearing_date:e.target.value}))}/>
+                    <div style={{display:"flex",gap:8}}>
+                      <div style={{flex:1}}>
+                        <DatePicker
+                          value={committee.hearing_date ? committee.hearing_date.split("T")[0] : ""}
+                          onChange={val => setCommittee(p => ({...p, hearing_date: val ? `${val}T${(p.hearing_date && p.hearing_date.split("T")[1]) || "00:00"}` : ""}))}
+                        />
+                      </div>
+                      <input type="time" className="form-input" style={{width:110,fontSize:13}}
+                        value={committee.hearing_date ? committee.hearing_date.split("T")[1] || "" : ""}
+                        onChange={e => setCommittee(p => ({...p, hearing_date: `${(p.hearing_date && p.hearing_date.split("T")[0]) || ""}T${e.target.value}`}))}/>
+                    </div>
                   </div>
                   <div style={{marginBottom:10}}>
                     <div style={{fontSize:12,fontWeight:600,marginBottom:4}}>Hearing Location *</div>

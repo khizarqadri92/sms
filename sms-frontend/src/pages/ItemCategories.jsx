@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import procurementApi from "../api/procurementApi";
+import { useGovernanceMode } from "../hooks/useGovernanceMode";
 
 function CategoryFormModal({ category, categories, onClose, onSaved }) {
   const [form, setForm] = useState({
@@ -58,6 +59,7 @@ function CategoryFormModal({ category, categories, onClose, onSaved }) {
 }
 
 export default function ItemCategories() {
+  const { isGlobalLocked } = useGovernanceMode("procurement_item_categories");
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [success, setSuccess] = useState("");
@@ -95,9 +97,14 @@ export default function ItemCategories() {
     <div>
       <div className="page-header" style={{ marginBottom: 16 }}>
         <h1 className="page-heading">Item Categories</h1>
-        <button className="btn btn-primary" onClick={() => { setEditCategory(null); setShowForm(true); }}>+ Add Category</button>
+        {!isGlobalLocked && <button className="btn btn-primary" onClick={() => { setEditCategory(null); setShowForm(true); }}>+ Add Category</button>}
       </div>
 
+      {isGlobalLocked && (
+        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+          Item Categories are managed centrally by the superadmin. This list is read-only here.
+        </div>
+      )}
       <div style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>
         Categories are used for the Item Master catalog, custom items on Purchase Requisitions, and Approval Rule matching (e.g., routing all "Books" purchases through a specific approval chain).
       </div>
@@ -117,7 +124,7 @@ export default function ItemCategories() {
                 <th>Name</th>
                 <th>Parent Category</th>
                 <th>Status</th>
-                <th>Actions</th>
+                {!isGlobalLocked && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -126,12 +133,14 @@ export default function ItemCategories() {
                   <td><strong>{c.name}</strong></td>
                   <td>{c.parent_name || <span style={{ color: "#94a3b8" }}>None</span>}</td>
                   <td><span className={"badge " + (c.is_active ? "badge-success" : "badge-gray")}>{c.is_active ? "Active" : "Inactive"}</span></td>
-                  <td style={{ display: "flex", gap: 6, flexWrap: "nowrap" }}>
-                    <button className="btn btn-ghost btn-xs" onClick={() => { setEditCategory(c); setShowForm(true); }}>Edit</button>
-                    {c.is_active && (
-                      <button className="btn btn-danger btn-xs" onClick={() => handleDeactivate(c)}>Deactivate</button>
-                    )}
-                  </td>
+                  {!isGlobalLocked && (
+                    <td style={{ display: "flex", gap: 6, flexWrap: "nowrap" }}>
+                      <button className="btn btn-ghost btn-xs" onClick={() => { setEditCategory(c); setShowForm(true); }}>Edit</button>
+                      {c.is_active && (
+                        <button className="btn btn-danger btn-xs" onClick={() => handleDeactivate(c)}>Deactivate</button>
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

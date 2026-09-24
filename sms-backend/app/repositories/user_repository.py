@@ -29,8 +29,8 @@ class UserRepository(BaseRepository):
         if filters.get("is_active") in ("true", "false"):
             is_active = filters["is_active"] == "true"
         cur.execute(
-            "SELECT * FROM sp_list_users(%s, %s, %s, %s, %s)",
-            (filters.get("search"), filters.get("role"), is_active, per_page, offset)
+            "SELECT * FROM sp_list_users(%s, %s, %s, %s, %s, %s)",
+            (filters.get("search"), filters.get("role"), is_active, per_page, offset, filters.get("campus_id"))
         )
         rows = cur.fetchall()
         result = []
@@ -48,8 +48,8 @@ class UserRepository(BaseRepository):
         if filters.get("is_active") in ("true", "false"):
             is_active = filters["is_active"] == "true"
         cur.execute(
-            "SELECT sp_count_users(%s, %s, %s, %s) AS cnt",
-            (filters.get("search"), filters.get("role"), is_active, filters.get("phone"))
+            "SELECT sp_count_users(%s, %s, %s, %s, %s) AS cnt",
+            (filters.get("search"), filters.get("role"), is_active, filters.get("phone"), filters.get("campus_id"))
         )
         return cur.fetchone()["cnt"]
 
@@ -57,8 +57,8 @@ class UserRepository(BaseRepository):
         db = get_db()
         cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         cur.execute(
-            "SELECT * FROM sp_create_user(%s, %s, %s, %s, %s)",
-            (data["email"], data["password_hash"], data["first_name"], data["last_name"], data.get("phone"))
+            "SELECT * FROM sp_create_user(%s, %s, %s, %s, %s, %s)",
+            (data["email"], data["password_hash"], data["first_name"], data["last_name"], data.get("phone"), data.get("campus_id"))
         )
         db.commit()
         return dict(cur.fetchone())

@@ -14,6 +14,8 @@ from pydantic import BaseModel
 
 from app.fastapi_auth import get_current_user_id
 from app.fastapi_permissions import require_permission
+from app.fastapi_campus import get_current_campus_id
+from app.fastapi_campus import governed_settings_campus_id
 from app.fastapi_db import get_db, get_cur as _get_cur
 from app.utils.processing_date import get_processing_date
 
@@ -180,20 +182,21 @@ def attendance_report(
     date: Optional[str] = Query(None), class_id: Optional[int] = Query(None),
     subject_id: Optional[int] = Query(None), breakdown: Optional[str] = Query(None),
     user_id: int = Depends(require_permission("attendance.report")), db=Depends(get_db),
+    campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
     report_date = date or get_processing_date(db).isoformat()
     cur = get_cur(db)
     if breakdown == "true":
-        cur.execute("SELECT * FROM sp_get_attendance_report_breakdown(%s, %s, %s)", (report_date, class_id, subject_id))
+        cur.execute("SELECT * FROM sp_get_attendance_report_breakdown(%s, %s, %s, %s)", (report_date, class_id, subject_id, campus_id))
     else:
-        cur.execute("SELECT * FROM sp_get_attendance_report(%s, %s, %s)", (report_date, class_id, subject_id))
+        cur.execute("SELECT * FROM sp_get_attendance_report(%s, %s, %s, %s)", (report_date, class_id, subject_id, campus_id))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.get("/config")
-def get_attendance_config(user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+def get_attendance_config(user_id: int = Depends(get_current_user_id), db=Depends(get_db), campus_id: Optional[int] = Depends(governed_settings_campus_id("attendance_config"))):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_get_attendance_config()")
+    cur.execute("SELECT * FROM sp_get_attendance_config(%s)", (campus_id,))
     data = {r["key"]: r["value"] for r in cur.fetchall()}
     return ok(data=data)
 
@@ -203,12 +206,13 @@ def admin_attendance_report(
     from_: Optional[str] = Query(None, alias="from"), to: Optional[str] = Query(None),
     class_id: Optional[int] = Query(None),
     user_id: int = Depends(get_current_user_id), db=Depends(get_db),
+    campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
     from_date = from_ or get_processing_date(db).strftime("%Y-%m-01")
     to_date = to or get_processing_date(db).isoformat()
     cur = get_cur(db)
 
-    cur.execute("SELECT * FROM sp_get_admin_report_classes(%s)", (class_id,))
+    cur.execute("SELECT * FROM sp_get_admin_report_classes(%s, %s)", (class_id, campus_id))
     classes = [dict(r) for r in cur.fetchall()]
 
     report = []
@@ -235,11 +239,12 @@ def student_attendance_report(
     from_: Optional[str] = Query(None, alias="from"), to: Optional[str] = Query(None),
     class_id: Optional[int] = Query(None), search: Optional[str] = Query(""),
     user_id: int = Depends(get_current_user_id), db=Depends(get_db),
+    campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
     from_date = from_ or get_processing_date(db).strftime("%Y-%m-01")
     to_date = to or get_processing_date(db).isoformat()
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_get_student_attendance_report(%s, %s, %s, %s)", (class_id, search.strip() if search else None, from_date, to_date))
+    cur.execute("SELECT * FROM sp_get_student_attendance_report(%s, %s, %s, %s, %s)", (class_id, search.strip() if search else None, from_date, to_date, campus_id))
     rows = [dict(r) for r in cur.fetchall()]
     for r in rows:
         total = (r["present"] or 0) + (r["absent"] or 0) + (r["late"] or 0)

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import procurementApi from "../api/procurementApi";
+import { useAuth } from "../auth/AuthContext";
 
 function DepartmentFormModal({ department, onClose, onSaved }) {
   const [form, setForm] = useState({
@@ -54,6 +55,8 @@ function DepartmentFormModal({ department, onClose, onSaved }) {
 }
 
 export default function Departments() {
+  const { user } = useAuth();
+  const isSuperAdmin = (user?.roles?.[0] || "") === "superadmin";
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [success, setSuccess] = useState("");
@@ -95,9 +98,14 @@ export default function Departments() {
     <div>
       <div className="page-header" style={{ marginBottom: 16 }}>
         <h1 className="page-heading">Departments</h1>
-        <button className="btn btn-primary" onClick={() => { setEditDepartment(null); setShowForm(true); }}>+ Add Department</button>
+        {isSuperAdmin && <button className="btn btn-primary" onClick={() => { setEditDepartment(null); setShowForm(true); }}>+ Add Department</button>}
       </div>
 
+      {!isSuperAdmin && (
+        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+          Departments are managed centrally by the superadmin. This list is read-only here.
+        </div>
+      )}
       {success && <div className="alert alert-success" style={{ marginBottom: 16 }}>{success}</div>}
       {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
 
@@ -113,7 +121,7 @@ export default function Departments() {
                 <th>Name</th>
                 <th>Department Head</th>
                 <th>Status</th>
-                <th>Actions</th>
+                {isSuperAdmin && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -122,12 +130,14 @@ export default function Departments() {
                   <td><strong>{d.name}</strong></td>
                   <td>{d.head_name || <span style={{ color: "#94a3b8" }}>Not assigned</span>}</td>
                   <td><span className={"badge " + (d.is_active ? "badge-success" : "badge-gray")}>{d.is_active ? "Active" : "Inactive"}</span></td>
-                  <td style={{ display: "flex", gap: 6, flexWrap: "nowrap" }}>
-                    <button className="btn btn-ghost btn-xs" onClick={() => { setEditDepartment(d); setShowForm(true); }}>Edit</button>
-                    <button className={"btn btn-xs " + (d.is_active ? "btn-danger" : "btn-secondary")} onClick={() => handleToggleActive(d)}>
-                      {d.is_active ? "Deactivate" : "Reactivate"}
-                    </button>
-                  </td>
+                  {isSuperAdmin && (
+                    <td style={{ display: "flex", gap: 6, flexWrap: "nowrap" }}>
+                      <button className="btn btn-ghost btn-xs" onClick={() => { setEditDepartment(d); setShowForm(true); }}>Edit</button>
+                      <button className={"btn btn-xs " + (d.is_active ? "btn-danger" : "btn-secondary")} onClick={() => handleToggleActive(d)}>
+                        {d.is_active ? "Deactivate" : "Reactivate"}
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

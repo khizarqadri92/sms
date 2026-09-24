@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { leavesApi } from "../api/leavesApi";
+import { useGovernanceMode } from "../hooks/useGovernanceMode";
 
 const RECOMMENDER_OPTIONS = [
   { value: "", label: "-- None --" },
@@ -29,6 +30,7 @@ const EMPTY_FORM = {
 };
 
 export default function LeaveSetup() {
+  const { isGlobalLocked } = useGovernanceMode("student_leave_types");
   const [types, setTypes]       = useState([]);
   const [form, setForm]         = useState(EMPTY_FORM);
   const [editing, setEditing]   = useState(null);
@@ -145,8 +147,13 @@ export default function LeaveSetup() {
     <div>
       <div className="page-header">
         <h1 className="page-heading">Leave Setup</h1>
-        <button className="btn btn-primary" onClick={openCreate}>+ Add Leave Type</button>
+        {!isGlobalLocked && <button className="btn btn-primary" onClick={openCreate}>+ Add Leave Type</button>}
       </div>
+      {isGlobalLocked && (
+        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+          Student Leave Types are managed centrally by the superadmin. This list is read-only here.
+        </div>
+      )}
 
       {toast && <div className="alert alert-success" style={{ marginBottom: 16 }}>{toast}</div>}
       {error && !showForm && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
@@ -191,10 +198,12 @@ export default function LeaveSetup() {
                         {lt.notify_mode === "all_teachers" ? "All teachers notified" : "Incharge notified"}
                       </span>
                     </div>
-                    <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                      <button onClick={() => openEdit(lt)} style={{ padding: "5px 14px", borderRadius: 7, border: "1px solid #e2e8f0", background: "#ffffff", fontSize: 13, fontWeight: 500, cursor: "pointer", color: "#0f172a" }}>Edit</button>
-                      <button onClick={() => remove(lt.id)} style={{ padding: "5px 14px", borderRadius: 7, border: "1px solid #fecaca", background: "#fff5f5", fontSize: 13, fontWeight: 500, cursor: "pointer", color: "#dc2626" }}>Delete</button>
-                    </div>
+                    {!isGlobalLocked && (
+                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                        <button onClick={() => openEdit(lt)} style={{ padding: "5px 14px", borderRadius: 7, border: "1px solid #e2e8f0", background: "#ffffff", fontSize: 13, fontWeight: 500, cursor: "pointer", color: "#0f172a" }}>Edit</button>
+                        <button onClick={() => remove(lt.id)} style={{ padding: "5px 14px", borderRadius: 7, border: "1px solid #fecaca", background: "#fff5f5", fontSize: 13, fontWeight: 500, cursor: "pointer", color: "#dc2626" }}>Delete</button>
+                      </div>
+                    )}
                   </div>
 
                   {/* Rules table */}

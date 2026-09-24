@@ -12,6 +12,15 @@ from pydantic import BaseModel
 from app.fastapi_auth import get_current_user_id
 from app.fastapi_permissions import require_permission
 from app.fastapi_db import get_db, get_cur as _get_cur
+from app.fastapi_campus import get_current_campus_id
+from app.fastapi_campus import catalog_campus_id, catalog_campus_id_for_write
+from app.fastapi_campus import enforce_same_campus
+
+
+def _check_class_campus(cur, class_id: int, caller_campus_id):
+    cur.execute("SELECT campus_id FROM classes WHERE id = %s", (class_id,))
+    row = cur.fetchone()
+    enforce_same_campus(row["campus_id"] if row else None, caller_campus_id)
 
 router = APIRouter()
 
@@ -109,24 +118,27 @@ def my_subjects(user_id: int = Depends(get_current_user_id), db=Depends(get_db))
 # ── Academic Years ─────────────────────────
 
 @router.get("/years")
-def list_academic_years(user_id: int = Depends(require_permission("academics.view")), db=Depends(get_db)):
+def list_academic_years(user_id: int = Depends(require_permission("academics.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("academic_years"))):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_list_academic_years()")
+    cur.execute("SELECT * FROM sp_list_academic_years(%s)", (campus_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.post("/years")
-def create_academic_year(body: AcademicYearIn, user_id: int = Depends(require_permission("academics.manage")), db=Depends(get_db)):
+def create_academic_year(body: AcademicYearIn, user_id: int = Depends(require_permission("academics.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("academic_years"))):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_create_academic_year(%s, %s, %s, %s)", (body.name, body.start_date, body.end_date, body.is_active))
+    cur.execute("SELECT * FROM sp_create_academic_year(%s, %s, %s, %s, %s)", (body.name, body.start_date, body.end_date, body.is_active, campus_id))
     row = cur.fetchone()
     db.commit()
     return ok(data=dict(row), message="Academic year created.")
 
 
 @router.put("/years/{id}/activate")
-def activate_academic_year(id: int, user_id: int = Depends(require_permission("academics.manage")), db=Depends(get_db)):
+def activate_academic_year(id: int, user_id: int = Depends(require_permission("academics.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("academic_years"))):
     cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM academic_years WHERE id=%s", (id,))
+    _row = cur.fetchone()
+    enforce_same_campus(_row["campus_id"] if _row else None, campus_id)
     cur.execute("SELECT sp_activate_academic_year(%s)", (id,))
     db.commit()
     return ok(message="Academic year activated.")
@@ -135,18 +147,22 @@ def activate_academic_year(id: int, user_id: int = Depends(require_permission("a
 # ── Classes ─────────────────────────
 
 @router.get("/classes")
-def list_classes(user_id: int = Depends(require_permission("classes.view")), db=Depends(get_db)):
+def list_classes(user_id: int = Depends(require_permission("classes.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("classes"))):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_list_classes()")
+    cur.execute("SELECT * FROM sp_list_classes(%s)", (campus_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.post("/classes")
-def create_class(body: ClassIn, user_id: int = Depends(require_permission("classes.manage")), db=Depends(get_db)):
+def create_class(body: ClassIn, user_id: int = Depends(require_permission("classes.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("classes"))):
     cur = get_cur(db)
+    cur.execute("SELECT mode FROM setting_governance WHERE entity_key='classes'")
+    _gov = cur.fetchone()
+    if campus_id is None and not (_gov and _gov["mode"] == "global"):
+        fail("No campus context - please select a campus before creating a class.", 400)
     cur.execute(
-        "SELECT * FROM sp_create_class(%s,%s,%s,%s,%s,%s)",
-        (body.name, clean(body.section), clean(body.academic_year_id), clean(body.capacity), clean(body.room_number), body.class_type or "regular")
+        "SELECT * FROM sp_create_class(%s,%s,%s,%s,%s,%s,%s)",
+        (body.name, clean(body.section), clean(body.academic_year_id), clean(body.capacity), clean(body.room_number), body.class_type or "regular", campus_id)
     )
     row = cur.fetchone()
     db.commit()
@@ -154,8 +170,9 @@ def create_class(body: ClassIn, user_id: int = Depends(require_permission("class
 
 
 @router.put("/classes/{id}")
-def update_class(id: int, body: ClassIn, user_id: int = Depends(require_permission("classes.manage")), db=Depends(get_db)):
+def update_class(id: int, body: ClassIn, user_id: int = Depends(require_permission("classes.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("classes"))):
     cur = get_cur(db)
+    _check_class_campus(cur, id, campus_id)
     cur.execute(
         "SELECT * FROM sp_update_class(%s,%s,%s,%s,%s,%s)",
         (id, body.name, clean(body.section), clean(body.capacity), clean(body.room_number), body.class_type or "regular")
@@ -169,8 +186,9 @@ def update_class(id: int, body: ClassIn, user_id: int = Depends(require_permissi
 
 
 @router.delete("/classes/{id}")
-def delete_class(id: int, user_id: int = Depends(require_permission("classes.manage")), db=Depends(get_db)):
+def delete_class(id: int, user_id: int = Depends(require_permission("classes.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("classes"))):
     cur = get_cur(db)
+    _check_class_campus(cur, id, campus_id)
     cur.execute("SELECT sp_delete_class(%s)", (id,))
     db.commit()
     return ok(message="Class deleted.")
@@ -295,24 +313,27 @@ def auto_assign_class_subject_teachers(id: int, user_id: int = Depends(require_p
 # ── Subjects ─────────────────────────
 
 @router.get("/subjects")
-def list_subjects(user_id: int = Depends(require_permission("subjects.view")), db=Depends(get_db)):
+def list_subjects(user_id: int = Depends(require_permission("subjects.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("subjects"))):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_list_subjects()")
+    cur.execute("SELECT * FROM sp_list_subjects(%s)", (campus_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.post("/subjects")
-def create_subject(body: SubjectIn, user_id: int = Depends(require_permission("subjects.manage")), db=Depends(get_db)):
+def create_subject(body: SubjectIn, user_id: int = Depends(require_permission("subjects.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("subjects"))):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_create_subject(%s,%s,%s,%s)", (body.name, clean(body.code), clean(body.description), clean(body.credit_hours)))
+    cur.execute("SELECT * FROM sp_create_subject(%s,%s,%s,%s,%s)", (body.name, clean(body.code), clean(body.description), clean(body.credit_hours), campus_id))
     row = cur.fetchone()
     db.commit()
     return ok(data=dict(row), message="Subject created.")
 
 
 @router.put("/subjects/{id}")
-def update_subject(id: int, body: SubjectIn, user_id: int = Depends(require_permission("subjects.manage")), db=Depends(get_db)):
+def update_subject(id: int, body: SubjectIn, user_id: int = Depends(require_permission("subjects.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("subjects"))):
     cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM subjects WHERE id=%s", (id,))
+    _row = cur.fetchone()
+    enforce_same_campus(_row["campus_id"] if _row else None, campus_id)
     cur.execute(
         "SELECT * FROM sp_update_subject(%s,%s,%s,%s,%s,%s)",
         (id, body.name, clean(body.code), clean(body.description), clean(body.credit_hours), body.is_active)
@@ -326,16 +347,22 @@ def update_subject(id: int, body: SubjectIn, user_id: int = Depends(require_perm
 
 
 @router.delete("/subjects/{id}")
-def deactivate_subject(id: int, user_id: int = Depends(require_permission("subjects.manage")), db=Depends(get_db)):
+def deactivate_subject(id: int, user_id: int = Depends(require_permission("subjects.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("subjects"))):
     cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM subjects WHERE id=%s", (id,))
+    _row = cur.fetchone()
+    enforce_same_campus(_row["campus_id"] if _row else None, campus_id)
     cur.execute("SELECT sp_deactivate_subject(%s)", (id,))
     db.commit()
     return ok(message="Subject deactivated.")
 
 
 @router.post("/subjects/{id}/reactivate")
-def reactivate_subject(id: int, user_id: int = Depends(require_permission("subjects.manage")), db=Depends(get_db)):
+def reactivate_subject(id: int, user_id: int = Depends(require_permission("subjects.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("subjects"))):
     cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM subjects WHERE id=%s", (id,))
+    _row = cur.fetchone()
+    enforce_same_campus(_row["campus_id"] if _row else None, campus_id)
     cur.execute("SELECT sp_reactivate_subject(%s)", (id,))
     db.commit()
     return ok(message="Subject reactivated.")
@@ -344,9 +371,9 @@ def reactivate_subject(id: int, user_id: int = Depends(require_permission("subje
 # ── Timetable ─────────────────────────
 
 @router.get("/timetable")
-def list_timetable(class_id: Optional[int] = Query(None), user_id: int = Depends(require_permission("timetable.view")), db=Depends(get_db)):
+def list_timetable(class_id: Optional[int] = Query(None), user_id: int = Depends(require_permission("timetable.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_list_timetable(%s)", (class_id,))
+    cur.execute("SELECT * FROM sp_list_timetable(%s, %s)", (class_id, campus_id))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
@@ -367,20 +394,24 @@ def create_timetable_entry(body: TimetableIn, user_id: int = Depends(require_per
 
 
 @router.delete("/timetable/{id}")
-def delete_timetable_entry(id: int, user_id: int = Depends(require_permission("timetable.manage")), db=Depends(get_db)):
+def delete_timetable_entry(id: int, user_id: int = Depends(require_permission("timetable.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    cur.execute("SELECT c.campus_id FROM timetable t JOIN classes c ON c.id = t.class_id WHERE t.id = %s", (id,))
+    row = cur.fetchone()
+    enforce_same_campus(row["campus_id"] if row else None, campus_id)
     cur.execute("SELECT sp_delete_timetable_entry(%s)", (id,))
     db.commit()
     return ok(message="Timetable entry deleted.")
 
 
 @router.delete("/timetable/by-class/{class_id}")
-def delete_timetable_for_class(class_id: int, user_id: int = Depends(require_permission("timetable.manage")), db=Depends(get_db)):
+def delete_timetable_for_class(class_id: int, user_id: int = Depends(require_permission("timetable.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Clears every existing timetable entry for a class - used before
     re-applying an AI-generated schedule, so re-generating and applying
     again replaces the previous schedule instead of appending duplicate
     entries alongside it."""
     cur = get_cur(db)
+    _check_class_campus(cur, class_id, campus_id)
     cur.execute("SELECT sp_delete_timetable_for_class(%s) AS deleted_count", (class_id,))
     count = cur.fetchone()["deleted_count"]
     db.commit()

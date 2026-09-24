@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../auth/AuthContext";
+import { useGovernanceMode } from "../hooks/useGovernanceMode";
 import settingsApi from "../api/settingsApi";
 import processingDateApi from "../api/processingDateApi";
 import { useProcessingToday } from "../hooks/useProcessingToday";
@@ -8,9 +9,11 @@ import DatePicker from "../components/DatePicker";
 
 const TABS = ["ID Formats", "School Info", "Fee Settings", "School Timing", "Attendance Config"];
 
-export default function Settings() {
+export default function Settings({ visibleTabs } = {}) {
   const { can } = useAuth();
-  const [tab,   setTab]   = useState("id_formats");
+  const { isGlobalLocked: attendanceConfigLocked } = useGovernanceMode("attendance_config");
+  const { isGlobalLocked: schoolTimingLocked } = useGovernanceMode("school_timing");
+  const [tab,   setTab]   = useState(visibleTabs ? visibleTabs[0] : "id_formats");
   const [toast, setToast] = useState("");
 
   useEffect(() => {
@@ -41,13 +44,13 @@ export default function Settings() {
         </div>
       )}
 
-      {tab === "id_formats"       && <IdFormatsTab       onSaved={() => showToast("Settings saved successfully.")} canManage={can("settings.manage")} />}
-      {tab === "attendance_config" && <AttendanceConfigTab onSaved={() => showToast("Settings saved successfully.")} canManage={can("settings.manage")} />}
-      {tab === "school_info"  && <SchoolInfoTab  onSaved={() => showToast("School info saved.")} canManage={can("settings.manage")} />}
-      {tab === "fee_settings"   && <FeeSettingsTab   onSaved={() => showToast("Fee settings saved.")} canManage={can("settings.manage")} />}
-      {tab === "school_timing"  && <SchoolTimingTab  onSaved={() => showToast("School timing saved.")} canManage={can("settings.manage")} />}
-      {tab === "regional_format" && <RegionalFormatTab onSaved={() => showToast("Regional & format settings saved.")} canManage={can("settings.manage")} />}
-      {tab === "account_settings" && <AccountSettingsTab onSaved={() => showToast("Account security settings saved.")} canManage={can("settings.manage")} />}
+      {tab === "id_formats" && (!visibleTabs||visibleTabs.includes("id_formats")) && <IdFormatsTab       onSaved={() => showToast("Settings saved successfully.")} canManage={can("settings.manage")} />}
+      {tab === "attendance_config" && (!visibleTabs||visibleTabs.includes("attendance_config")) && <AttendanceConfigTab onSaved={() => showToast("Settings saved successfully.")} canManage={can("settings.manage") && !attendanceConfigLocked} isGlobalLocked={attendanceConfigLocked} />}
+      {tab === "school_info" && (!visibleTabs||visibleTabs.includes("school_info")) && <SchoolInfoTab  onSaved={() => showToast("School info saved.")} canManage={can("settings.manage")} />}
+      {tab === "fee_settings" && (!visibleTabs||visibleTabs.includes("fee_settings")) && <FeeSettingsTab   onSaved={() => showToast("Fee settings saved.")} canManage={can("settings.manage")} />}
+      {tab === "school_timing" && (!visibleTabs||visibleTabs.includes("school_timing")) && <SchoolTimingTab  onSaved={() => showToast("School timing saved.")} canManage={can("settings.manage") && !schoolTimingLocked} isGlobalLocked={schoolTimingLocked} />}
+      {tab === "regional_format" && (!visibleTabs||visibleTabs.includes("regional_format")) && <RegionalFormatTab onSaved={() => showToast("Regional & format settings saved.")} canManage={can("settings.manage")} />}
+      {tab === "account_settings" && (!visibleTabs||visibleTabs.includes("account_settings")) && <AccountSettingsTab onSaved={() => showToast("Account security settings saved.")} canManage={can("settings.manage")} />}
     </div>
   );
 }
@@ -297,35 +300,49 @@ function IdFormatsTab({ onSaved, canManage }) {
 
 
 function SchoolInfoTab({ onSaved, canManage }) {
-  const [form,    setForm]    = useState({ school_name:"", school_city:"", school_phone:"", school_address:"", school_email:"", bank_name:"", bank_account:"", academic_year:"", school_logo:"" });
+  const { isGlobalLocked: schoolNameLocked } = useGovernanceMode("school_name");
+  const canManageName = canManage && !schoolNameLocked;
+  const [nameForm, setNameForm] = useState({ school_name:"" });
+  const [form,    setForm]    = useState({ school_city:"", school_phone:"", school_address:"", school_email:"", bank_name:"", bank_account:"", academic_year:"", school_logo:"" });
   const [loading, setLoading] = useState(true);
   const [saving,  setSaving]  = useState(false);
+  const [savingName, setSavingName] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    settingsApi.getAll().then(res => {
-      const flat = {};
-      Object.values(res.data.data).forEach(group => {
-        group.forEach(item => { flat[item.key] = item.value; });
-      });
+    Promise.all([
+      settingsApi.getByCategory("school_name"),
+      settingsApi.getByCategory("school_info"),
+    ]).then(([nameRes, infoRes]) => {
+      const nameData = nameRes.data.data || {};
+      const infoData = infoRes.data.data || {};
+      setNameForm({ school_name: nameData.school_name || "" });
       setForm({
-        school_name:    flat.school_name    || "",
-        school_city:    flat.school_city    || "",
-        school_address: flat.school_address || "",
-        school_email:   flat.school_email   || "",
-        bank_name:      flat.bank_name      || "",
-        bank_account:   flat.bank_account   || "",
-        school_phone:   flat.school_phone   || "",
-        school_logo:    flat.school_logo    || "",
-        academic_year:  flat.academic_year  || "",
+        school_city:    infoData.school_city    || "",
+        school_address: infoData.school_address || "",
+        school_email:   infoData.school_email   || "",
+        bank_name:      infoData.bank_name      || "",
+        bank_account:   infoData.bank_account   || "",
+        school_phone:   infoData.school_phone   || "",
+        school_logo:    infoData.school_logo    || "",
+        academic_year:  infoData.academic_year  || "",
       });
     }).catch(() => {}).finally(() => setLoading(false));
   }, []);
 
+  const handleSaveName = async () => {
+    setSavingName(true); setError("");
+    try {
+      await settingsApi.saveByCategory("school_name", nameForm);
+      onSaved();
+    } catch { setError("Failed to save school name."); }
+    finally { setSavingName(false); }
+  };
+
   const handleSave = async () => {
     setSaving(true); setError("");
     try {
-      await settingsApi.update(form);
+      await settingsApi.saveByCategory("school_info", form);
       onSaved();
     } catch { setError("Failed to save."); }
     finally { setSaving(false); }
@@ -334,92 +351,113 @@ function SchoolInfoTab({ onSaved, canManage }) {
   if (loading) return <div className="loading-state">Loading...</div>;
 
   return (
-    <div className="section-card">
-      <div className="section-card-header">
-        <span className="section-card-title">School Information</span>
+    <div>
+      <div className="section-card" style={{ marginBottom:16 }}>
+        <div className="section-card-header">
+          <span className="section-card-title">School Name</span>
+        </div>
+        <div style={{ fontSize:11, color:"#94a3b8", marginBottom:10 }}>Shared across all campuses.</div>
+        {schoolNameLocked && (
+          <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:12 }}>
+            School Name is managed centrally by the superadmin. This field is read-only here.
+          </div>
+        )}
+        {error && <div className="alert alert-error">{error}</div>}
+        <div className="form-grid">
+          <div className="form-group form-grid-full">
+            <label className="form-label">School Name</label>
+            <input className="form-control" value={nameForm.school_name} onChange={e => setNameForm({...nameForm, school_name:e.target.value})} placeholder="e.g. Bright Future School" disabled={!canManageName} />
+          </div>
+        </div>
+        <div style={{ display:"flex", justifyContent:"flex-end", marginTop:8 }}>
+          <button className="btn btn-primary" onClick={handleSaveName} disabled={savingName || !canManageName}>
+            {savingName ? "Saving..." : "Save School Name"}
+          </button>
+        </div>
       </div>
-      {error && <div className="alert alert-error">{error}</div>}
-      <div className="form-grid">
-        <div className="form-group">
-          <label className="form-label">School Name</label>
-          <input className="form-control" value={form.school_name} onChange={e => setForm({...form, school_name:e.target.value})} placeholder="e.g. Bright Future School" />
+
+      <div className="section-card">
+        <div className="section-card-header">
+          <span className="section-card-title">School Information</span>
         </div>
-        <div className="form-group">
-          <label className="form-label">City</label>
-          <input className="form-control" value={form.school_city} onChange={e => setForm({...form, school_city:e.target.value})} placeholder="e.g. Lahore" />
-        </div>
-        <div className="form-group">
-          <label className="form-label">Phone</label>
-          <input className="form-control" value={form.school_phone} onChange={e => setForm({...form, school_phone:e.target.value})} placeholder="e.g. 042-1234567" />
-        </div>
-        <div className="form-group">
-          <label className="form-label">Current Academic Year</label>
-          <input className="form-control" value={form.academic_year} onChange={e => setForm({...form, academic_year:e.target.value})} placeholder="e.g. 2025-2026" />
-        </div>
-        <div className="form-group">
-          <label className="form-label">Email</label>
-          <input className="form-control" value={form.school_email} onChange={e => setForm({...form, school_email:e.target.value})} placeholder="e.g. info@school.com" />
-        </div>
-        <div className="form-group form-grid-full">
-          <label className="form-label">Address</label>
-          <input className="form-control" value={form.school_address} onChange={e => setForm({...form, school_address:e.target.value})} placeholder="e.g. 123 Main Street, Gulberg, Lahore" />
-        </div>
-        <div className="form-group">
-          <label className="form-label">Bank Name</label>
-          <input className="form-control" value={form.bank_name} onChange={e => setForm({...form, bank_name:e.target.value})} placeholder="e.g. HBL Bank" />
-        </div>
-        <div className="form-group">
-          <label className="form-label">Bank Account No.</label>
-          <input className="form-control" value={form.bank_account} onChange={e => setForm({...form, bank_account:e.target.value})} placeholder="e.g. 0123-456789012" />
-        </div>
-        <div className="form-group form-grid-full">
-          <label className="form-label">School Logo</label>
-          <div style={{ display:"flex", alignItems:"center", gap:16 }}>
-            {form.school_logo && (
-              <img src={form.school_logo} alt="School Logo" style={{ width:64, height:64, objectFit:"contain", border:"1px solid #e2e8f0", borderRadius:8, padding:4 }} />
-            )}
-            {!form.school_logo && (
-              <div style={{ width:64, height:64, border:"2px dashed #e2e8f0", borderRadius:8, display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, color:"#94a3b8" }}>
-                No logo
-              </div>
-            )}
-            <div>
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/jpg,image/svg+xml"
-                id="logo-upload"
-                style={{ display:"none" }}
-                onChange={e => {
-                  const file = e.target.files[0];
-                  if (!file) return;
-                  if (file.size > 200000) { alert("Logo must be under 200KB."); return; }
-                  const reader = new FileReader();
-                  reader.onload = ev => setForm({...form, school_logo: ev.target.result});
-                  reader.readAsDataURL(file);
-                }}
-              />
-              <label htmlFor="logo-upload" className="btn btn-secondary" style={{ cursor:"pointer", display:"inline-block" }}>
-                Upload Logo
-              </label>
+        <div style={{ fontSize:11, color:"#94a3b8", marginBottom:10 }}>Specific to this campus.</div>
+        <div className="form-grid">
+          <div className="form-group">
+            <label className="form-label">City</label>
+            <input className="form-control" value={form.school_city} onChange={e => setForm({...form, school_city:e.target.value})} placeholder="e.g. Lahore" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Phone</label>
+            <input className="form-control" value={form.school_phone} onChange={e => setForm({...form, school_phone:e.target.value})} placeholder="e.g. 042-1234567" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Current Academic Year</label>
+            <input className="form-control" value={form.academic_year} onChange={e => setForm({...form, academic_year:e.target.value})} placeholder="e.g. 2025-2026" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Email</label>
+            <input className="form-control" value={form.school_email} onChange={e => setForm({...form, school_email:e.target.value})} placeholder="e.g. info@school.com" />
+          </div>
+          <div className="form-group form-grid-full">
+            <label className="form-label">Address</label>
+            <input className="form-control" value={form.school_address} onChange={e => setForm({...form, school_address:e.target.value})} placeholder="e.g. 123 Main Street, Gulberg, Lahore" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Bank Name</label>
+            <input className="form-control" value={form.bank_name} onChange={e => setForm({...form, bank_name:e.target.value})} placeholder="e.g. HBL Bank" />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Bank Account No.</label>
+            <input className="form-control" value={form.bank_account} onChange={e => setForm({...form, bank_account:e.target.value})} placeholder="e.g. 0123-456789012" />
+          </div>
+          <div className="form-group form-grid-full">
+            <label className="form-label">School Logo</label>
+            <div style={{ display:"flex", alignItems:"center", gap:16 }}>
               {form.school_logo && (
-                <button type="button" className="btn btn-danger btn-sm" style={{ marginLeft:8 }} onClick={() => setForm({...form, school_logo:""})}>
-                  Remove
-                </button>
+                <img src={form.school_logo} alt="School Logo" style={{ width:64, height:64, objectFit:"contain", border:"1px solid #e2e8f0", borderRadius:8, padding:4 }} />
               )}
-              <div style={{ fontSize:11, color:"#94a3b8", marginTop:6 }}>PNG, JPG or SVG. Max 200KB. Will appear on invoice PDF.</div>
+              {!form.school_logo && (
+                <div style={{ width:64, height:64, border:"2px dashed #e2e8f0", borderRadius:8, display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, color:"#94a3b8" }}>
+                  No logo
+                </div>
+              )}
+              <div>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/jpg,image/svg+xml"
+                  id="logo-upload"
+                  style={{ display:"none" }}
+                  onChange={e => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    if (file.size > 200000) { alert("Logo must be under 200KB."); return; }
+                    const reader = new FileReader();
+                    reader.onload = ev => setForm({...form, school_logo: ev.target.result});
+                    reader.readAsDataURL(file);
+                  }}
+                />
+                <label htmlFor="logo-upload" className="btn btn-secondary" style={{ cursor:"pointer", display:"inline-block" }}>
+                  Upload Logo
+                </label>
+                {form.school_logo && (
+                  <button type="button" className="btn btn-danger btn-sm" style={{ marginLeft:8 }} onClick={() => setForm({...form, school_logo:""})}>
+                    Remove
+                  </button>
+                )}
+                <div style={{ fontSize:11, color:"#94a3b8", marginTop:6 }}>PNG, JPG or SVG. Max 200KB. Will appear on invoice PDF.</div>
+              </div>
             </div>
           </div>
         </div>
-      </div>
-      <div style={{ display:"flex", justifyContent:"flex-end", marginTop:8 }}>
-        <button className="btn btn-primary" onClick={handleSave} disabled={saving || !canManage}>
-          {saving ? "Saving..." : "Save School Info"}
-        </button>
+        <div style={{ display:"flex", justifyContent:"flex-end", marginTop:8 }}>
+          <button className="btn btn-primary" onClick={handleSave} disabled={saving || !canManage}>
+            {saving ? "Saving..." : "Save School Info"}
+          </button>
+        </div>
       </div>
     </div>
   );
 }
-
 function FeeSettingsTab({ onSaved, canManage }) {
   const processingToday = useProcessingToday();
   const { formatDate } = useRegionalSettings();
@@ -628,7 +666,7 @@ function FeeSettingsTab({ onSaved, canManage }) {
   );
 }
 
-function SchoolTimingTab({ onSaved, canManage }) {
+function SchoolTimingTab({ onSaved, canManage, isGlobalLocked }) {
   const DAYS = [
     { value:"1", label:"Monday" },
     { value:"2", label:"Tuesday" },
@@ -693,6 +731,11 @@ function SchoolTimingTab({ onSaved, canManage }) {
       <div className="section-card-header">
         <span className="section-card-title">School Timing & Schedule</span>
       </div>
+      {isGlobalLocked && (
+        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+          School Timing is managed centrally by the superadmin. This section is read-only here.
+        </div>
+      )}
 
       {error && <div className="alert alert-error">{error}</div>}
 
@@ -966,7 +1009,7 @@ function TimingOverridesSection({ canManage }) {
   );
 }
 
-function AttendanceConfigTab({ onSaved, canManage }) {
+function AttendanceConfigTab({ onSaved, canManage, isGlobalLocked }) {
   const [marker,  setMarker]  = useState("incharge_only");
   const [loading, setLoading] = useState(true);
   const [saving,  setSaving]  = useState(false);
@@ -994,6 +1037,11 @@ function AttendanceConfigTab({ onSaved, canManage }) {
       <div className="section-card-header">
         <span className="section-card-title">Attendance Configuration</span>
       </div>
+      {isGlobalLocked && (
+        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+          Attendance Configuration is managed centrally by the superadmin. This section is read-only here.
+        </div>
+      )}
       <div style={{ display:"flex", flexDirection:"column", gap:16, maxWidth:500 }}>
         <div className="form-group">
           <label className="form-label">Who can mark attendance?</label>

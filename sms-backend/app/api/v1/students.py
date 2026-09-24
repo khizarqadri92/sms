@@ -20,6 +20,16 @@ from pydantic import BaseModel
 
 from app.fastapi_auth import get_current_user_id
 from app.fastapi_permissions import require_permission
+from app.fastapi_campus import get_current_campus_id
+from app.fastapi_campus import enforce_same_campus
+from app.fastapi_db import get_db as _campus_get_db, get_cur as _campus_get_cur
+
+
+def _check_student_campus(db, student_id: int, caller_campus_id):
+    cur = _campus_get_cur(db)
+    cur.execute("SELECT campus_id FROM students WHERE id = %s", (student_id,))
+    row = cur.fetchone()
+    enforce_same_campus(row["campus_id"] if row else None, caller_campus_id)
 from app.fastapi_db import get_db, get_cur
 
 router = APIRouter()
@@ -90,8 +100,9 @@ def list_students(
     class_id: Optional[str] = Query(None), status: Optional[str] = Query(None), search: Optional[str] = Query(None),
     page: int = Query(1), per_page: int = Query(20),
     user_id: int = Depends(require_permission("students.view")),
+    campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
-    filters = {k: v for k, v in {"class_id": class_id, "status": status, "search": search}.items() if v}
+    filters = {k: v for k, v in {"class_id": class_id, "status": status, "search": search, "campus_id": campus_id}.items() if v}
     with _flask_app().app_context():
         from app.services.student_service import StudentService
         result = StudentService().get_all(filters, page, per_page)
@@ -103,11 +114,15 @@ def list_students(
 
 
 @router.post("/")
-def enroll_student(body: StudentEnrollIn, user_id: int = Depends(require_permission("students.create"))):
+def enroll_student(body: StudentEnrollIn, user_id: int = Depends(require_permission("students.create")), campus_id: Optional[int] = Depends(get_current_campus_id)):
+    if campus_id is None:
+        fail("No campus context - please select a campus before enrolling a student.", 400)
     with _flask_app().app_context():
         from app.services.student_service import StudentService
         try:
-            result = StudentService().enroll(body.to_dict())
+            enroll_data = body.to_dict()
+            enroll_data["campus_id"] = campus_id
+            result = StudentService().enroll(enroll_data)
         except ValueError as e:
             fail(str(e), 400)
 
@@ -226,7 +241,8 @@ def get_student(id: int, user_id: int = Depends(require_permission("students.vie
 
 
 @router.put("/{id}")
-def update_student(id: int, body: StudentUpdateIn, user_id: int = Depends(require_permission("students.edit"))):
+def update_student(id: int, body: StudentUpdateIn, user_id: int = Depends(require_permission("students.edit")), campus_id: Optional[int] = Depends(get_current_campus_id), _db=Depends(_campus_get_db)):
+    _check_student_campus(_db, id, campus_id)
     with _flask_app().app_context():
         from app.services.student_service import StudentService
         try:
@@ -237,7 +253,8 @@ def update_student(id: int, body: StudentUpdateIn, user_id: int = Depends(requir
 
 
 @router.delete("/{id}")
-def deactivate_student(id: int, user_id: int = Depends(require_permission("students.delete"))):
+def deactivate_student(id: int, user_id: int = Depends(require_permission("students.delete")), campus_id: Optional[int] = Depends(get_current_campus_id), _db=Depends(_campus_get_db)):
+    _check_student_campus(_db, id, campus_id)
     with _flask_app().app_context():
         from app.services.student_service import StudentService
         try:
@@ -248,7 +265,8 @@ def deactivate_student(id: int, user_id: int = Depends(require_permission("stude
 
 
 @router.post("/{id}/reactivate")
-def reactivate_student(id: int, user_id: int = Depends(require_permission("students.delete"))):
+def reactivate_student(id: int, user_id: int = Depends(require_permission("students.delete")), campus_id: Optional[int] = Depends(get_current_campus_id), _db=Depends(_campus_get_db)):
+    _check_student_campus(_db, id, campus_id)
     with _flask_app().app_context():
         from app.services.student_service import StudentService
         try:

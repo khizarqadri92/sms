@@ -137,6 +137,7 @@ export default function Users() {
               <tr>
                 <th>Name</th>
                 <th>Email</th>
+                <th>Campus</th>
                 <th>Roles</th>
                 <th>Status</th>
                 <th>Last Login</th>
@@ -158,6 +159,7 @@ export default function Users() {
                     </div>
                   </td>
                   <td style={{ fontSize:13, color:"#475569" }}>{u.email}</td>
+                  <td style={{ fontSize:12, color:"#64748b" }}>{u.campus_name || "-"}</td>
                   <td>
                     {u.roles?.length > 0
                       ? u.roles.map(r => <span key={r} className={"badge " + getRoleBadge(r)} style={{ marginRight:4 }}>{r.replace("_"," ")}</span>)

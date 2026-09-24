@@ -18,6 +18,16 @@ from pydantic import BaseModel
 from app.fastapi_auth import get_current_user_id
 from app.fastapi_permissions import require_permission
 from app.fastapi_db import get_db, get_cur as _get_cur
+from app.fastapi_campus import get_current_campus_id
+from app.fastapi_campus import enforce_same_campus
+from app.fastapi_db import get_db as _campus_get_db, get_cur as _campus_get_cur
+
+
+def _check_user_campus(db, target_user_id: int, caller_campus_id):
+    cur = _campus_get_cur(db)
+    cur.execute("SELECT campus_id FROM users WHERE id = %s", (target_user_id,))
+    row = cur.fetchone()
+    enforce_same_campus(row["campus_id"] if row else None, caller_campus_id)
 
 router = APIRouter()
 
@@ -100,8 +110,9 @@ def list_users(
     search: Optional[str] = None, role: Optional[str] = None, is_active: Optional[str] = None,
     page: int = 1, per_page: int = 20,
     user_id: int = Depends(require_permission("users.view")),
+    campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
-    filters = {k: v for k, v in {"search": search, "role": role, "is_active": is_active}.items() if v}
+    filters = {k: v for k, v in {"search": search, "role": role, "is_active": is_active, "campus_id": campus_id}.items() if v}
     with _flask_app().app_context():
         from app.services.user_service import UserService
         result = UserService().get_all(filters, page, per_page)
@@ -113,11 +124,15 @@ def list_users(
 
 
 @router.post("/")
-def create_user(body: UserCreateIn, user_id: int = Depends(require_permission("users.create"))):
+def create_user(body: UserCreateIn, user_id: int = Depends(require_permission("users.create")), campus_id: Optional[int] = Depends(get_current_campus_id)):
+    if campus_id is None:
+        fail("No campus context - please select a campus before creating a user.", 400)
     with _flask_app().app_context():
         from app.services.user_service import UserService
         try:
-            result = UserService().create(body.to_dict())
+            create_data = body.to_dict()
+            create_data["campus_id"] = campus_id
+            result = UserService().create(create_data)
         except ValueError as e:
             fail(str(e), 400)
     return ok(data=result, message="User created successfully.")
@@ -267,7 +282,8 @@ def get_user(id: int, user_id: int = Depends(require_permission("users.view"))):
 
 
 @router.put("/{id}")
-def update_user(id: int, body: UserUpdateIn, user_id: int = Depends(require_permission("users.edit"))):
+def update_user(id: int, body: UserUpdateIn, user_id: int = Depends(require_permission("users.edit")), campus_id: Optional[int] = Depends(get_current_campus_id), _db=Depends(_campus_get_db)):
+    _check_user_campus(_db, id, campus_id)
     with _flask_app().app_context():
         from app.services.user_service import UserService
         try:
@@ -278,7 +294,8 @@ def update_user(id: int, body: UserUpdateIn, user_id: int = Depends(require_perm
 
 
 @router.delete("/{id}")
-def delete_user(id: int, user_id: int = Depends(require_permission("users.delete"))):
+def delete_user(id: int, user_id: int = Depends(require_permission("users.delete")), campus_id: Optional[int] = Depends(get_current_campus_id), _db=Depends(_campus_get_db)):
+    _check_user_campus(_db, id, campus_id)
     with _flask_app().app_context():
         from app.services.user_service import UserService
         try:
@@ -289,7 +306,8 @@ def delete_user(id: int, user_id: int = Depends(require_permission("users.delete
 
 
 @router.post("/{id}/reactivate")
-def reactivate_user(id: int, user_id: int = Depends(require_permission("users.delete"))):
+def reactivate_user(id: int, user_id: int = Depends(require_permission("users.delete")), campus_id: Optional[int] = Depends(get_current_campus_id), _db=Depends(_campus_get_db)):
+    _check_user_campus(_db, id, campus_id)
     with _flask_app().app_context():
         from app.services.user_service import UserService
         try:
@@ -300,7 +318,8 @@ def reactivate_user(id: int, user_id: int = Depends(require_permission("users.de
 
 
 @router.post("/{id}/assign-role")
-def assign_role(id: int, body: AssignRoleIn, user_id: int = Depends(require_permission("users.manage_roles"))):
+def assign_role(id: int, body: AssignRoleIn, user_id: int = Depends(require_permission("users.manage_roles")), campus_id: Optional[int] = Depends(get_current_campus_id), _db=Depends(_campus_get_db)):
+    _check_user_campus(_db, id, campus_id)
     with _flask_app().app_context():
         from app.services.user_service import UserService
         try:

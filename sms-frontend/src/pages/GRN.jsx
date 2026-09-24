@@ -3,6 +3,7 @@ import procurementApi from "../api/procurementApi";
 import { useAutoOpenById } from "../hooks/useAutoOpenById";
 import { useProcessingToday } from "../hooks/useProcessingToday";
 import DatePicker from "../components/DatePicker";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
 const statusBadge = (s) => ({
   draft:     { cls: "badge-warning",  label: "Draft" },
@@ -18,6 +19,7 @@ const conditionBadge = (c) => ({
 
 export default function GRN() {
   const processingToday = useProcessingToday();
+  const { formatDate } = useRegionalSettings();
   const [grns, setGrns]             = useState([]);
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState("");
@@ -215,7 +217,7 @@ export default function GRN() {
                     <td style={{ padding: "10px 14px", fontWeight: 600, fontSize: 13 }}>{g.grn_number}</td>
                     <td style={{ padding: "10px 14px", fontSize: 13 }}>{g.po_number}</td>
                     <td style={{ padding: "10px 14px", fontSize: 13 }}>{g.vendor_name}</td>
-                    <td style={{ padding: "10px 14px", fontSize: 13 }}>{g.received_date}</td>
+                    <td style={{ padding: "10px 14px", fontSize: 13 }}>{g.received_date ? formatDate(g.received_date) : "-"}</td>
                     <td style={{ padding: "10px 14px", fontSize: 13 }}>{g.item_count} item{g.item_count !== 1 ? "s" : ""}</td>
                     <td style={{ padding: "10px 14px" }}><span className={`badge ${cls}`}>{label}</span></td>
                     <td style={{ padding: "10px 14px" }}>
@@ -362,7 +364,7 @@ export default function GRN() {
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginBottom: 20 }}>
                 {[
                   { label: "Status", value: <span className={`badge ${statusBadge(detail.status).cls}`}>{statusBadge(detail.status).label}</span> },
-                  { label: "Received Date", value: detail.received_date },
+                  { label: "Received Date", value: detail.received_date ? formatDate(detail.received_date) : "-" },
                   { label: "Received By", value: detail.received_by_name },
                 ].map(({ label, value }) => (
                   <div key={label} style={{ background: "#f8fafc", borderRadius: 8, padding: "10px 14px" }}>

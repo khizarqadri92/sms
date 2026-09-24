@@ -5,6 +5,7 @@ import { useAutoOpenById } from "../hooks/useAutoOpenById";
 import { useAuth } from "../auth/AuthContext";
 import DatePicker from "../components/DatePicker";
 import { useProcessingToday } from "../hooks/useProcessingToday";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
 const statusBadge = (s) => ({
   pending:  { cls: "badge-warning", label: "Pending Verification" },
@@ -19,6 +20,7 @@ const METHOD_LABELS = { bank_transfer:"Bank Transfer", cash:"Cash", cheque:"Cheq
 
 export default function VendorInvoices() {
   const processingToday = useProcessingToday();
+  const { formatDate } = useRegionalSettings();
   const { can } = useAuth();
   const [invoices, setInvoices]     = useState([]);
   const [loading, setLoading]       = useState(true);
@@ -211,7 +213,7 @@ export default function VendorInvoices() {
                     <td style={{ padding:"10px 14px",fontWeight:600,fontSize:13 }}>{inv.vendor_invoice_no}</td>
                     <td style={{ padding:"10px 14px",fontSize:13 }}>{inv.po_number}</td>
                     <td style={{ padding:"10px 14px",fontSize:13 }}>{inv.vendor_name}</td>
-                    <td style={{ padding:"10px 14px",fontSize:13 }}>{inv.invoice_date}</td>
+                    <td style={{ padding:"10px 14px",fontSize:13 }}>{inv.invoice_date ? formatDate(inv.invoice_date) : "-"}</td>
                     <td style={{ padding:"10px 14px",fontSize:13,fontWeight:600 }}>Rs. {parseFloat(inv.total_amount).toLocaleString()}</td>
                     <td style={{ padding:"10px 14px",fontSize:13,color:"#059669" }}>Rs. {parseFloat(inv.paid_amount).toLocaleString()}</td>
                     <td style={{ padding:"10px 14px",fontSize:13,color:balance>0?"#ef4444":"#94a3b8",fontWeight:balance>0?600:400 }}>Rs. {balance.toLocaleString()}</td>
@@ -258,7 +260,7 @@ export default function VendorInvoices() {
                       <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6 }}>Linked GRN</label>
                       <select className="form-input" value={form.grn_id} onChange={e=>setForm(f=>({...f,grn_id:e.target.value}))}>
                         <option value="">— None —</option>
-                        {grns.map(g=><option key={g.id} value={g.id}>{g.grn_number} ({g.received_date})</option>)}
+                        {grns.map(g=><option key={g.id} value={g.id}>{g.grn_number} ({g.received_date ? formatDate(g.received_date) : "-"})</option>)}
                       </select>
                     </div>
                   </div>
@@ -367,8 +369,8 @@ export default function VendorInvoices() {
               {/* Info Grid */}
               <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:20 }}>
                 {[
-                  { label:"Invoice Date", value:detail.invoice_date },
-                  { label:"Received Date", value:detail.received_date },
+                  { label:"Invoice Date", value:detail.invoice_date ? formatDate(detail.invoice_date) : "-" },
+                  { label:"Received Date", value:detail.received_date ? formatDate(detail.received_date) : "-" },
                   { label:"PO Total", value:`Rs. ${parseFloat(detail.po_total_amount||0).toLocaleString()}` },
                   { label:"Subtotal", value:`Rs. ${parseFloat(detail.subtotal||0).toLocaleString()}` },
                   { label:"Tax", value:`Rs. ${parseFloat(detail.tax_amount||0).toLocaleString()}` },
@@ -424,7 +426,7 @@ export default function VendorInvoices() {
                     <div key={p.id} style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",borderRadius:8,border:"1px solid #e2e8f0",marginBottom:8,background:"#f0fdf4" }}>
                       <div>
                         <div style={{ fontWeight:600,fontSize:13 }}>Rs. {parseFloat(p.amount).toLocaleString()}</div>
-                        <div style={{ fontSize:12,color:"var(--color-text-secondary)" }}>{METHOD_LABELS[p.payment_method]||p.payment_method} · {p.payment_date}{p.reference?` · Ref: ${p.reference}`:""}</div>
+                        <div style={{ fontSize:12,color:"var(--color-text-secondary)" }}>{METHOD_LABELS[p.payment_method]||p.payment_method} · {p.payment_date ? formatDate(p.payment_date) : "-"}{p.reference?` · Ref: ${p.reference}`:""}</div>
                       </div>
                       <div style={{ fontSize:12,color:"var(--color-text-secondary)" }}>{p.paid_by_name}</div>
                     </div>
