@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import studentsApi from "../../api/studentsApi";
+import DatePicker from "../DatePicker";
 
 export default function CreateStudentModal({ onCreated, onClose }) {
   const [nextEnrollmentNo, setNextEnrollmentNo] = useState("");
@@ -61,7 +62,7 @@ export default function CreateStudentModal({ onCreated, onClose }) {
               <div className="form-group"><label className="form-label">Email</label><input className="form-control" type="email" name="email" value={form.email} onChange={handleChange} placeholder="Optional" /></div>
               <div className="form-group"><label className="form-label">Password *</label><input className="form-control" type="password" name="password" value={form.password} onChange={handleChange} required /></div>
               <div className="form-group"><label className="form-label">Phone</label><input className="form-control" name="phone" value={form.phone} onChange={handleChange} /></div>
-              <div className="form-group"><label className="form-label">Date of Birth</label><input className="form-control" type="date" name="date_of_birth" value={form.date_of_birth} onChange={handleChange} /></div>
+              <div className="form-group"><label className="form-label">Date of Birth</label><DatePicker style={{ width: "100%", fontSize: 13 }} value={form.date_of_birth} onChange={val => setForm(p => ({ ...p, date_of_birth: val }))} /></div>
               <div className="form-group"><label className="form-label">Gender</label><select className="form-control" name="gender" value={form.gender} onChange={handleChange}><option value="">— Select —</option><option value="male">Male</option><option value="female">Female</option><option value="other">Other</option></select></div>
               <div className="form-group"><label className="form-label">Blood Group</label><select className="form-control" name="blood_group" value={form.blood_group} onChange={handleChange}><option value="">— Select —</option>{["A+","A-","B+","B-","O+","O-","AB+","AB-"].map(b => <option key={b} value={b}>{b}</option>)}</select></div>
               <div className="form-group form-grid-full"><label className="form-label">Address</label><input className="form-control" name="address" value={form.address} onChange={handleChange} /></div>

@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from app.fastapi_auth import get_current_user_id
 from app.fastapi_db import get_db, get_cur as _get_cur
 from app.fastapi_permissions import require_permission
+from app.fastapi_campus import get_current_campus_id, enforce_same_campus
 from app.api.v1.payroll import _get_effective_grade_components
 
 router = APIRouter()
@@ -37,7 +38,13 @@ def _resolve_pf_rate(db, staff_id):
         if pf_comp:
             employee_pct = float(pf_comp["value"])
 
-    cur.execute("SELECT pf_employer_contribution_mode, pf_employer_percentage FROM payroll_settings WHERE id=1")
+    cur.execute("SELECT campus_id FROM staff WHERE id=%s", (staff_id,))
+    srow = cur.fetchone()
+    staff_campus_id = srow["campus_id"] if srow else None
+    cur.execute(
+        "SELECT pf_employer_contribution_mode, pf_employer_percentage FROM payroll_settings WHERE campus_id = %s OR campus_id IS NULL ORDER BY campus_id NULLS LAST LIMIT 1",
+        (staff_campus_id,)
+    )
     settings = cur.fetchone()
     mode = settings["pf_employer_contribution_mode"] if settings else "same_as_employee"
     if mode == "same_as_employee":
@@ -62,16 +69,19 @@ def ok(data=None, message="Success"):
 
 @router.get("/search")
 def pf_search(q: Optional[str] = None, department_id: Optional[int] = None,
-        user_id: int = Depends(require_permission("payroll.pf.view_all")), db=Depends(get_db)):
+        user_id: int = Depends(require_permission("payroll.pf.view_all")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_pf_search(%s, %s)", (q, department_id))
+    cur.execute("SELECT * FROM sp_pf_search(%s, %s, %s)", (q, department_id, campus_id))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.get("/staff/{staff_id}/transactions")
 def pf_staff_transactions(staff_id: int,
-        user_id: int = Depends(require_permission("payroll.pf.view_all")), db=Depends(get_db)):
+        user_id: int = Depends(require_permission("payroll.pf.view_all")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM staff WHERE id=%s", (staff_id,))
+    _row = cur.fetchone()
+    enforce_same_campus(_row["campus_id"] if _row else None, campus_id)
     emp_pct, empr_pct, source = _resolve_pf_rate(db, staff_id)
     rate = {"employee_contribution_pct": emp_pct, "employer_contribution_pct": empr_pct, "rate_source": source}
     cur.execute("SELECT * FROM sp_pf_get_transactions(%s)", (staff_id,))
@@ -89,8 +99,11 @@ class PFGradeConfigIn(BaseModel):
 
 @router.post("/grade-config")
 def pf_upsert_grade_config(body: PFGradeConfigIn,
-        user_id: int = Depends(require_permission("payroll.pf.manage")), db=Depends(get_db)):
+        user_id: int = Depends(require_permission("payroll.pf.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM payroll_grades WHERE id=%s", (body.grade_id,))
+    _row = cur.fetchone()
+    enforce_same_campus(_row["campus_id"] if _row else None, campus_id)
     cur.execute("SELECT sp_pf_upsert_grade_config(%s,%s,%s)",
         (body.grade_id, body.employee_contribution_pct, body.employer_contribution_pct))
     db.commit()
@@ -105,8 +118,11 @@ class PFStaffConfigIn(BaseModel):
 
 @router.post("/staff-config")
 def pf_upsert_staff_config(body: PFStaffConfigIn,
-        user_id: int = Depends(require_permission("payroll.pf.manage")), db=Depends(get_db)):
+        user_id: int = Depends(require_permission("payroll.pf.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM staff WHERE id=%s", (body.staff_id,))
+    _row = cur.fetchone()
+    enforce_same_campus(_row["campus_id"] if _row else None, campus_id)
     cur.execute("SELECT sp_pf_upsert_staff_config(%s,%s,%s)",
         (body.staff_id, body.employee_contribution_pct, body.employer_contribution_pct))
     db.commit()
@@ -124,10 +140,13 @@ class PFAdjustmentIn(BaseModel):
 
 @router.post("/adjustment")
 def pf_post_adjustment(body: PFAdjustmentIn,
-        user_id: int = Depends(require_permission("payroll.pf.manage")), db=Depends(get_db)):
+        user_id: int = Depends(require_permission("payroll.pf.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     if body.transaction_type not in ("employee_contribution", "employer_contribution", "interest", "adjustment"):
         fail("Invalid transaction type.", 400)
     cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM staff WHERE id=%s", (body.staff_id,))
+    _row = cur.fetchone()
+    enforce_same_campus(_row["campus_id"] if _row else None, campus_id)
     cur.execute("SELECT sp_pf_post_adjustment(%s,%s,%s,%s,%s,%s,%s)",
         (body.staff_id, body.date, body.transaction_type, body.employee_amount, body.employer_amount,
          body.remarks, user_id))

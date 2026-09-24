@@ -15,10 +15,48 @@ from pydantic import BaseModel
 
 from app.fastapi_auth import get_current_user_id
 from app.fastapi_permissions import require_permission
+from app.fastapi_campus import get_current_campus_id, enforce_same_campus
+from app.fastapi_campus import catalog_campus_id, catalog_campus_id_for_write
 from app.fastapi_db import get_db, get_cur as _get_cur
 from app.utils.processing_date import get_processing_datetime, get_processing_date
 
 router = APIRouter()
+
+
+def _check_pr_campus(cur, pr_id, campus_id):
+    cur.execute("SELECT u.campus_id FROM purchase_requisitions pr JOIN users u ON u.id = pr.requested_by WHERE pr.id=%s", (pr_id,))
+    row = cur.fetchone()
+    enforce_same_campus(row["campus_id"] if row else None, campus_id)
+
+
+def _check_po_campus(cur, po_id, campus_id):
+    cur.execute("SELECT campus_id FROM users WHERE id = (SELECT created_by FROM purchase_orders WHERE id=%s)", (po_id,))
+    row = cur.fetchone()
+    enforce_same_campus(row["campus_id"] if row else None, campus_id)
+
+
+def _check_vendor_invoice_campus(cur, inv_id, campus_id):
+    cur.execute("SELECT u.campus_id FROM vendor_invoices vi JOIN users u ON u.id = vi.created_by WHERE vi.id=%s", (inv_id,))
+    row = cur.fetchone()
+    enforce_same_campus(row["campus_id"] if row else None, campus_id)
+
+
+def _check_grn_campus(cur, grn_id, campus_id):
+    cur.execute("SELECT u.campus_id FROM goods_receipt_notes g JOIN users u ON u.id = g.received_by WHERE g.id=%s", (grn_id,))
+    row = cur.fetchone()
+    enforce_same_campus(row["campus_id"] if row else None, campus_id)
+
+
+def _check_po_item_campus(cur, item_id, campus_id):
+    cur.execute("""
+        SELECT u.campus_id FROM po_items pi
+        JOIN purchase_orders po ON po.id = pi.po_id
+        JOIN users u ON u.id = po.created_by
+        WHERE pi.id=%s
+    """, (item_id,))
+    row = cur.fetchone()
+    enforce_same_campus(row["campus_id"] if row else None, campus_id)
+
 
 
 def get_cur(db):
@@ -31,6 +69,12 @@ def clean(value):
 
 def fail(message: str, status_code: int = 400, details=None):
     raise HTTPException(status_code=status_code, detail={"status": "error", "message": message, "details": details})
+
+
+def _own_campus_id(cur, user_id):
+    cur.execute("SELECT campus_id FROM users WHERE id=%s", (user_id,))
+    row = cur.fetchone()
+    return row["campus_id"] if row else None
 
 
 def ok(data=None, message="Success"):
@@ -170,24 +214,31 @@ class POItemUpdateIn(BaseModel):
 # ── Departments ──────────────────────────────────────────────
 
 @router.get("/departments")
-def list_departments(user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+def list_departments(user_id: int = Depends(get_current_user_id), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("sub_departments"))):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM vw_departments")
+    cur.execute("SELECT * FROM vw_departments WHERE campus_id = %s OR campus_id IS NULL", (campus_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.post("/departments")
-def create_department(body: DepartmentIn, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db)):
+def create_department(body: DepartmentIn, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_create_department(%s, %s)", (body.name, clean(body.head_user_id)))
+    # This UI only ever creates top-level departments (no parent_id field) - per the
+    # hard rule established in hr.py, top-level departments are always global and
+    # only superadmin (no fixed own campus) may create/edit/deactivate them here.
+    if _own_campus_id(cur, user_id) is not None:
+        fail("Departments are managed centrally by the superadmin.", 403)
+    cur.execute("SELECT * FROM sp_create_department(%s, %s, %s)", (body.name, clean(body.head_user_id), campus_id))
     row = cur.fetchone()
     db.commit()
     return ok(data=dict(row), message="Department created.")
 
 
 @router.put("/departments/{id}")
-def update_department(id: int, body: DepartmentIn, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db)):
+def update_department(id: int, body: DepartmentIn, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    if _own_campus_id(cur, user_id) is not None:
+        fail("Departments are managed centrally by the superadmin.", 403)
     cur.execute("SELECT * FROM sp_update_department(%s, %s, %s)", (id, body.name, clean(body.head_user_id)))
     row = cur.fetchone()
     if not row:
@@ -198,16 +249,20 @@ def update_department(id: int, body: DepartmentIn, user_id: int = Depends(requir
 
 
 @router.delete("/departments/{id}")
-def deactivate_department(id: int, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db)):
+def deactivate_department(id: int, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    if _own_campus_id(cur, user_id) is not None:
+        fail("Departments are managed centrally by the superadmin.", 403)
     cur.execute("SELECT sp_deactivate_department(%s)", (id,))
     db.commit()
     return ok(message="Department deactivated.")
 
 
 @router.post("/departments/{id}/reactivate")
-def reactivate_department(id: int, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db)):
+def reactivate_department(id: int, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    if _own_campus_id(cur, user_id) is not None:
+        fail("Departments are managed centrally by the superadmin.", 403)
     cur.execute("SELECT sp_reactivate_department(%s)", (id,))
     db.commit()
     return ok(message="Department reactivated.")
@@ -216,24 +271,27 @@ def reactivate_department(id: int, user_id: int = Depends(require_permission("pr
 # ── Vendor Categories ────────────────────────────────────────
 
 @router.get("/vendor-categories")
-def list_vendor_categories(user_id: int = Depends(require_permission("procurement.view")), db=Depends(get_db)):
+def list_vendor_categories(user_id: int = Depends(require_permission("procurement.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("procurement_vendor_categories"))):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM procurement_vendor_categories WHERE is_active = TRUE ORDER BY name")
+    cur.execute("SELECT * FROM procurement_vendor_categories WHERE is_active = TRUE AND (campus_id = %s OR campus_id IS NULL) ORDER BY name", (campus_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.post("/vendor-categories")
-def create_vendor_category(body: VendorCategoryIn, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db)):
+def create_vendor_category(body: VendorCategoryIn, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("procurement_vendor_categories"))):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_create_vendor_category(%s)", (body.name,))
+    cur.execute("SELECT * FROM sp_create_vendor_category(%s, %s)", (body.name, campus_id))
     row = cur.fetchone()
     db.commit()
     return ok(data=dict(row), message="Vendor category created.")
 
 
 @router.delete("/vendor-categories/{id}")
-def deactivate_vendor_category(id: int, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db)):
+def deactivate_vendor_category(id: int, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("procurement_vendor_categories"))):
     cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM procurement_vendor_categories WHERE id=%s", (id,))
+    _row = cur.fetchone()
+    enforce_same_campus(_row["campus_id"] if _row else None, campus_id)
     cur.execute("SELECT sp_deactivate_vendor_category(%s)", (id,))
     db.commit()
     return ok(message="Vendor category deactivated.")
@@ -242,9 +300,12 @@ def deactivate_vendor_category(id: int, user_id: int = Depends(require_permissio
 # ── Vendors ──────────────────────────────────────────────────
 
 @router.get("/vendors")
-def list_vendors(search: Optional[str] = Query(None), user_id: int = Depends(require_permission("procurement.view")), db=Depends(get_db)):
+def list_vendors(search: Optional[str] = Query(None), user_id: int = Depends(require_permission("procurement.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("procurement_vendors"))):
     cur = get_cur(db)
     conditions, params = ["1=1"], []
+    if campus_id is not None:
+        conditions.append("(campus_id = %s OR campus_id IS NULL)")
+        params.append(campus_id)
     if search:
         conditions.append("(name ILIKE %s OR contact_person ILIKE %s OR ntn ILIKE %s)")
         t = "%" + search + "%"
@@ -255,15 +316,15 @@ def list_vendors(search: Optional[str] = Query(None), user_id: int = Depends(req
 
 
 @router.post("/vendors")
-def create_vendor(body: VendorIn, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db)):
+def create_vendor(body: VendorIn, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("procurement_vendors"))):
     cur = get_cur(db)
     cur.execute(
-        "SELECT * FROM sp_create_vendor(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+        "SELECT * FROM sp_create_vendor(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
         (
             body.name, clean(body.contact_person), clean(body.phone), clean(body.email),
             clean(body.address), clean(body.ntn), clean(body.strn),
             clean(body.bank_name), clean(body.bank_account_no), clean(body.bank_iban),
-            clean(body.category_id),
+            clean(body.category_id), campus_id,
         )
     )
     row = cur.fetchone()
@@ -272,8 +333,11 @@ def create_vendor(body: VendorIn, user_id: int = Depends(require_permission("pro
 
 
 @router.put("/vendors/{id}")
-def update_vendor(id: int, body: VendorIn, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db)):
+def update_vendor(id: int, body: VendorIn, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("procurement_vendors"))):
     cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM procurement_vendors WHERE id=%s", (id,))
+    _row = cur.fetchone()
+    enforce_same_campus(_row["campus_id"] if _row else None, campus_id)
     cur.execute(
         "SELECT * FROM sp_update_vendor(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
         (
@@ -292,32 +356,44 @@ def update_vendor(id: int, body: VendorIn, user_id: int = Depends(require_permis
 
 
 @router.delete("/vendors/{id}")
-def deactivate_vendor(id: int, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db)):
+def deactivate_vendor(id: int, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("procurement_vendors"))):
     cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM procurement_vendors WHERE id=%s", (id,))
+    _row = cur.fetchone()
+    enforce_same_campus(_row["campus_id"] if _row else None, campus_id)
     cur.execute("SELECT sp_deactivate_vendor(%s)", (id,))
     db.commit()
     return ok(message="Vendor deactivated.")
 
 
 @router.post("/vendors/{id}/reactivate")
-def reactivate_vendor(id: int, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db)):
+def reactivate_vendor(id: int, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("procurement_vendors"))):
     cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM procurement_vendors WHERE id=%s", (id,))
+    _row = cur.fetchone()
+    enforce_same_campus(_row["campus_id"] if _row else None, campus_id)
     cur.execute("SELECT sp_reactivate_vendor(%s)", (id,))
     db.commit()
     return ok(message="Vendor reactivated.")
 
 
 @router.post("/vendors/{id}/blacklist")
-def blacklist_vendor(id: int, body: VendorBlacklistIn, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db)):
+def blacklist_vendor(id: int, body: VendorBlacklistIn, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("procurement_vendors"))):
     cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM procurement_vendors WHERE id=%s", (id,))
+    _row = cur.fetchone()
+    enforce_same_campus(_row["campus_id"] if _row else None, campus_id)
     cur.execute("SELECT sp_blacklist_vendor(%s, %s)", (id, clean(body.reason)))
     db.commit()
     return ok(message="Vendor blacklisted.")
 
 
 @router.post("/vendors/{id}/unblacklist")
-def unblacklist_vendor(id: int, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db)):
+def unblacklist_vendor(id: int, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("procurement_vendors"))):
     cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM procurement_vendors WHERE id=%s", (id,))
+    _row = cur.fetchone()
+    enforce_same_campus(_row["campus_id"] if _row else None, campus_id)
     cur.execute("SELECT sp_unblacklist_vendor(%s)", (id,))
     db.commit()
     return ok(message="Vendor removed from blacklist.")
@@ -326,24 +402,27 @@ def unblacklist_vendor(id: int, user_id: int = Depends(require_permission("procu
 # ── Item Categories ────────────────────────────────────────
 
 @router.get("/item-categories")
-def list_item_categories(user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+def list_item_categories(user_id: int = Depends(get_current_user_id), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("procurement_item_categories"))):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM vw_procurement_item_categories")
+    cur.execute("SELECT * FROM vw_procurement_item_categories WHERE campus_id = %s OR campus_id IS NULL", (campus_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.post("/item-categories")
-def create_item_category(body: ItemCategoryIn, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db)):
+def create_item_category(body: ItemCategoryIn, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("procurement_item_categories"))):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_create_item_category(%s, %s)", (body.name, clean(body.parent_id)))
+    cur.execute("SELECT * FROM sp_create_item_category(%s, %s, %s)", (body.name, clean(body.parent_id), campus_id))
     row = cur.fetchone()
     db.commit()
     return ok(data=dict(row), message="Item category created.")
 
 
 @router.put("/item-categories/{id}")
-def update_item_category(id: int, body: ItemCategoryIn, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db)):
+def update_item_category(id: int, body: ItemCategoryIn, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("procurement_item_categories"))):
     cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM procurement_item_categories WHERE id=%s", (id,))
+    _row = cur.fetchone()
+    enforce_same_campus(_row["campus_id"] if _row else None, campus_id)
     cur.execute("SELECT * FROM sp_update_item_category(%s, %s, %s)", (id, body.name, clean(body.parent_id)))
     row = cur.fetchone()
     if not row:
@@ -354,8 +433,11 @@ def update_item_category(id: int, body: ItemCategoryIn, user_id: int = Depends(r
 
 
 @router.delete("/item-categories/{id}")
-def deactivate_item_category(id: int, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db)):
+def deactivate_item_category(id: int, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("procurement_item_categories"))):
     cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM procurement_item_categories WHERE id=%s", (id,))
+    _row = cur.fetchone()
+    enforce_same_campus(_row["campus_id"] if _row else None, campus_id)
     cur.execute("SELECT sp_deactivate_item_category(%s)", (id,))
     db.commit()
     return ok(message="Item category deactivated.")
@@ -364,9 +446,12 @@ def deactivate_item_category(id: int, user_id: int = Depends(require_permission(
 # ── Item Master ──────────────────────────────────────────────
 
 @router.get("/items")
-def list_items(search: Optional[str] = Query(None), user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+def list_items(search: Optional[str] = Query(None), user_id: int = Depends(get_current_user_id), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("procurement_items"))):
     cur = get_cur(db)
     conditions, params = ["1=1"], []
+    if campus_id is not None:
+        conditions.append("(campus_id = %s OR campus_id IS NULL)")
+        params.append(campus_id)
     if search:
         conditions.append("(item_name ILIKE %s OR item_code ILIKE %s)")
         t = "%" + search + "%"
@@ -377,13 +462,13 @@ def list_items(search: Optional[str] = Query(None), user_id: int = Depends(get_c
 
 
 @router.post("/items")
-def create_item(body: ItemIn, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db)):
+def create_item(body: ItemIn, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("procurement_items"))):
     cur = get_cur(db)
     cur.execute(
-        "SELECT * FROM sp_create_item(%s,%s,%s,%s,%s,%s,%s)",
+        "SELECT * FROM sp_create_item(%s,%s,%s,%s,%s,%s,%s,%s)",
         (
             clean(body.item_code), body.item_name, body.unit, clean(body.category_id),
-            body.min_stock or 0, clean(body.max_stock), clean(body.preferred_vendor_id),
+            body.min_stock or 0, clean(body.max_stock), clean(body.preferred_vendor_id), campus_id,
         )
     )
     result = cur.fetchone()
@@ -395,8 +480,11 @@ def create_item(body: ItemIn, user_id: int = Depends(require_permission("procure
 
 
 @router.put("/items/{id}")
-def update_item(id: int, body: ItemIn, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db)):
+def update_item(id: int, body: ItemIn, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("procurement_items"))):
     cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM procurement_items WHERE id=%s", (id,))
+    _row = cur.fetchone()
+    enforce_same_campus(_row["campus_id"] if _row else None, campus_id)
     cur.execute(
         "SELECT * FROM sp_update_item(%s,%s,%s,%s,%s,%s,%s)",
         (
@@ -413,16 +501,22 @@ def update_item(id: int, body: ItemIn, user_id: int = Depends(require_permission
 
 
 @router.delete("/items/{id}")
-def deactivate_item(id: int, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db)):
+def deactivate_item(id: int, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("procurement_items"))):
     cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM procurement_items WHERE id=%s", (id,))
+    _row = cur.fetchone()
+    enforce_same_campus(_row["campus_id"] if _row else None, campus_id)
     cur.execute("SELECT sp_deactivate_item(%s)", (id,))
     db.commit()
     return ok(message="Item deactivated.")
 
 
 @router.post("/items/{id}/reactivate")
-def reactivate_item(id: int, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db)):
+def reactivate_item(id: int, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("procurement_items"))):
     cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM procurement_items WHERE id=%s", (id,))
+    _row = cur.fetchone()
+    enforce_same_campus(_row["campus_id"] if _row else None, campus_id)
     cur.execute("SELECT sp_reactivate_item(%s)", (id,))
     db.commit()
     return ok(message="Item reactivated.")
@@ -431,9 +525,9 @@ def reactivate_item(id: int, user_id: int = Depends(require_permission("procurem
 # ── Approval Rules ─────────────────────────
 
 @router.get("/approval-rules")
-def list_approval_rules(user_id: int = Depends(require_permission("procurement.view")), db=Depends(get_db)):
+def list_approval_rules(user_id: int = Depends(require_permission("procurement.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("procurement_approval_rules"))):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM vw_procurement_approval_rules")
+    cur.execute("SELECT * FROM vw_procurement_approval_rules WHERE campus_id = %s OR campus_id IS NULL", (campus_id,))
     rules = [dict(r) for r in cur.fetchall()]
     for rule in rules:
         cur.execute("SELECT * FROM sp_get_approval_rule_steps(%s)", (rule["id"],))
@@ -442,16 +536,16 @@ def list_approval_rules(user_id: int = Depends(require_permission("procurement.v
 
 
 @router.post("/approval-rules")
-def create_approval_rule(body: ApprovalRuleIn, user_id: int = Depends(require_permission("procurement.configure")), db=Depends(get_db)):
+def create_approval_rule(body: ApprovalRuleIn, user_id: int = Depends(require_permission("procurement.configure")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("procurement_approval_rules"))):
     if not body.steps:
         fail("At least one approval step is required.", 400)
     cur = get_cur(db)
     cur.execute(
-        "SELECT * FROM sp_create_approval_rule(%s,%s,%s,%s,%s,%s,%s)",
+        "SELECT * FROM sp_create_approval_rule(%s,%s,%s,%s,%s,%s,%s,%s)",
         (
             body.name, clean(body.min_amount), clean(body.max_amount),
             clean(body.department_id), clean(body.item_category_id),
-            body.is_emergency, body.priority or 0,
+            body.is_emergency, body.priority or 0, campus_id,
         )
     )
     rule = dict(cur.fetchone())
@@ -464,10 +558,13 @@ def create_approval_rule(body: ApprovalRuleIn, user_id: int = Depends(require_pe
 
 
 @router.put("/approval-rules/{id}")
-def update_approval_rule(id: int, body: ApprovalRuleIn, user_id: int = Depends(require_permission("procurement.configure")), db=Depends(get_db)):
+def update_approval_rule(id: int, body: ApprovalRuleIn, user_id: int = Depends(require_permission("procurement.configure")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("procurement_approval_rules"))):
     if not body.steps:
         fail("At least one approval step is required.", 400)
     cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM procurement_approval_rules WHERE id=%s", (id,))
+    _row = cur.fetchone()
+    enforce_same_campus(_row["campus_id"] if _row else None, campus_id)
     cur.execute(
         "SELECT * FROM sp_update_approval_rule(%s,%s,%s,%s,%s,%s,%s,%s)",
         (
@@ -490,16 +587,22 @@ def update_approval_rule(id: int, body: ApprovalRuleIn, user_id: int = Depends(r
 
 
 @router.delete("/approval-rules/{id}")
-def deactivate_approval_rule(id: int, user_id: int = Depends(require_permission("procurement.configure")), db=Depends(get_db)):
+def deactivate_approval_rule(id: int, user_id: int = Depends(require_permission("procurement.configure")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("procurement_approval_rules"))):
     cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM procurement_approval_rules WHERE id=%s", (id,))
+    _row = cur.fetchone()
+    enforce_same_campus(_row["campus_id"] if _row else None, campus_id)
     cur.execute("SELECT sp_deactivate_approval_rule(%s)", (id,))
     db.commit()
     return ok(message="Approval rule deactivated.")
 
 
 @router.post("/approval-rules/{id}/reactivate")
-def reactivate_approval_rule(id: int, user_id: int = Depends(require_permission("procurement.configure")), db=Depends(get_db)):
+def reactivate_approval_rule(id: int, user_id: int = Depends(require_permission("procurement.configure")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("procurement_approval_rules"))):
     cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM procurement_approval_rules WHERE id=%s", (id,))
+    _row = cur.fetchone()
+    enforce_same_campus(_row["campus_id"] if _row else None, campus_id)
     cur.execute("SELECT sp_reactivate_approval_rule(%s)", (id,))
     db.commit()
     return ok(message="Approval rule reactivated.")
@@ -524,9 +627,12 @@ def list_pending_my_approval(user_id: int = Depends(get_current_user_id), db=Dep
 
 
 @router.get("/requisitions")
-def list_all_requisitions(status: Optional[str] = Query(None), user_id: int = Depends(require_permission("procurement.view")), db=Depends(get_db)):
+def list_all_requisitions(status: Optional[str] = Query(None), user_id: int = Depends(require_permission("procurement.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     conditions, params = ["1=1"], []
+    if campus_id is not None:
+        conditions.append("(campus_id = %s OR campus_id IS NULL)")
+        params.append(campus_id)
     if status:
         conditions.append("status = %s")
         params.append(status)
@@ -538,13 +644,14 @@ def list_all_requisitions(status: Optional[str] = Query(None), user_id: int = De
 
 
 @router.get("/requisitions/{id}")
-def get_requisition(id: int, user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+def get_requisition(id: int, user_id: int = Depends(get_current_user_id), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM vw_purchase_requisitions WHERE id = %s", (id,))
     pr = cur.fetchone()
     if not pr:
         fail("Requisition not found.", 404)
     pr = dict(pr)
+    enforce_same_campus(pr["campus_id"], campus_id)
 
     if pr["requested_by"] != user_id:
         cur.execute(
@@ -603,12 +710,17 @@ def get_requisition(id: int, user_id: int = Depends(get_current_user_id), db=Dep
 
 
 @router.post("/requisitions")
-def create_requisition(body: RequisitionIn, user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+def create_requisition(body: RequisitionIn, user_id: int = Depends(get_current_user_id), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    dept_id = clean(body.department_id)
+    if dept_id is not None:
+        cur.execute("SELECT campus_id FROM departments WHERE id=%s", (dept_id,))
+        _row = cur.fetchone()
+        enforce_same_campus(_row["campus_id"] if _row else None, campus_id)
     cur.execute(
         "SELECT * FROM sp_create_pr(%s,%s,%s,%s,%s,%s)",
         (
-            user_id, clean(body.department_id), body.priority or "normal",
+            user_id, dept_id, body.priority or "normal",
             body.is_emergency or False, clean(body.budget_head), clean(body.remarks),
         )
     )
@@ -872,9 +984,12 @@ def act_on_requisition(id: int, body: RequisitionActIn, user_id: int = Depends(g
 # ── Purchase Orders ──────────────────────────
 
 @router.get("/purchase-orders")
-def list_purchase_orders(status: Optional[str] = Query(None), user_id: int = Depends(require_permission("procurement.view")), db=Depends(get_db)):
+def list_purchase_orders(status: Optional[str] = Query(None), user_id: int = Depends(require_permission("procurement.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     conditions, params = ["1=1"], []
+    if campus_id is not None:
+        conditions.append("campus_id = %s")
+        params.append(campus_id)
     if status:
         conditions.append("status = %s")
         params.append(status)
@@ -884,21 +999,23 @@ def list_purchase_orders(status: Optional[str] = Query(None), user_id: int = Dep
 
 
 @router.get("/purchase-orders/{id}")
-def get_purchase_order(id: int, user_id: int = Depends(require_permission("procurement.view")), db=Depends(get_db)):
+def get_purchase_order(id: int, user_id: int = Depends(require_permission("procurement.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM vw_purchase_orders WHERE id = %s", (id,))
     po = cur.fetchone()
     if not po:
         fail("Purchase Order not found.", 404)
     po = dict(po)
+    enforce_same_campus(po["campus_id"], campus_id)
     cur.execute("SELECT * FROM po_items WHERE po_id = %s ORDER BY id", (id,))
     po["items"] = [dict(r) for r in cur.fetchall()]
     return ok(data=po)
 
 
 @router.post("/purchase-orders")
-def create_purchase_order(body: PurchaseOrderIn, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db)):
+def create_purchase_order(body: PurchaseOrderIn, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    _check_pr_campus(cur, body.pr_id, campus_id)
     cur.execute(
         "SELECT * FROM sp_create_po_from_pr(%s,%s,%s,%s,%s,%s)",
         (
@@ -933,8 +1050,9 @@ def create_purchase_order(body: PurchaseOrderIn, user_id: int = Depends(require_
 
 
 @router.put("/purchase-orders/items/{item_id}")
-def update_po_item(item_id: int, body: POItemUpdateIn, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db)):
+def update_po_item(item_id: int, body: POItemUpdateIn, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    _check_po_item_campus(cur, item_id, campus_id)
     cur.execute("SELECT * FROM sp_update_po_item(%s, %s, %s)", (item_id, body.unit_price, body.tax_percent or 0))
     result = cur.fetchone()
     if result["error_msg"]:
@@ -945,8 +1063,9 @@ def update_po_item(item_id: int, body: POItemUpdateIn, user_id: int = Depends(re
 
 
 @router.post("/purchase-orders/{id}/issue")
-def issue_purchase_order(id: int, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db)):
+def issue_purchase_order(id: int, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    _check_po_campus(cur, id, campus_id)
     cur.execute("SELECT * FROM sp_issue_po(%s)", (id,))
     result = cur.fetchone()
     if result["error_msg"]:
@@ -1006,10 +1125,11 @@ class GRNItemIn(BaseModel):
 def list_grns(
     po_id: Optional[int] = Query(None),
     status: Optional[str] = Query(None),
-    user_id: int = Depends(require_permission("procurement.view")), db=Depends(get_db)
+    user_id: int = Depends(require_permission("procurement.view")), db=Depends(get_db),
+    campus_id: Optional[int] = Depends(get_current_campus_id)
 ):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_get_grns(%s)", (po_id,))
+    cur.execute("SELECT * FROM sp_get_grns(%s, %s)", (po_id, campus_id))
     rows = [dict(r) for r in cur.fetchall()]
     for r in rows:
         for k in ("received_date", "created_at", "issued_at"):
@@ -1020,8 +1140,9 @@ def list_grns(
 
 
 @router.get("/grn/{grn_id}")
-def get_grn(grn_id: int, user_id: int = Depends(require_permission("procurement.view")), db=Depends(get_db)):
+def get_grn(grn_id: int, user_id: int = Depends(require_permission("procurement.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    _check_grn_campus(cur, grn_id, campus_id)
     cur.execute("SELECT * FROM sp_get_grn_detail(%s)", (grn_id,))
     row = cur.fetchone()
     if not row:
@@ -1050,12 +1171,13 @@ def get_grn(grn_id: int, user_id: int = Depends(require_permission("procurement.
 
 
 @router.post("/grn")
-def create_grn(body: GRNCreateIn, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db)):
+def create_grn(body: GRNCreateIn, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     if not body.po_id:
         fail("po_id is required.", 400)
     if not body.items:
         fail("At least one item is required.", 400)
     cur = get_cur(db)
+    _check_po_campus(cur, body.po_id, campus_id)
     # Validate PO is issued or partially delivered
     cur.execute("SELECT status, po_number FROM purchase_orders WHERE id=%s", (body.po_id,))
     po = cur.fetchone()
@@ -1114,8 +1236,9 @@ def create_grn(body: GRNCreateIn, user_id: int = Depends(require_permission("pro
 
 
 @router.post("/grn/{grn_id}/confirm")
-def confirm_grn(grn_id: int, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db)):
+def confirm_grn(grn_id: int, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    _check_grn_campus(cur, grn_id, campus_id)
     cur.execute("SELECT * FROM sp_confirm_grn(%s, %s)", (grn_id, user_id))
     result = cur.fetchone()
     if result and result.get("error_msg"):
@@ -1161,8 +1284,9 @@ def confirm_grn(grn_id: int, user_id: int = Depends(require_permission("procurem
 
 
 @router.post("/grn/{grn_id}/cancel")
-def cancel_grn(grn_id: int, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db)):
+def cancel_grn(grn_id: int, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    _check_grn_campus(cur, grn_id, campus_id)
     cur.execute("UPDATE goods_receipt_notes SET status='cancelled' WHERE id=%s AND status='draft'", (grn_id,))
     if cur.rowcount == 0:
         fail("GRN not found or already confirmed/cancelled.", 400)
@@ -1184,16 +1308,16 @@ def get_po_grns(po_id: int, user_id: int = Depends(require_permission("procureme
 # ─── Stock Management ─────────────────────────────────────────────────────────
 
 @router.get("/stock")
-def get_stock(user_id: int = Depends(require_permission("procurement.view")), db=Depends(get_db)):
+def get_stock(user_id: int = Depends(require_permission("procurement.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_get_stock()")
+    cur.execute("SELECT * FROM sp_get_stock(%s)", (campus_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.get("/stock/pending-grns")
-def get_pending_stock_grns(user_id: int = Depends(require_permission("procurement.view")), db=Depends(get_db)):
+def get_pending_stock_grns(user_id: int = Depends(require_permission("procurement.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_get_pending_stock_grns()")
+    cur.execute("SELECT * FROM sp_get_pending_stock_grns(%s)", (campus_id,))
     rows = [dict(r) for r in cur.fetchall()]
     for r in rows:
         for k in ("received_date", "confirmed_at"):
@@ -1223,8 +1347,9 @@ def get_grn_stock_items(grn_id: int, user_id: int = Depends(require_permission("
 
 
 @router.post("/grn/{grn_id}/update-stock")
-def update_stock_from_grn(grn_id: int, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db)):
+def update_stock_from_grn(grn_id: int, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    _check_grn_campus(cur, grn_id, campus_id)
     cur.execute("SELECT * FROM sp_update_stock_from_grn(%s, %s)", (grn_id, user_id))
     result = cur.fetchone()
     if result and result.get("error_msg"):
@@ -1251,11 +1376,14 @@ def update_stock_from_grn(grn_id: int, user_id: int = Depends(require_permission
 
 
 @router.put("/stock/{item_id}")
-def adjust_stock(item_id: int, body: dict, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db)):
+def adjust_stock(item_id: int, body: dict, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Manual stock adjustment."""
     adjustment = body.get("adjustment", 0)
     reason = body.get("reason", "Manual adjustment")
     cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM procurement_items WHERE id=%s", (item_id,))
+    _row = cur.fetchone()
+    enforce_same_campus(_row["campus_id"] if _row else None, campus_id)
     cur.execute("""
         UPDATE procurement_items SET current_stock = GREATEST(0, COALESCE(current_stock,0) + %s)
         WHERE id=%s RETURNING current_stock
@@ -1287,8 +1415,9 @@ def _wq_invoice(db, action, inv_id, vendor_name, amount, inv_no, po_number, user
         cancel_queue_items(db, "finance", inv_id, "vendor_invoice")
 
 @router.post("/grn/{grn_id}/skip-stock")
-def skip_stock_from_grn(grn_id: int, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db)):
+def skip_stock_from_grn(grn_id: int, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    _check_grn_campus(cur, grn_id, campus_id)
     cur.execute("SELECT * FROM sp_skip_stock_from_grn(%s, %s)", (grn_id, user_id))
     result = cur.fetchone()
     if result and result.get("error_msg"):
@@ -1298,9 +1427,10 @@ def skip_stock_from_grn(grn_id: int, user_id: int = Depends(require_permission("
 
 
 @router.post("/grn/{grn_id}/notify-collection")
-def notify_collection(grn_id: int, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db)):
+def notify_collection(grn_id: int, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Manually re-send collection notification to PR requester."""
     cur = get_cur(db)
+    _check_grn_campus(cur, grn_id, campus_id)
     cur.execute("""
         SELECT g.grn_number, po.po_number, pr.requested_by,
                (ru.first_name || ' ' || ru.last_name) AS requester_name
@@ -1380,10 +1510,11 @@ class PaymentRecordIn(BaseModel):
 def list_vendor_invoices(
     status: Optional[str] = Query(None),
     po_id: Optional[int] = Query(None),
-    user_id: int = Depends(require_permission("procurement.view")), db=Depends(get_db)
+    user_id: int = Depends(require_permission("procurement.view")), db=Depends(get_db),
+    campus_id: Optional[int] = Depends(get_current_campus_id)
 ):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_get_vendor_invoices(%s::varchar, %s::integer)", (status, po_id))
+    cur.execute("SELECT * FROM sp_get_vendor_invoices(%s::varchar, %s::integer, %s::integer)", (status, po_id, campus_id))
     rows = [dict(r) for r in cur.fetchall()]
     for r in rows:
         for k in ("invoice_date", "received_date", "created_at"):
@@ -1392,8 +1523,9 @@ def list_vendor_invoices(
 
 
 @router.get("/vendor-invoices/{inv_id}")
-def get_vendor_invoice(inv_id: int, user_id: int = Depends(require_permission("procurement.view")), db=Depends(get_db)):
+def get_vendor_invoice(inv_id: int, user_id: int = Depends(require_permission("procurement.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    _check_vendor_invoice_campus(cur, inv_id, campus_id)
     cur.execute("SELECT * FROM sp_get_vendor_invoice_detail(%s)", (inv_id,))
     row = cur.fetchone()
     if not row: fail("Vendor invoice not found.", 404)
@@ -1488,10 +1620,11 @@ def _engine_advance_inv(db, inv_id, action, user_id, note):
         return False, None
 
 @router.post("/vendor-invoices")
-def create_vendor_invoice(body: VendorInvoiceIn, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db)):
+def create_vendor_invoice(body: VendorInvoiceIn, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     if not body.vendor_invoice_no or not body.po_id or not body.invoice_date:
         fail("vendor_invoice_no, po_id and invoice_date are required.", 400)
     cur = get_cur(db)
+    _check_po_campus(cur, body.po_id, campus_id)
     # Validate PO exists and is issued/partially delivered/completed
     cur.execute("SELECT vendor_id, status, po_number FROM purchase_orders WHERE id=%s", (body.po_id,))
     po = cur.fetchone()
@@ -1572,8 +1705,9 @@ def create_vendor_invoice(body: VendorInvoiceIn, user_id: int = Depends(require_
 
 
 @router.put("/vendor-invoices/{inv_id}")
-def update_vendor_invoice(inv_id: int, body: VendorInvoiceUpdateIn, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db)):
+def update_vendor_invoice(inv_id: int, body: VendorInvoiceUpdateIn, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    _check_vendor_invoice_campus(cur, inv_id, campus_id)
     cur.execute("SELECT status, po_id, vendor_id FROM vendor_invoices WHERE id=%s", (inv_id,))
     inv = cur.fetchone()
     if not inv: fail("Invoice not found.", 404)
@@ -1618,7 +1752,9 @@ def update_vendor_invoice(inv_id: int, body: VendorInvoiceUpdateIn, user_id: int
 
 
 @router.post("/vendor-invoices/{inv_id}/act")
-def act_on_vendor_invoice(inv_id: int, body: RequisitionActIn, user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+def act_on_vendor_invoice(inv_id: int, body: RequisitionActIn, user_id: int = Depends(get_current_user_id), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+    cur0 = get_cur(db)
+    _check_vendor_invoice_campus(cur0, inv_id, campus_id)
     if body.action not in ("approve","reject","verify","review","clear","sign","payment","publish"):
         fail("Invalid action.", 400)
     if not _has_active_inv_workflow(db, inv_id):
@@ -1630,8 +1766,9 @@ def act_on_vendor_invoice(inv_id: int, body: RequisitionActIn, user_id: int = De
 
 
 @router.post("/vendor-invoices/{inv_id}/verify")
-def verify_vendor_invoice(inv_id: int, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db)):
+def verify_vendor_invoice(inv_id: int, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    _check_vendor_invoice_campus(cur, inv_id, campus_id)
     if _has_active_inv_workflow(db, inv_id):
         _ok, _st = _engine_advance_inv(db, inv_id, 'verify', user_id, '')
         if not _ok: fail('Workflow advance failed', 500)
@@ -1657,8 +1794,9 @@ def verify_vendor_invoice(inv_id: int, user_id: int = Depends(require_permission
 
 
 @router.post("/vendor-invoices/{inv_id}/approve")
-def approve_vendor_invoice(inv_id: int, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db)):
+def approve_vendor_invoice(inv_id: int, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    _check_vendor_invoice_campus(cur, inv_id, campus_id)
     if _has_active_inv_workflow(db, inv_id):
         _ok, _st = _engine_advance_inv(db, inv_id, 'approve', user_id, '')
         if not _ok: fail('Workflow advance failed', 500)
@@ -1684,9 +1822,10 @@ def approve_vendor_invoice(inv_id: int, user_id: int = Depends(require_permissio
 
 
 @router.post("/vendor-invoices/{inv_id}/dispute")
-def dispute_vendor_invoice(inv_id: int, body: DisputeIn, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db)):
+def dispute_vendor_invoice(inv_id: int, body: DisputeIn, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     if not body.reason: fail("Dispute reason is required.", 400)
     cur = get_cur(db)
+    _check_vendor_invoice_campus(cur, inv_id, campus_id)
     cur.execute("""
         UPDATE vendor_invoices SET status='disputed', dispute_reason=%s
         WHERE id=%s AND status IN ('pending','verified')
@@ -1708,10 +1847,11 @@ def dispute_vendor_invoice(inv_id: int, body: DisputeIn, user_id: int = Depends(
 
 
 @router.post("/vendor-invoices/{inv_id}/pay")
-def record_invoice_payment(inv_id: int, body: PaymentRecordIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db)):
+def record_invoice_payment(inv_id: int, body: PaymentRecordIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     if not body.amount or float(body.amount) <= 0:
         fail("Payment amount must be greater than zero.", 400)
     cur = get_cur(db)
+    _check_vendor_invoice_campus(cur, inv_id, campus_id)
     cur.execute("SELECT total_amount, paid_amount, status, vendor_invoice_no FROM vendor_invoices WHERE id=%s", (inv_id,))
     inv = cur.fetchone()
     if not inv: fail("Invoice not found.", 404)
@@ -1739,8 +1879,9 @@ def record_invoice_payment(inv_id: int, body: PaymentRecordIn, user_id: int = De
 
 
 @router.post("/vendor-invoices/{inv_id}/cancel")
-def cancel_vendor_invoice(inv_id: int, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db)):
+def cancel_vendor_invoice(inv_id: int, user_id: int = Depends(require_permission("procurement.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    _check_vendor_invoice_campus(cur, inv_id, campus_id)
     cur.execute("UPDATE vendor_invoices SET status='cancelled' WHERE id=%s AND status IN ('pending','disputed') RETURNING id", (inv_id,))
     if not cur.fetchone(): fail("Invoice not found or cannot be cancelled at this stage.", 400)
     db.commit()

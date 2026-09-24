@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthContext";
+import { useGovernanceMode } from "../hooks/useGovernanceMode";
 import { configApi } from "../api/configApi";
 import { examsApi } from "../api/examsApi";
 import hrApi from "../api/hrApi";
@@ -18,9 +19,10 @@ const Toggle = ({checked, onChange}) => (
   </span>
 );
 
-export default function ConfigPage() {
+export default function ConfigPage({ visibleTabs } = {}) {
   const { user } = useAuth();
-  const [activeTab,    setActiveTab]    = useState("withdrawal");
+  const { isGlobalLocked: examTypesLocked } = useGovernanceMode("exam_types");
+  const [activeTab,    setActiveTab]    = useState(visibleTabs ? visibleTabs[0] : "withdrawal");
   const [examSubTab,   setExamSubTab]   = useState("types");
   const [toast,        setToast]        = useState("");
   const [toastType,    setToastType]    = useState("success");
@@ -115,20 +117,24 @@ export default function ConfigPage() {
 
   return (
     <div>
+      {!visibleTabs && (
       <div className="page-header">
         <h1 className="page-heading">Workflow Configuration</h1>
       </div>
+      )}
 
       {toast && <div className={"alert "+(toastType==="error"?"alert-error":"alert-success")} style={{marginBottom:16}}>{toast}</div>}
 
       {/* Main Tabs */}
+      {(!visibleTabs || visibleTabs.length > 1) && (
       <div style={{display:"flex",borderBottom:"1px solid var(--color-border-tertiary)",marginBottom:20}}>
-        {[{key:"withdrawal",label:"Withdrawal"},{key:"discipline",label:"Discipline"},{key:"exam",label:"Exam & Grading"},{key:"workflow",label:"Workflow"}].map(t=>(
+        {[{key:"withdrawal",label:"Withdrawal"},{key:"discipline",label:"Discipline"},{key:"exam",label:"Exam & Grading"},{key:"workflow",label:"Workflow"}].filter(t=>!visibleTabs||visibleTabs.includes(t.key)).map(t=>(
           <button key={t.key} onClick={()=>setActiveTab(t.key)} style={{padding:"10px 24px",border:"none",borderBottom:"2px solid "+(activeTab===t.key?"#2563eb":"transparent"),background:"transparent",color:activeTab===t.key?"#2563eb":"var(--color-text-secondary)",fontWeight:activeTab===t.key?600:400,fontSize:14,cursor:"pointer"}}>
             {t.label}
           </button>
         ))}
       </div>
+      )}
 
       {/* ── WITHDRAWAL CONFIG ── */}
       {activeTab==="workflow" && (
@@ -345,7 +351,13 @@ export default function ConfigPage() {
 
           {/* Exam Types Sub-tab */}
           {examSubTab==="types" && (
-            <div style={{display:"flex",gap:20,alignItems:"flex-start"}}>
+            <>
+            {examTypesLocked && (
+              <div style={{marginBottom:16,padding:"8px 12px",background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,fontSize:12,color:"#92400e"}}>
+                Exam Types are managed centrally by the superadmin. This section is read-only here.
+              </div>
+            )}
+            <div style={{display:"flex",gap:20,alignItems:"flex-start", pointerEvents: examTypesLocked ? "none" : "auto", opacity: examTypesLocked ? 0.65 : 1}}>
 
               {/* Left: Exam Types List */}
               <div style={{flex:1,display:"flex",flexDirection:"column",gap:12}}>
@@ -468,6 +480,7 @@ export default function ConfigPage() {
                 </div>
               )}
             </div>
+            </>
           )}
 
                     {/* Assessments Sub-tab - now merged into types */}

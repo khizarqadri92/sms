@@ -4,6 +4,10 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel
 
 from app.fastapi_auth import get_current_user_id
+from app.fastapi_campus import get_current_campus_id, get_settings_campus_id
+from app.fastapi_campus import enforce_same_campus
+from app.fastapi_campus import governed_settings_campus_id
+from app.fastapi_campus import governed_settings_campus_id_for_write, catalog_campus_id, catalog_campus_id_for_write
 from app.fastapi_db import get_db, get_cur as _get_cur
 from app.utils.processing_date import get_processing_date, get_processing_datetime
 
@@ -82,12 +86,12 @@ def _get_department_id_for_staff(db, staff_id):
     return row["department_id"] if row else None
 
 
-def _get_effective_schedule(db, department_id):
+def _get_effective_schedule(db, department_id, campus_id=None):
     """Returns the CURRENTLY configured schedule. Only ever used at write-time
     (when a session is created or its clock_in_at is corrected) so that a later
     change to the schedule never rewrites the late-status of past attendance."""
     cur = get_cur(db)
-    cur.execute("SELECT * FROM attendance_schedule_settings WHERE id=1")
+    cur.execute("SELECT * FROM attendance_schedule_settings WHERE campus_id = %s OR campus_id IS NULL ORDER BY campus_id NULLS LAST LIMIT 1", (campus_id,))
     settings = cur.fetchone()
     if settings["mode"] == "per_department" and department_id:
         cur.execute("SELECT start_time, end_time, grace_minutes FROM department_attendance_schedules WHERE department_id=%s", (department_id,))
@@ -104,12 +108,18 @@ def _is_late(clock_in_at, start_time, grace_minutes):
     return clock_in_at > cutoff
 
 
+def _get_campus_id_for_staff(db, staff_id):
+    cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM staff WHERE id=%s", (staff_id,))
+    row = cur.fetchone()
+    return row["campus_id"] if row else None
 def _compute_is_late_for_staff(db, staff_id, clock_in_dt):
     """Snapshot helper: computes is_late using the schedule in effect RIGHT NOW,
     then this value is stored permanently on the session row - it is never
     recomputed later even if the schedule subsequently changes."""
     dept_id = _get_department_id_for_staff(db, staff_id)
-    start_time, end_time, grace_minutes = _get_effective_schedule(db, dept_id)
+    campus_id = _get_campus_id_for_staff(db, staff_id)
+    start_time, end_time, grace_minutes = _get_effective_schedule(db, dept_id, campus_id)
     return _is_late(clock_in_dt, start_time, grace_minutes)
 
 
@@ -176,10 +186,14 @@ class RfidSwipeIn(BaseModel):
 
 
 def verify_device_key(x_device_key: Optional[str] = Header(None), db=Depends(get_db)):
+    # The physical RFID device has no login/campus context of its own, so
+    # its key is checked against every configured key (global default plus
+    # any campus's own override) rather than a single fixed row.
     cur = get_cur(db)
-    cur.execute("SELECT rfid_device_api_key FROM attendance_settings WHERE id=1")
-    row = cur.fetchone()
-    if not row or not x_device_key or x_device_key != row["rfid_device_api_key"]:
+    if not x_device_key:
+        fail("Invalid or missing device key.", 401)
+    cur.execute("SELECT 1 FROM attendance_settings WHERE rfid_device_api_key = %s", (x_device_key,))
+    if not cur.fetchone():
         fail("Invalid or missing device key.", 401)
     return True
 
@@ -310,7 +324,7 @@ def delete_session(session_id: int, user_id: int = Depends(require_permission("h
 # --- LIVE DASHBOARD (HR: full access, HOD: auto-scoped to their own department) ---
 @router.get("/dashboard")
 def attendance_dashboard(department_id: Optional[int] = None,
-        user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+        user_id: int = Depends(get_current_user_id), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     hod_depts = _check_view_access(db, user_id, department_id)
     if department_id is not None:
         effective_filter = [department_id]
@@ -326,15 +340,17 @@ def attendance_dashboard(department_id: Optional[int] = None,
         EXISTS(SELECT 1 FROM staff_attendance_sessions WHERE staff_id=s.id AND clock_in_at::date = %s) AS has_session_today
         FROM staff s LEFT JOIN departments d ON d.id=s.department_id
         WHERE s.status=\'active\' AND (%s::int[] IS NULL OR s.department_id = ANY(%s::int[]))
-        ORDER BY s.first_name""", (get_processing_date(db), effective_filter, effective_filter))
+          AND (%s IS NULL OR s.campus_id = %s)
+          AND NOT EXISTS (SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=s.user_id AND r.name='superadmin')
+        ORDER BY s.first_name""", (get_processing_date(db), effective_filter, effective_filter, campus_id, campus_id))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 # --- ATTENDANCE SETTINGS (HR only - not exposed to HOD) ---
 @router.get("/settings")
-def get_attendance_settings(user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db)):
+def get_attendance_settings(user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(governed_settings_campus_id("attendance"))):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_get_settings_by_category(%s::varchar)", ("attendance",))
+    cur.execute("SELECT * FROM sp_get_settings_by_category(%s::varchar, %s)", ("attendance", campus_id))
     return ok(data={r["key"]: r["value"] for r in cur.fetchall()})
 
 
@@ -343,22 +359,24 @@ class AttendanceSettingsIn(BaseModel):
 
 
 @router.put("/settings")
-def update_attendance_settings(body: AttendanceSettingsIn, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db)):
+def update_attendance_settings(body: AttendanceSettingsIn, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(governed_settings_campus_id_for_write("attendance"))):
     cur = get_cur(db)
-    cur.execute("SELECT sp_upsert_settings_by_category(%s::varchar, %s::varchar[], %s::varchar[], %s::integer)",
-        ("attendance", ["attendance_auto_close_time"], [body.attendance_auto_close_time], user_id))
+    cur.execute("SELECT sp_upsert_settings_by_category(%s::varchar, %s::varchar[], %s::varchar[], %s::integer, %s)",
+        ("attendance", ["attendance_auto_close_time"], [body.attendance_auto_close_time], user_id, campus_id))
     db.commit()
     return ok(message="Settings updated.")
 
 
 # --- ATTENDANCE SCHEDULE SETTINGS (HR only - not exposed to HOD) ---
 @router.get("/schedule-settings")
-def get_schedule_settings(user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db)):
+def get_schedule_settings(user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_settings_campus_id), raw_campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM attendance_schedule_settings WHERE id=1")
+    cur.execute("SELECT * FROM attendance_schedule_settings WHERE campus_id = %s OR campus_id IS NULL ORDER BY campus_id NULLS LAST LIMIT 1", (campus_id,))
     settings = dict(cur.fetchone())
     cur.execute("""SELECT ds.*, d.name AS department_name FROM department_attendance_schedules ds
-        JOIN departments d ON d.id=ds.department_id ORDER BY d.name""")
+        JOIN departments d ON d.id=ds.department_id
+        WHERE (%s IS NULL OR d.campus_id IS NULL OR d.campus_id = %s)
+        ORDER BY d.name""", (raw_campus_id, raw_campus_id))
     departments = [dict(r) for r in cur.fetchall()]
     return ok(data={"settings": settings, "departments": departments})
 
@@ -371,12 +389,12 @@ class ScheduleSettingsIn(BaseModel):
 
 
 @router.put("/schedule-settings")
-def update_schedule_settings(body: ScheduleSettingsIn, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db)):
+def update_schedule_settings(body: ScheduleSettingsIn, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_settings_campus_id)):
     if body.mode not in ("same_for_all", "per_department"):
         fail("Invalid mode.", 400)
     cur = get_cur(db)
-    cur.execute("SELECT sp_update_attendance_schedule_settings(%s,%s,%s,%s)",
-        (body.mode, body.default_start_time, body.default_end_time, body.grace_minutes))
+    cur.execute("SELECT sp_update_attendance_schedule_settings(%s,%s,%s,%s,%s)",
+        (body.mode, body.default_start_time, body.default_end_time, body.grace_minutes, campus_id))
     db.commit()
     return ok(message="Schedule settings updated.")
 
@@ -389,8 +407,11 @@ class DepartmentScheduleIn(BaseModel):
 
 
 @router.post("/schedule-settings/departments")
-def upsert_department_schedule(body: DepartmentScheduleIn, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db)):
+def upsert_department_schedule(body: DepartmentScheduleIn, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM departments WHERE id=%s", (body.department_id,))
+    _row = cur.fetchone()
+    if _row: enforce_same_campus(_row["campus_id"], campus_id)
     cur.execute("SELECT * FROM sp_upsert_department_schedule(%s,%s,%s,%s)",
         (body.department_id, body.start_time, body.end_time, body.grace_minutes))
     new_id = cur.fetchone()["id"]
@@ -399,8 +420,11 @@ def upsert_department_schedule(body: DepartmentScheduleIn, user_id: int = Depend
 
 
 @router.delete("/schedule-settings/departments/{department_id}")
-def delete_department_schedule(department_id: int, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db)):
+def delete_department_schedule(department_id: int, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM departments WHERE id=%s", (department_id,))
+    _row = cur.fetchone()
+    if _row: enforce_same_campus(_row["campus_id"], campus_id)
     cur.execute("SELECT sp_delete_department_schedule(%s)", (department_id,))
     db.commit()
     return ok(message="Department schedule removed.")
@@ -409,16 +433,16 @@ def delete_department_schedule(department_id: int, user_id: int = Depends(requir
 # --- DAILY STATUS RESOLUTION (HR: full access, HOD: auto-scoped) ---
 @router.get("/dashboard-by-date")
 def dashboard_by_date(date: str, department_id: Optional[int] = None,
-        user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+        user_id: int = Depends(get_current_user_id), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     hod_depts = _check_view_access(db, user_id, department_id)
     cur = get_cur(db)
     if department_id is None and hod_depts is not None:
         results = []
         for d in hod_depts:
-            cur.execute("SELECT * FROM sp_get_attendance_daily_status_bulk(%s,%s)", (date, d))
+            cur.execute("SELECT * FROM sp_get_attendance_daily_status_bulk(%s,%s,%s)", (date, d, campus_id))
             results.extend([dict(r) for r in cur.fetchall()])
         return ok(data=results)
-    cur.execute("SELECT * FROM sp_get_attendance_daily_status_bulk(%s,%s)", (date, department_id))
+    cur.execute("SELECT * FROM sp_get_attendance_daily_status_bulk(%s,%s,%s)", (date, department_id, campus_id))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
@@ -448,9 +472,9 @@ def staff_daily_status(staff_id: int, from_date: str, to_date: str,
 
 # --- ATTENDANCE STATUS THRESHOLDS (present / half-day / absent hours, min session duration) ---
 @router.get("/status-thresholds")
-def get_status_thresholds(user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db)):
+def get_status_thresholds(user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(governed_settings_campus_id("attendance_thresholds"))):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM attendance_status_thresholds WHERE id=1")
+    cur.execute("SELECT * FROM attendance_status_thresholds WHERE campus_id = %s OR campus_id IS NULL ORDER BY campus_id NULLS LAST LIMIT 1", (campus_id,))
     row = dict(cur.fetchone())
     for k in ("min_present_hours", "min_half_day_hours", "max_absent_hours"):
         row[k] = float(row[k])
@@ -465,12 +489,14 @@ class StatusThresholdsIn(BaseModel):
 
 
 @router.put("/status-thresholds")
-def update_status_thresholds(body: StatusThresholdsIn, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db)):
+def update_status_thresholds(body: StatusThresholdsIn, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(governed_settings_campus_id_for_write("attendance_thresholds"))):
     cur = get_cur(db)
-    cur.execute("""UPDATE attendance_status_thresholds SET
-        min_present_hours=%s, min_half_day_hours=%s, max_absent_hours=%s, min_session_minutes=%s
-        WHERE id=1""",
-        (body.min_present_hours, body.min_half_day_hours, body.max_absent_hours, body.min_session_minutes))
+    cur.execute("""INSERT INTO attendance_status_thresholds (campus_id, min_present_hours, min_half_day_hours, max_absent_hours, min_session_minutes)
+        VALUES (%s,%s,%s,%s,%s)
+        ON CONFLICT (COALESCE(campus_id, 0)) DO UPDATE SET
+        min_present_hours=%s, min_half_day_hours=%s, max_absent_hours=%s, min_session_minutes=%s""",
+        (campus_id, body.min_present_hours, body.min_half_day_hours, body.max_absent_hours, body.min_session_minutes,
+         body.min_present_hours, body.min_half_day_hours, body.max_absent_hours, body.min_session_minutes))
     db.commit()
     return ok(message="Attendance status thresholds updated.")
 

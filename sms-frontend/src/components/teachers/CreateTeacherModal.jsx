@@ -1,5 +1,6 @@
 import { useState } from "react";
 import teachersApi from "../../api/teachersApi";
+import DatePicker from "../DatePicker";
 
 export default function CreateTeacherModal({ onCreated, onClose }) {
   const [form, setForm]       = useState({
@@ -68,11 +69,11 @@ export default function CreateTeacherModal({ onCreated, onClose }) {
             </div>
             <div className="form-field">
               <label className="form-label">Date of Birth</label>
-              <input className="form-input" type="date" name="date_of_birth" value={form.date_of_birth} onChange={handleChange} />
+              <DatePicker style={{ width: "100%" }} value={form.date_of_birth} onChange={val => setForm(p => ({ ...p, date_of_birth: val }))} />
             </div>
             <div className="form-field">
               <label className="form-label">Join Date</label>
-              <input className="form-input" type="date" name="join_date" value={form.join_date} onChange={handleChange} />
+              <DatePicker style={{ width: "100%" }} value={form.join_date} onChange={val => setForm(p => ({ ...p, join_date: val }))} />
             </div>
             <div className="form-field">
               <label className="form-label">Qualification</label>

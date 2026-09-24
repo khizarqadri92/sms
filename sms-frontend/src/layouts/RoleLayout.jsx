@@ -8,6 +8,7 @@ import { useRegionalSettings } from "../context/RegionalSettingsContext";
 import dashboardApi from "../api/dashboardApi";
 import attendanceApi from "../api/attendanceApi";
 import notificationsApi from "../api/notificationsApi";
+import campusesApi from "../api/campusesApi";
 import { useTheme } from "../auth/ThemeContext";
 import "./RoleLayout.css";
 
@@ -15,6 +16,8 @@ const NAV = {
   superadmin: [
     { label:"General",    cat:"General",    items:[
       { label:"Dashboard", path:"/dashboard" },
+      { label:"Campuses", path:"/campuses", perm:"campuses.view" },
+      { label:"Setting Governance", path:"/setting-governance", perm:"campuses.manage" },
       { label:"Work Queue", path:"/work-queue" },
       { label:"My Leave",   path:"/staff-leave"  },
       { label:"My Attendance", path:"/my-attendance" },
@@ -32,34 +35,24 @@ const NAV = {
       { label:"Teachers",  path:"/teachers"  },
       { label:"Users",     path:"/users"     },
     ]},
-    { label:"Academic",   cat:"Academic",   items:[
-      { label:"Academics",  path:"/academics"      },
-      { label:"Syllabus",   path:"/syllabus"       },
-      { label:"Exams",      path:"/exams",          perm:"exam.view", end:true },
-      { label:"Subject Schedule Setup", path:"/academic-setup" },
-      { label:"Teacher Assignment", path:"/teacher-assignment" },
+    { label:"Management", cat:"Management", items:[
+      { label:"Academic", path:"/management/academic" },
+      { label:"HR", path:"/management/hr", perm:"hr.view" },
+      { label:"Library", path:"/library", perm:"library.view" },
+      { label:"Procurement", path:"/management/procurement", perm:"procurement.view" },
+      { label:"Finance", path:"/management/finance" },
     ]},
     { label:"Requests", cat:"Requests", items:[
+      { label:"Staff Leave Requests", path:"/hr/leave-requests", perm:"hr.view" },
       { label:"Withdrawal", path:"/withdrawal"     },
       { label:"Discipline", path:"/discipline"     },
     ]},
     { label:"Setup", cat:"Setup", items:[
-      { label:"Leave Configuration", path:"/leave-setup" },
-    ]},
-    { label:"HR",         cat:"HR",         items:[
-      { label:"Staff Management", path:"/hr/staff",       perm:"hr.view"         },
-      { label:"Leave Management",  path:"/hr/leave",       perm:"hr.view"         },
-      { label:"Employee Attendance", path:"/hr/attendance", perm:"hr.view" },
-      { label:"Resignations", path:"/hr/resignations", perm:"hr.view" },
-      { label:"Payroll Setup", path:"/payroll/setup", perm:"payroll.view" },
-      { label:"Payroll Grades", path:"/payroll/grades", perm:"payroll.view" },
-      { label:"Payroll Adjustments", path:"/payroll/adjustments", perm:"payroll.view" },
-      { label:"Designation Grades", path:"/payroll/designation-grades", perm:"payroll.view" },
-      { label:"Income Tax Slabs", path:"/payroll/tax-slabs", perm:"payroll.view" },
-      { label:"Payroll Runs", path:"/payroll/runs", perm:"payroll.edit" },
-      { label:"Provident Fund", path:"/payroll/provident-fund", perm:"payroll.pf.view_all" },
-      { label:"Income Tax", path:"/payroll/income-tax", perm:"payroll.income_tax.view_all" },
-      { label:"HR Setup",         path:"/hr/setup",       perm:"hr.designations" },
+      { label:"Finance Setup", path:"/setup/finance", perm:"campuses.manage" },
+      { label:"HR Setup", path:"/setup/hr", perm:"campuses.manage" },
+      { label:"Library Setup", path:"/setup/library", perm:"campuses.manage" },
+      { label:"Procurement Setup", path:"/setup/procurement", perm:"procurement.manage" },
+      { label:"Academic Setup", path:"/setup/academic", perm:"campuses.manage" },
     ]},
     { label:"Reports",    cat:"Reports",    items:[
       { label:"Employee Attendance", path:"/reports/employee-attendance", perm:"reports.employee_attendance" },
@@ -72,28 +65,8 @@ const NAV = {
       { label:"Locked Students", path:"/locked-students", perm:"reports.locked_students" },
     ]},
 
-    { label:"Finance",    cat:"Finance",    items:[
-      { label:"Finance",   path:"/finance"   },
-      { label:"Vendor Invoices", path:"/procurement/vendor-invoices" },
-    ]},
-    { label:"Library",    cat:"Library",    items:[
-      { label:"Management",   path:"/library",          perm:"library.view",   end:true },
-      { label:"Setup",        path:"/library/settings", perm:"library.manage", end:true },
-    ]},
-    { label:"Procurement", cat:"Procurement", items:[
-      { label:"Vendors",      path:"/procurement/vendors", perm:"procurement.view" },
-      { label:"Item Master",  path:"/procurement/items",   perm:"procurement.view" },
-      { label:"Item Categories", path:"/procurement/item-categories", perm:"procurement.manage" },
-      { label:"Requisitions Pipeline", path:"/procurement/pipeline", perm:"procurement.view" },
-      { label:"Purchase Orders", path:"/procurement/purchase-orders", perm:"procurement.view" },
-      { label:"Goods Receipt (GRN)", path:"/procurement/grn", perm:"procurement.view" },
-      { label:"Stock", path:"/procurement/stock", perm:"procurement.view" },
-      { label:"Vendor Invoices", path:"/procurement/vendor-invoices", perm:"procurement.view" },
-      { label:"Departments",  path:"/procurement/departments", perm:"procurement.manage" },
-      { label:"Approval Rules", path:"/procurement/approval-rules", perm:"procurement.manage" },
-    ]},
     { label:"System",     cat:"System",     items:[
-      { label:"Settings",         path:"/settings"       },
+      { label:"Settings",         path:"/settings-other"       },
       { label:"Roles",            path:"/roles"          },
       { label:"Announcements",    path:"/announcements"  },
             { label:"Workflow Config",  path:"/workflow-config" },
@@ -124,24 +97,30 @@ const NAV = {
       { label:"Expenditure Details", path:"/reports/expenditure-details", perm:"reports.expenditure" },
       { label:"Fee Report", path:"/fee-report", perm:"reports.fee_report" },
       { label:"Locked Students", path:"/locked-students", perm:"reports.locked_students" },
+      { label:"General Reports", path:"/reports" },
     ]},
     { label:"People",     cat:"People",     items:[
       { label:"Students",  path:"/students"  },
       { label:"Teachers",  path:"/teachers"  },
+      { label:"Users",     path:"/users", perm:"users.view" },
     ]},
-    { label:"Academic",   cat:"Academic",   items:[
-      { label:"Academics", path:"/academics" },
-      { label:"Syllabus",  path:"/syllabus"  },
-      { label:"Reports",   path:"/reports"   },
+    { label:"Management", cat:"Management", items:[
+      { label:"Academic", path:"/management/academic-admin" },
+      { label:"HR", path:"/management/hr", perm:"hr.view" },
+      { label:"Library", path:"/library", perm:"library.view" },
+      { label:"Procurement", path:"/management/procurement", perm:"procurement.view" },
+      { label:"Finance", path:"/management/finance" },
     ]},
     { label:"Requests", cat:"Requests", items:[
       { label:"Withdrawal", path:"/withdrawal" },
     ]},
     { label:"Setup", cat:"Setup", items:[
       { label:"Leave Configuration", path:"/leave-setup" },
+      { label:"Settings", path:"/settings", perm:"settings.view" },
     ]},
     { label:"System",     cat:"System",     items:[
             { label:"Workflow Config",  path:"/workflow-config" },
+      { label:"Workflow Builder", path:"/workflow-builder", perm:"users.manage_roles" },
       { label:"Announcements",    path:"/announcements"  },
     ]},
     { label:"Purchase Requests", cat:"Purchase Requests", items:[
@@ -455,15 +434,17 @@ const NAV = {
     ]},
     { label:"Management",  cat:"Management",  items:[
       { label:"Procurement",  path:"/procurement",  perm:"procurement.view"    },
-      { label:"Vendors",      path:"/procurement/vendors", perm:"procurement.view" },
-      { label:"Item Master",  path:"/procurement/items",   perm:"procurement.view" },
-      { label:"Item Categories", path:"/procurement/item-categories", perm:"procurement.manage" },
       { label:"Requisitions Pipeline", path:"/procurement/pipeline", perm:"procurement.view" },
       { label:"Purchase Orders", path:"/procurement/purchase-orders", perm:"procurement.view" },
       { label:"Goods Receipt (GRN)", path:"/procurement/grn", perm:"procurement.view" },
       { label:"Stock", path:"/procurement/stock", perm:"procurement.view" },
       { label:"Vendor Invoices", path:"/procurement/vendor-invoices", perm:"procurement.view" },
+    ]},
+    { label:"Setup",        cat:"Setup",        items:[
       { label:"Departments",  path:"/procurement/departments", perm:"procurement.manage" },
+      { label:"Vendors",      path:"/procurement/vendors", perm:"procurement.view" },
+      { label:"Item Master",  path:"/procurement/items",   perm:"procurement.view" },
+      { label:"Item Categories", path:"/procurement/item-categories", perm:"procurement.manage" },
       { label:"Approval Rules", path:"/procurement/approval-rules", perm:"procurement.manage" },
     ]},
     { label:"System",       cat:"System",       items:[
@@ -532,6 +513,10 @@ const SUBNAV = {
     { label:"Timetable",      sub:"timetable" },
     { label:"Class Overview",  sub:"overview"  },
   ],
+  "/academics-other": [
+    { label:"Timetable",      sub:"timetable" },
+    { label:"Class Overview",  sub:"overview"  },
+  ],
   "/users": [
     { label:"All Users",      sub:"list"      },
     { label:"Create User",    sub:"create"    },
@@ -558,6 +543,13 @@ const SUBNAV = {
     { label:"Fee Settings",   sub:"fee_settings" },
     { label:"School Timing",     sub:"school_timing"     },
     { label:"Attendance Config", sub:"attendance_config" },
+    { label:"Account Settings",  sub:"account_settings"  },
+    { label:"Regional & Format", sub:"regional_format" },
+  ],
+  "/settings-other": [
+    { label:"ID Formats",     sub:"id_formats"   },
+    { label:"School Info",    sub:"school_info"  },
+    { label:"Fee Settings",   sub:"fee_settings" },
     { label:"Account Settings",  sub:"account_settings"  },
     { label:"Regional & Format", sub:"regional_format" },
   ],
@@ -833,6 +825,10 @@ export default function RoleLayout({ children }) {
 
   // Load school info
   const [schoolInfo, setSchoolInfo] = React.useState({ name:"SchoolMS", logo:null });
+  const [campusInfo, setCampusInfo] = React.useState(null);
+  React.useEffect(() => {
+    campusesApi.getMyCampus().then(r => setCampusInfo(r.data.data)).catch(() => {});
+  }, []);
   React.useEffect(() => {
     fetch(process.env.REACT_APP_API_URL + "/settings/school-info-public", {
       headers: { Authorization: "Bearer " + sessionStorage.getItem("access_token") }
@@ -854,6 +850,12 @@ export default function RoleLayout({ children }) {
           <div style={{ display:"flex", flexDirection:"column", justifyContent:"center" }}>
             <div className="topnav-brand-name">{schoolInfo.name}</div>
           </div>
+          {campusInfo?.name && (
+            <div style={{ display:"flex", alignItems:"center", gap:6, background:"rgba(255,255,255,0.12)", border:"0.5px solid rgba(255,255,255,0.25)", color:"#fff", fontSize:12, padding:"5px 12px", borderRadius:6, marginLeft:14 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V7l8-4v18"/><path d="M19 21V11l-6-4"/><path d="M9 9v.01M9 12v.01M9 15v.01M9 18v.01"/></svg>
+              {campusInfo.name}
+            </div>
+          )}
         </div>
         {/* empty flex spacer */}
         <div style={{ flex:1 }} />
@@ -931,6 +933,7 @@ export default function RoleLayout({ children }) {
             )}
           </div>
 
+          {role === "superadmin" && <CampusSwitcher />}
           <div className="topnav-divider" />
           <a href="/profile" style={{ textDecoration:"none", display:"flex", alignItems:"center", gap:8 }}>
             <div className="topnav-avatar" style={{ background: theme?.primary || "#2563eb" }}>{initials}</div>
@@ -1041,3 +1044,38 @@ export default function RoleLayout({ children }) {
 }
 
 
+
+
+function CampusSwitcher() {
+  const [campuses, setCampuses] = useState([]);
+  const [activeCampusId, setActiveCampusId] = useState(sessionStorage.getItem("active_campus_id") || "");
+
+  useEffect(() => {
+    campusesApi.list().then(r => setCampuses(r.data.data || [])).catch(() => {});
+  }, []);
+
+  const handleChange = (e) => {
+    const val = e.target.value;
+    if (val) sessionStorage.setItem("active_campus_id", val);
+    else sessionStorage.removeItem("active_campus_id");
+    // Full reload rather than local state propagation - simplest way to
+    // guarantee every already-mounted page refetches its data under the
+    // newly selected campus context, since campus_id flows through a
+    // request header rather than React state or route params.
+    window.location.reload();
+  };
+
+  return (
+    <select
+      value={activeCampusId}
+      onChange={handleChange}
+      title="Active campus context"
+      style={{ background: "rgba(255,255,255,0.15)", color: "#fff", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 6, padding: "6px 10px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+    >
+      <option value="" style={{ color: "#000" }}>All Campuses</option>
+      {campuses.map(c => (
+        <option key={c.id} value={c.id} style={{ color: "#000" }}>{c.name}</option>
+      ))}
+    </select>
+  );
+}

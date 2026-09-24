@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import libraryApi from "../api/libraryApi";
+import { useGovernanceMode } from "../hooks/useGovernanceMode";
 
 function PublisherFormModal({ publisher, onClose, onSaved }) {
   const [form, setForm] = useState({
@@ -67,6 +68,7 @@ function PublisherFormModal({ publisher, onClose, onSaved }) {
 }
 
 export default function LibraryPublishers() {
+  const { isGlobalLocked } = useGovernanceMode("library_publishers");
   const [publishers, setPublishers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [success, setSuccess] = useState("");
@@ -108,9 +110,14 @@ export default function LibraryPublishers() {
     <div>
       <div className="page-header" style={{ marginBottom: 16 }}>
         <h1 className="page-heading">Publishers</h1>
-        <button className="btn btn-primary" onClick={() => { setEditPublisher(null); setShowForm(true); }}>+ Add Publisher</button>
+        {!isGlobalLocked && <button className="btn btn-primary" onClick={() => { setEditPublisher(null); setShowForm(true); }}>+ Add Publisher</button>}
       </div>
 
+      {isGlobalLocked && (
+        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+          Library Publishers are managed centrally by the superadmin. This list is read-only here.
+        </div>
+      )}
       {success && <div className="alert alert-success" style={{ marginBottom: 16 }}>{success}</div>}
       {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
 
@@ -129,7 +136,7 @@ export default function LibraryPublishers() {
                 <th>Email</th>
                 <th>Address</th>
                 <th>Status</th>
-                <th>Actions</th>
+                {!isGlobalLocked && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -141,12 +148,14 @@ export default function LibraryPublishers() {
                   <td>{p.email || <span style={{ color: "#94a3b8" }}>-</span>}</td>
                   <td style={{ maxWidth: 200, fontSize: 12, color: "#64748b" }}>{p.address || "-"}</td>
                   <td><span className={"badge " + (p.is_active ? "badge-success" : "badge-gray")}>{p.is_active ? "Active" : "Inactive"}</span></td>
-                  <td style={{ display: "flex", gap: 6, flexWrap: "nowrap" }}>
-                    <button className="btn btn-ghost btn-xs" onClick={() => { setEditPublisher(p); setShowForm(true); }}>Edit</button>
-                    <button className={"btn btn-xs " + (p.is_active ? "btn-danger" : "btn-secondary")} onClick={() => handleToggleActive(p)}>
-                      {p.is_active ? "Deactivate" : "Reactivate"}
-                    </button>
-                  </td>
+                  {!isGlobalLocked && (
+                    <td style={{ display: "flex", gap: 6, flexWrap: "nowrap" }}>
+                      <button className="btn btn-ghost btn-xs" onClick={() => { setEditPublisher(p); setShowForm(true); }}>Edit</button>
+                      <button className={"btn btn-xs " + (p.is_active ? "btn-danger" : "btn-secondary")} onClick={() => handleToggleActive(p)}>
+                        {p.is_active ? "Deactivate" : "Reactivate"}
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

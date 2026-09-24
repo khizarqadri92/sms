@@ -14,10 +14,26 @@ from pydantic import BaseModel
 
 from app.fastapi_auth import get_current_user_id, get_jwt_claims
 from app.fastapi_permissions import require_permission
+from app.fastapi_campus import get_current_campus_id
+from app.fastapi_campus import enforce_same_campus
 from app.fastapi_db import get_db, get_cur as _get_cur
 from app.utils.processing_date import get_processing_datetime
 
 router = APIRouter()
+
+
+def verify_case_campus(case_id: int, campus_id: Optional[int] = Depends(get_current_campus_id), db=Depends(get_db)):
+    """
+    Lightweight dependency (no return value needed - it either passes or
+    raises) that blocks a case_id from a different campus, the same way a
+    guessed/known id is blocked for students/teachers/classes/users/staff
+    elsewhere. Added to every /{case_id}/... route's signature so no
+    individual route body needs to change.
+    """
+    cur = get_cur(db)
+    cur.execute("SELECT s.campus_id FROM discipline_cases dc JOIN students s ON s.id = dc.student_id WHERE dc.id = %s", (case_id,))
+    row = cur.fetchone()
+    enforce_same_campus(row["campus_id"] if row else None, campus_id)
 
 try:
     from app.utils.workflow_engine import WorkflowEngine
@@ -116,11 +132,12 @@ def list_cases(
     status: Optional[str] = None,
     user_id: int = Depends(require_permission("discipline.view")),
     claims: dict = Depends(get_jwt_claims), db=Depends(get_db),
+    campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
     roles = claims.get("roles", [])
     role = roles[0] if roles else ""
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_get_discipline_cases()")
+    cur.execute("SELECT * FROM sp_get_discipline_cases(%s, %s, %s)", (None, True, campus_id))
     rows = [fmt_dates(dict(r), DATE_KEYS) for r in cur.fetchall()]
 
     if role == "teacher":
@@ -140,7 +157,7 @@ def list_cases(
 
 
 @router.get("/{case_id}")
-def get_case(case_id: int, user_id: int = Depends(require_permission("discipline.view")), db=Depends(get_db)):
+def get_case(case_id: int, user_id: int = Depends(require_permission("discipline.view")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_discipline_case_detail(%s)", (case_id,))
     row = cur.fetchone()
@@ -175,7 +192,10 @@ def report_case(body: ReportIn, user_id: int = Depends(require_permission("disci
     try:
         from app.utils.notify import send_notification
         import main as _main
-        cur.execute("SELECT * FROM sp_get_dept_role_users(%s)", ("academic_coordinator",))
+        cur.execute("SELECT campus_id FROM students WHERE id=%s", (body.student_id,))
+        _srow = cur.fetchone()
+        _student_campus_id = _srow["campus_id"] if _srow else None
+        cur.execute("SELECT * FROM sp_get_dept_role_users(%s, %s)", ("academic_coordinator", _student_campus_id))
         rows = cur.fetchall()
         with _main.flask_app.app_context():
             for row in rows:
@@ -219,7 +239,7 @@ def report_case(body: ReportIn, user_id: int = Depends(require_permission("disci
 
 
 @router.post("/{case_id}/review")
-def review_case(case_id: int, body: ReviewIn, user_id: int = Depends(require_permission("discipline.review")), db=Depends(get_db)):
+def review_case(case_id: int, body: ReviewIn, user_id: int = Depends(require_permission("discipline.review")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus)):
     cur = get_cur(db)
     # Engine-first
     if wf_engine:
@@ -266,7 +286,7 @@ def review_case(case_id: int, body: ReviewIn, user_id: int = Depends(require_per
 
 
 @router.post("/{case_id}/hearing")
-def conduct_hearing(case_id: int, body: HearingIn, user_id: int = Depends(require_permission("discipline.hearing")), db=Depends(get_db)):
+def conduct_hearing(case_id: int, body: HearingIn, user_id: int = Depends(require_permission("discipline.hearing")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus)):
     cur = get_cur(db)
     # Engine-first
     if wf_engine:
@@ -290,7 +310,7 @@ def conduct_hearing(case_id: int, body: HearingIn, user_id: int = Depends(requir
     try:
         from app.utils.notify import send_notification
         import main as _main
-        cur.execute("SELECT * FROM sp_get_dept_role_users(%s)", ("principal",))
+        cur.execute("SELECT * FROM sp_get_dept_role_users(%s, %s)", ("principal", campus_id))
         rows = cur.fetchall()
         with _main.flask_app.app_context():
             for row in rows:
@@ -303,7 +323,7 @@ def conduct_hearing(case_id: int, body: HearingIn, user_id: int = Depends(requir
 
 
 @router.post("/{case_id}/decide")
-def decide_case(case_id: int, body: DecideIn, user_id: int = Depends(require_permission("discipline.decide")), db=Depends(get_db)):
+def decide_case(case_id: int, body: DecideIn, user_id: int = Depends(require_permission("discipline.decide")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus), campus_id: Optional[int] = Depends(get_current_campus_id)):
     if body.action_type not in ("warning", "suspension", "expulsion", "dismissed"):
         fail("Invalid action_type", 400)
     cur = get_cur(db)
@@ -367,7 +387,7 @@ def decide_case(case_id: int, body: DecideIn, user_id: int = Depends(require_per
 
 
 @router.post("/{case_id}/committee")
-def assign_committee(case_id: int, body: CommitteeIn, user_id: int = Depends(require_permission("discipline.review")), db=Depends(get_db)):
+def assign_committee(case_id: int, body: CommitteeIn, user_id: int = Depends(require_permission("discipline.review")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus)):
     if not body.teacher_ids or not body.head_id:
         fail("teacher_ids and head_id are required", 400)
     cur = get_cur(db)
@@ -503,7 +523,7 @@ def assign_committee(case_id: int, body: CommitteeIn, user_id: int = Depends(req
 
 
 @router.get("/{case_id}/appearance-candidates")
-def get_appearance_candidates(case_id: int, user_id: int = Depends(require_permission("discipline.view")), db=Depends(get_db)):
+def get_appearance_candidates(case_id: int, user_id: int = Depends(require_permission("discipline.view")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus)):
     """Returns all people who could appear before the committee for this case."""
     cur = get_cur(db)
     cur.execute("""
@@ -555,7 +575,7 @@ def get_appearance_candidates(case_id: int, user_id: int = Depends(require_permi
     return ok(data=candidates)
 
 @router.get("/{case_id}/committee")
-def get_committee(case_id: int, user_id: int = Depends(require_permission("discipline.view")), db=Depends(get_db)):
+def get_committee(case_id: int, user_id: int = Depends(require_permission("discipline.view")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_committee_remarks(%s)", (case_id,))
     rows = [fmt_dates(dict(r), DATE_KEYS) for r in cur.fetchall()]
@@ -563,7 +583,7 @@ def get_committee(case_id: int, user_id: int = Depends(require_permission("disci
 
 
 @router.post("/{case_id}/remarks")
-def submit_remarks(case_id: int, body: RemarksIn, user_id: int = Depends(require_permission("discipline.committee")), db=Depends(get_db)):
+def submit_remarks(case_id: int, body: RemarksIn, user_id: int = Depends(require_permission("discipline.committee")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus)):
     if not body.remarks.strip():
         fail("Remarks are required", 400)
     cur = get_cur(db)
@@ -609,7 +629,7 @@ def submit_remarks(case_id: int, body: RemarksIn, user_id: int = Depends(require
 
 
 @router.post("/{case_id}/final-hearing")
-def submit_final_hearing(case_id: int, body: FinalHearingIn, user_id: int = Depends(require_permission("discipline.committee")), db=Depends(get_db)):
+def submit_final_hearing(case_id: int, body: FinalHearingIn, user_id: int = Depends(require_permission("discipline.committee")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus), campus_id: Optional[int] = Depends(get_current_campus_id)):
     if not body.final_remarks or not body.outcome:
         fail("Final remarks and outcome are required", 400)
     cur = get_cur(db)
@@ -628,7 +648,7 @@ def submit_final_hearing(case_id: int, body: FinalHearingIn, user_id: int = Depe
     try:
         from app.utils.notify import send_notification
         import main as _main
-        cur.execute("SELECT * FROM sp_get_dept_role_users(%s)", ("principal",))
+        cur.execute("SELECT * FROM sp_get_dept_role_users(%s, %s)", ("principal", campus_id))
         rows = cur.fetchall()
         with _main.flask_app.app_context():
             for row in rows:
@@ -645,6 +665,7 @@ def upload_evidence(
     case_id: int, description: Optional[str] = Form(""),
     file: UploadFile = File(...),
     user_id: int = Depends(require_permission("discipline.report")), db=Depends(get_db),
+    _case_check: None = Depends(verify_case_campus),
 ):
     ext = os.path.splitext(file.filename)[1].lower()
     if ext not in ALLOWED_EXT:
@@ -662,7 +683,7 @@ def upload_evidence(
 
 
 @router.post("/{case_id}/appeal/forward")
-def forward_appeal(case_id: int, body: NoteIn, user_id: int = Depends(require_permission("discipline.review")), db=Depends(get_db)):
+def forward_appeal(case_id: int, body: NoteIn, user_id: int = Depends(require_permission("discipline.review")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus)):
     """Coordinator forwards appeal to principal for final decision."""
     if wf_engine:
         try:
@@ -685,7 +706,7 @@ def forward_appeal(case_id: int, body: NoteIn, user_id: int = Depends(require_pe
     fail("Workflow engine not available.", 500)
 
 @router.post("/{case_id}/appeal/respond")
-def respond_appeal(case_id: int, body: AppealRespondIn, user_id: int = Depends(require_permission("discipline.decide")), db=Depends(get_db)):
+def respond_appeal(case_id: int, body: AppealRespondIn, user_id: int = Depends(require_permission("discipline.decide")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus)):
     if body.outcome not in ("upheld", "overturned"):
         fail("outcome must be upheld or overturned", 400)
     if not body.response:
@@ -746,7 +767,7 @@ def respond_appeal(case_id: int, body: AppealRespondIn, user_id: int = Depends(r
 
 
 @router.get("/{case_id}/evidence/{evidence_id}/download")
-def download_evidence(case_id: int, evidence_id: int, user_id: int = Depends(require_permission("discipline.view")), db=Depends(get_db)):
+def download_evidence(case_id: int, evidence_id: int, user_id: int = Depends(require_permission("discipline.view")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus)):
     cur = get_cur(db)
     cur.execute("SELECT url, filename FROM discipline_evidence WHERE id=%s AND case_id=%s", (evidence_id, case_id))
     row = cur.fetchone()
@@ -759,7 +780,7 @@ def download_evidence(case_id: int, evidence_id: int, user_id: int = Depends(req
 
 
 @router.post("/{case_id}/appeal")
-def submit_appeal(case_id: int, body: AppealIn, user_id: int = Depends(require_permission("discipline.appeal")), db=Depends(get_db)):
+def submit_appeal(case_id: int, body: AppealIn, user_id: int = Depends(require_permission("discipline.appeal")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus), campus_id: Optional[int] = Depends(get_current_campus_id)):
     if not body.note.strip():
         fail("Appeal note is required", 400)
     cur = get_cur(db)
@@ -772,7 +793,7 @@ def submit_appeal(case_id: int, body: AppealIn, user_id: int = Depends(require_p
     try:
         from app.utils.notify import send_notification
         import main as _main
-        cur.execute("SELECT * FROM sp_get_dept_role_users(%s)", ("principal",))
+        cur.execute("SELECT * FROM sp_get_dept_role_users(%s, %s)", ("principal", campus_id))
         rows = cur.fetchall()
         with _main.flask_app.app_context():
             for row in rows:

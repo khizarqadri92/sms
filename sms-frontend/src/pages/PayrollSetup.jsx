@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import payrollApi from "../api/payrollApi";
+import { useGovernanceMode } from "../hooks/useGovernanceMode";
 
 const CALC_LABELS = {
   fixed: "Fixed Amount",
@@ -15,6 +16,7 @@ const emptyForm = {
 };
 
 export default function PayrollSetup() {
+  const { isGlobalLocked } = useGovernanceMode("payroll_components");
   const [components, setComponents] = useState([]);
   const [typeFilter, setTypeFilter] = useState("");
   const [loading, setLoading] = useState(true);
@@ -96,8 +98,13 @@ export default function PayrollSetup() {
           <div style={{ fontSize: 22, fontWeight: 800, color: "#0f172a" }}>Payroll Setup</div>
           <div style={{ fontSize: 13, color: "#64748b" }}>Define earning and deduction components used across salary structures</div>
         </div>
-        <button className="btn btn-primary btn-sm" style={{ color: "#fff" }} onClick={openAdd}>+ Add Component</button>
+        {!isGlobalLocked && <button className="btn btn-primary btn-sm" style={{ color: "#fff" }} onClick={openAdd}>+ Add Component</button>}
       </div>
+      {isGlobalLocked && (
+        <div style={{ margin: "0 20px 16px", padding: "8px 12px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, fontSize: 12, color: "#92400e" }}>
+          Payroll Components are managed centrally by the superadmin. This list is read-only here.
+        </div>
+      )}
 
       {flash && (
         <div style={{
@@ -160,8 +167,8 @@ export default function PayrollSetup() {
                   {c.is_active ? <span style={{ color: "#166534" }}>Active</span> : <span style={{ color: "#dc2626" }}>Inactive</span>}
                 </td>
                 <td style={{ padding: "10px 14px", display: "flex", gap: 6 }}>
-                  <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => openEdit(c)}>Edit</button>
-                  {c.is_active && (
+                  {!isGlobalLocked && <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => openEdit(c)}>Edit</button>}
+                  {!isGlobalLocked && c.is_active && (
                     <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, color: "#dc2626" }} onClick={() => deactivate(c.id)}>Deactivate</button>
                   )}
                 </td>

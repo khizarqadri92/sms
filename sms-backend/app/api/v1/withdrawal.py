@@ -15,10 +15,23 @@ from pydantic import BaseModel
 
 from app.fastapi_auth import get_current_user_id, get_jwt_claims
 from app.fastapi_permissions import require_permission
+from app.fastapi_campus import get_current_campus_id
 from app.fastapi_db import get_db, get_cur as _get_cur
 from app.utils.processing_date import get_processing_datetime
 
 router = APIRouter()
+
+
+def _get_withdrawal_campus_id(cur, req_id):
+    cur.execute("SELECT s.campus_id FROM withdrawal_requests wr JOIN students s ON s.id = wr.student_id WHERE wr.id = %s", (req_id,))
+    row = cur.fetchone()
+    return row["campus_id"] if row else None
+
+
+def _get_waiver_campus_id(cur, waiver_id):
+    cur.execute("SELECT s.campus_id FROM withdrawal_waivers ww JOIN withdrawal_requests wr ON wr.id = ww.withdrawal_id JOIN students s ON s.id = wr.student_id WHERE ww.id = %s", (waiver_id,))
+    row = cur.fetchone()
+    return row["campus_id"] if row else None
 
 UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "..", "uploads", "withdrawal")
 ALLOWED_EXT = {".pdf", ".jpg", ".jpeg", ".png", ".doc", ".docx"}
@@ -184,6 +197,7 @@ def _engine_advance_wr(db, req_id, action, user_id, note):
 def list_withdrawals(
     user_id: int = Depends(get_current_user_id),
     claims: dict = Depends(get_jwt_claims), db=Depends(get_db),
+    campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
     perms = claims.get("permissions", [])
     roles = claims.get("roles", [])
@@ -221,7 +235,7 @@ def list_withdrawals(
             row["is_incharge"] = bool(teacher_classes.get(row.get("class_id"), False))
         return ok(data=rows)
 
-    cur.execute("SELECT * FROM sp_get_withdrawal_list(%s, %s)", (user_id, view_all))
+    cur.execute("SELECT * FROM sp_get_withdrawal_list(%s, %s, %s)", (user_id, view_all, campus_id))
     rows = [dict(r) for r in cur.fetchall()]
     for row in rows:
         cur.execute("SELECT * FROM sp_get_withdrawal_clearances(%s)", (row["id"],))
@@ -312,7 +326,10 @@ def apply_withdrawal(
     try:
         from app.utils.notify import send_notification
         import main as _main
-        cur.execute("SELECT * FROM sp_get_dept_role_users(%s)", ("academic_coordinator",))
+        cur.execute("SELECT campus_id FROM students WHERE id=%s", (student_id,))
+        _srow = cur.fetchone()
+        _student_campus_id = _srow["campus_id"] if _srow else None
+        cur.execute("SELECT * FROM sp_get_dept_role_users(%s, %s)", ("academic_coordinator", _student_campus_id))
         rows = cur.fetchall()
         with _main.flask_app.app_context():
             for row in rows:
@@ -363,10 +380,11 @@ def review_withdrawal(req_id: int, body: ReviewIn, user_id: int = Depends(get_cu
             import main as _main
             dept_roles = {"finance": "finance_officer", "library": "librarian", "admin": "admin", "hr": "hr", "transport": "transport"}
             notify_rows = []
+            _req_campus_id = _get_withdrawal_campus_id(cur, req_id)
             for dept in (body.departments or []):
                 role_name = dept_roles.get(dept)
                 if role_name:
-                    cur.execute("SELECT * FROM sp_get_dept_role_users(%s)", (role_name,))
+                    cur.execute("SELECT * FROM sp_get_dept_role_users(%s, %s)", (role_name, _req_campus_id))
                     notify_rows.extend(cur.fetchall())
             with _main.flask_app.app_context():
                 for row in notify_rows:
@@ -429,7 +447,7 @@ def clear_withdrawal(req_id: int, body: ActionIn, user_id: int = Depends(get_cur
         try:
             from app.utils.notify import send_notification
             import main as _main
-            cur.execute("SELECT * FROM sp_get_dept_role_users(%s)", ("principal",))
+            cur.execute("SELECT * FROM sp_get_dept_role_users(%s, %s)", ("principal", _get_withdrawal_campus_id(cur, req_id)))
             rows = cur.fetchall()
             with _main.flask_app.app_context():
                 for row in rows:
@@ -641,7 +659,7 @@ def submit_conduct(req_id: int, body: ConductIn, user_id: int = Depends(get_curr
     try:
         from app.utils.notify import send_notification
         import main as _main
-        cur.execute("SELECT * FROM sp_get_dept_role_users(%s)", ("principal",))
+        cur.execute("SELECT * FROM sp_get_dept_role_users(%s, %s)", ("principal", _get_withdrawal_campus_id(cur, req_id)))
         rows = cur.fetchall()
         with _main.flask_app.app_context():
             for row in rows:
@@ -766,7 +784,7 @@ def request_waiver(req_id: int, body: WaiverRequestIn, user_id: int = Depends(ge
     try:
         from app.utils.notify import send_notification
         import main as _main
-        cur.execute("SELECT * FROM sp_get_dept_role_users(%s)", ("finance_officer",))
+        cur.execute("SELECT * FROM sp_get_dept_role_users(%s, %s)", ("finance_officer", _get_withdrawal_campus_id(cur, req_id)))
         rows = cur.fetchall()
         with _main.flask_app.app_context():
             for row in rows:
@@ -849,7 +867,7 @@ def action_waiver(waiver_id: int, body: WaiverActionIn, user_id: int = Depends(g
     try:
         from app.utils.notify import send_notification
         import main as _main
-        cur.execute("SELECT * FROM sp_get_dept_role_users(%s)", ("finance_officer",))
+        cur.execute("SELECT * FROM sp_get_dept_role_users(%s, %s)", ("finance_officer", _get_waiver_campus_id(cur, waiver_id)))
         rows = cur.fetchall()
         with _main.flask_app.app_context():
             for row in rows:
@@ -873,7 +891,7 @@ def paid_notification(req_id: int, user_id: int = Depends(get_current_user_id), 
     try:
         from app.utils.notify import send_notification
         import main as _main
-        cur.execute("SELECT * FROM sp_get_dept_role_users(%s)", ("finance_officer",))
+        cur.execute("SELECT * FROM sp_get_dept_role_users(%s, %s)", ("finance_officer", _get_withdrawal_campus_id(cur, req_id)))
         rows = cur.fetchall()
         with _main.flask_app.app_context():
             for row in rows:
@@ -902,7 +920,7 @@ def forward_waiver(waiver_id: int, body: ActionIn, user_id: int = Depends(requir
         import main as _main
         cur.execute("SELECT sp_get_waiver_authority_role() AS role")
         authority_role = cur.fetchone()["role"] or "principal"
-        cur.execute("SELECT * FROM sp_get_dept_role_users(%s)", (authority_role,))
+        cur.execute("SELECT * FROM sp_get_dept_role_users(%s, %s)", (authority_role, _get_waiver_campus_id(cur, waiver_id)))
         rows = cur.fetchall()
         with _main.flask_app.app_context():
             for row in rows:

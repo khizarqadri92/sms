@@ -10,6 +10,11 @@ import calendar
 from datetime import date, timedelta
 from typing import Optional, List, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
+from app.fastapi_campus import get_settings_campus_id
+from app.fastapi_campus import get_current_campus_id, enforce_same_campus
+from app.fastapi_campus import catalog_campus_id, governed_settings_campus_id
+from app.fastapi_campus import catalog_campus_id_for_write, governed_settings_campus_id_for_write
+from app.fastapi_campus import resolve_governed_settings_campus_id
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -19,6 +24,48 @@ from app.fastapi_db import get_db, get_cur as _get_cur
 from app.utils.processing_date import get_processing_datetime, get_processing_date
 
 router = APIRouter()
+
+
+def _check_structure_campus(cur, struct_id, campus_id):
+    cur.execute("SELECT campus_id FROM fee_structures WHERE id=%s", (struct_id,))
+    row = cur.fetchone()
+    enforce_same_campus(row["campus_id"] if row else None, campus_id)
+
+
+def _check_student_campus(cur, student_id, campus_id):
+    cur.execute("SELECT campus_id FROM students WHERE id=%s", (student_id,))
+    row = cur.fetchone()
+    enforce_same_campus(row["campus_id"] if row else None, campus_id)
+
+
+def _check_fee_charge_campus(cur, charge_id, campus_id):
+    cur.execute("SELECT campus_id FROM fee_charges WHERE id=%s", (charge_id,))
+    row = cur.fetchone()
+    enforce_same_campus(row["campus_id"] if row else None, campus_id)
+
+
+def _check_charge_item_campus(cur, item_id, campus_id):
+    cur.execute("SELECT s.campus_id FROM fee_invoice_items fii JOIN fee_invoices fi ON fi.id = fii.invoice_id JOIN students s ON s.id = fi.student_id WHERE fii.id=%s", (item_id,))
+    row = cur.fetchone()
+    enforce_same_campus(row["campus_id"] if row else None, campus_id)
+
+
+def _check_class_campus(cur, class_id, campus_id):
+    cur.execute("SELECT campus_id FROM classes WHERE id=%s", (class_id,))
+    row = cur.fetchone()
+    enforce_same_campus(row["campus_id"] if row else None, campus_id)
+
+
+def _check_payment_campus(cur, pay_id, campus_id):
+    cur.execute("SELECT s.campus_id FROM payments p JOIN fee_invoices fi ON fi.id = p.invoice_id JOIN students s ON s.id = fi.student_id WHERE p.id=%s", (pay_id,))
+    row = cur.fetchone()
+    enforce_same_campus(row["campus_id"] if row else None, campus_id)
+
+
+def _check_invoice_campus(cur, inv_id, campus_id):
+    cur.execute("SELECT s.campus_id FROM fee_invoices fi JOIN students s ON s.id = fi.student_id WHERE fi.id=%s", (inv_id,))
+    row = cur.fetchone()
+    enforce_same_campus(row["campus_id"] if row else None, campus_id)
 
 
 def get_cur(db):
@@ -168,18 +215,18 @@ class SiblingTierIn(BaseModel):
 # ─── Fee Categories ─────────────────────────────────────────────────────────
 
 @router.get("/categories")
-def list_categories(user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db)):
+def list_categories(user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("fee_categories"))):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM fee_categories WHERE is_active = TRUE ORDER BY name")
+    cur.execute("SELECT * FROM fee_categories WHERE is_active = TRUE AND (campus_id = %s OR campus_id IS NULL) ORDER BY name", (campus_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.post("/categories")
-def create_category(body: CategoryIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db)):
+def create_category(body: CategoryIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("fee_categories"))):
     cur = get_cur(db)
     try:
-        cur.execute("INSERT INTO fee_categories (name, description) VALUES (%s, %s) RETURNING *",
-                    (body.name, body.description))
+        cur.execute("INSERT INTO fee_categories (name, description, campus_id) VALUES (%s, %s, %s) RETURNING *",
+                    (body.name, body.description, campus_id))
         db.commit()
         return ok(data=dict(cur.fetchone()))
     except Exception as e:
@@ -189,7 +236,7 @@ def create_category(body: CategoryIn, user_id: int = Depends(require_permission(
 # ─── Fee Structures ──────────────────────────────────────────────────────────
 
 @router.get("/structures")
-def list_structures(user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db)):
+def list_structures(user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("fee_structures"))):
     cur = get_cur(db)
     cur.execute("""
         SELECT fs.*, fc.name AS category_name, ay.name AS year_name, c.name AS class_name
@@ -197,30 +244,31 @@ def list_structures(user_id: int = Depends(require_permission("finance.view")), 
         LEFT JOIN fee_categories fc ON fc.id = fs.fee_category_id
         LEFT JOIN academic_years ay ON ay.id = fs.academic_year_id
         LEFT JOIN classes c ON c.id = fs.class_id
-        WHERE fs.is_active = TRUE ORDER BY fs.name
-    """)
+        WHERE fs.is_active = TRUE AND (fs.campus_id = %s OR fs.campus_id IS NULL) ORDER BY fs.name
+    """, (campus_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.post("/structures")
-def create_structure(body: StructureIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db)):
+def create_structure(body: StructureIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("fee_structures"))):
     cur = get_cur(db)
     cur.execute("""
         INSERT INTO fee_structures
             (name, amount, frequency, fee_category_id, academic_year_id,
-             class_id, description, is_active, created_by, late_fee_type, late_fee_amount, due_day)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, TRUE, %s, %s, %s, %s) RETURNING *
+             class_id, description, is_active, created_by, late_fee_type, late_fee_amount, due_day, campus_id)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, TRUE, %s, %s, %s, %s, %s) RETURNING *
     """, (body.name, body.amount, body.frequency or "monthly",
           body.fee_category_id or None, body.academic_year_id or None, body.class_id or None,
           body.description or None, user_id, body.late_fee_type or "none",
-          body.late_fee_amount or 0, body.due_day or None))
+          body.late_fee_amount or 0, body.due_day or None, campus_id))
     db.commit()
     return ok(data=dict(cur.fetchone()))
 
 
 @router.put("/structures/{struct_id}")
-def update_structure(struct_id: int, body: StructureIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db)):
+def update_structure(struct_id: int, body: StructureIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("fee_structures"))):
     cur = get_cur(db)
+    _check_structure_campus(cur, struct_id, campus_id)
     cur.execute("""
         UPDATE fee_structures
         SET name=%s, amount=%s, frequency=%s, description=%s, is_active=%s,
@@ -237,8 +285,9 @@ def update_structure(struct_id: int, body: StructureIn, user_id: int = Depends(r
 
 
 @router.delete("/structures/{struct_id}")
-def deactivate_structure(struct_id: int, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db)):
+def deactivate_structure(struct_id: int, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("fee_structures"))):
     cur = get_cur(db)
+    _check_structure_campus(cur, struct_id, campus_id)
     cur.execute("UPDATE fee_structures SET is_active=FALSE WHERE id=%s", (struct_id,))
     db.commit()
     return ok(message="Fee structure deactivated.")
@@ -247,24 +296,27 @@ def deactivate_structure(struct_id: int, user_id: int = Depends(require_permissi
 # ─── Fee Types ───────────────────────────────────────────────────────────────
 
 @router.get("/fee-types")
-def get_fee_types(user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db)):
+def get_fee_types(user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("fee_types"))):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM fee_types ORDER BY name")
+    cur.execute("SELECT * FROM fee_types WHERE campus_id = %s OR campus_id IS NULL ORDER BY name", (campus_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.post("/fee-types")
-def create_fee_type(body: FeeTypeIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db)):
+def create_fee_type(body: FeeTypeIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("fee_types"))):
     cur = get_cur(db)
-    cur.execute("INSERT INTO fee_types (name, description) VALUES (%s, %s) RETURNING *",
-                (body.name, body.description or None))
+    cur.execute("INSERT INTO fee_types (name, description, campus_id) VALUES (%s, %s, %s) RETURNING *",
+                (body.name, body.description or None, campus_id))
     db.commit()
     return ok(data=dict(cur.fetchone()), message="Fee type created.")
 
 
 @router.put("/fee-types/{type_id}")
-def update_fee_type(type_id: int, body: FeeTypeIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db)):
+def update_fee_type(type_id: int, body: FeeTypeIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("fee_types"))):
     cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM fee_types WHERE id=%s", (type_id,))
+    row = cur.fetchone()
+    enforce_same_campus(row["campus_id"] if row else None, campus_id)
     cur.execute("UPDATE fee_types SET name=%s, description=%s, is_active=%s WHERE id=%s",
                 (body.name, body.description, body.is_active if body.is_active is not None else True, type_id))
     db.commit()
@@ -272,8 +324,11 @@ def update_fee_type(type_id: int, body: FeeTypeIn, user_id: int = Depends(requir
 
 
 @router.delete("/fee-types/{type_id}")
-def delete_fee_type(type_id: int, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db)):
+def delete_fee_type(type_id: int, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("fee_types"))):
     cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM fee_types WHERE id=%s", (type_id,))
+    row = cur.fetchone()
+    enforce_same_campus(row["campus_id"] if row else None, campus_id)
     cur.execute("DELETE FROM fee_types WHERE id=%s", (type_id,))
     db.commit()
     return ok(message="Deleted.")
@@ -285,9 +340,12 @@ def delete_fee_type(type_id: int, user_id: int = Depends(require_permission("fin
 def get_class_fees(
     class_id: Optional[str] = Query(None), academic_year_id: Optional[str] = Query(None),
     user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db),
+    campus_id: Optional[int] = Depends(catalog_campus_id("class_fees")),
 ):
     cur = get_cur(db)
     conds, params = ["1=1"], []
+    if campus_id is not None:
+        conds.append("c.campus_id = %s"); params.append(campus_id)
     if class_id:
         conds.append("cf.class_id = %s"); params.append(class_id)
     if academic_year_id:
@@ -304,8 +362,9 @@ def get_class_fees(
 
 
 @router.post("/class-fees")
-def create_class_fee(body: ClassFeeIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db)):
+def create_class_fee(body: ClassFeeIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("class_fees"))):
     cur = get_cur(db)
+    _check_class_campus(cur, body.class_id, campus_id)
     cur.execute("""
         INSERT INTO class_fees (class_id, fee_type_id, amount, academic_year_id)
         VALUES (%s, %s, %s, %s)
@@ -317,8 +376,11 @@ def create_class_fee(body: ClassFeeIn, user_id: int = Depends(require_permission
 
 
 @router.delete("/class-fees/{fee_id}")
-def delete_class_fee(fee_id: int, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db)):
+def delete_class_fee(fee_id: int, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("class_fees"))):
     cur = get_cur(db)
+    cur.execute("SELECT c.campus_id FROM class_fees cf JOIN classes c ON c.id = cf.class_id WHERE cf.id=%s", (fee_id,))
+    _row = cur.fetchone()
+    enforce_same_campus(_row["campus_id"] if _row else None, campus_id)
     cur.execute("DELETE FROM class_fees WHERE id=%s", (fee_id,))
     db.commit()
     return ok(message="Deleted.")
@@ -327,23 +389,25 @@ def delete_class_fee(fee_id: int, user_id: int = Depends(require_permission("fin
 # ─── Class Fee Config ─────────────────────────────────────────────────────────
 
 @router.get("/class-fee-config")
-def get_class_fee_configs(user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db)):
+def get_class_fee_configs(user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("class_fee_config"))):
     cur = get_cur(db)
     cur.execute("""
         SELECT cfc.*, c.name AS class_name, ay.name AS year_name
         FROM class_fee_config cfc
         JOIN classes c ON c.id = cfc.class_id
         JOIN academic_years ay ON ay.id = cfc.academic_year_id
+        WHERE (%s IS NULL OR c.campus_id = %s)
         ORDER BY c.name
-    """)
+    """, (campus_id, campus_id))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.post("/class-fee-config")
-def create_class_fee_config(body: ClassFeeConfigIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db)):
+def create_class_fee_config(body: ClassFeeConfigIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("class_fee_config"))):
     if body.late_fee_type not in ("none", "fixed", "percentage", "per_day"):
         fail("Invalid late_fee_type.", 400)
     cur = get_cur(db)
+    _check_class_campus(cur, body.class_id, campus_id)
     cur.execute("""
         INSERT INTO class_fee_config (class_id, academic_year_id, tuition_fee, due_day, late_fee_type, late_fee_amount)
         VALUES (%s, %s, %s, %s, %s, %s)
@@ -358,8 +422,11 @@ def create_class_fee_config(body: ClassFeeConfigIn, user_id: int = Depends(requi
 
 
 @router.delete("/class-fee-config/{cfg_id}")
-def delete_class_fee_config(cfg_id: int, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db)):
+def delete_class_fee_config(cfg_id: int, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("class_fee_config"))):
     cur = get_cur(db)
+    cur.execute("SELECT c.campus_id FROM class_fee_config cfc JOIN classes c ON c.id = cfc.class_id WHERE cfc.id=%s", (cfg_id,))
+    _row = cur.fetchone()
+    enforce_same_campus(_row["campus_id"] if _row else None, campus_id)
     cur.execute("DELETE FROM class_fee_config WHERE id=%s", (cfg_id,))
     db.commit()
     return ok(message="Deleted.")
@@ -374,9 +441,12 @@ def list_invoices(
     invoice_no: Optional[str] = Query(None), month: Optional[str] = Query(None),
     academic_year_id: Optional[str] = Query(None),
     user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db),
+    campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
     cur = get_cur(db)
     conditions, params = ["1=1"], []
+    if campus_id is not None:
+        conditions.append("s.campus_id = %s"); params.append(campus_id)
     if status:
         conditions.append("fi.status = %s"); params.append(status)
     if student_id:
@@ -408,8 +478,9 @@ def list_invoices(
 
 
 @router.post("/invoices")
-def create_invoice(body: InvoiceCreateIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db)):
+def create_invoice(body: InvoiceCreateIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    _check_student_campus(cur, body.student_id, campus_id)
     cur.execute("""
         INSERT INTO fee_invoices
             (student_id, fee_structure_id, amount, due_date, discount, fine, notes, issued_by, status)
@@ -422,8 +493,9 @@ def create_invoice(body: InvoiceCreateIn, user_id: int = Depends(require_permiss
 
 
 @router.put("/invoices/{inv_id}")
-def update_invoice(inv_id: int, body: InvoiceUpdateIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db)):
+def update_invoice(inv_id: int, body: InvoiceUpdateIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    _check_invoice_campus(cur, inv_id, campus_id)
     cur.execute("""
         UPDATE fee_invoices SET discount=%s, fine=%s, notes=%s, status=%s, due_date=%s
         WHERE id=%s RETURNING *
@@ -436,8 +508,9 @@ def update_invoice(inv_id: int, body: InvoiceUpdateIn, user_id: int = Depends(re
 
 
 @router.post("/invoices/bulk")
-def bulk_generate(body: BulkGenerateIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db)):
+def bulk_generate(body: BulkGenerateIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    _check_class_campus(cur, body.class_id, campus_id)
     cur.execute("SELECT amount FROM fee_structures WHERE id=%s", (body.fee_structure_id,))
     fs = cur.fetchone()
     if not fs: fail("Fee structure not found.", 404)
@@ -456,7 +529,7 @@ def bulk_generate(body: BulkGenerateIn, user_id: int = Depends(require_permissio
 
 
 @router.post("/invoices/generate-monthly")
-def generate_monthly_invoices(body: MonthlyGenerateIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db)):
+def generate_monthly_invoices(body: MonthlyGenerateIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     if body.month:
         y, m = body.month.split("-")
         target_month = date(int(y), int(m), 1)
@@ -464,7 +537,7 @@ def generate_monthly_invoices(body: MonthlyGenerateIn, user_id: int = Depends(re
         today = get_processing_date(db)
         target_month = date(today.year, today.month, 1)
     cur = get_cur(db)
-    total = _run_monthly_invoice_generation(cur, db, user_id, target_month)
+    total = _run_monthly_invoice_generation(cur, db, user_id, target_month, campus_id)
     return ok(message=f"{total} invoices generated for {target_month.strftime('%B %Y')}.")
 
 
@@ -486,8 +559,9 @@ def generate_smart_monthly(body: SmartMonthlyIn, user_id: int = Depends(require_
 
 
 @router.get("/invoices/{inv_id}/payments")
-def get_invoice_payments(inv_id: int, user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db)):
+def get_invoice_payments(inv_id: int, user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    _check_invoice_campus(cur, inv_id, campus_id)
     cur.execute("""
         SELECT fi.id, fi.invoice_no, fi.amount, fi.discount, fi.fine, fi.net_amount,
                fi.status, fi.month_year, fi.due_date,
@@ -515,7 +589,8 @@ def get_invoice_payments(inv_id: int, user_id: int = Depends(require_permission(
 
 
 @router.get("/invoices/{inv_id}/pdf")
-def download_invoice_pdf(inv_id: int, user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db)):
+def download_invoice_pdf(inv_id: int, user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+    _check_invoice_campus(get_cur(db), inv_id, campus_id)
     try:
         import main as _main
         with _main.flask_app.app_context():
@@ -537,9 +612,12 @@ def list_payments(
     class_id: Optional[str] = Query(None), month: Optional[str] = Query(None),
     from_date: Optional[str] = Query(None), to_date: Optional[str] = Query(None),
     user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db),
+    campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
     cur = get_cur(db)
     conditions, params = ["1=1"], []
+    if campus_id is not None:
+        conditions.append("s.campus_id = %s"); params.append(campus_id)
     if student:
         conditions.append("(s.first_name ILIKE %s OR s.last_name ILIKE %s OR s.enrollment_no ILIKE %s OR (s.first_name || ' ' || s.last_name) ILIKE %s)")
         t = f"%{student}%"; params += [t, t, t, t]
@@ -567,11 +645,12 @@ def list_payments(
 
 
 @router.post("/payments")
-def record_payment(body: PaymentIn, user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+def record_payment(body: PaymentIn, user_id: int = Depends(get_current_user_id), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM fee_invoices WHERE id=%s", (body.invoice_id,))
     invoice = cur.fetchone()
     if not invoice: fail("Invoice not found.", 404)
+    _check_student_campus(cur, invoice["student_id"], campus_id)
     receipt_image = body.receipt_image or None
     if receipt_image and len(receipt_image) > 2000000:
         fail("Receipt image too large. Max 1.5MB.", 400)
@@ -619,8 +698,9 @@ def record_payment(body: PaymentIn, user_id: int = Depends(get_current_user_id),
 
 
 @router.put("/payments/{pay_id}/verify")
-def verify_payment(pay_id: int, user_id: int = Depends(require_permission("finance.collect")), db=Depends(get_db)):
+def verify_payment(pay_id: int, user_id: int = Depends(require_permission("finance.collect")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    _check_payment_campus(cur, pay_id, campus_id)
     cur.execute("SELECT * FROM payments WHERE id=%s", (pay_id,))
     payment = cur.fetchone()
     if not payment: fail("Payment not found.", 404)
@@ -662,8 +742,9 @@ def verify_payment(pay_id: int, user_id: int = Depends(require_permission("finan
 
 
 @router.get("/payments/{pay_id}/receipt")
-def download_payment_receipt(pay_id: int, user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db)):
+def download_payment_receipt(pay_id: int, user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    _check_payment_campus(cur, pay_id, campus_id)
     cur.execute("SELECT is_verified FROM payments WHERE id=%s", (pay_id,))
     pay = cur.fetchone()
     if not pay: fail("Payment not found.", 404)
@@ -684,25 +765,26 @@ def download_payment_receipt(pay_id: int, user_id: int = Depends(require_permiss
 # ─── Dashboard ───────────────────────────────────────────────────────────────
 
 @router.get("/dashboard")
-def finance_dashboard(user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db)):
+def finance_dashboard(user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("""
         SELECT COUNT(*) AS total_invoices,
-            COUNT(*) FILTER (WHERE status='paid') AS paid_invoices,
-            COUNT(*) FILTER (WHERE status='unpaid') AS unpaid_invoices,
-            COUNT(*) FILTER (WHERE status='partial') AS partial_invoices,
-            COUNT(*) FILTER (WHERE status='overdue') AS overdue_invoices,
-            COUNT(*) FILTER (WHERE status='pending_verification') AS pending_verification_invoices,
-            COALESCE(SUM(net_amount),0) AS total_billed,
-            COALESCE(SUM(net_amount) FILTER (WHERE status='paid'),0) AS total_collected
-        FROM fee_invoices WHERE status != 'cancelled'
-    """)
+            COUNT(*) FILTER (WHERE fi.status='paid') AS paid_invoices,
+            COUNT(*) FILTER (WHERE fi.status='unpaid') AS unpaid_invoices,
+            COUNT(*) FILTER (WHERE fi.status='partial') AS partial_invoices,
+            COUNT(*) FILTER (WHERE fi.status='overdue') AS overdue_invoices,
+            COUNT(*) FILTER (WHERE fi.status='pending_verification') AS pending_verification_invoices,
+            COALESCE(SUM(fi.net_amount),0) AS total_billed,
+            COALESCE(SUM(fi.net_amount) FILTER (WHERE fi.status='paid'),0) AS total_collected
+        FROM fee_invoices fi JOIN students s ON s.id = fi.student_id
+        WHERE fi.status != 'cancelled' AND (%s IS NULL OR s.campus_id = %s)
+    """, (campus_id, campus_id))
     stats = dict(cur.fetchone())
-    cur.execute("SELECT COALESCE(SUM(amount_paid),0) AS collected_today FROM payments WHERE DATE(paid_at) = %s", (get_processing_date(db),))
+    cur.execute("SELECT COALESCE(SUM(p.amount_paid),0) AS collected_today FROM payments p JOIN fee_invoices fi ON fi.id=p.invoice_id JOIN students s ON s.id=fi.student_id WHERE DATE(p.paid_at) = %s AND (%s IS NULL OR s.campus_id = %s)", (get_processing_date(db), campus_id, campus_id))
     stats["collected_today"] = float(cur.fetchone()["collected_today"])
-    cur.execute("SELECT COALESCE(SUM(amount_paid),0) AS collected_month FROM payments WHERE DATE_TRUNC('month',paid_at) = DATE_TRUNC('month',%s::date)", (get_processing_date(db),))
+    cur.execute("SELECT COALESCE(SUM(p.amount_paid),0) AS collected_month FROM payments p JOIN fee_invoices fi ON fi.id=p.invoice_id JOIN students s ON s.id=fi.student_id WHERE DATE_TRUNC('month',p.paid_at) = DATE_TRUNC('month',%s::date) AND (%s IS NULL OR s.campus_id = %s)", (get_processing_date(db), campus_id, campus_id))
     stats["collected_month"] = float(cur.fetchone()["collected_month"])
-    cur.execute("SELECT COUNT(*) AS cnt, COALESCE(SUM(amount_paid),0) AS amt FROM payments WHERE is_verified = FALSE")
+    cur.execute("SELECT COUNT(*) AS cnt, COALESCE(SUM(p.amount_paid),0) AS amt FROM payments p JOIN fee_invoices fi ON fi.id=p.invoice_id JOIN students s ON s.id=fi.student_id WHERE p.is_verified = FALSE AND (%s IS NULL OR s.campus_id = %s)", (campus_id, campus_id))
     pv = cur.fetchone()
     stats["pending_verification_count"] = pv["cnt"]
     stats["pending_verification_amount"] = float(pv["amt"])
@@ -714,11 +796,12 @@ def finance_dashboard(user_id: int = Depends(require_permission("finance.view"))
 # ─── Student Fee Summary ──────────────────────────────────────────────────────
 
 @router.get("/student/{student_id}")
-def student_summary(student_id: int, user_id: int = Depends(get_current_user_id), claims: dict = Depends(get_jwt_claims), db=Depends(get_db)):
+def student_summary(student_id: int, user_id: int = Depends(get_current_user_id), claims: dict = Depends(get_jwt_claims), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     perms = claims.get("permissions", [])
     if not any(p in perms for p in ["finance.view","withdrawal.view_all","withdrawal.review","withdrawal.clear","withdrawal.approve"]):
         from app.utils.helpers import fail; fail("Permission denied: finance.view", 403)
     cur = get_cur(db)
+    _check_student_campus(cur, student_id, campus_id)
     cur.execute("""
         SELECT COUNT(*) AS total_invoices,
                COALESCE(SUM(net_amount),0) AS total_billed,
@@ -741,24 +824,30 @@ def student_summary(student_id: int, user_id: int = Depends(get_current_user_id)
 def search_charges(
     registration_no: Optional[str] = Query(None), receipt_no: Optional[str] = Query(None),
     user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db),
+    campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
     if not registration_no and not receipt_no:
         fail("Provide a registration number or receipt number.", 400)
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_search_charges(%s::varchar, %s::varchar)", (registration_no, receipt_no))
+    cur.execute("SELECT * FROM sp_search_charges(%s::varchar, %s::varchar, %s::integer)", (registration_no, receipt_no, campus_id))
     rows = [fmt(dict(r), DATE_KEYS) for r in cur.fetchall()]
     return ok(data=rows)
 
 
 @router.get("/charges")
-def get_fee_charges(user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db)):
+def get_fee_charges(user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("fee_charges"))):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_fee_charges()")
-    return ok(data=[fmt(dict(r), DATE_KEYS) for r in cur.fetchall()])
+    rows = [fmt(dict(r), DATE_KEYS) for r in cur.fetchall()]
+    if campus_id is not None:
+        cur.execute("SELECT id, campus_id FROM fee_charges")
+        camp_by_id = {r["id"]: r["campus_id"] for r in cur.fetchall()}
+        rows = [r for r in rows if camp_by_id.get(r["id"]) in (None, campus_id)]
+    return ok(data=rows)
 
 
 @router.post("/charges")
-def create_fee_charge(body: FeeChargeIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db)):
+def create_fee_charge(body: FeeChargeIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("fee_charges"))):
     cur = get_cur(db)
     apply_month = int(body.apply_month) if body.apply_month not in (None, "") else None
     apply_year = int(body.apply_year) if body.apply_year not in (None, "") else None
@@ -767,9 +856,9 @@ def create_fee_charge(body: FeeChargeIn, user_id: int = Depends(require_permissi
     student_ids = [int(s) for s in (body.student_ids or [])]
     try:
         cur.execute(
-            "SELECT sp_create_fee_charge(%s::varchar,%s::numeric,%s::integer,%s::smallint,%s::integer,%s::varchar,%s::integer[],%s::integer[],%s::integer,%s::text) AS new_id",
+            "SELECT sp_create_fee_charge(%s::varchar,%s::numeric,%s::integer,%s::smallint,%s::integer,%s::varchar,%s::integer[],%s::integer[],%s::integer,%s::text,%s::integer) AS new_id",
             (body.name, body.amount, int(body.charge_type_id), apply_month, apply_year,
-             body.target_type or "whole_school", class_ids, student_ids, acad_yr, body.description or None))
+             body.target_type or "whole_school", class_ids, student_ids, acad_yr, body.description or None, campus_id))
         new_id = cur.fetchone()["new_id"]
         cur.execute("SELECT * FROM sp_get_fee_charges() WHERE id = %s", (new_id,))
         row = cur.fetchone()
@@ -780,8 +869,9 @@ def create_fee_charge(body: FeeChargeIn, user_id: int = Depends(require_permissi
 
 
 @router.put("/charges/{charge_id}")
-def update_fee_charge(charge_id: int, body: FeeChargeIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db)):
+def update_fee_charge(charge_id: int, body: FeeChargeIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("fee_charges"))):
     cur = get_cur(db)
+    _check_fee_charge_campus(cur, charge_id, campus_id)
     apply_month = int(body.apply_month) if body.apply_month not in (None, "") else None
     apply_year = int(body.apply_year) if body.apply_year not in (None, "") else None
     acad_yr = int(body.academic_year_id) if body.academic_year_id not in (None, "") else None
@@ -803,8 +893,9 @@ def update_fee_charge(charge_id: int, body: FeeChargeIn, user_id: int = Depends(
 
 
 @router.delete("/charges/{charge_id}")
-def delete_fee_charge(charge_id: int, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db)):
+def delete_fee_charge(charge_id: int, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("fee_charges"))):
     cur = get_cur(db)
+    _check_fee_charge_campus(cur, charge_id, campus_id)
     try:
         cur.execute("SELECT sp_delete_fee_charge(%s::integer)", (charge_id,))
         db.commit()
@@ -814,8 +905,9 @@ def delete_fee_charge(charge_id: int, user_id: int = Depends(require_permission(
 
 
 @router.post("/charges/{item_id}/waive")
-def waive_charge(item_id: int, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db)):
+def waive_charge(item_id: int, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("fee_charges"))):
     cur = get_cur(db)
+    _check_charge_item_campus(cur, item_id, campus_id)
     try:
         cur.execute("SELECT * FROM sp_waive_charge(%s::integer, %s::integer)", (item_id, user_id))
         result = cur.fetchone()
@@ -966,10 +1058,11 @@ def fee_report_school(
     month: Optional[str] = Query(None), status: Optional[str] = Query(None),
     registration_no: Optional[str] = Query(None),
     user_id: int = Depends(require_permission("students.view")), db=Depends(get_db),
+    campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_fee_report_school(%s::integer,%s::integer,%s::varchar,%s::varchar,%s::varchar)",
-                (class_id, academic_year_id, month, status, registration_no))
+    cur.execute("SELECT * FROM sp_fee_report_school(%s::integer,%s::integer,%s::varchar,%s::varchar,%s::varchar,%s::integer)",
+                (class_id, academic_year_id, month, status, registration_no, campus_id))
     return ok(data=[fmt(dict(r), DATE_KEYS) for r in cur.fetchall()])
 
 
@@ -1016,10 +1109,11 @@ def get_locked_accounts(
     class_id: Optional[str] = Query(None), student: Optional[str] = Query(None),
     from_date: Optional[str] = Query(None), to_date: Optional[str] = Query(None),
     user_id: int = Depends(require_permission("students.view")), db=Depends(get_db),
+    campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_get_locked_accounts(%s::integer,%s::varchar,%s::date,%s::date)",
-                (class_id, student, from_date, to_date))
+    cur.execute("SELECT * FROM sp_get_locked_accounts(%s::integer,%s::varchar,%s::date,%s::date,%s::integer)",
+                (class_id, student, from_date, to_date, campus_id))
     return ok(data=[fmt(dict(r), DATE_KEYS) for r in cur.fetchall()])
 
 
@@ -1043,8 +1137,9 @@ def get_my_class_locked_accounts(
 
 
 @router.post("/unlock-account/{student_id}")
-def unlock_account(student_id: int, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db)):
+def unlock_account(student_id: int, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    _check_student_campus(cur, student_id, campus_id)
     cur.execute("SELECT user_id FROM students WHERE id=%s", (student_id,))
     s = cur.fetchone()
     if not s: fail("Student not found.", 404)
@@ -1057,36 +1152,41 @@ def unlock_account(student_id: int, user_id: int = Depends(require_permission("f
 # ─── Discount Config ──────────────────────────────────────────────────────────
 
 @router.get("/discount-config")
-def get_discount_config(user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db)):
+def get_discount_config(user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(governed_settings_campus_id("discount_config"))):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM discount_apply_config LIMIT 1")
+    cur.execute("SELECT * FROM discount_apply_config WHERE campus_id = %s OR campus_id IS NULL ORDER BY campus_id NULLS LAST LIMIT 1", (campus_id,))
     config = dict(cur.fetchone() or {"on_all": False})
     cur.execute("""
         SELECT daf.fee_type_id, ft.name AS fee_type_name
         FROM discount_apply_fee_types daf
         JOIN fee_types ft ON ft.id = daf.fee_type_id
-    """)
+        WHERE daf.campus_id = %s OR daf.campus_id IS NULL
+    """, (campus_id,))
     config["fee_type_ids"] = [r["fee_type_id"] for r in cur.fetchall()]
     return ok(data=config)
 
 
 @router.put("/discount-config")
-def save_discount_config(body: DiscountConfigIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db)):
+def save_discount_config(body: DiscountConfigIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(governed_settings_campus_id_for_write("discount_config"))):
     if body.sibling_rank_method not in ("class", "registration_no", "dob"):
         fail("Invalid sibling_rank_method.", 400)
     cur = get_cur(db)
-    cur.execute("UPDATE discount_apply_config SET on_all=%s, sibling_rank_method=%s::varchar, updated_at=%s",
-                (body.on_all, body.sibling_rank_method, get_processing_datetime(db)))
-    cur.execute("DELETE FROM discount_apply_fee_types")
+    cur.execute("""INSERT INTO discount_apply_config (on_all, sibling_rank_method, updated_at, campus_id)
+        VALUES (%s, %s::varchar, %s, %s)
+        ON CONFLICT (COALESCE(campus_id, 0)) DO UPDATE SET
+        on_all=%s, sibling_rank_method=%s::varchar, updated_at=%s""",
+        (body.on_all, body.sibling_rank_method, get_processing_datetime(db), campus_id,
+         body.on_all, body.sibling_rank_method, get_processing_datetime(db)))
+    cur.execute("DELETE FROM discount_apply_fee_types WHERE campus_id IS NOT DISTINCT FROM %s", (campus_id,))
     for fid in (body.fee_type_ids or []):
-        cur.execute("INSERT INTO discount_apply_fee_types (fee_type_id) VALUES (%s) ON CONFLICT DO NOTHING", (fid,))
+        cur.execute("INSERT INTO discount_apply_fee_types (fee_type_id, campus_id) VALUES (%s, %s) ON CONFLICT DO NOTHING", (fid, campus_id))
     db.commit()
     return ok(message="Discount config saved.")
 
 
 # ─── Internal helpers ─────────────────────────────────────────────────────────
 
-def _run_monthly_invoice_generation(cur, db, user_id, target_month):
+def _run_monthly_invoice_generation(cur, db, user_id, target_month, campus_id=None):
     cur.execute("SELECT value FROM system_settings WHERE key = 'fee_due_day'")
     row = cur.fetchone()
     due_day = int(row["value"]) if row else 10
@@ -1099,7 +1199,8 @@ def _run_monthly_invoice_generation(cur, db, user_id, target_month):
         FROM class_fees cf JOIN classes c ON c.id = cf.class_id
         JOIN fee_types ft ON ft.id = cf.fee_type_id
         WHERE cf.is_active = TRUE AND ft.name = 'Tuition Fee'
-    """)
+          AND (%s IS NULL OR c.campus_id = %s)
+    """, (campus_id, campus_id))
     class_tuitions = cur.fetchall()
     total_generated = 0
     for ct in class_tuitions:
@@ -1136,8 +1237,13 @@ def _run_smart_monthly_generation(cur, db, user_id, yr, mo, due_day=10):
     grace_row = cur.fetchone()
     grace_days = int(grace_row["value"]) if grace_row and grace_row["value"].isdigit() else 3
     cur.execute("""
-        SELECT DISTINCT s.id AS student_id, s.class_id, ay.id AS academic_year_id
-        FROM students s JOIN academic_years ay ON ay.is_active = TRUE
+        SELECT s.id AS student_id, s.class_id, s.campus_id, ay.id AS academic_year_id
+        FROM students s
+        JOIN LATERAL (
+            SELECT id FROM academic_years
+            WHERE is_active = TRUE AND (campus_id = s.campus_id OR campus_id IS NULL)
+            ORDER BY campus_id NULLS LAST LIMIT 1
+        ) ay ON TRUE
         WHERE s.status = 'active' AND s.class_id IS NOT NULL
     """)
     students = cur.fetchall()
@@ -1163,13 +1269,26 @@ def _run_smart_monthly_generation(cur, db, user_id, yr, mo, due_day=10):
         cur.execute("SELECT charge_id, student_id FROM fee_charge_students WHERE charge_id = ANY(%s::integer[])", (charge_ids,))
         for r in cur.fetchall():
             student_targets.setdefault(r["charge_id"], set()).add(r["student_id"])
-    cur.execute("SELECT on_all FROM discount_apply_config LIMIT 1")
-    dc = cur.fetchone()
-    discount_on_all = dc["on_all"] if dc else False
-    cur.execute("SELECT fee_type_id FROM discount_apply_fee_types")
-    discount_fee_type_ids = [r["fee_type_id"] for r in cur.fetchall()]
+    # This bulk run spans students from every campus, so the discount
+    # config (which may differ per campus, per the shared/override
+    # settings pattern) is resolved per-student rather than once globally,
+    # with a small cache to avoid re-querying for every student in the
+    # same campus.
+    discount_config_cache = {}
+    def _discount_config_for_campus(raw_campus_id):
+        if raw_campus_id in discount_config_cache:
+            return discount_config_cache[raw_campus_id]
+        governed_campus_id = resolve_governed_settings_campus_id(db, "discount_config", raw_campus_id)
+        cur.execute("SELECT on_all FROM discount_apply_config WHERE campus_id = %s OR campus_id IS NULL ORDER BY campus_id NULLS LAST LIMIT 1", (governed_campus_id,))
+        dc = cur.fetchone()
+        on_all = dc["on_all"] if dc else False
+        cur.execute("SELECT fee_type_id FROM discount_apply_fee_types WHERE campus_id = %s OR campus_id IS NULL", (governed_campus_id,))
+        fee_type_ids = [r["fee_type_id"] for r in cur.fetchall()]
+        discount_config_cache[raw_campus_id] = (on_all, fee_type_ids)
+        return on_all, fee_type_ids
     generated, skipped = 0, 0
     for st in students:
+        discount_on_all, discount_fee_type_ids = _discount_config_for_campus(st["campus_id"])
         cur.execute("SELECT id FROM fee_invoices WHERE student_id=%s AND month_year=%s", (st["student_id"], month_yr))
         if cur.fetchone():
             skipped += 1; continue

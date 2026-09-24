@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import procurementApi from "../api/procurementApi";
+import { useGovernanceMode } from "../hooks/useGovernanceMode";
 
 function QuickAddCategoryModal({ onClose, onSaved }) {
   const [name, setName] = useState("");
@@ -180,6 +181,7 @@ function BlacklistModal({ vendor, onClose, onSaved }) {
 }
 
 export default function Vendors() {
+  const { isGlobalLocked } = useGovernanceMode("procurement_vendors");
   const [vendors, setVendors] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -243,9 +245,14 @@ export default function Vendors() {
     <div>
       <div className="page-header" style={{ marginBottom: 16 }}>
         <h1 className="page-heading">Vendors</h1>
-        <button className="btn btn-primary" onClick={() => { setEditVendor(null); setShowForm(true); }}>+ Add Vendor</button>
+        {!isGlobalLocked && <button className="btn btn-primary" onClick={() => { setEditVendor(null); setShowForm(true); }}>+ Add Vendor</button>}
       </div>
 
+      {isGlobalLocked && (
+        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+          Vendors are managed centrally by the superadmin. This list is read-only here.
+        </div>
+      )}
       {success && <div className="alert alert-success" style={{ marginBottom: 16 }}>{success}</div>}
       {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
 
@@ -270,7 +277,7 @@ export default function Vendors() {
                 <th>Contact</th>
                 <th>NTN / STRN</th>
                 <th>Status</th>
-                <th>Actions</th>
+                {!isGlobalLocked && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -289,19 +296,21 @@ export default function Vendors() {
                       {v.is_blacklisted && <span className="badge badge-danger">Blacklisted</span>}
                     </div>
                   </td>
-                  <td>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "nowrap" }}>
-                      <button className="btn btn-ghost btn-xs" onClick={() => { setEditVendor(v); setShowForm(true); }}>Edit</button>
-                      <button className={"btn btn-xs " + (v.is_active ? "btn-danger" : "btn-secondary")} onClick={() => handleToggleActive(v)}>
-                        {v.is_active ? "Deactivate" : "Reactivate"}
-                      </button>
-                      {v.is_blacklisted ? (
-                        <button className="btn btn-secondary btn-xs" onClick={() => handleUnblacklist(v)}>Unblacklist</button>
-                      ) : (
-                        <button className="btn btn-danger btn-xs" onClick={() => setBlacklistVendorTarget(v)}>Blacklist</button>
-                      )}
-                    </div>
-                  </td>
+                  {!isGlobalLocked && (
+                    <td>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "nowrap" }}>
+                        <button className="btn btn-ghost btn-xs" onClick={() => { setEditVendor(v); setShowForm(true); }}>Edit</button>
+                        <button className={"btn btn-xs " + (v.is_active ? "btn-danger" : "btn-secondary")} onClick={() => handleToggleActive(v)}>
+                          {v.is_active ? "Deactivate" : "Reactivate"}
+                        </button>
+                        {v.is_blacklisted ? (
+                          <button className="btn btn-secondary btn-xs" onClick={() => handleUnblacklist(v)}>Unblacklist</button>
+                        ) : (
+                          <button className="btn btn-danger btn-xs" onClick={() => setBlacklistVendorTarget(v)}>Blacklist</button>
+                        )}
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

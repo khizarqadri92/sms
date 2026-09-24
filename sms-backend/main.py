@@ -101,6 +101,7 @@ from app.api.v1.exams import router as exams_router
 from app.api.v1.dashboard import router as dashboard_router
 from app.api.v1.work_queue import router as work_queue_router
 from app.api.v1.workflow import router as workflow_router
+from app.api.v1.campuses import router as campuses_router
 
 app.include_router(procurement_router, prefix="/api/v1/procurement")
 app.include_router(library_router, prefix="/api/v1/library")
@@ -148,6 +149,7 @@ app.include_router(exams_router, prefix="/api/v1/exams")
 app.include_router(dashboard_router, prefix="/api/v1/dashboard")
 app.include_router(work_queue_router, prefix="/api/v1/work-queue")
 app.include_router(workflow_router, prefix="/api/v1/workflow")
+app.include_router(campuses_router, prefix="/api/v1/campuses")
 
 
 # Fallback: anything not yet natively handled by FastAPI falls through to Flask.

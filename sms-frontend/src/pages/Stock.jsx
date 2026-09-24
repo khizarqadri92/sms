@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import procurementApi from "../api/procurementApi";
+import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
 const stockStatusBadge = (s) => ({
   in_stock:    { cls: "badge-success", label: "In Stock" },
@@ -9,6 +10,7 @@ const stockStatusBadge = (s) => ({
 }[s] || { cls: "badge-gray", label: s });
 
 export default function Stock() {
+  const { formatDate } = useRegionalSettings();
   const [stock, setStock]         = useState([]);
   const [pendingGRNs, setPending] = useState([]);
   const [loading, setLoading]     = useState(true);
@@ -120,7 +122,7 @@ export default function Stock() {
                 <div>
                   <div style={{ fontWeight: 600, fontSize: 13 }}>{g.grn_number}</div>
                   <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
-                    {g.po_number} · {g.vendor_name} · {g.received_date} · {g.item_count} item{g.item_count !== 1 ? "s" : ""}
+                    {g.po_number} · {g.vendor_name} · {g.received_date ? formatDate(g.received_date) : "-"} · {g.item_count} item{g.item_count !== 1 ? "s" : ""}
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>

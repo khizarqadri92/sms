@@ -8,6 +8,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from app.fastapi_auth import get_current_user_id
 from app.fastapi_db import get_db, get_cur as _get_cur
+from app.fastapi_campus import get_current_campus_id, enforce_same_campus
 router = APIRouter()
 def get_cur(db):
     return _get_cur(db)
@@ -30,12 +31,15 @@ def require_permission(perm: str):
 
 @router.get("/attendance/directory")
 def attendance_report_directory(department_id: Optional[int] = None, search: Optional[str] = None,
-        user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db)):
+        user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Employee directory for the report\'s employee list, filterable by
     department and a name/employee-code search term."""
     cur = get_cur(db)
-    query = "SELECT * FROM v_staff_directory WHERE status=\'active\'"
+    query = "SELECT * FROM v_staff_directory WHERE status=\'active\' AND NOT EXISTS (SELECT 1 FROM staff s2 JOIN user_roles ur ON ur.user_id = s2.user_id JOIN roles r ON r.id = ur.role_id WHERE s2.id = v_staff_directory.id AND r.name = \'superadmin\')"
     params = []
+    if campus_id is not None:
+        query += " AND (campus_id = %s OR campus_id IS NULL)"
+        params.append(campus_id)
     if department_id:
         query += " AND department_id=%s"
         params.append(department_id)
@@ -50,20 +54,24 @@ def attendance_report_directory(department_id: Optional[int] = None, search: Opt
 
 @router.get("/attendance/daily")
 def attendance_report_daily(date: str, department_id: Optional[int] = None,
-        user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db)):
+        user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     """All employees\' attendance status for a single date (Daily Report mode)."""
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_get_attendance_daily_status_bulk(%s,%s)", (date, department_id))
+    cur.execute("SELECT * FROM sp_get_attendance_daily_status_bulk(%s,%s,%s)", (date, department_id, campus_id))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.get("/attendance/monthly/{staff_id}")
 def attendance_report_monthly(staff_id: int, month: int, year: int,
-        user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db)):
+        user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     """One employee\'s full day-by-day attendance for a given month (Monthly Report mode)."""
     import calendar as _cal
     if month < 1 or month > 12:
         fail("Invalid month.", 400)
+    cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM staff WHERE id=%s", (staff_id,))
+    _row = cur.fetchone()
+    enforce_same_campus(_row["campus_id"] if _row else None, campus_id)
     from_date = f"{year:04d}-{month:02d}-01"
     to_date = f"{year:04d}-{month:02d}-{_cal.monthrange(year, month)[1]:02d}"
     cur = get_cur(db)
@@ -76,10 +84,12 @@ def attendance_report_monthly(staff_id: int, month: int, year: int,
 def employee_salaries_report(
         department_id: Optional[int] = None, staff_id: Optional[int] = None,
         month: Optional[int] = None, year: Optional[int] = None,
-        user_id: int = Depends(require_permission("reports.employee_salaries")), db=Depends(get_db)):
+        user_id: int = Depends(require_permission("reports.employee_salaries")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     where = []
     params = []
+    if campus_id is not None:
+        where.append("campus_id = %s"); params.append(campus_id)
     if department_id:
         where.append("department_id = %s"); params.append(department_id)
     if staff_id:
@@ -97,10 +107,12 @@ def employee_salaries_report(
 def expenditure_details_report(
         department_id: Optional[int] = None, expenditure_type: Optional[str] = None,
         month: Optional[int] = None, year: Optional[int] = None,
-        user_id: int = Depends(require_permission("reports.expenditure")), db=Depends(get_db)):
+        user_id: int = Depends(require_permission("reports.expenditure")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     where = []
     params = []
+    if campus_id is not None:
+        where.append("campus_id = %s"); params.append(campus_id)
     if department_id:
         where.append("department_id = %s"); params.append(department_id)
     if expenditure_type:
@@ -115,7 +127,7 @@ def expenditure_details_report(
 
 
 @router.get("/expenditure-types-list")
-def expenditure_types_list(user_id: int = Depends(require_permission("reports.expenditure")), db=Depends(get_db)):
+def expenditure_types_list(user_id: int = Depends(require_permission("reports.expenditure")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
-    cur.execute("SELECT DISTINCT expenditure_type FROM v_expenditure_details_report WHERE expenditure_type IS NOT NULL ORDER BY expenditure_type")
+    cur.execute("SELECT DISTINCT expenditure_type FROM v_expenditure_details_report WHERE expenditure_type IS NOT NULL AND (%s IS NULL OR campus_id = %s) ORDER BY expenditure_type", (campus_id, campus_id))
     return ok(data=[r["expenditure_type"] for r in cur.fetchall()])

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import libraryApi from "../api/libraryApi";
 import DatePicker from "../components/DatePicker";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
+import { useGovernanceMode } from "../hooks/useGovernanceMode";
 
 function AuthorFormModal({ author, onClose, onSaved }) {
   const [form, setForm] = useState({
@@ -65,6 +66,7 @@ function AuthorFormModal({ author, onClose, onSaved }) {
 
 export default function LibraryAuthors() {
   const { formatDate } = useRegionalSettings();
+  const { isGlobalLocked } = useGovernanceMode("library_authors");
   const [authors, setAuthors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [success, setSuccess] = useState("");
@@ -106,9 +108,14 @@ export default function LibraryAuthors() {
     <div>
       <div className="page-header" style={{ marginBottom: 16 }}>
         <h1 className="page-heading">Authors</h1>
-        <button className="btn btn-primary" onClick={() => { setEditAuthor(null); setShowForm(true); }}>+ Add Author</button>
+        {!isGlobalLocked && <button className="btn btn-primary" onClick={() => { setEditAuthor(null); setShowForm(true); }}>+ Add Author</button>}
       </div>
 
+      {isGlobalLocked && (
+        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+          Library Authors are managed centrally by the superadmin. This list is read-only here.
+        </div>
+      )}
       {success && <div className="alert alert-success" style={{ marginBottom: 16 }}>{success}</div>}
       {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
 
@@ -126,7 +133,7 @@ export default function LibraryAuthors() {
                 <th>Date of Birth</th>
                 <th>Biography</th>
                 <th>Status</th>
-                <th>Actions</th>
+                {!isGlobalLocked && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -137,12 +144,14 @@ export default function LibraryAuthors() {
                   <td>{a.date_of_birth ? formatDate(a.date_of_birth) : <span style={{ color: "#94a3b8" }}>-</span>}</td>
                   <td style={{ maxWidth: 260, fontSize: 12, color: "#64748b" }}>{a.bio ? (a.bio.length > 80 ? a.bio.slice(0, 80) + "..." : a.bio) : "-"}</td>
                   <td><span className={"badge " + (a.is_active ? "badge-success" : "badge-gray")}>{a.is_active ? "Active" : "Inactive"}</span></td>
-                  <td style={{ display: "flex", gap: 6, flexWrap: "nowrap" }}>
-                    <button className="btn btn-ghost btn-xs" onClick={() => { setEditAuthor(a); setShowForm(true); }}>Edit</button>
-                    <button className={"btn btn-xs " + (a.is_active ? "btn-danger" : "btn-secondary")} onClick={() => handleToggleActive(a)}>
-                      {a.is_active ? "Deactivate" : "Reactivate"}
-                    </button>
-                  </td>
+                  {!isGlobalLocked && (
+                    <td style={{ display: "flex", gap: 6, flexWrap: "nowrap" }}>
+                      <button className="btn btn-ghost btn-xs" onClick={() => { setEditAuthor(a); setShowForm(true); }}>Edit</button>
+                      <button className={"btn btn-xs " + (a.is_active ? "btn-danger" : "btn-secondary")} onClick={() => handleToggleActive(a)}>
+                        {a.is_active ? "Deactivate" : "Reactivate"}
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

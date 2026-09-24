@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthContext";
+import { useGovernanceMode } from "../hooks/useGovernanceMode";
 import calendarApi from "../api/calendarApi";
 import { useProcessingToday } from "../hooks/useProcessingToday";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
@@ -360,6 +361,7 @@ function EventModal({ event, eventTypes, onClose, onSaved }) {
 }
 /* ── Event Type Manager ───────────────────────────────────────── */
 function EventTypeManager({ onClose }) {
+  const { isGlobalLocked } = useGovernanceMode("event_types");
   const [types,   setTypes]   = useState([]);
   const [form,    setForm]    = useState({ name:"", color:"#2563eb", is_holiday:false });
   const [editing, setEditing] = useState(null);
@@ -399,7 +401,13 @@ function EventTypeManager({ onClose }) {
           <button onClick={onClose} style={{ background:"#f8fafc", border:"1px solid #e2e8f0", borderRadius:8, width:32, height:32, cursor:"pointer", fontSize:18, color:"#64748b" }}>×</button>
         </div>
         <div style={{ padding:"20px 24px" }}>
+          {isGlobalLocked && (
+            <div style={{ marginBottom:16, padding:"8px 12px", background:"#fffbeb", border:"1px solid #fde68a", borderRadius:8, fontSize:12, color:"#92400e" }}>
+              Event Types are managed centrally by the superadmin. This list is read-only here.
+            </div>
+          )}
           {/* Add/Edit Form */}
+          {!isGlobalLocked && (
           <div style={{ background:"#f8fafc", border:"1px solid #e2e8f0", borderRadius:10, padding:"14px", marginBottom:16 }}>
             <div style={{ fontWeight:600, fontSize:13, color:"#1e3a5f", marginBottom:12 }}>{editing?"Edit Type":"Add New Type"}</div>
             <div style={{ display:"grid", gridTemplateColumns:"1fr auto auto", gap:10, alignItems:"flex-end" }}>
@@ -426,6 +434,7 @@ function EventTypeManager({ onClose }) {
                 style={{ marginTop:8, fontSize:11, color:"#64748b", background:"none", border:"none", cursor:"pointer" }}>✕ Cancel edit</button>
             )}
           </div>
+          )}
 
           {/* Types list */}
           <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
@@ -439,10 +448,12 @@ function EventTypeManager({ onClose }) {
                     <span style={{ fontWeight:600, fontSize:13, color:t.color }}>{t.name}</span>
                     {t.is_holiday && <span style={{ fontSize:10, marginLeft:8, padding:"1px 6px", borderRadius:10, background:"#fef2f2", color:"#dc2626", border:"1px solid #fecaca" }}>Holiday</span>}
                   </div>
-                  <div style={{ display:"flex", gap:6 }}>
-                    <button onClick={()=>handleEdit(t)} style={{ fontSize:11, padding:"3px 10px", background:"#f8fafc", border:"1px solid #e2e8f0", borderRadius:6, cursor:"pointer" }}>Edit</button>
-                    <button onClick={()=>handleDelete(t.id)} style={{ fontSize:11, padding:"3px 10px", background:"#fef2f2", border:"1px solid #fecaca", borderRadius:6, cursor:"pointer", color:"#dc2626" }}>Delete</button>
-                  </div>
+                  {!isGlobalLocked && (
+                    <div style={{ display:"flex", gap:6 }}>
+                      <button onClick={()=>handleEdit(t)} style={{ fontSize:11, padding:"3px 10px", background:"#f8fafc", border:"1px solid #e2e8f0", borderRadius:6, cursor:"pointer" }}>Edit</button>
+                      <button onClick={()=>handleDelete(t.id)} style={{ fontSize:11, padding:"3px 10px", background:"#fef2f2", border:"1px solid #fecaca", borderRadius:6, cursor:"pointer", color:"#dc2626" }}>Delete</button>
+                    </div>
+                  )}
                 </div>
               );
             })}

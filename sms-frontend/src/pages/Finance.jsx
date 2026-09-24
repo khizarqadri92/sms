@@ -7,6 +7,7 @@ import DatePicker from "../components/DatePicker";
 import { useProcessingToday } from "../hooks/useProcessingToday";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
 import discountsApi from "../api/discountsApi";
+import { useGovernanceMode } from "../hooks/useGovernanceMode";
 
 // eslint-disable-next-line
 const downloadInvoicePdf = async (invoiceId) => {
@@ -22,15 +23,20 @@ const downloadInvoicePdf = async (invoiceId) => {
 };
 
 const TABS = ["dashboard","fee-automation","fee-types","class-fees","charge-types","discount-config","charges","invoices","payments","discounts","locked-accounts","charge-settlement"];
-const TAB_LABELS = { dashboard:"Dashboard", "fee-automation":"Auto-Generation", "charge-types":"Charge Types", structures:"Fee Structures", invoices:"Invoices", payments:"Payments" };
+const TAB_LABELS = {
+  dashboard:"Dashboard", "fee-automation":"Auto-Generation", "fee-types":"Fee Types", "class-fees":"Class Fees",
+  "charge-types":"Charge Types", "discount-config":"Discount Config", charges:"Extra Charges",
+  structures:"Fee Structures", invoices:"Invoices", payments:"Payments", discounts:"Discount Types",
+  "locked-accounts":"Locked Accounts", "charge-settlement":"Charge Settlement",
+};
 
-export default function Finance() {
-  const [tab, setTab] = useState("dashboard");
+export default function Finance({ visibleTabs } = {}) {
+  const [tab, setTab] = useState(visibleTabs ? visibleTabs[0] : "dashboard");
 
   useEffect(() => {
     const handler = e => {
       const s = e.detail?.sub;
-      if (TABS.includes(s)) setTab(s);
+      if ((visibleTabs || TABS).includes(s)) setTab(s);
     };
     window.addEventListener("subnav-change", handler);
     return () => window.removeEventListener("subnav-change", handler);
@@ -38,8 +44,20 @@ export default function Finance() {
 
   return (
     <div>
-      <div className="page-header">
-        <h1 className="page-heading">Finance Management</h1>
+      <div style={{ padding: "20px 24px 0" }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 16, color: "#0f172a" }}>Finance Management</h1>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 4, borderBottom: "1px solid #e2e8f0", paddingBottom: 8 }}>
+          {(visibleTabs || TABS).map(t => (
+            <button key={t} onClick={() => setTab(t)}
+              style={{
+                padding: "7px 14px", fontSize: 13, fontWeight: 600, borderRadius: 6, border: "none", cursor: "pointer",
+                background: tab === t ? "var(--theme-primary, #2563eb)" : "#f1f5f9",
+                color: tab === t ? "#fff" : "#475569",
+              }}>
+              {TAB_LABELS[t] || t}
+            </button>
+          ))}
+        </div>
       </div>
       {tab === "dashboard"   && <DashboardTab />}
       {tab === "structures"  && <StructuresTab />}
@@ -334,6 +352,8 @@ function DashboardTab() {
 /* â”€â”€ Fee Structures â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 function StructuresTab() {
   const { can } = useAuth();
+  const { isGlobalLocked } = useGovernanceMode("fee_structures");
+  const canManage = can("finance.manage") && !isGlobalLocked;
   const [structures,  setStructures]  = useState([]);
   const [categories,  setCategories]  = useState([]);
   const [years,       setYears]       = useState([]);
@@ -385,9 +405,14 @@ function StructuresTab() {
 
   return (
     <div>
+      {isGlobalLocked && (
+        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+          Fee Structures are managed centrally by the superadmin. This list is read-only here.
+        </div>
+      )}
       <div className="page-header" style={{ marginBottom:16 }}>
         <h2 style={{ fontSize:16, fontWeight:700, color:"#0f172a" }}>Fee Structures</h2>
-        {can("finance.manage") && <button className="btn btn-primary" onClick={openCreate}>+ New Structure</button>}
+        {canManage && <button className="btn btn-primary" onClick={openCreate}>+ New Structure</button>}
       </div>
 
       {success && <div className="alert alert-success">{success}</div>}
@@ -479,7 +504,7 @@ function StructuresTab() {
                 <th>Frequency</th>
                 <th>Class</th>
                 <th>Year</th>
-                <th>Actions</th>
+                {canManage && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -491,10 +516,12 @@ function StructuresTab() {
                   <td><span className="badge badge-primary" style={{ textTransform:"capitalize" }}>{s.frequency}</span></td>
                   <td>{s.class_name || <span style={{ color:"#94a3b8" }}>All classes</span>}</td>
                   <td>{s.year_name  || <span style={{ color:"#94a3b8" }}>N/A</span>}</td>
-                  <td style={{ display:"flex", gap:6 }}>
-                    <button className="btn btn-ghost btn-xs" onClick={() => openEdit(s)}>Edit</button>
-                    <button className="btn btn-danger btn-xs" onClick={() => handleDelete(s.id)}>Deactivate</button>
-                  </td>
+                  {canManage && (
+                    <td style={{ display:"flex", gap:6 }}>
+                      <button className="btn btn-ghost btn-xs" onClick={() => openEdit(s)}>Edit</button>
+                      <button className="btn btn-danger btn-xs" onClick={() => handleDelete(s.id)}>Deactivate</button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -1412,6 +1439,8 @@ function SiblingTiersConfig() {
 
 function DiscountsTab() {
   const { can } = useAuth();
+  const { isGlobalLocked } = useGovernanceMode("discount_types");
+  const canManage = can("finance.manage") && !isGlobalLocked;
   const [allTypes, setAllTypes] = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -1468,9 +1497,14 @@ function DiscountsTab() {
 
   return (
     <div>
+      {isGlobalLocked && (
+        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+          Discount Types are managed centrally by the superadmin. This list is read-only here.
+        </div>
+      )}
       <div className="page-header" style={{ marginBottom:16 }}>
         <h2 style={{ fontSize:16, fontWeight:700, color:"#0f172a" }}>Discount Types</h2>
-        {can("finance.manage") && (
+        {canManage && (
           <button className="btn btn-primary" onClick={openCreate}>+ Add Discount Type</button>
         )}
       </div>
@@ -1518,7 +1552,7 @@ function DiscountsTab() {
                 <th>Type</th>
                 <th>Value</th>
                 <th>Status</th>
-                {can("finance.manage") && <th></th>}
+                {canManage && <th></th>}
               </tr>
             </thead>
             <tbody>
@@ -1529,7 +1563,7 @@ function DiscountsTab() {
                   <td style={{ textTransform:"capitalize" }}>{t.type}</td>
                   <td>{t.is_sibling ? "Auto-calculated" : (t.type === "percentage" ? t.value + "%" : "Rs. " + t.value)}</td>
                   <td>{t.is_active ? <span className="badge badge-success">Active</span> : <span className="badge badge-gray">Inactive</span>}</td>
-                  {can("finance.manage") && (
+                  {canManage && (
                     <td style={{ display:"flex", gap:6 }}>
                       <button className="btn btn-secondary btn-xs" onClick={() => openEdit(t)}>Edit</button>
                       <button className="btn btn-ghost btn-xs" onClick={() => handleToggle(t)}>{t.is_active ? "Deactivate" : "Activate"}</button>
@@ -1808,6 +1842,8 @@ function ChargeSettlementTab() {
 
 function ChargesTab() {
   const { can } = useAuth();
+  const { isGlobalLocked } = useGovernanceMode("fee_charges");
+  const canManage = can("finance.manage") && !isGlobalLocked;
   const [charges,  setCharges]  = useState([]);
   const [classes,  setClasses]  = useState([]);
   const [years,    setYears]    = useState([]);
@@ -1901,11 +1937,16 @@ function ChargesTab() {
 
   return (
     <div>
+      {isGlobalLocked && (
+        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+          Extra Charges are managed centrally by the superadmin. This list is read-only here.
+        </div>
+      )}
       {success && <div className="alert alert-success">{success}</div>}
       {error   && <div className="alert alert-error">{error}</div>}
       <div className="page-header" style={{ marginBottom:16 }}>
         <h2 style={{ fontSize:16, fontWeight:700 }}>Extra Charges</h2>
-        {can("finance.manage") && <button className="btn btn-primary" onClick={openCreate}>+ Add Charge</button>}
+        {canManage && <button className="btn btn-primary" onClick={openCreate}>+ Add Charge</button>}
       </div>
 
       {showForm && (
@@ -2030,7 +2071,7 @@ function ChargesTab() {
       {charges.length === 0 ? <div className="empty-state">No extra charges configured.</div> : (
         <div className="table-container">
           <table className="table">
-            <thead><tr><th>Name</th><th>Amount</th><th>Type</th><th>Applies To</th><th>Status</th>{can("finance.manage") && <th>Actions</th>}</tr></thead>
+            <thead><tr><th>Name</th><th>Amount</th><th>Type</th><th>Applies To</th><th>Status</th>{canManage && <th>Actions</th>}</tr></thead>
             <tbody>
               {charges.map(c => (
                 <tr key={c.id}>
@@ -2047,7 +2088,7 @@ function ChargesTab() {
                   </td>
                   <td style={{ fontSize:12 }}>{c.target_type==="classes" ? (c.class_labels||[]).join(", ") : c.target_type==="students" ? (c.student_labels||[]).join(", ") || "Specific Students" : "All Classes"}</td>
                   <td><span className={`badge ${c.is_active ? "badge-success" : "badge-gray"}`}>{c.is_active ? "Active" : "Inactive"}</span></td>
-                  {can("finance.manage") && (
+                  {canManage && (
                     <td style={{ display:"flex", gap:5 }}>
                       <button className="btn btn-ghost btn-xs" onClick={() => openEdit(c)}>Edit</button>
                       <button className="btn btn-danger btn-xs" onClick={() => handleDelete(c.id)}>Delete</button>
@@ -2126,6 +2167,8 @@ function SmartMonthlyForm({ onGenerated, onClose }) {
 
 function FeeTypesTab() {
   const { can } = useAuth();
+  const { isGlobalLocked } = useGovernanceMode("fee_types");
+  const canManage = can("finance.manage") && !isGlobalLocked;
   const [types,    setTypes]    = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -2166,11 +2209,16 @@ function FeeTypesTab() {
 
   return (
     <div>
+      {isGlobalLocked && (
+        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+          Fee Types are managed centrally by the superadmin. This list is read-only here.
+        </div>
+      )}
       {success && <div className="alert alert-success">{success}</div>}
       {error   && <div className="alert alert-error">{error}</div>}
       <div className="page-header" style={{ marginBottom:16 }}>
         <h2 style={{ fontSize:16, fontWeight:700 }}>Fee Types</h2>
-        {can("finance.manage") && <button className="btn btn-primary" onClick={openCreate}>+ New Fee Type</button>}
+        {canManage && <button className="btn btn-primary" onClick={openCreate}>+ New Fee Type</button>}
       </div>
 
       {showForm && (
@@ -2197,14 +2245,14 @@ function FeeTypesTab() {
 
       <div className="table-container">
         <table className="table">
-          <thead><tr><th>Fee Type</th><th>Description</th><th>Status</th>{can("finance.manage") && <th>Actions</th>}</tr></thead>
+          <thead><tr><th>Fee Type</th><th>Description</th><th>Status</th>{canManage && <th>Actions</th>}</tr></thead>
           <tbody>
             {types.map(t => (
               <tr key={t.id}>
                 <td><strong>{t.name}</strong></td>
                 <td style={{ fontSize:12, color:"#64748b" }}>{t.description || "—"}</td>
                 <td><span className={`badge ${t.is_active ? "badge-success" : "badge-gray"}`}>{t.is_active ? "Active" : "Inactive"}</span></td>
-                {can("finance.manage") && (
+                {canManage && (
                   <td style={{ display:"flex", gap:5 }}>
                     <button className="btn btn-ghost btn-xs" onClick={() => openEdit(t)}>Edit</button>
                     <button className="btn btn-danger btn-xs" onClick={() => handleDelete(t.id)}>Delete</button>
@@ -2220,7 +2268,7 @@ function FeeTypesTab() {
 }
 
 
-function LateFeeConfigCard({ classId, academicYearId, canManage }) {
+function LateFeeConfigCard({ classId, academicYearId, canManage, isGlobalLocked }) {
   const [form,    setForm]    = useState({ late_fee_type:"none", late_fee_amount:"0" });
   const [loading, setLoading] = useState(true);
   const [saving,  setSaving]  = useState(false);
@@ -2262,6 +2310,11 @@ function LateFeeConfigCard({ classId, academicYearId, canManage }) {
       <div className="section-card-header">
         <span className="section-card-title">Late Fee Configuration</span>
       </div>
+      {isGlobalLocked && (
+        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:12 }}>
+          This is managed centrally by the superadmin. Read-only here.
+        </div>
+      )}
       {success && <div className="alert alert-success">{success}</div>}
       {error   && <div className="alert alert-error">{error}</div>}
       <div className="form-grid">
@@ -2299,6 +2352,9 @@ function LateFeeConfigCard({ classId, academicYearId, canManage }) {
 
 function ClassFeesTab() {
   const { can } = useAuth();
+  const { isGlobalLocked: feesLocked } = useGovernanceMode("class_fees");
+  const { isGlobalLocked: configLocked } = useGovernanceMode("class_fee_config");
+  const canManage = can("finance.manage") && !feesLocked;
   const [classes,   setClasses]   = useState([]);
   const [years,     setYears]     = useState([]);
   const [feeTypes,  setFeeTypes]  = useState([]);
@@ -2361,6 +2417,11 @@ function ClassFeesTab() {
 
   return (
     <div>
+      {feesLocked && (
+        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+          Class Fees are managed centrally by the superadmin. This list is read-only here.
+        </div>
+      )}
       {success && <div className="alert alert-success">{success}</div>}
       {error   && <div className="alert alert-error">{error}</div>}
 
@@ -2385,7 +2446,7 @@ function ClassFeesTab() {
       </div>
 
       {selClass && selYear && (
-        <LateFeeConfigCard classId={selClass} academicYearId={selYear} canManage={can("finance.manage")} />
+        <LateFeeConfigCard classId={selClass} academicYearId={selYear} canManage={can("finance.manage") && !configLocked} isGlobalLocked={configLocked} />
       )}
 
       {selClass && selYear && (
@@ -2395,7 +2456,7 @@ function ClassFeesTab() {
               Fees for {(() => { const sc = classes.find(c => String(c.id) === String(selClass)); return sc ? sc.name + (sc.section ? " (" + sc.section + ")" : "") : ""; })()}
               {classFees.length > 0 && <span className="badge badge-primary" style={{ marginLeft:8 }}>Total: Rs. {totalFees.toLocaleString()}</span>}
             </span>
-            {can("finance.manage") && availableTypes.length > 0 && (
+            {canManage && availableTypes.length > 0 && (
               <button className="btn btn-primary btn-sm" style={{color:"#fff"}} onClick={() => { setForm({ fee_type_id:"", amount:"" }); setShowForm(!showForm); }}>
                 + Add Fee
               </button>
@@ -2428,13 +2489,13 @@ function ClassFeesTab() {
             <div className="empty-state">No fees configured for this class yet.</div>
           ) : (
             <table className="table">
-              <thead><tr><th>Fee Type</th><th>Amount</th>{can("finance.manage") && <th>Actions</th>}</tr></thead>
+              <thead><tr><th>Fee Type</th><th>Amount</th>{canManage && <th>Actions</th>}</tr></thead>
               <tbody>
                 {classFees.map(f => (
                   <tr key={f.id}>
                     <td><strong>{f.fee_type_name}</strong></td>
                     <td><strong style={{ color:"#2563eb" }}>Rs. {Number(f.amount).toLocaleString()}</strong></td>
-                    {can("finance.manage") && (
+                    {canManage && (
                       <td><button className="btn btn-danger btn-xs" onClick={() => handleDelete(f.id)}>Remove</button></td>
                     )}
                   </tr>
@@ -2442,7 +2503,7 @@ function ClassFeesTab() {
                 <tr style={{ background:"#f8fafc" }}>
                   <td><strong>Total Monthly Fee</strong></td>
                   <td><strong style={{ color:"#16a34a", fontSize:14 }}>Rs. {totalFees.toLocaleString()}</strong></td>
-                  {can("finance.manage") && <td></td>}
+                  {canManage && <td></td>}
                 </tr>
               </tbody>
             </table>
@@ -2456,6 +2517,8 @@ function ClassFeesTab() {
 
 function DiscountConfigTab() {
   const { can }     = useAuth();
+  const { isGlobalLocked } = useGovernanceMode("discount_config");
+  const canManage = can("finance.manage") && !isGlobalLocked;
   const [feeTypes,  setFeeTypes]  = useState([]);
   const [config,    setConfig]    = useState({ on_all: false, fee_type_ids: [], sibling_rank_method: "class" });
   const [loading,   setLoading]   = useState(true);
@@ -2495,6 +2558,11 @@ function DiscountConfigTab() {
       <div className="section-card-header">
         <span className="section-card-title">Discount Application Configuration</span>
       </div>
+      {isGlobalLocked && (
+        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+          This configuration is managed centrally by the superadmin. It is read-only here.
+        </div>
+      )}
       <p style={{ fontSize:13, color:"#64748b", marginBottom:16 }}>
         Configure which fee types the discount applies to. Charges are never discounted.
         When a student qualifies for multiple discounts, the highest value discount is applied.
@@ -2510,6 +2578,7 @@ function DiscountConfigTab() {
             checked={config.on_all}
             onChange={e => setConfig({ ...config, on_all: e.target.checked, fee_type_ids: e.target.checked ? [] : config.fee_type_ids })}
             style={{ width:18, height:18 }}
+            disabled={!canManage}
           />
           <div>
             <div style={{ fontWeight:700, fontSize:14, color: config.on_all ? "#2563eb" : "#0f172a" }}>Apply on All Fee Types</div>
@@ -2527,6 +2596,7 @@ function DiscountConfigTab() {
                   checked={config.fee_type_ids.includes(ft.id)}
                   onChange={() => toggleFeeType(ft.id)}
                   style={{ width:16, height:16 }}
+                  disabled={!canManage}
                 />
                 <div>
                   <div style={{ fontWeight:600, fontSize:13 }}>{ft.name}</div>
@@ -2559,6 +2629,7 @@ function DiscountConfigTab() {
               checked={config.sibling_rank_method === opt.value}
               onChange={() => setConfig({ ...config, sibling_rank_method: opt.value })}
               style={{ width:16, height:16, marginTop:2 }}
+              disabled={!canManage}
             />
             <div>
               <div style={{ fontWeight:600, fontSize:13 }}>{opt.label}</div>
@@ -2568,7 +2639,7 @@ function DiscountConfigTab() {
         ))}
       </div>
 
-      {can("finance.manage") && (
+      {canManage && (
         <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
           {saving ? "Saving..." : "Save Discount Configuration"}
         </button>

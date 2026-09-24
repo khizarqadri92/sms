@@ -4,8 +4,10 @@ import hrApi from "../api/hrApi";
 import settingsApi from "../api/settingsApi";
 import processingDateApi from "../api/processingDateApi";
 import DatePicker from "../components/DatePicker";
+import DateTimePicker from "../components/DateTimePicker";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
 import { useProcessingNow } from "../hooks/useProcessingNow";
+import { useGovernanceMode } from "../hooks/useGovernanceMode";
 
 function fmtTime(iso) {
   if (!iso) return "-";
@@ -55,10 +57,13 @@ function toDatetimeLocal(iso) {
 const TABS = ["live", "rfid", "settings", "schedule"];
 const TAB_LABELS = { live: "Live Status", rfid: "RFID Cards", settings: "Settings", schedule: "Schedule" };
 
-export default function AttendanceDashboard() {
+export default function AttendanceDashboard({ visibleTabs } = {}) {
+  const TABS_SHOWN = visibleTabs || TABS;
   const { formatDate, formatTime } = useRegionalSettings();
+  const { isGlobalLocked: attendanceSettingsLocked } = useGovernanceMode("attendance");
+  const { isGlobalLocked: thresholdsLocked } = useGovernanceMode("attendance_thresholds");
   const fmtTime = (iso) => iso ? formatTime(iso) : "-";
-  const [tab, setTab] = useState("live");
+  const [tab, setTab] = useState(TABS_SHOWN[0]);
   const [flash, setFlash] = useState(null);
   const now = useProcessingNow();
   const showFlash = (type, msg) => { setFlash({ type, msg }); setTimeout(() => setFlash(null), 4000); };
@@ -354,7 +359,7 @@ export default function AttendanceDashboard() {
       <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 20, color: "#0f172a" }}>Employee Attendance</h1>
 
       <div style={{ display: "flex", gap: 4, marginBottom: 20, borderBottom: "1px solid #e2e8f0" }}>
-        {(isRestrictedMode ? ["live"] : TABS).map(t => (
+        {(isRestrictedMode ? ["live"] : TABS_SHOWN).map(t => (
           <button key={t} onClick={() => setTab(t)}
             style={{
               padding: "10px 18px", fontSize: 13, fontWeight: 600, border: "none", background: "none", cursor: "pointer",
@@ -544,13 +549,18 @@ export default function AttendanceDashboard() {
       {tab === "settings" && (
         <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, padding: 20, maxWidth: 480 }}>
           <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>Auto Clock-Out Time</div>
+          {attendanceSettingsLocked && (
+            <div style={{ marginBottom: 12, padding: "8px 12px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, fontSize: 12, color: "#92400e" }}>
+              Managed centrally by the superadmin. Read-only here.
+            </div>
+          )}
           <div style={{ fontSize: 12, color: "#64748b", marginBottom: 14 }}>
             Every day at this time, any employee still clocked in will be automatically clocked out.
           </div>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <input type="time" className="form-input" style={{ fontSize: 14, width: 160 }}
+            <input type="time" className="form-input" style={{ fontSize: 14, width: 160 }} disabled={attendanceSettingsLocked}
               value={autoCloseTime} onChange={e => { setAutoCloseTime(e.target.value); setSettingsMsg(null); }} />
-            <button className="btn btn-primary btn-sm" style={{ color: "#fff" }} onClick={saveAttendanceSettings}>Save</button>
+            {!attendanceSettingsLocked && <button className="btn btn-primary btn-sm" style={{ color: "#fff" }} onClick={saveAttendanceSettings}>Save</button>}
           </div>
           {settingsMsg && (
             <div style={{
@@ -570,6 +580,11 @@ export default function AttendanceDashboard() {
       {tab === "settings" && (
         <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, padding: 20, maxWidth: 480, marginTop: 20 }}>
           <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>Attendance Status Thresholds</div>
+          {thresholdsLocked && (
+            <div style={{ marginBottom: 12, padding: "8px 12px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, fontSize: 12, color: "#92400e" }}>
+              Managed centrally by the superadmin. Read-only here.
+            </div>
+          )}
           <div style={{ fontSize: 12, color: "#64748b", marginBottom: 14 }}>
             Once saved, changes only apply going forward - already-finalized past days are never reclassified.
           </div>
@@ -577,31 +592,31 @@ export default function AttendanceDashboard() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 14 }}>
             <div>
               <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Minimum Hours for Present</label>
-              <input type="number" step="0.5" className="form-input" style={{ fontSize: 14, width: 160 }}
+              <input type="number" step="0.5" className="form-input" style={{ fontSize: 14, width: 160 }} disabled={thresholdsLocked}
                 value={statusThresholds.min_present_hours}
                 onChange={e => { setStatusThresholds(p => ({ ...p, min_present_hours: e.target.value })); setThresholdsMsg(null); }} />
             </div>
             <div>
               <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Minimum Hours for Half Day</label>
-              <input type="number" step="0.5" className="form-input" style={{ fontSize: 14, width: 160 }}
+              <input type="number" step="0.5" className="form-input" style={{ fontSize: 14, width: 160 }} disabled={thresholdsLocked}
                 value={statusThresholds.min_half_day_hours}
                 onChange={e => { setStatusThresholds(p => ({ ...p, min_half_day_hours: e.target.value })); setThresholdsMsg(null); }} />
             </div>
             <div>
               <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Maximum Hours for Absent (at or below this = Absent)</label>
-              <input type="number" step="0.5" className="form-input" style={{ fontSize: 14, width: 160 }}
+              <input type="number" step="0.5" className="form-input" style={{ fontSize: 14, width: 160 }} disabled={thresholdsLocked}
                 value={statusThresholds.max_absent_hours}
                 onChange={e => { setStatusThresholds(p => ({ ...p, max_absent_hours: e.target.value })); setThresholdsMsg(null); }} />
             </div>
             <div>
               <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Minimum Session Duration Before Clock Out (minutes, 0 = disabled)</label>
-              <input type="number" className="form-input" style={{ fontSize: 14, width: 160 }}
+              <input type="number" className="form-input" style={{ fontSize: 14, width: 160 }} disabled={thresholdsLocked}
                 value={statusThresholds.min_session_minutes}
                 onChange={e => { setStatusThresholds(p => ({ ...p, min_session_minutes: e.target.value })); setThresholdsMsg(null); }} />
             </div>
           </div>
 
-          <button className="btn btn-primary btn-sm" style={{ color: "#fff", marginTop: 16 }} onClick={saveStatusThresholds}>Save</button>
+          {!thresholdsLocked && <button className="btn btn-primary btn-sm" style={{ color: "#fff", marginTop: 16 }} onClick={saveStatusThresholds}>Save</button>}
 
           {thresholdsMsg && (
             <div style={{
@@ -735,13 +750,13 @@ export default function AttendanceDashboard() {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
                   <div>
                     <label style={{ fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4 }}>Clock In *</label>
-                    <input type="datetime-local" className="form-input" style={{ width: "100%", fontSize: 12 }}
-                      value={sessionForm.clock_in_at} onChange={e => setSessionForm(p => ({ ...p, clock_in_at: e.target.value }))} />
+                    <DateTimePicker style={{ width: "100%", fontSize: 12 }}
+                      value={sessionForm.clock_in_at} onChange={val => setSessionForm(p => ({ ...p, clock_in_at: val }))} />
                   </div>
                   <div>
                     <label style={{ fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4 }}>Clock Out</label>
-                    <input type="datetime-local" className="form-input" style={{ width: "100%", fontSize: 12 }}
-                      value={sessionForm.clock_out_at} onChange={e => setSessionForm(p => ({ ...p, clock_out_at: e.target.value }))} />
+                    <DateTimePicker style={{ width: "100%", fontSize: 12 }}
+                      value={sessionForm.clock_out_at} onChange={val => setSessionForm(p => ({ ...p, clock_out_at: val }))} />
                   </div>
                 </div>
                 <input className="form-input" style={{ width: "100%", fontSize: 12, marginBottom: 10 }} placeholder="Notes (reason for manual entry/correction)"

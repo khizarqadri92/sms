@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import libraryApi from "../api/libraryApi";
+import { useGovernanceMode } from "../hooks/useGovernanceMode";
 
 const ROLE_LABELS = {
   student: "Student",
@@ -14,7 +15,7 @@ const ROLE_LABELS = {
   academic_coordinator: "Academic Coordinator",
 };
 
-function RuleRow({ rule, onSaved }) {
+function RuleRow({ rule, onSaved, canManage }) {
   const [form, setForm] = useState({
     max_books: rule.max_books,
     borrow_days: rule.borrow_days,
@@ -46,31 +47,32 @@ function RuleRow({ rule, onSaved }) {
     <tr>
       <td><strong>{ROLE_LABELS[rule.member_type] || rule.member_type}</strong></td>
       <td>
-        <input className="form-control" type="number" min="1" style={{ width: 90 }}
+        <input className="form-control" type="number" min="1" style={{ width: 90 }} disabled={!canManage}
           value={form.max_books} onChange={e => update("max_books", e.target.value)} />
       </td>
       <td>
-        <input className="form-control" type="number" min="1" style={{ width: 90 }}
+        <input className="form-control" type="number" min="1" style={{ width: 90 }} disabled={!canManage}
           value={form.borrow_days} onChange={e => update("borrow_days", e.target.value)} />
       </td>
       <td>
-        <input className="form-control" type="number" min="0" style={{ width: 90 }}
+        <input className="form-control" type="number" min="0" style={{ width: 90 }} disabled={!canManage}
           value={form.renewal_limit} onChange={e => update("renewal_limit", e.target.value)} />
       </td>
       <td>
-        <input className="form-control" type="number" min="0" step="0.01" style={{ width: 100 }}
+        <input className="form-control" type="number" min="0" step="0.01" style={{ width: 100 }} disabled={!canManage}
           value={form.fine_per_day} onChange={e => update("fine_per_day", e.target.value)} />
       </td>
       <td>
-        <button className="btn btn-primary btn-xs" disabled={!dirty || saving} onClick={handleSave}>
+        {canManage && <button className="btn btn-primary btn-xs" disabled={!dirty || saving} onClick={handleSave}>
           {saving ? "Saving..." : "Save"}
-        </button>
+        </button>}
       </td>
     </tr>
   );
 }
 
 export default function LibrarySettings() {
+  const { isGlobalLocked } = useGovernanceMode("library_membership_rules");
   const [rules, setRules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [success, setSuccess] = useState("");
@@ -96,6 +98,11 @@ export default function LibrarySettings() {
         <h1 className="page-heading">Library Settings</h1>
       </div>
 
+      {isGlobalLocked && (
+        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+          Library Membership Rules are managed centrally by the superadmin. This is read-only here.
+        </div>
+      )}
       {success && <div className="alert alert-success" style={{ marginBottom: 16 }}>{success}</div>}
 
       <div className="section-card">
@@ -123,7 +130,7 @@ export default function LibrarySettings() {
               </thead>
               <tbody>
                 {rules.map(r => (
-                  <RuleRow key={r.member_type} rule={r} onSaved={() => { showToast("Rule for " + (ROLE_LABELS[r.member_type] || r.member_type) + " updated."); fetchRules(); }} />
+                  <RuleRow key={r.member_type} rule={r} canManage={!isGlobalLocked} onSaved={() => { showToast("Rule for " + (ROLE_LABELS[r.member_type] || r.member_type) + " updated."); fetchRules(); }} />
                 ))}
               </tbody>
             </table>

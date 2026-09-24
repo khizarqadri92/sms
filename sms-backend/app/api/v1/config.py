@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.fastapi_auth import get_current_user_id
+from app.fastapi_campus import get_settings_campus_id
 from app.fastapi_permissions import require_permission
 from app.fastapi_db import get_db, get_cur as _get_cur
 
@@ -54,9 +55,9 @@ class DisciplineConfigIn(BaseModel):
 
 
 @router.get("/withdrawal")
-def get_withdrawal_config(user_id: int = Depends(require_permission("settings.view")), db=Depends(get_db)):
+def get_withdrawal_config(user_id: int = Depends(require_permission("settings.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_settings_campus_id)):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_get_withdrawal_config()")
+    cur.execute("SELECT * FROM sp_get_withdrawal_config(%s)", (campus_id,))
     row = cur.fetchone()
     if not row:
         fail("Config not found", 404)
@@ -64,15 +65,15 @@ def get_withdrawal_config(user_id: int = Depends(require_permission("settings.vi
 
 
 @router.put("/withdrawal")
-def update_withdrawal_config(body: WithdrawalConfigIn, user_id: int = Depends(require_permission("settings.manage")), db=Depends(get_db)):
+def update_withdrawal_config(body: WithdrawalConfigIn, user_id: int = Depends(require_permission("settings.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_settings_campus_id)):
     cur = get_cur(db)
     try:
         cur.execute(
-            "SELECT * FROM sp_update_withdrawal_config(%s,%s::jsonb,%s,%s,%s,%s,%s::jsonb,%s,%s)",
+            "SELECT * FROM sp_update_withdrawal_config(%s,%s::jsonb,%s,%s,%s,%s,%s::jsonb,%s,%s,%s)",
             (
                 user_id, json.dumps(body.departments), body.require_coordinator, body.require_principal,
                 body.allow_appeal, body.appeal_days, json.dumps(body.required_documents),
-                body.tc_prefix, body.auto_generate_tc,
+                body.tc_prefix, body.auto_generate_tc, campus_id,
             )
         )
         row = cur.fetchone()
@@ -91,9 +92,9 @@ def update_withdrawal_config(body: WithdrawalConfigIn, user_id: int = Depends(re
 
 
 @router.get("/discipline")
-def get_discipline_config(user_id: int = Depends(require_permission("settings.view")), db=Depends(get_db)):
+def get_discipline_config(user_id: int = Depends(require_permission("settings.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_settings_campus_id)):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_get_discipline_config()")
+    cur.execute("SELECT * FROM sp_get_discipline_config(%s)", (campus_id,))
     row = cur.fetchone()
     if not row:
         fail("Config not found", 404)
@@ -101,15 +102,15 @@ def get_discipline_config(user_id: int = Depends(require_permission("settings.vi
 
 
 @router.put("/discipline")
-def update_discipline_config(body: DisciplineConfigIn, user_id: int = Depends(require_permission("settings.manage")), db=Depends(get_db)):
+def update_discipline_config(body: DisciplineConfigIn, user_id: int = Depends(require_permission("settings.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_settings_campus_id)):
     cur = get_cur(db)
     try:
         cur.execute(
-            "SELECT * FROM sp_update_discipline_config(%s,%s::jsonb,%s::jsonb,%s,%s,%s,%s,%s,%s,%s)",
+            "SELECT * FROM sp_update_discipline_config(%s,%s::jsonb,%s::jsonb,%s,%s,%s,%s,%s,%s,%s,%s)",
             (
                 user_id, json.dumps(body.violation_types), json.dumps(body.severity_labels),
                 body.hearing_min_severity, body.committee_min_members, body.require_head,
-                body.allow_appeal, body.appeal_days, body.max_suspension_days, body.auto_reinstate,
+                body.allow_appeal, body.appeal_days, body.max_suspension_days, body.auto_reinstate, campus_id,
             )
         )
         row = cur.fetchone()

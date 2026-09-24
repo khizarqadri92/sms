@@ -10,6 +10,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from app.fastapi_auth import get_current_user_id
+from app.fastapi_campus import get_settings_campus_id
+from app.fastapi_campus import governed_settings_campus_id, resolve_governed_settings_campus_id, get_current_campus_id
+from app.fastapi_campus import governed_settings_campus_id_for_write, resolve_governed_settings_campus_id_for_write
 from app.fastapi_permissions import require_permission
 from app.fastapi_db import get_db, get_cur as _get_cur
 
@@ -54,7 +57,7 @@ def get_public_settings(db=Depends(get_db)):
 
 
 @router.get("/")
-def get_settings(user_id: int = Depends(require_permission("roles.manage")), db=Depends(get_db)):
+def get_settings(user_id: int = Depends(require_permission("settings.view")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_all_settings()")
     rows = cur.fetchall()
@@ -66,7 +69,7 @@ def get_settings(user_id: int = Depends(require_permission("roles.manage")), db=
 
 
 @router.put("/")
-def update_settings(body: SettingsBody, user_id: int = Depends(require_permission("roles.manage")), db=Depends(get_db)):
+def update_settings(body: SettingsBody, user_id: int = Depends(require_permission("settings.manage")), db=Depends(get_db)):
     data = body.dict()
     keys = list(data.keys())
     values = [str(v) for v in data.values()]
@@ -78,7 +81,7 @@ def update_settings(body: SettingsBody, user_id: int = Depends(require_permissio
 
 
 @router.get("/preview-id")
-def preview_id(role: str = Query("student"), user_id: int = Depends(require_permission("roles.manage")), db=Depends(get_db)):
+def preview_id(role: str = Query("student"), user_id: int = Depends(require_permission("settings.view")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT fn_generate_id(%s::varchar) AS preview_id", (role,))
     preview = cur.fetchone()["preview_id"]
@@ -87,14 +90,14 @@ def preview_id(role: str = Query("student"), user_id: int = Depends(require_perm
 
 
 @router.get("/fee")
-def get_fee_settings(user_id: int = Depends(require_permission("settings.view")), db=Depends(get_db)):
+def get_fee_settings(user_id: int = Depends(require_permission("settings.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(governed_settings_campus_id("fee_settings"))):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_get_settings_by_category(%s::varchar)", ("fee_settings",))
+    cur.execute("SELECT * FROM sp_get_settings_by_category(%s::varchar, %s)", ("fee_settings", campus_id))
     return ok(data={r["key"]: r["value"] for r in cur.fetchall()})
 
 
 @router.put("/fee")
-def update_fee_settings(body: SettingsBody, user_id: int = Depends(require_permission("settings.manage")), db=Depends(get_db)):
+def update_fee_settings(body: SettingsBody, user_id: int = Depends(require_permission("settings.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(governed_settings_campus_id_for_write("fee_settings"))):
     allowed = {
         "fee_due_day", "fee_reminder1_days", "fee_reminder2_days",
         "fee_lock_days", "fee_late_type", "fee_late_fixed",
@@ -107,17 +110,18 @@ def update_fee_settings(body: SettingsBody, user_id: int = Depends(require_permi
     cur = get_cur(db)
     if keys:
         cur.execute(
-            "SELECT sp_upsert_settings_by_category(%s::varchar, %s::varchar[], %s::varchar[], %s::integer)",
-            ("fee_settings", keys, values, user_id)
+            "SELECT sp_upsert_settings_by_category(%s::varchar, %s::varchar[], %s::varchar[], %s::integer, %s)",
+            ("fee_settings", keys, values, user_id, campus_id)
         )
     db.commit()
     return ok(message="Fee settings saved.")
 
 
 @router.get("/category/{cat}")
-def get_category_settings(cat: str, user_id: int = Depends(require_permission("settings.view")), db=Depends(get_db)):
+def get_category_settings(cat: str, user_id: int = Depends(require_permission("settings.view")), db=Depends(get_db), raw_campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_get_settings_by_category(%s::varchar)", (cat,))
+    campus_id = resolve_governed_settings_campus_id(db, cat, raw_campus_id)
+    cur.execute("SELECT * FROM sp_get_settings_by_category(%s::varchar, %s)", (cat, campus_id))
     return ok(data={r["key"]: r["value"] for r in cur.fetchall()})
 
 
@@ -131,31 +135,38 @@ def get_security_public_settings(user_id: int = Depends(get_current_user_id), db
 
 
 @router.get("/regional-format-public")
-def get_regional_format_public(user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+def get_regional_format_public(user_id: int = Depends(get_current_user_id), db=Depends(get_db), campus_id: Optional[int] = Depends(governed_settings_campus_id("regional_format"))):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_get_settings_by_category(%s::varchar)", ("regional_format",))
+    cur.execute("SELECT * FROM sp_get_settings_by_category(%s::varchar, %s)", ("regional_format", campus_id))
     return ok(data={r["key"]: r["value"] for r in cur.fetchall()})
 
 
 @router.get("/school-info-public")
-def get_school_info_public(user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+def get_school_info_public(user_id: int = Depends(get_current_user_id), db=Depends(get_db), raw_campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_get_settings_by_category(%s::varchar)", ("school_info",))
+    campus_id = resolve_governed_settings_campus_id(db, "school_info", raw_campus_id)
+    cur.execute("SELECT * FROM sp_get_settings_by_category(%s::varchar, %s)", ("school_info", campus_id))
     all_data = {r["key"]: r["value"] for r in cur.fetchall()}
+    cur.execute("SELECT * FROM sp_get_settings_by_category(%s::varchar)", ("school_name",))
+    all_data.update({r["key"]: r["value"] for r in cur.fetchall()})
     allowed_keys = ("school_name", "school_logo")
     return ok(data={k: v for k, v in all_data.items() if k in allowed_keys})
 
 
 @router.post("/category/{cat}")
-def save_category_settings(cat: str, body: SettingsBody, user_id: int = Depends(require_permission("settings.manage")), db=Depends(get_db)):
+def save_category_settings(cat: str, body: SettingsBody, user_id: int = Depends(require_permission("settings.manage")), db=Depends(get_db), raw_campus_id: Optional[int] = Depends(get_current_campus_id)):
     data = body.dict()
     keys = list(data.keys())
     values = [str(v) for v in data.values()]
     cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM users WHERE id=%s", (user_id,))
+    _urow = cur.fetchone()
+    own_campus_id = _urow["campus_id"] if _urow else None
+    campus_id = resolve_governed_settings_campus_id_for_write(db, cat, raw_campus_id, own_campus_id)
     if keys:
         cur.execute(
-            "SELECT sp_upsert_settings_by_category(%s::varchar, %s::varchar[], %s::varchar[], %s::integer)",
-            (cat, keys, values, user_id)
+            "SELECT sp_upsert_settings_by_category(%s::varchar, %s::varchar[], %s::varchar[], %s::integer, %s)",
+            (cat, keys, values, user_id, campus_id)
         )
     db.commit()
 

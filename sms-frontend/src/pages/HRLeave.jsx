@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import hrApi from "../api/hrApi";
 import { useAuth } from "../auth/AuthContext";
+import { useGovernanceMode } from "../hooks/useGovernanceMode";
 import { useProcessingToday } from "../hooks/useProcessingToday";
 import DatePicker from "../components/DatePicker";
 
@@ -14,14 +15,25 @@ const STATUS_COLORS = {
   cancelled:{bg:"#f8fafc",color:"#475569",border:"#e2e8f0"},
 };
 
-export default function HRLeave() {
+export default function HRLeave({ visibleTabs } = {}) {
+  const TABS_SHOWN = visibleTabs || TABS;
   const processingToday = useProcessingToday();
   const { permissions=[], can } = useAuth();
   const location = useLocation();
   const canEdit    = permissions.includes("hr.edit");
   const canApprove = permissions.includes("hr.approve");
+  const { isGlobalLocked: typesLocked } = useGovernanceMode("staff_leave_types");
+  const { isGlobalLocked: policiesLocked } = useGovernanceMode("staff_leave_policies");
+  const { isGlobalLocked: certTypesLocked } = useGovernanceMode("leave_certificate_types");
+  const { isGlobalLocked: rulesLocked } = useGovernanceMode("leave_validation_rules");
+  const { isGlobalLocked: policySettingsLocked } = useGovernanceMode("hr_policy_settings");
+  const canManageTypes = canEdit && !typesLocked;
+  const canManagePolicies = canEdit && !policiesLocked;
+  const canManageCertTypes = canEdit && !certTypesLocked;
+  const canManageRules = canEdit && !rulesLocked;
+  const canManagePolicySettings = canEdit && !policySettingsLocked;
 
-  const [tab, setTab]             = useState(() => { const p = new URLSearchParams(location.search); return p.get("tab")||"types"; });
+  const [tab, setTab]             = useState(() => { const p = new URLSearchParams(location.search); const requested = p.get("tab"); return (requested && TABS_SHOWN.includes(requested)) ? requested : TABS_SHOWN[0]; });
   const [flash, setFlash]         = useState(null);
   const [loading, setLoading]     = useState(false);
 
@@ -216,7 +228,7 @@ export default function HRLeave() {
 
       {/* Tabs */}
       <div style={{display:"flex",gap:0,borderBottom:"1px solid #e2e8f0",marginBottom:20}}>
-        {TABS.map(t=>(
+        {TABS_SHOWN.map(t=>(
           <button key={t} onClick={()=>setTab(t)}
             style={{padding:"10px 18px",border:"none",cursor:"pointer",fontSize:13,fontWeight:600,background:"transparent",
               borderBottom:tab===t?"2px solid #2563eb":"2px solid transparent",color:tab===t?"#2563eb":"#64748b"}}>
@@ -227,7 +239,14 @@ export default function HRLeave() {
 
       {/* LEAVE TYPES */}
       {tab==="types" && (
+        <div>
+        {typesLocked && (
+          <div style={{marginBottom:12,padding:"8px 12px",background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,fontSize:12,color:"#92400e"}}>
+            Leave Types are managed centrally by the superadmin.
+          </div>
+        )}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1.5fr",gap:20,alignItems:"start"}}>
+          {canManageTypes && (
           <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",padding:16}}>
             <div style={{fontWeight:700,fontSize:14,marginBottom:12}}>{editLtId?"Edit Leave Type":"Add Leave Type"}</div>
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -253,6 +272,7 @@ export default function HRLeave() {
               </div>
             </div>
           </div>
+          )}
           <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",overflow:"hidden"}}>
             <div style={{padding:"12px 16px",borderBottom:"1px solid #e2e8f0",fontWeight:700,fontSize:14}}>Leave Types ({leaveTypes.length})</div>
             {leaveTypes.map(lt=>(
@@ -266,7 +286,7 @@ export default function HRLeave() {
                   </div>
                   <div style={{fontSize:11,color:"#94a3b8"}}>{lt.policy_count} policies configured</div>
                 </div>
-                {canEdit&&<div style={{display:"flex",gap:4}}>
+                {canManageTypes&&<div style={{display:"flex",gap:4}}>
                   <button className="btn btn-ghost btn-sm" style={{fontSize:11}} onClick={()=>{setEditLtId(lt.id);setLtForm({name:lt.name,max_days_per_year:lt.max_days_per_year||"",is_active:lt.is_active,is_encashable:lt.is_encashable||false});}}>Edit</button>
                   <button className="btn btn-ghost btn-sm" style={{color:"#dc2626",fontSize:11}} onClick={async()=>{await hrApi.deleteLeaveType(lt.id);loadTypes();}}>Deactivate</button>
                 </div>}
@@ -274,11 +294,19 @@ export default function HRLeave() {
             ))}
           </div>
         </div>
+        </div>
       )}
 
       {/* LEAVE POLICIES */}
       {tab==="policies" && (
+        <div>
+        {policiesLocked && (
+          <div style={{marginBottom:12,padding:"8px 12px",background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,fontSize:12,color:"#92400e"}}>
+            Leave Policies are managed centrally by the superadmin.
+          </div>
+        )}
         <div style={{display:"grid",gridTemplateColumns:"1fr 1.5fr",gap:20,alignItems:"start"}}>
+          {canManagePolicies && (
           <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",padding:16}}>
             <div style={{fontWeight:700,fontSize:14,marginBottom:12}}>Add Leave Policy</div>
             <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -342,6 +370,7 @@ export default function HRLeave() {
               <button className="btn btn-primary btn-sm" style={{color:"#fff"}} onClick={savePolicy}>Save Policy</button>
             </div>
           </div>
+          )}
           <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",overflow:"hidden"}}>
             <div style={{padding:"12px 16px",borderBottom:"1px solid #e2e8f0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
               <div style={{fontWeight:700,fontSize:14}}>Configured Policies</div>
@@ -366,10 +395,11 @@ export default function HRLeave() {
                     </span>}
                   </div>
                 </div>
-                {canEdit&&<button className="btn btn-ghost btn-sm" style={{color:"#dc2626",fontSize:11}} onClick={async()=>{await hrApi.deleteLeavePolicy(p.id);loadPolicies();}}>Remove</button>}
+                {canManagePolicies&&<button className="btn btn-ghost btn-sm" style={{color:"#dc2626",fontSize:11}} onClick={async()=>{await hrApi.deleteLeavePolicy(p.id);loadPolicies();}}>Remove</button>}
               </div>
             ))}
           </div>
+        </div>
         </div>
       )}
 
@@ -378,6 +408,11 @@ export default function HRLeave() {
         <div>
           <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",padding:16,marginBottom:20}}>
             <div style={{fontWeight:700,fontSize:14,marginBottom:12}}>Policy Settings</div>
+            {policySettingsLocked && (
+              <div style={{marginBottom:10,padding:"8px 12px",background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,fontSize:12,color:"#92400e"}}>
+                Policy Settings are managed centrally by the superadmin.
+              </div>
+            )}
             <div style={{fontSize:11,color:"#64748b",marginBottom:10}}>
               Probation is calculated from each employee's joining date. Notice period starts the day a resignation is accepted (status set to Resigned).
             </div>
@@ -392,13 +427,18 @@ export default function HRLeave() {
                 <input type="number" className="form-input" style={{width:160,fontSize:13}} value={policySettings.notice_period_duration_days}
                   onChange={e=>setPolicySettings(p=>({...p,notice_period_duration_days:e.target.value}))}/>
               </div>
-              {canEdit&&<button className="btn btn-primary btn-sm" style={{color:"#fff"}} onClick={savePolicySettings}>Save</button>}
+              {canManagePolicySettings&&<button className="btn btn-primary btn-sm" style={{color:"#fff"}} onClick={savePolicySettings}>Save</button>}
             </div>
           </div>
 
           <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",padding:16,marginBottom:20}}>
             <div style={{fontWeight:700,fontSize:14,marginBottom:12}}>Certificate Types</div>
-            {canEdit&&(
+            {certTypesLocked && (
+              <div style={{marginBottom:10,padding:"8px 12px",background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,fontSize:12,color:"#92400e"}}>
+                Certificate Types are managed centrally by the superadmin.
+              </div>
+            )}
+            {canManageCertTypes&&(
               <div style={{display:"flex",gap:8,marginBottom:12}}>
                 <input className="form-input" placeholder="e.g. Medical Certificate" style={{flex:1,fontSize:13}}
                   value={certTypeForm.name} onChange={e=>setCertTypeForm(p=>({...p,name:e.target.value}))}/>
@@ -412,7 +452,7 @@ export default function HRLeave() {
               certTypes.map(ct=>(
                 <div key={ct.id} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:20,background:"#f8fafc",border:"1px solid #e2e8f0",fontSize:12,fontWeight:600}}>
                   {ct.name}
-                  {canEdit&&<button className="btn btn-ghost btn-sm" style={{color:"#dc2626",fontSize:10,padding:"0 2px"}}
+                  {canManageCertTypes&&<button className="btn btn-ghost btn-sm" style={{color:"#dc2626",fontSize:10,padding:"0 2px"}}
                     onClick={async()=>{await hrApi.deleteCertificateType(ct.id);loadCertTypes();}}>✕</button>}
                 </div>
               ))}
@@ -420,6 +460,12 @@ export default function HRLeave() {
           </div>
 
           <div style={{display:"grid",gridTemplateColumns:"1fr 1.5fr",gap:20,alignItems:"start"}}>
+            {rulesLocked && (
+              <div style={{gridColumn:"1 / -1",padding:"8px 12px",background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,fontSize:12,color:"#92400e"}}>
+                Leave Validation Rules are managed centrally by the superadmin.
+              </div>
+            )}
+            {canManageRules && (
             <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",padding:16}}>
               <div style={{fontWeight:700,fontSize:14,marginBottom:12}}>Add Leave Rule</div>
               <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -560,6 +606,7 @@ export default function HRLeave() {
                 <button className="btn btn-primary btn-sm" style={{color:"#fff"}} onClick={saveValidationRule}>Save Rule</button>
               </div>
             </div>
+            )}
 
             <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",overflow:"hidden"}}>
               <div style={{padding:"12px 16px",borderBottom:"1px solid #e2e8f0",fontWeight:700,fontSize:14}}>Configured Rules ({validationRules.length})</div>
@@ -583,7 +630,7 @@ export default function HRLeave() {
                       })[r.rule_type] || r.rule_type}
                     </div>
                   </div>
-                  {canEdit&&<button className="btn btn-ghost btn-sm" style={{color:"#dc2626",fontSize:11,flexShrink:0}}
+                  {canManageRules&&<button className="btn btn-ghost btn-sm" style={{color:"#dc2626",fontSize:11,flexShrink:0}}
                     onClick={async()=>{await hrApi.deleteValidationRule(r.id);loadValidationRules();}}>Remove</button>}
                 </div>
               ))}

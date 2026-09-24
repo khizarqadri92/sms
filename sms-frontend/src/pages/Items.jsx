@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import procurementApi from "../api/procurementApi";
+import { useGovernanceMode } from "../hooks/useGovernanceMode";
 
 function QuickAddCategoryModal({ categories, onClose, onSaved }) {
   const [name, setName] = useState("");
@@ -143,6 +144,7 @@ function ItemFormModal({ item, categories, vendors, onClose, onSaved, onQuickAdd
 }
 
 export default function Items() {
+  const { isGlobalLocked } = useGovernanceMode("procurement_items");
   const [items, setItems] = useState([]);
   const [categories, setCategories] = useState([]);
   const [vendors, setVendors] = useState([]);
@@ -201,9 +203,14 @@ export default function Items() {
     <div>
       <div className="page-header" style={{ marginBottom: 16 }}>
         <h1 className="page-heading">Item Master</h1>
-        <button className="btn btn-primary" onClick={() => { setEditItem(null); setShowForm(true); }}>+ Add Item</button>
+        {!isGlobalLocked && <button className="btn btn-primary" onClick={() => { setEditItem(null); setShowForm(true); }}>+ Add Item</button>}
       </div>
 
+      {isGlobalLocked && (
+        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+          Items are managed centrally by the superadmin. This list is read-only here.
+        </div>
+      )}
       {success && <div className="alert alert-success" style={{ marginBottom: 16 }}>{success}</div>}
       {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
 
@@ -230,7 +237,7 @@ export default function Items() {
                 <th>Stock</th>
                 <th>Preferred Vendor</th>
                 <th>Status</th>
-                <th>Actions</th>
+                {!isGlobalLocked && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -249,12 +256,14 @@ export default function Items() {
                   </td>
                   <td>{i.preferred_vendor_name || <span style={{ color: "#94a3b8" }}>-</span>}</td>
                   <td><span className={"badge " + (i.is_active ? "badge-success" : "badge-gray")}>{i.is_active ? "Active" : "Inactive"}</span></td>
-                  <td style={{ display: "flex", gap: 6, flexWrap: "nowrap" }}>
-                    <button className="btn btn-ghost btn-xs" onClick={() => { setEditItem(i); setShowForm(true); }}>Edit</button>
-                    <button className={"btn btn-xs " + (i.is_active ? "btn-danger" : "btn-secondary")} onClick={() => handleToggleActive(i)}>
-                      {i.is_active ? "Deactivate" : "Reactivate"}
-                    </button>
-                  </td>
+                  {!isGlobalLocked && (
+                    <td style={{ display: "flex", gap: 6, flexWrap: "nowrap" }}>
+                      <button className="btn btn-ghost btn-xs" onClick={() => { setEditItem(i); setShowForm(true); }}>Edit</button>
+                      <button className={"btn btn-xs " + (i.is_active ? "btn-danger" : "btn-secondary")} onClick={() => handleToggleActive(i)}>
+                        {i.is_active ? "Deactivate" : "Reactivate"}
+                      </button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>

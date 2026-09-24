@@ -13,6 +13,8 @@ from pydantic import BaseModel
 from app.fastapi_auth import get_current_user_id
 from app.fastapi_permissions import require_permission
 from app.fastapi_db import get_db, get_cur as _get_cur
+from app.fastapi_campus import get_current_campus_id, enforce_same_campus
+from app.fastapi_campus import catalog_campus_id, catalog_campus_id_for_write
 
 router = APIRouter()
 
@@ -82,25 +84,25 @@ def _attach_rules(cur, types):
 
 
 @router.get("/active-types")
-def get_active_leave_types(user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+def get_active_leave_types(user_id: int = Depends(get_current_user_id), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("student_leave_types"))):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_get_active_leave_types()")
+    cur.execute("SELECT * FROM sp_get_active_leave_types(%s)", (campus_id,))
     types = [dict(r) for r in cur.fetchall()]
     _attach_rules(cur, types)
     return ok(data=types)
 
 
 @router.get("/types")
-def get_leave_types(user_id: int = Depends(require_permission("leave_type.view")), db=Depends(get_db)):
+def get_leave_types(user_id: int = Depends(require_permission("leave_type.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("student_leave_types"))):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_get_all_leave_types()")
+    cur.execute("SELECT * FROM sp_get_all_leave_types(%s)", (campus_id,))
     types = [dict(r) for r in cur.fetchall()]
     _attach_rules(cur, types)
     return ok(data=types)
 
 
 @router.post("/types")
-def create_leave_type(body: LeaveTypeCreateIn, user_id: int = Depends(require_permission("leave_type.manage")), db=Depends(get_db)):
+def create_leave_type(body: LeaveTypeCreateIn, user_id: int = Depends(require_permission("leave_type.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("student_leave_types"))):
     name = (body.name or "").strip()
     if not name:
         fail("Leave type name is required", 400)
@@ -113,8 +115,8 @@ def create_leave_type(body: LeaveTypeCreateIn, user_id: int = Depends(require_pe
         fail("Leave type with this name already exists", 400)
 
     cur.execute(
-        "SELECT sp_create_leave_type(%s,%s,%s,%s) AS id",
-        (name, int(body.max_days_per_year) if body.max_days_per_year else None, body.notify_mode or "incharge_only", body.is_active if body.is_active is not None else True)
+        "SELECT sp_create_leave_type(%s,%s,%s,%s,%s) AS id",
+        (name, int(body.max_days_per_year) if body.max_days_per_year else None, body.notify_mode or "incharge_only", body.is_active if body.is_active is not None else True, campus_id)
     )
     lt_id = cur.fetchone()["id"]
 
@@ -128,7 +130,7 @@ def create_leave_type(body: LeaveTypeCreateIn, user_id: int = Depends(require_pe
 
 
 @router.put("/types/{lt_id}")
-def update_leave_type(lt_id: int, body: LeaveTypeUpdateIn, user_id: int = Depends(require_permission("leave_type.manage")), db=Depends(get_db)):
+def update_leave_type(lt_id: int, body: LeaveTypeUpdateIn, user_id: int = Depends(require_permission("leave_type.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("student_leave_types"))):
     if not body.rules:
         fail("At least one approval rule is required", 400)
 
@@ -136,6 +138,9 @@ def update_leave_type(lt_id: int, body: LeaveTypeUpdateIn, user_id: int = Depend
     cur.execute("SELECT sp_check_leave_type_exists(%s) AS exists", (lt_id,))
     if not cur.fetchone()["exists"]:
         fail("Leave type not found", 404)
+    cur.execute("SELECT campus_id FROM leave_types WHERE id=%s", (lt_id,))
+    _row = cur.fetchone()
+    enforce_same_campus(_row["campus_id"] if _row else None, campus_id)
 
     cur.execute(
         "SELECT sp_update_leave_type(%s,%s,%s,%s,%s)",
@@ -154,11 +159,14 @@ def update_leave_type(lt_id: int, body: LeaveTypeUpdateIn, user_id: int = Depend
 
 
 @router.delete("/types/{lt_id}")
-def delete_leave_type(lt_id: int, user_id: int = Depends(require_permission("leave_type.manage")), db=Depends(get_db)):
+def delete_leave_type(lt_id: int, user_id: int = Depends(require_permission("leave_type.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("student_leave_types"))):
     cur = get_cur(db)
     cur.execute("SELECT sp_check_leave_type_exists(%s) AS exists", (lt_id,))
     if not cur.fetchone()["exists"]:
         fail("Leave type not found", 404)
+    cur.execute("SELECT campus_id FROM leave_types WHERE id=%s", (lt_id,))
+    _row = cur.fetchone()
+    enforce_same_campus(_row["campus_id"] if _row else None, campus_id)
 
     cur.execute("SELECT sp_check_leave_requests_exist(%s) AS exists", (lt_id,))
     if cur.fetchone()["exists"]:

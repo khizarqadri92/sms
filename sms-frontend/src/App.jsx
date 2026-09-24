@@ -16,9 +16,14 @@ import Users            from "./pages/Users";
 import Roles            from "./pages/Roles";
 import Forbidden        from "./pages/Forbidden";
 import Academics       from "./pages/Academics";
+import HRManagementHub from "./pages/HRManagementHub";
+import ProcurementManagementHub from "./pages/ProcurementManagementHub";
+import AcademicManagementHub from "./pages/AcademicManagementHub";
+import AcademicSetupHub from "./pages/AcademicSetupHub";
 import Settings       from "./pages/Settings";
 import Profile        from "./pages/Profile";
 import Finance       from "./pages/Finance";
+import FinanceSetup  from "./pages/FinanceSetup";
 import LockedStudents from "./pages/LockedStudents";
 import FeeReport from "./pages/FeeReport";
 import MyFees        from "./pages/MyFees";
@@ -57,6 +62,7 @@ import ProvidentFund     from "./pages/ProvidentFund";
 import IncomeTax         from "./pages/IncomeTax";
 import MyProfile         from "./pages/MyProfile";
 import HRSetup           from "./pages/HRSetup";
+import HRSetupHub        from "./pages/HRSetupHub";
 import ConfigPage        from "./pages/ConfigPage";
 import Exams            from "./pages/Exams";
 import Datesheet        from "./pages/Datesheet";
@@ -73,6 +79,7 @@ import LibraryCatalog       from "./pages/LibraryCatalog";
 import LibraryMembers       from "./pages/LibraryMembers";
 import LibraryIssueReturn   from "./pages/LibraryIssueReturn";
 import LibrarySettings      from "./pages/LibrarySettings";
+import LibrarySetupHub      from "./pages/LibrarySetupHub";
 import LibraryAuthors       from "./pages/LibraryAuthors";
 import LibraryPublishers    from "./pages/LibraryPublishers";
 import LibraryCategories    from "./pages/LibraryCategories";
@@ -83,6 +90,7 @@ import LibraryLostBooks     from "./pages/LibraryLostBooks";
 import LibraryInventory     from "./pages/LibraryInventory";
 import Departments          from "./pages/Departments";
 import Vendors               from "./pages/Vendors";
+import ProcurementSetupHub   from "./pages/ProcurementSetupHub";
 import Items                 from "./pages/Items";
 import ItemCategories        from "./pages/ItemCategories";
 import ApprovalRules         from "./pages/ApprovalRules";
@@ -102,6 +110,8 @@ import LeaveApproval from "./pages/LeaveApproval";
 import LeaveSetup    from "./pages/LeaveSetup";
 import AcademicSetup from "./pages/AcademicSetup";
 import TeacherAssignment from "./pages/TeacherAssignment";
+import Campuses from "./pages/Campuses";
+import SettingGovernance from "./pages/SettingGovernance";
 import Notifications     from "./pages/Notifications";
 import Assignments       from "./pages/Assignments";
 import Quizzes           from "./pages/Quizzes";
@@ -196,6 +206,11 @@ export default function App() {
               <RoleLayout><Finance /></RoleLayout>
             </PrivateRoute>
           }/>
+          <Route path="/setup/finance" element={
+            <PrivateRoute permission="campuses.manage">
+              <RoleLayout><FinanceSetup /></RoleLayout>
+            </PrivateRoute>
+          }/>
           <Route path="/finance/setup" element={
             <PrivateRoute permission="finance.view">
               <RoleLayout><Finance /></RoleLayout>
@@ -221,11 +236,23 @@ export default function App() {
           }/>
 
           <Route path="/settings" element={
-            <PrivateRoute permission="roles.manage">
+            <PrivateRoute permission="settings.view">
               <RoleLayout><Settings /></RoleLayout>
             </PrivateRoute>
           }/>
+          <Route path="/settings-other" element={
+            <PrivateRoute permission="settings.view">
+              <RoleLayout><Settings visibleTabs={["id_formats","school_info","fee_settings","regional_format","account_settings"]} /></RoleLayout>
+            </PrivateRoute>
+          }/>
 
+          <Route path="/setup/academic" element={<PrivateRoute permission="campuses.manage"><RoleLayout><AcademicSetupHub /></RoleLayout></PrivateRoute>} />
+          <Route path="/academics-other" element={<PrivateRoute permission="academics.view"><RoleLayout><Academics visibleTabs={["timetable","overview"]} /></RoleLayout></PrivateRoute>} />
+          <Route path="/management/finance" element={<PrivateRoute permission="finance.view"><RoleLayout><Finance visibleTabs={["dashboard","invoices","payments","locked-accounts","charge-settlement"]} /></RoleLayout></PrivateRoute>} />
+          <Route path="/management/hr" element={<PrivateRoute permission="hr.view"><RoleLayout><HRManagementHub /></RoleLayout></PrivateRoute>} />
+          <Route path="/management/procurement" element={<PrivateRoute permission="procurement.view"><RoleLayout><ProcurementManagementHub /></RoleLayout></PrivateRoute>} />
+          <Route path="/management/academic" element={<PrivateRoute permission="academics.view"><RoleLayout><AcademicManagementHub /></RoleLayout></PrivateRoute>} />
+          <Route path="/management/academic-admin" element={<PrivateRoute permission="academics.view"><RoleLayout><AcademicManagementHub academicsVisibleTabs={["years","classes","subjects","timetable","overview"]} /></RoleLayout></PrivateRoute>} />
           <Route path="/academics" element={
             <PrivateRoute permission="academics.view">
               <RoleLayout><Academics /></RoleLayout>
@@ -258,6 +285,7 @@ export default function App() {
           <Route path="/library/catalog" element={<PrivateRoute permission="library.view"><RoleLayout><LibraryCatalog /></RoleLayout></PrivateRoute>} />
           <Route path="/library/members" element={<PrivateRoute permission="library.manage"><RoleLayout><LibraryMembers /></RoleLayout></PrivateRoute>} />
           <Route path="/library/issue-return" element={<PrivateRoute permission="library.issue"><RoleLayout><LibraryIssueReturn /></RoleLayout></PrivateRoute>} />
+          <Route path="/setup/library" element={<PrivateRoute permission="campuses.manage"><RoleLayout><LibrarySetupHub /></RoleLayout></PrivateRoute>} />
           <Route path="/library/settings" element={<PrivateRoute permission="library.manage"><RoleLayout><LibrarySettings /></RoleLayout></PrivateRoute>} />
           <Route path="/library/authors" element={<PrivateRoute permission="library.manage"><RoleLayout><LibraryAuthors /></RoleLayout></PrivateRoute>} />
           <Route path="/library/publishers" element={<PrivateRoute permission="library.manage"><RoleLayout><LibraryPublishers /></RoleLayout></PrivateRoute>} />
@@ -268,6 +296,7 @@ export default function App() {
           <Route path="/library/lost" element={<PrivateRoute permission="library.manage"><RoleLayout><LibraryLostBooks /></RoleLayout></PrivateRoute>} />
           <Route path="/library/inventory" element={<PrivateRoute permission="library.manage"><RoleLayout><LibraryInventory /></RoleLayout></PrivateRoute>} />
           <Route path="/procurement/departments" element={<PrivateRoute permission="procurement.manage"><RoleLayout><Departments /></RoleLayout></PrivateRoute>} />
+          <Route path="/setup/procurement" element={<PrivateRoute permission="procurement.manage"><RoleLayout><ProcurementSetupHub /></RoleLayout></PrivateRoute>} />
           <Route path="/procurement/vendors" element={<PrivateRoute permission="procurement.view"><RoleLayout><Vendors /></RoleLayout></PrivateRoute>} />
           <Route path="/procurement/items" element={<PrivateRoute permission="procurement.view"><RoleLayout><Items /></RoleLayout></PrivateRoute>} />
           <Route path="/procurement/item-categories" element={<PrivateRoute permission="procurement.manage"><RoleLayout><ItemCategories /></RoleLayout></PrivateRoute>} />
@@ -283,7 +312,8 @@ export default function App() {
               <Route path="/my-payslips"        element={<PrivateRoute><RoleLayout><MyPayslips /></RoleLayout></PrivateRoute>} />
               <Route path="/my-resignation"     element={<PrivateRoute><RoleLayout><MyResignation /></RoleLayout></PrivateRoute>} />
               <Route path="/hr/leave"            element={<PrivateRoute permission="hr.view"><RoleLayout><HRLeave /></RoleLayout></PrivateRoute>} />
-              <Route path="/hr/attendance"       element={<PrivateRoute permission="hr.view"><RoleLayout><AttendanceDashboard /></RoleLayout></PrivateRoute>} />
+              <Route path="/hr/leave-requests"   element={<PrivateRoute permission="hr.view"><RoleLayout><HRLeave visibleTabs={["requests"]} /></RoleLayout></PrivateRoute>} />
+              <Route path="/hr/attendance"       element={<PrivateRoute permission="hr.view"><RoleLayout><AttendanceDashboard visibleTabs={["live","rfid","schedule"]} /></RoleLayout></PrivateRoute>} />
               <Route path="/hr/resignations"      element={<PrivateRoute permission="hr.view" requestType="resignation"><RoleLayout><Resignations /></RoleLayout></PrivateRoute>} />
               <Route path="/payroll/setup"       element={<PrivateRoute permission="payroll.view"><RoleLayout><PayrollSetup /></RoleLayout></PrivateRoute>} />
               <Route path="/payroll/grades"       element={<PrivateRoute permission="payroll.view"><RoleLayout><PayrollGrades /></RoleLayout></PrivateRoute>} />
@@ -296,6 +326,7 @@ export default function App() {
               <Route path="/reports/expenditure-details" element={<PrivateRoute permission="reports.expenditure"><RoleLayout><ExpenditureDetailsReport /></RoleLayout></PrivateRoute>} />
               <Route path="/my-department-attendance" element={<PrivateRoute><RoleLayout><AttendanceDashboard /></RoleLayout></PrivateRoute>} />
               <Route path="/hr/staff"            element={<PrivateRoute permission="hr.view"><RoleLayout><HRStaff /></RoleLayout></PrivateRoute>} />
+              <Route path="/setup/hr" element={<PrivateRoute permission="campuses.manage"><RoleLayout><HRSetupHub /></RoleLayout></PrivateRoute>} />
               <Route path="/hr/setup"            element={<PrivateRoute permission="hr.designations"><RoleLayout><HRSetup /></RoleLayout></PrivateRoute>} />
               <Route path="/discipline"          element={<PrivateRoute permission="discipline.view"><RoleLayout><Discipline /></RoleLayout></PrivateRoute>} />
           <Route path="/workflow-config"     element={<PrivateRoute permission="settings.manage"><RoleLayout><ConfigPage /></RoleLayout></PrivateRoute>} />
@@ -311,7 +342,7 @@ export default function App() {
           <Route path="/procurement/vendor-invoices" element={<PrivateRoute permission="procurement.view"><RoleLayout><VendorInvoices /></RoleLayout></PrivateRoute>} />
           <Route path="/procurement/stock" element={<PrivateRoute permission="procurement.view"><RoleLayout><Stock /></RoleLayout></PrivateRoute>} />
           <Route path="/procurement/grn" element={<PrivateRoute permission="procurement.view"><RoleLayout><GRN /></RoleLayout></PrivateRoute>} />
-          <Route path="/workflow-builder" element={<PrivateRoute><RoleLayout><WorkflowBuilder /></RoleLayout></PrivateRoute>} />
+          <Route path="/workflow-builder" element={<PrivateRoute permission="users.manage_roles"><RoleLayout><WorkflowBuilder /></RoleLayout></PrivateRoute>} />
               <Route path="/report-permissions" element={<PrivateRoute permission="users.manage_roles"><RoleLayout><ReportPermissions /></RoleLayout></PrivateRoute>} />
               <Route path="/request-permissions" element={<PrivateRoute permission="users.manage_roles"><RoleLayout><RequestPermissions /></RoleLayout></PrivateRoute>} />
           <Route path="/work-queue" element={<PrivateRoute><RoleLayout><WorkQueue /></RoleLayout></PrivateRoute>} />
@@ -320,6 +351,8 @@ export default function App() {
           <Route path="/leave-setup"    element={<PrivateRoute><RoleLayout><LeaveSetup /></RoleLayout></PrivateRoute>} />
           <Route path="/academic-setup" element={<PrivateRoute><RoleLayout><AcademicSetup /></RoleLayout></PrivateRoute>} />
           <Route path="/teacher-assignment" element={<PrivateRoute><RoleLayout><TeacherAssignment /></RoleLayout></PrivateRoute>} />
+          <Route path="/campuses" element={<PrivateRoute><RoleLayout><Campuses /></RoleLayout></PrivateRoute>} />
+          <Route path="/setting-governance" element={<PrivateRoute><RoleLayout><SettingGovernance /></RoleLayout></PrivateRoute>} />
           <Route path="/notifications" element={
             <PrivateRoute>
               <RoleLayout><Notifications /></RoleLayout>

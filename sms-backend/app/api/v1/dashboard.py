@@ -101,10 +101,11 @@ def get_stats(user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
     student_class = enrollment_no = student_status = academic_year = ""
     cur.execute("""
         SELECT s.enrollment_no, s.status, c.name AS class_name, c.section,
-               ay.name AS academic_year
+               (SELECT ay.name FROM academic_years ay WHERE ay.is_active = TRUE
+                AND (ay.campus_id = s.campus_id OR ay.campus_id IS NULL)
+                ORDER BY ay.campus_id NULLS LAST LIMIT 1) AS academic_year
         FROM students s
         LEFT JOIN classes c ON c.id = s.class_id
-        LEFT JOIN academic_years ay ON ay.is_active = TRUE
         WHERE s.user_id = %s
     """, (user_id,))
     stu_row = cur.fetchone()

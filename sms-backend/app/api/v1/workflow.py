@@ -11,8 +11,50 @@ from app.fastapi_auth import get_current_user_id
 from app.fastapi_permissions import require_permission
 from app.fastapi_db import get_db, get_cur as _get_cur
 from app.utils.processing_date import get_processing_datetime
+from app.fastapi_campus import get_current_campus_id, enforce_same_campus, catalog_campus_id
+from app.fastapi_campus import catalog_campus_id_for_write
 
 router = APIRouter()
+
+
+def _check_workflow_campus(cur, wf_id, campus_id):
+    cur.execute("SELECT campus_id FROM workflow_definitions WHERE id=%s", (wf_id,))
+    row = cur.fetchone()
+    enforce_same_campus(row["campus_id"] if row else None, campus_id)
+
+
+def _check_step_campus(cur, step_id, campus_id):
+    cur.execute("SELECT wd.campus_id FROM workflow_steps ws JOIN workflow_definitions wd ON wd.id = ws.workflow_id WHERE ws.id=%s", (step_id,))
+    row = cur.fetchone()
+    enforce_same_campus(row["campus_id"] if row else None, campus_id)
+
+
+def _check_condition_campus(cur, cond_id, campus_id):
+    cur.execute("""
+        SELECT wd.campus_id FROM workflow_conditions wc
+        JOIN workflow_steps ws ON ws.id = wc.step_id
+        JOIN workflow_definitions wd ON wd.id = ws.workflow_id
+        WHERE wc.id=%s
+    """, (cond_id,))
+    row = cur.fetchone()
+    enforce_same_campus(row["campus_id"] if row else None, campus_id)
+
+
+def _check_assignment_campus(cur, assign_id, campus_id):
+    cur.execute("SELECT wd.campus_id FROM workflow_assignments wa JOIN workflow_definitions wd ON wd.id = wa.workflow_id WHERE wa.id=%s", (assign_id,))
+    row = cur.fetchone()
+    enforce_same_campus(row["campus_id"] if row else None, campus_id)
+
+
+def _check_assignment_condition_campus(cur, cond_id, campus_id):
+    cur.execute("""
+        SELECT wd.campus_id FROM workflow_assignment_conditions wac
+        JOIN workflow_assignments wa ON wa.id = wac.assignment_id
+        JOIN workflow_definitions wd ON wd.id = wa.workflow_id
+        WHERE wac.id=%s
+    """, (cond_id,))
+    row = cur.fetchone()
+    enforce_same_campus(row["campus_id"] if row else None, campus_id)
 
 def get_cur(db): return _get_cur(db)
 def fail(msg, code=400): raise HTTPException(status_code=code, detail={"status":"error","message":msg})
@@ -72,12 +114,14 @@ class WorkflowAssignmentIn(BaseModel):
 def list_workflows(
     module: Optional[str] = Query(None),
     is_active: Optional[bool] = Query(None),
-    user_id: int = Depends(get_current_user_id), db=Depends(get_db)
+    user_id: int = Depends(get_current_user_id), db=Depends(get_db),
+    campus_id: Optional[int] = Depends(catalog_campus_id("workflow_definitions")),
 ):
     cur = get_cur(db)
     conds, params = ["1=1"], []
-    if module: conds.append("module=%s"); params.append(module)
-    if is_active is not None: conds.append("is_active=%s"); params.append(is_active)
+    if campus_id is not None: conds.append("(wd.campus_id = %s OR wd.campus_id IS NULL)"); params.append(campus_id)
+    if module: conds.append("wd.module=%s"); params.append(module)
+    if is_active is not None: conds.append("wd.is_active=%s"); params.append(is_active)
     cur.execute(f"""
         SELECT wd.*, COUNT(ws.id) AS step_count
         FROM workflow_definitions wd
@@ -127,11 +171,12 @@ def get_condition_fields(
 
 
 @router.get("/{wf_id}")
-def get_workflow(wf_id: int, user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+def get_workflow(wf_id: int, user_id: int = Depends(get_current_user_id), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM workflow_definitions WHERE id=%s", (wf_id,))
     wf = cur.fetchone()
     if not wf: fail("Workflow not found.", 404)
+    enforce_same_campus(wf["campus_id"], campus_id)
     result = dict(wf)
     for k in ('created_at','updated_at'):
         if result.get(k): result[k] = str(result[k])
@@ -164,15 +209,16 @@ def get_workflow(wf_id: int, user_id: int = Depends(get_current_user_id), db=Dep
 @router.post("/")
 def create_workflow(body: WorkflowDefIn,
                     user_id: int = Depends(require_permission("users.manage_roles")),
-                    db=Depends(get_db)):
+                    db=Depends(get_db),
+                    campus_id: Optional[int] = Depends(catalog_campus_id_for_write("workflow_definitions"))):
     cur = get_cur(db)
-    cur.execute("SELECT id FROM workflow_definitions WHERE code=%s", (body.code,))
+    cur.execute("SELECT id FROM workflow_definitions WHERE code=%s AND (campus_id = %s OR (campus_id IS NULL AND %s IS NULL))", (body.code, campus_id, campus_id))
     if cur.fetchone(): fail(f"Workflow with code '{body.code}' already exists.")
     cur.execute("""
-        INSERT INTO workflow_definitions (name, code, module, entity_type, description, is_active, created_by)
-        VALUES (%s,%s,%s,%s,%s,%s,%s) RETURNING id
+        INSERT INTO workflow_definitions (name, code, module, entity_type, description, is_active, created_by, campus_id)
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id
     """, (body.name, body.code, body.module, body.entity_type,
-          body.description, body.is_active, user_id))
+          body.description, body.is_active, user_id, campus_id))
     wf_id = cur.fetchone()['id']
     db.commit()
     return ok(data={"id": wf_id}, message="Workflow created.")
@@ -181,8 +227,10 @@ def create_workflow(body: WorkflowDefIn,
 @router.put("/{wf_id}")
 def update_workflow(wf_id: int, body: WorkflowDefIn,
                     user_id: int = Depends(require_permission("users.manage_roles")),
-                    db=Depends(get_db)):
+                    db=Depends(get_db),
+                    campus_id: Optional[int] = Depends(catalog_campus_id_for_write("workflow_definitions"))):
     cur = get_cur(db)
+    _check_workflow_campus(cur, wf_id, campus_id)
     cur.execute("""
         UPDATE workflow_definitions SET name=%s, module=%s, entity_type=%s,
         description=%s, is_active=%s, updated_at=%s WHERE id=%s
@@ -196,8 +244,10 @@ def update_workflow(wf_id: int, body: WorkflowDefIn,
 @router.delete("/{wf_id}")
 def delete_workflow(wf_id: int,
                     user_id: int = Depends(require_permission("users.manage_roles")),
-                    db=Depends(get_db)):
+                    db=Depends(get_db),
+                    campus_id: Optional[int] = Depends(catalog_campus_id_for_write("workflow_definitions"))):
     cur = get_cur(db)
+    _check_workflow_campus(cur, wf_id, campus_id)
     # Clean up all related records
     cur.execute("""DELETE FROM workflow_step_instances WHERE instance_id IN
         (SELECT id FROM workflow_instances WHERE workflow_id=%s)""", (wf_id,))
@@ -215,8 +265,10 @@ def delete_workflow(wf_id: int,
 @router.post("/{wf_id}/steps")
 def add_step(wf_id: int, body: WorkflowStepIn,
              user_id: int = Depends(require_permission("users.manage_roles")),
-             db=Depends(get_db)):
+             db=Depends(get_db),
+             campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    _check_workflow_campus(cur, wf_id, campus_id)
     cur.execute("""
         INSERT INTO workflow_steps
             (workflow_id, step_order, step_name, step_type, approver_type,
@@ -239,8 +291,10 @@ def add_step(wf_id: int, body: WorkflowStepIn,
 @router.put("/steps/{step_id}")
 def update_step(step_id: int, body: WorkflowStepIn,
                 user_id: int = Depends(require_permission("users.manage_roles")),
-                db=Depends(get_db)):
+                db=Depends(get_db),
+                campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    _check_step_campus(cur, step_id, campus_id)
     cur.execute("""
         UPDATE workflow_steps SET
             step_order=%s, step_name=%s, step_type=%s, approver_type=%s,
@@ -264,8 +318,10 @@ def update_step(step_id: int, body: WorkflowStepIn,
 @router.delete("/steps/{step_id}")
 def delete_step(step_id: int,
                 user_id: int = Depends(require_permission("users.manage_roles")),
-                db=Depends(get_db)):
+                db=Depends(get_db),
+                campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    _check_step_campus(cur, step_id, campus_id)
     # Remove step instances first
     cur.execute("DELETE FROM workflow_step_instances WHERE step_id=%s", (step_id,))
     cur.execute("DELETE FROM workflow_steps WHERE id=%s", (step_id,))
@@ -278,8 +334,10 @@ def delete_step(step_id: int,
 @router.post("/steps/{step_id}/conditions")
 def add_condition(step_id: int, body: WorkflowConditionIn,
                   user_id: int = Depends(require_permission("users.manage_roles")),
-                  db=Depends(get_db)):
+                  db=Depends(get_db),
+                  campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    _check_step_campus(cur, step_id, campus_id)
     cur.execute("""
         INSERT INTO workflow_conditions (step_id, field, operator, value, effect)
         VALUES (%s,%s,%s,%s,%s) RETURNING id
@@ -292,8 +350,10 @@ def add_condition(step_id: int, body: WorkflowConditionIn,
 @router.delete("/conditions/{cond_id}")
 def delete_condition(cond_id: int,
                      user_id: int = Depends(require_permission("users.manage_roles")),
-                     db=Depends(get_db)):
+                     db=Depends(get_db),
+                     campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    _check_condition_campus(cur, cond_id, campus_id)
     cur.execute("DELETE FROM workflow_conditions WHERE id=%s", (cond_id,))
     db.commit()
     return ok(message="Condition deleted.")
@@ -304,10 +364,12 @@ def delete_condition(cond_id: int,
 @router.get("/assignments/list")
 def list_assignments(
     module: Optional[str] = Query(None),
-    user_id: int = Depends(get_current_user_id), db=Depends(get_db)
+    user_id: int = Depends(get_current_user_id), db=Depends(get_db),
+    campus_id: Optional[int] = Depends(catalog_campus_id("workflow_definitions")),
 ):
     cur = get_cur(db)
     conds, params = ["1=1"], []
+    if campus_id is not None: conds.append("(wd.campus_id = %s OR wd.campus_id IS NULL)"); params.append(campus_id)
     if module: conds.append("wa.module=%s"); params.append(module)
     cur.execute(f"""
         SELECT wa.*, wd.name AS workflow_name, wd.module AS workflow_module
@@ -327,8 +389,10 @@ def list_assignments(
 @router.post("/assignments")
 def create_assignment(body: WorkflowAssignmentIn,
                       user_id: int = Depends(require_permission("users.manage_roles")),
-                      db=Depends(get_db)):
+                      db=Depends(get_db),
+                      campus_id: Optional[int] = Depends(catalog_campus_id_for_write("workflow_definitions"))):
     cur = get_cur(db)
+    _check_workflow_campus(cur, body.workflow_id, campus_id)
     if body.is_default:
         cur.execute(
             "UPDATE workflow_assignments SET is_default=FALSE WHERE module=%s AND entity_type=%s",
@@ -346,8 +410,10 @@ def create_assignment(body: WorkflowAssignmentIn,
 @router.put("/assignments/{assign_id}")
 def update_assignment(assign_id: int, body: WorkflowAssignmentIn,
                       user_id: int = Depends(require_permission("users.manage_roles")),
-                      db=Depends(get_db)):
+                      db=Depends(get_db),
+                      campus_id: Optional[int] = Depends(catalog_campus_id_for_write("workflow_definitions"))):
     cur = get_cur(db)
+    _check_assignment_campus(cur, assign_id, campus_id)
     if body.is_default:
         cur.execute(
             "UPDATE workflow_assignments SET is_default=FALSE WHERE module=%s AND entity_type=%s AND id!=%s",
@@ -363,8 +429,10 @@ def update_assignment(assign_id: int, body: WorkflowAssignmentIn,
 @router.delete("/assignments/{assign_id}")
 def delete_assignment(assign_id: int,
                       user_id: int = Depends(require_permission("users.manage_roles")),
-                      db=Depends(get_db)):
+                      db=Depends(get_db),
+                      campus_id: Optional[int] = Depends(catalog_campus_id_for_write("workflow_definitions"))):
     cur = get_cur(db)
+    _check_assignment_campus(cur, assign_id, campus_id)
     cur.execute("DELETE FROM workflow_assignments WHERE id=%s", (assign_id,))
     db.commit()
     return ok(message="Assignment deleted.")
@@ -378,12 +446,38 @@ def list_instances(
     status: Optional[str] = Query(None),
     limit: int = Query(50, le=200),
     user_id: int = Depends(require_permission("users.manage_roles")),
-    db=Depends(get_db)
+    db=Depends(get_db),
+    campus_id: Optional[int] = Depends(get_current_campus_id)
 ):
+    # Workflow instances span many different entity types (discipline cases,
+    # withdrawal requests, vendor invoices, leave requests, etc.), each with
+    # its own path back to a campus. This resolves that per-row via a CASE
+    # over entity_type rather than one join, since no single join fits all
+    # of them. Types with no campus concept (e.g. payroll_run, which runs
+    # once for the whole organization) resolve to NULL and stay visible to
+    # every campus, same as an unrecognized/future entity_type would.
     cur = get_cur(db)
     conds, params = ["1=1"], []
     if module: conds.append("wi.module=%s"); params.append(module)
     if status: conds.append("wi.status=%s"); params.append(status)
+    resolved_campus_sql = """
+        CASE wi.entity_type
+            WHEN 'discipline_case' THEN (SELECT s.campus_id FROM discipline_cases dc JOIN students s ON s.id=dc.student_id WHERE dc.id=wi.entity_id)
+            WHEN 'discipline_appeal' THEN (SELECT s.campus_id FROM discipline_appeals da JOIN discipline_cases dc ON dc.id=da.case_id JOIN students s ON s.id=dc.student_id WHERE da.id=wi.entity_id)
+            WHEN 'vendor_invoice' THEN (SELECT u.campus_id FROM vendor_invoices vi JOIN users u ON u.id=vi.created_by WHERE vi.id=wi.entity_id)
+            WHEN 'attendance_correction' THEN (SELECT st.campus_id FROM staff_attendance_correction_requests sac JOIN staff st ON st.id=sac.staff_id WHERE sac.id=wi.entity_id)
+            WHEN 'resignation' THEN (SELECT st.campus_id FROM resignation_requests rr JOIN staff st ON st.id=rr.staff_id WHERE rr.id=wi.entity_id)
+            WHEN 'resignation_experience_letter' THEN (SELECT st.campus_id FROM resignation_experience_letters rel JOIN resignation_requests rr ON rr.id=rel.resignation_id JOIN staff st ON st.id=rr.staff_id WHERE rel.id=wi.entity_id)
+            WHEN 'staff_leave' THEN (SELECT u.campus_id FROM staff_leave_requests slr JOIN users u ON u.id=slr.user_id WHERE slr.id=wi.entity_id)
+            WHEN 'leave_application' THEN (SELECT s.campus_id FROM leave_requests lr JOIN students s ON s.id=lr.student_id WHERE lr.id=wi.entity_id)
+            WHEN 'purchase_requisition' THEN (SELECT u.campus_id FROM purchase_requisitions pr JOIN users u ON u.id=pr.requested_by WHERE pr.id=wi.entity_id)
+            WHEN 'withdrawal_request' THEN (SELECT s.campus_id FROM withdrawal_requests wr JOIN students s ON s.id=wr.student_id WHERE wr.id=wi.entity_id)
+            ELSE NULL
+        END
+    """
+    if campus_id is not None:
+        conds.append(f"(({resolved_campus_sql}) IS NULL OR ({resolved_campus_sql}) = %s)")
+        params.append(campus_id)
     params.append(limit)
     cur.execute(f"""
         SELECT wi.*, wd.name AS workflow_name,
@@ -447,8 +541,10 @@ class AssignmentConditionIn(BaseModel):
 @router.post("/assignments/{assign_id}/conditions")
 def add_assignment_condition(assign_id: int, body: AssignmentConditionIn,
                              user_id: int = Depends(require_permission("users.manage_roles")),
-                             db=Depends(get_db)):
+                             db=Depends(get_db),
+                             campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    _check_assignment_campus(cur, assign_id, campus_id)
     cur.execute(
         "INSERT INTO workflow_assignment_conditions (assignment_id, field, operator, value) VALUES (%s,%s,%s,%s) RETURNING id",
         (assign_id, body.field, body.operator, body.value)
@@ -460,8 +556,10 @@ def add_assignment_condition(assign_id: int, body: AssignmentConditionIn,
 @router.delete("/assignments/conditions/{cond_id}")
 def delete_assignment_condition(cond_id: int,
                                 user_id: int = Depends(require_permission("users.manage_roles")),
-                                db=Depends(get_db)):
+                                db=Depends(get_db),
+                                campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    _check_assignment_condition_campus(cur, cond_id, campus_id)
     cur.execute("DELETE FROM workflow_assignment_conditions WHERE id=%s", (cond_id,))
     db.commit()
     return ok(message="Condition removed.")

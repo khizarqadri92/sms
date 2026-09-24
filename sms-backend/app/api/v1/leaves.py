@@ -21,6 +21,7 @@ from pydantic import BaseModel
 from app.fastapi_auth import get_current_user_id, get_jwt_claims
 from app.fastapi_permissions import require_permission
 from app.fastapi_db import get_db, get_cur as _get_cur
+from app.fastapi_campus import get_current_campus_id
 
 router = APIRouter()
 
@@ -304,6 +305,7 @@ def get_leaves(
     student_id: Optional[int] = Query(None), status: Optional[str] = Query(None),
     from_date: Optional[str] = Query(None), to_date: Optional[str] = Query(None),
     user_id: int = Depends(get_current_user_id), claims: dict = Depends(get_jwt_claims), db=Depends(get_db),
+    campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
     roles = claims.get("roles", [])
     role = roles[0] if roles else claims.get("role", "")
@@ -326,7 +328,7 @@ def get_leaves(
 
     if "leave.view_class" in permissions and "leave.view_all" not in permissions:
         if role == "academic_coordinator":
-            cur.execute("SELECT * FROM sp_get_leave_requests(%s, %s, %s, %s, %s)", (user_id, None, status, from_date, to_date))
+            cur.execute("SELECT * FROM sp_get_leave_requests(%s, %s, %s, %s, %s, %s)", (user_id, None, status, from_date, to_date, campus_id))
             rows = [dict(r) for r in cur.fetchall()]
         else:
             cur.execute("SELECT * FROM sp_get_teacher_incharge_class_student_ids(%s)", (user_id,))
@@ -335,7 +337,7 @@ def get_leaves(
                 return ok(data=[])
             rows = []
             for sid in class_students:
-                cur.execute("SELECT * FROM sp_get_leave_requests(%s, %s, %s, %s, %s)", (user_id, sid, status, from_date, to_date))
+                cur.execute("SELECT * FROM sp_get_leave_requests(%s, %s, %s, %s, %s, %s)", (user_id, sid, status, from_date, to_date, campus_id))
                 rows.extend([dict(r) for r in cur.fetchall()])
         for row in rows:
             cur.execute("SELECT sp_get_leave_type_id_for_request(%s) AS lt_id", (row["id"],))
@@ -352,7 +354,7 @@ def get_leaves(
                 row["recommender_role"] = ""
         return ok(data=rows)
 
-    cur.execute("SELECT * FROM sp_get_leave_requests(%s, %s, %s, %s, %s)", (user_id, student_id, status, from_date, to_date))
+    cur.execute("SELECT * FROM sp_get_leave_requests(%s, %s, %s, %s, %s, %s)", (user_id, student_id, status, from_date, to_date, campus_id))
     rows = [dict(r) for r in cur.fetchall()]
     for row in rows:
         cur.execute("SELECT sp_get_leave_type_id_for_request(%s) AS lt_id", (row["id"],))

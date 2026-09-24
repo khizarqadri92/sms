@@ -8,6 +8,7 @@ from app.fastapi_db import get_db, get_cur as _get_cur
 from app.fastapi_permissions import require_permission
 from app.utils.processing_date import get_processing_date, get_processing_datetime
 from app.api.v1.request_permissions import get_user_request_scope, user_has_permission
+from app.fastapi_campus import get_current_campus_id, enforce_same_campus
 
 router = APIRouter()
 
@@ -90,7 +91,8 @@ class ResignationSubmitIn(BaseModel):
 @router.get("/notice-period-days")
 def get_notice_period_days(user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
     cur = get_cur(db)
-    cur.execute("SELECT notice_period_duration_days FROM hr_policy_settings LIMIT 1")
+    staff_id_ctx = _get_staff_id_for_user(db, user_id)
+    cur.execute("SELECT notice_period_duration_days FROM hr_policy_settings WHERE campus_id = (SELECT campus_id FROM staff WHERE id = %s) OR campus_id IS NULL ORDER BY campus_id NULLS LAST LIMIT 1", (staff_id_ctx,))
     row = cur.fetchone()
     notice_days = row["notice_period_duration_days"] if row else 30
     preview_date = (get_processing_date(db) + timedelta(days=notice_days)).isoformat()
@@ -103,7 +105,7 @@ def submit_resignation(body: ResignationSubmitIn, user_id: int = Depends(get_cur
     if not staff_id:
         fail("No staff record linked to your account.", 400)
     cur = get_cur(db)
-    cur.execute("SELECT notice_period_duration_days FROM hr_policy_settings LIMIT 1")
+    cur.execute("SELECT notice_period_duration_days FROM hr_policy_settings WHERE campus_id = (SELECT campus_id FROM staff WHERE id = %s) OR campus_id IS NULL ORDER BY campus_id NULLS LAST LIMIT 1", (staff_id,))
     policy = cur.fetchone()
     notice_days = policy["notice_period_duration_days"] if policy else 30
     processing_today = get_processing_date(db)
@@ -152,7 +154,7 @@ def withdraw_resignation(resignation_id: int, user_id: int = Depends(get_current
     if req["status"] in ("completed", "rejected", "withdrawn", "settled"):
         fail("This resignation can no longer be withdrawn.", 400)
 
-    cur.execute("SELECT resignation_withdrawal_allowed, resignation_withdrawal_max_step FROM hr_policy_settings LIMIT 1")
+    cur.execute("SELECT resignation_withdrawal_allowed, resignation_withdrawal_max_step FROM hr_policy_settings WHERE campus_id = (SELECT campus_id FROM staff WHERE id = %s) OR campus_id IS NULL ORDER BY campus_id NULLS LAST LIMIT 1", (staff_id,))
     policy = cur.fetchone()
     if not policy or not policy["resignation_withdrawal_allowed"]:
         fail("Withdrawal of resignation is not permitted by school policy.", 400)
@@ -307,23 +309,23 @@ def advance_experience_letter(resignation_id: int, body: ExperienceLetterAdvance
 
     return ok(message="Experience letter reviewed.")
 @router.get("/list")
-def list_resignations(user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+def list_resignations(user_id: int = Depends(get_current_user_id), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     if user_has_permission(db, user_id, "hr.view"):
-        cur.execute("SELECT * FROM sp_list_resignation_requests()")
+        cur.execute("SELECT * FROM sp_list_resignation_requests(%s, %s)", (None, campus_id))
     else:
         scope, dept_ids = get_user_request_scope(db, user_id, "resignation")
         if scope == "all":
-            cur.execute("SELECT * FROM sp_list_resignation_requests()")
+            cur.execute("SELECT * FROM sp_list_resignation_requests(%s, %s)", (None, campus_id))
         elif scope == "departments" and dept_ids:
-            cur.execute("SELECT * FROM sp_list_resignation_requests(%s)", (dept_ids,))
+            cur.execute("SELECT * FROM sp_list_resignation_requests(%s, %s)", (dept_ids, campus_id))
         else:
             fail("You don't have permission to view resignation requests.", 403)
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.get("/{resignation_id}")
-def get_resignation(resignation_id: int, user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+def get_resignation(resignation_id: int, user_id: int = Depends(get_current_user_id), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_resignation_request(%s)", (resignation_id,))
     row = cur.fetchone()
@@ -333,6 +335,10 @@ def get_resignation(resignation_id: int, user_id: int = Depends(get_current_user
 
     staff_id = _get_staff_id_for_user(db, user_id)
     is_owner = staff_id == detail["staff_id"]
+    if not is_owner:
+        cur.execute("SELECT campus_id FROM staff WHERE id=%s", (detail["staff_id"],))
+        _srow = cur.fetchone()
+        enforce_same_campus(_srow["campus_id"] if _srow else None, campus_id)
     if not is_owner and not user_has_permission(db, user_id, "hr.view"):
         scope, dept_ids = get_user_request_scope(db, user_id, "resignation")
         if scope == "all":

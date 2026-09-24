@@ -427,7 +427,7 @@ export default function HRStaff() {
                       <div style={{background:"#f8fafc",borderRadius:8,border:"1px solid #e2e8f0",padding:16,marginBottom:14}}>
                         <div style={{fontWeight:700,fontSize:12,marginBottom:10}}>EDIT STAFF INFO</div>
                         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
-                          {[["First Name","first_name"],["Last Name","last_name"],["CNIC","cnic"],["Phone","phone"],["Employee Code","employee_code"],["Joining Date","joining_date","date"]].map(([lbl,key,type])=>(
+                          {[["First Name","first_name"],["Last Name","last_name"],["CNIC","cnic"],["Phone","phone"],["Employee Code","employee_code"]].map(([lbl,key,type])=>(
                             <div key={key}>
                               <div style={{fontSize:11,fontWeight:600,marginBottom:3}}>{lbl}</div>
                               <input type={type||"text"} className="form-input" style={{width:"100%",fontSize:12}} value={infoForm[key]||""}
@@ -444,6 +444,10 @@ export default function HRStaff() {
                           <div>
                             <div style={{fontSize:11,fontWeight:600,marginBottom:3}}>Date of Birth</div>
                             <DatePicker style={{width:"100%",fontSize:12}} value={infoForm.date_of_birth||""} onChange={val=>setInfoForm(p=>({...p,date_of_birth:val}))}/>
+                          </div>
+                          <div>
+                            <div style={{fontSize:11,fontWeight:600,marginBottom:3}}>Joining Date</div>
+                            <DatePicker style={{width:"100%",fontSize:12}} value={infoForm.joining_date||""} onChange={val=>setInfoForm(p=>({...p,joining_date:val}))}/>
                           </div>
                           <div>
                             <div style={{fontSize:11,fontWeight:600,marginBottom:3}}>Employment Type</div>
@@ -645,12 +649,20 @@ export default function HRStaff() {
                     <div style={{background:"#f8fafc",borderRadius:8,border:"1px solid #e2e8f0",padding:14,marginBottom:14}}>
                       <div style={{fontWeight:700,fontSize:12,marginBottom:10,color:"#334155"}}>{editExpId?"EDIT EXPERIENCE":"ADD EXPERIENCE"}</div>
                       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
-                        {[["Company *","company"],["Designation *","designation"],["From Date","from_date","date"],["To Date","to_date","date"]].map(([lbl,key,type])=>(
+                        {[["Company *","company"],["Designation *","designation"]].map(([lbl,key,type])=>(
                           <div key={key}>
                             <div style={{fontSize:11,fontWeight:600,marginBottom:3}}>{lbl}</div>
                             <input type={type||"text"} className="form-input" style={{width:"100%",fontSize:12}} value={expForm[key]||""} onChange={e=>setExpForm(p=>({...p,[key]:e.target.value}))}/>
                           </div>
                         ))}
+                        <div>
+                          <div style={{fontSize:11,fontWeight:600,marginBottom:3}}>From Date</div>
+                          <DatePicker style={{width:"100%",fontSize:12}} value={expForm.from_date||""} onChange={val=>setExpForm(p=>({...p,from_date:val}))}/>
+                        </div>
+                        <div>
+                          <div style={{fontSize:11,fontWeight:600,marginBottom:3}}>To Date</div>
+                          <DatePicker style={{width:"100%",fontSize:12}} value={expForm.to_date||""} onChange={val=>setExpForm(p=>({...p,to_date:val}))}/>
+                        </div>
                         <div style={{gridColumn:"1/-1"}}>
                           <div style={{fontSize:11,fontWeight:600,marginBottom:3}}>Description</div>
                           <textarea className="form-input" rows={2} style={{width:"100%",fontSize:12}} value={expForm.description||""} onChange={e=>setExpForm(p=>({...p,description:e.target.value}))}/>

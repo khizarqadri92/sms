@@ -9,12 +9,56 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.fastapi_auth import get_current_user_id
+from app.fastapi_campus import get_settings_campus_id
+from app.fastapi_campus import get_current_campus_id
+from app.fastapi_campus import enforce_same_campus
+from app.fastapi_campus import catalog_campus_id, catalog_campus_id_for_write
+
+def _check_adjustment_campus(cur, adj_id, campus_id):
+    cur.execute("SELECT s.campus_id FROM payroll_adjustments pa JOIN staff s ON s.id = pa.staff_id WHERE pa.id=%s", (adj_id,))
+    row = cur.fetchone()
+    enforce_same_campus(row["campus_id"] if row else None, campus_id)
+
+def _check_grade_campus(cur, grade_id, campus_id):
+    cur.execute("SELECT campus_id FROM payroll_grades WHERE id=%s", (grade_id,))
+    row = cur.fetchone()
+    enforce_same_campus(row["campus_id"] if row else None, campus_id)
+
+def _check_run_campus(cur, run_id, campus_id):
+    cur.execute("SELECT campus_id FROM payroll_runs WHERE id=%s", (run_id,))
+    row = cur.fetchone()
+    enforce_same_campus(row["campus_id"] if row else None, campus_id)
+
+def _check_staff_campus(cur, staff_id, campus_id):
+    cur.execute("SELECT campus_id FROM staff WHERE id=%s", (staff_id,))
+    row = cur.fetchone()
+    enforce_same_campus(row["campus_id"] if row else None, campus_id)
 from app.fastapi_db import get_db, get_cur as _get_cur
 from app.utils.processing_date import get_processing_datetime
 from app.utils.processing_date import get_processing_date, get_processing_datetime
 from psycopg2.extras import Json
 
 router = APIRouter()
+
+
+def _get_payroll_settings_row(db, staff_id=None, campus_id=None):
+    """
+    Returns the effective payroll_settings row: that staff member's own
+    campus override if one exists, otherwise the shared global default.
+    Pass staff_id when calculating for a specific employee (the common
+    case throughout this file); pass campus_id directly for the settings
+    screen itself, where the caller's own campus context already applies.
+    """
+    cur = _get_cur(db)
+    if campus_id is None and staff_id is not None:
+        cur.execute("SELECT campus_id FROM staff WHERE id=%s", (staff_id,))
+        srow = cur.fetchone()
+        campus_id = srow["campus_id"] if srow else None
+    cur.execute(
+        "SELECT * FROM payroll_settings WHERE campus_id = %s OR campus_id IS NULL ORDER BY campus_id NULLS LAST LIMIT 1",
+        (campus_id,)
+    )
+    return cur.fetchone()
 
 
 def get_cur(db):
@@ -67,14 +111,14 @@ def _validate_component_fields(body):
 
 @router.get("/components")
 def list_components(component_type: Optional[str] = None,
-        user_id: int = Depends(require_permission("payroll.view")), db=Depends(get_db)):
+        user_id: int = Depends(require_permission("payroll.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("payroll_components"))):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_list_payroll_components(%s)", (component_type,))
+    cur.execute("SELECT * FROM sp_list_payroll_components(%s, %s)", (component_type, campus_id))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.post("/components")
-def create_component(body: PayrollComponentIn, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db)):
+def create_component(body: PayrollComponentIn, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("payroll_components"))):
     _validate_component_fields(body)
     cur = get_cur(db)
     is_income_tax = body.calculation_type == "tax_slab"
@@ -82,8 +126,8 @@ def create_component(body: PayrollComponentIn, user_id: int = Depends(require_pe
         cur.execute("UPDATE payroll_components SET is_basic=false WHERE is_basic=true")
     if is_income_tax:
         cur.execute("UPDATE payroll_components SET is_income_tax=false, calculation_type='fixed' WHERE is_income_tax=true")
-    cur.execute("SELECT * FROM sp_create_payroll_component(%s,%s,%s,%s,%s,%s)",
-        (body.name, body.component_type, body.calculation_type, body.is_permanent, body.is_taxable, body.is_statutory))
+    cur.execute("SELECT * FROM sp_create_payroll_component(%s,%s,%s,%s,%s,%s,%s)",
+        (body.name, body.component_type, body.calculation_type, body.is_permanent, body.is_taxable, body.is_statutory, campus_id))
     new_id = cur.fetchone()["id"]
     if body.is_basic:
         cur.execute("UPDATE payroll_components SET is_basic=true WHERE id=%s", (new_id,))
@@ -97,9 +141,12 @@ class PayrollComponentUpdateIn(PayrollComponentIn):
 
 
 @router.put("/components/{comp_id}")
-def update_component(comp_id: int, body: PayrollComponentUpdateIn, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db)):
+def update_component(comp_id: int, body: PayrollComponentUpdateIn, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("payroll_components"))):
     _validate_component_fields(body)
     cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM payroll_components WHERE id=%s", (comp_id,))
+    _row = cur.fetchone()
+    enforce_same_campus(_row["campus_id"] if _row else None, campus_id)
     is_income_tax = body.calculation_type == "tax_slab"
     if body.is_basic:
         cur.execute("UPDATE payroll_components SET is_basic=false WHERE is_basic=true AND id!=%s", (comp_id,))
@@ -116,8 +163,11 @@ def update_component(comp_id: int, body: PayrollComponentUpdateIn, user_id: int 
 
 
 @router.delete("/components/{comp_id}")
-def deactivate_component(comp_id: int, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db)):
+def deactivate_component(comp_id: int, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("payroll_components"))):
     cur = get_cur(db)
+    cur.execute("SELECT campus_id FROM payroll_components WHERE id=%s", (comp_id,))
+    _row = cur.fetchone()
+    enforce_same_campus(_row["campus_id"] if _row else None, campus_id)
     cur.execute("SELECT sp_deactivate_payroll_component(%s)", (comp_id,))
     db.commit()
     return ok(message="Component deactivated.")
@@ -125,10 +175,9 @@ def deactivate_component(comp_id: int, user_id: int = Depends(require_permission
 
 # --- PAYROLL SETTINGS (global) ---
 @router.get("/settings")
-def get_payroll_settings(user_id: int = Depends(require_permission("payroll.view")), db=Depends(get_db)):
-    cur = get_cur(db)
-    cur.execute("SELECT * FROM payroll_settings WHERE id=1")
-    return ok(data=dict(cur.fetchone()))
+def get_payroll_settings(user_id: int = Depends(require_permission("payroll.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_settings_campus_id)):
+    row = _get_payroll_settings_row(db, campus_id=campus_id)
+    return ok(data=dict(row))
 
 
 class PayrollSettingsIn(BaseModel):
@@ -141,7 +190,7 @@ class PayrollSettingsIn(BaseModel):
 
 
 @router.put("/settings")
-def update_payroll_settings(body: PayrollSettingsIn, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db)):
+def update_payroll_settings(body: PayrollSettingsIn, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_settings_campus_id)):
     if body.basic_salary_mode not in ("grade_fixed", "individual"):
         fail("Invalid basic salary mode.", 400)
     if body.pf_employer_contribution_mode not in ("same_as_employee", "percentage", "fixed"):
@@ -151,9 +200,9 @@ def update_payroll_settings(body: PayrollSettingsIn, user_id: int = Depends(requ
     if body.fixed_days_value < 1 or body.fixed_days_value > 31:
         fail("Fixed days value must be between 1 and 31.", 400)
     cur = get_cur(db)
-    cur.execute("SELECT sp_update_payroll_settings(%s,%s,%s,%s,%s,%s)",
+    cur.execute("SELECT sp_update_payroll_settings(%s,%s,%s,%s,%s,%s,%s)",
         (body.basic_salary_mode, body.days_in_month_mode, body.fixed_days_value,
-         body.pf_employer_contribution_mode, body.pf_employer_percentage, body.pf_employer_fixed_amount))
+         body.pf_employer_contribution_mode, body.pf_employer_percentage, body.pf_employer_fixed_amount, campus_id))
     db.commit()
     return ok(message="Payroll settings updated.")
 
@@ -165,16 +214,16 @@ class GradeIn(BaseModel):
 
 
 @router.get("/grades")
-def list_grades(user_id: int = Depends(require_permission("payroll.view")), db=Depends(get_db)):
+def list_grades(user_id: int = Depends(require_permission("payroll.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("payroll_grades"))):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_list_grades()")
+    cur.execute("SELECT * FROM sp_list_grades(%s)", (campus_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.post("/grades")
-def create_grade(body: GradeIn, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db)):
+def create_grade(body: GradeIn, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("payroll_grades"))):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_create_grade(%s,%s)", (body.name, body.description))
+    cur.execute("SELECT * FROM sp_create_grade(%s,%s,%s)", (body.name, body.description, campus_id))
     new_id = cur.fetchone()["id"]
     db.commit()
     return ok(data={"id": new_id}, message="Grade created.")
@@ -185,8 +234,9 @@ class GradeUpdateIn(GradeIn):
 
 
 @router.put("/grades/{grade_id}")
-def update_grade(grade_id: int, body: GradeUpdateIn, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db)):
+def update_grade(grade_id: int, body: GradeUpdateIn, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("payroll_grades"))):
     cur = get_cur(db)
+    _check_grade_campus(cur, grade_id, campus_id)
     cur.execute("SELECT sp_update_grade(%s,%s,%s,%s)", (grade_id, body.name, body.description, body.is_active))
     db.commit()
     return ok(message="Grade updated.")
@@ -194,8 +244,9 @@ def update_grade(grade_id: int, body: GradeUpdateIn, user_id: int = Depends(requ
 
 # --- GRADE <-> COMPONENTS (attach components with values) ---
 @router.get("/grades/{grade_id}/components")
-def get_grade_components(grade_id: int, user_id: int = Depends(require_permission("payroll.view")), db=Depends(get_db)):
+def get_grade_components(grade_id: int, user_id: int = Depends(require_permission("payroll.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("payroll_grades"))):
     cur = get_cur(db)
+    _check_grade_campus(cur, grade_id, campus_id)
     cur.execute("SELECT * FROM sp_get_grade_components(%s)", (grade_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
@@ -206,13 +257,13 @@ class GradeComponentIn(BaseModel):
 
 
 @router.post("/grades/{grade_id}/components")
-def upsert_grade_component(grade_id: int, body: GradeComponentIn, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db)):
+def upsert_grade_component(grade_id: int, body: GradeComponentIn, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_settings_campus_id), raw_campus_id: Optional[int] = Depends(catalog_campus_id_for_write("payroll_grades"))):
     cur = get_cur(db)
+    _check_grade_campus(cur, grade_id, raw_campus_id)
     cur.execute("SELECT is_basic FROM payroll_components WHERE id=%s", (body.component_id,))
     comp = cur.fetchone()
     if comp and comp["is_basic"]:
-        cur.execute("SELECT basic_salary_mode FROM payroll_settings WHERE id=1")
-        mode = cur.fetchone()["basic_salary_mode"]
+        mode = _get_payroll_settings_row(db, campus_id=campus_id)["basic_salary_mode"]
         if mode == "individual":
             fail("Basic Salary is set per-employee under the current payroll settings, not per-grade.", 400)
     cur.execute("SELECT sp_upsert_grade_component(%s,%s,%s)", (grade_id, body.component_id, body.value))
@@ -221,8 +272,9 @@ def upsert_grade_component(grade_id: int, body: GradeComponentIn, user_id: int =
 
 
 @router.delete("/grades/{grade_id}/components/{component_id}")
-def remove_grade_component(grade_id: int, component_id: int, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db)):
+def remove_grade_component(grade_id: int, component_id: int, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("payroll_grades"))):
     cur = get_cur(db)
+    _check_grade_campus(cur, grade_id, campus_id)
     cur.execute("SELECT sp_remove_grade_component(%s,%s)", (grade_id, component_id))
     db.commit()
     return ok(message="Component removed from grade.")
@@ -249,15 +301,17 @@ class StaffBankInfoIn(BaseModel):
 
 
 @router.get("/staff/{staff_id}/profile")
-def get_staff_payroll_profile(staff_id: int, user_id: int = Depends(require_permission("payroll.view")), db=Depends(get_db)):
+def get_staff_payroll_profile(staff_id: int, user_id: int = Depends(require_permission("payroll.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    _check_staff_campus(cur, staff_id, campus_id)
     cur.execute("SELECT * FROM sp_get_staff_payroll_profile(%s)", (staff_id,))
     return ok(data=dict(cur.fetchone()))
 
 
 @router.put("/staff/{staff_id}/profile")
 def update_staff_payroll_profile(staff_id: int, body: StaffPayrollProfileIn,
-        user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db)):
+        user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+    _check_staff_campus(get_cur(db), staff_id, campus_id)
     if body.salary_type not in ("lump_sum", "structured", "hourly", "daily_wage"):
         fail("Invalid salary type.", 400)
     if body.salary_type == "lump_sum" and body.lump_sum_amount is None:
@@ -272,8 +326,7 @@ def update_staff_payroll_profile(staff_id: int, body: StaffPayrollProfileIn,
         fail("Invalid salary transfer mode.", 400)
     cur = get_cur(db)
     if body.salary_type == "structured":
-        cur.execute("SELECT basic_salary_mode FROM payroll_settings WHERE id=1")
-        mode = cur.fetchone()["basic_salary_mode"]
+        mode = _get_payroll_settings_row(db, staff_id=staff_id)["basic_salary_mode"]
         if mode == "individual" and body.basic_salary is None:
             fail("Basic Salary is required for this employee under the current payroll settings.", 400)
     cur.execute("SELECT sp_upsert_staff_payroll_profile(%s,%s,%s,%s,%s,%s,%s,%s)",
@@ -284,16 +337,18 @@ def update_staff_payroll_profile(staff_id: int, body: StaffPayrollProfileIn,
 
 
 @router.get("/staff/{staff_id}/bank-info")
-def get_staff_bank_info(staff_id: int, user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db)):
+def get_staff_bank_info(staff_id: int, user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    _check_staff_campus(cur, staff_id, campus_id)
     cur.execute("SELECT * FROM sp_get_staff_bank_info(%s)", (staff_id,))
     return ok(data=dict(cur.fetchone()))
 
 
 @router.put("/staff/{staff_id}/bank-info")
 def update_staff_bank_info(staff_id: int, body: StaffBankInfoIn,
-        user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db)):
+        user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    _check_staff_campus(cur, staff_id, campus_id)
     cur.execute("SELECT sp_upsert_staff_bank_info(%s,%s,%s,%s,%s,%s,%s)",
         (staff_id, body.bank_name, body.account_title, body.account_number,
          body.iban, body.branch_name, body.branch_code))
@@ -302,10 +357,8 @@ def update_staff_bank_info(staff_id: int, body: StaffBankInfoIn,
 
 
 # --- PAYROLL ADJUSTMENTS (one-time, month-specific entries for variable components) ---
-def _get_days_in_month(db, month=None, year=None):
-    cur = get_cur(db)
-    cur.execute("SELECT days_in_month_mode, fixed_days_value FROM payroll_settings WHERE id=1")
-    drow = cur.fetchone()
+def _get_days_in_month(db, month=None, year=None, staff_id=None):
+    drow = _get_payroll_settings_row(db, staff_id=staff_id)
     if drow["days_in_month_mode"] == "actual" and month and year:
         import calendar
         return calendar.monthrange(year, month)[1]
@@ -326,14 +379,13 @@ def _resolve_basis_salary(db, staff_id, month=None, year=None):
     if st == "daily_wage":
         if profile["daily_wage_amount"] is None:
             return None
-        return float(profile["daily_wage_amount"]) * _get_days_in_month(db, month, year)
+        return float(profile["daily_wage_amount"]) * _get_days_in_month(db, month, year, staff_id)
     if st == "hourly":
         if profile["hourly_rate"] is None:
             return None
-        return float(profile["hourly_rate"]) * _get_days_in_month(db, month, year)
+        return float(profile["hourly_rate"]) * _get_days_in_month(db, month, year, staff_id)
     if st == "structured":
-        cur.execute("SELECT basic_salary_mode FROM payroll_settings WHERE id=1")
-        mode = cur.fetchone()["basic_salary_mode"]
+        mode = _get_payroll_settings_row(db, staff_id=staff_id)["basic_salary_mode"]
         if mode == "individual":
             return float(profile["basic_salary"]) if profile["basic_salary"] is not None else None
         if not profile["grade_id"]:
@@ -359,7 +411,7 @@ def _resolve_amount(db, staff_id, amount_type, raw_value, month=None, year=None)
     if amount_type == "percent_of_basic":
         return round(basis * raw_value / 100.0, 2), None
     if amount_type == "days":
-        days_in_month = _get_days_in_month(db, month, year)
+        days_in_month = _get_days_in_month(db, month, year, staff_id)
         return round((basis / days_in_month) * raw_value, 2), None
     return None, "Invalid amount type."
 
@@ -376,13 +428,12 @@ class PayrollAdjustmentIn(BaseModel):
 
 @router.get("/adjustments")
 def list_adjustments(staff_id: Optional[int] = None, month: Optional[int] = None, year: Optional[int] = None,
-        user_id: int = Depends(require_permission("payroll.view")), db=Depends(get_db)):
+        user_id: int = Depends(require_permission("payroll.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_list_payroll_adjustments(%s,%s,%s)", (staff_id, month, year))
+    cur.execute("SELECT * FROM sp_list_payroll_adjustments(%s,%s,%s,%s)", (staff_id, month, year, campus_id))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
-@router.post("/adjustments")
 def _check_period_not_locked(db, month, year):
     cur = get_cur(db)
     cur.execute("SELECT status FROM payroll_runs WHERE month=%s AND year=%s", (month, year))
@@ -391,11 +442,13 @@ def _check_period_not_locked(db, month, year):
         fail("Adjustments for this period are locked - it has already been submitted to Finance.", 400)
 
 
-def create_adjustment(body: PayrollAdjustmentIn, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db)):
+@router.post("/adjustments")
+def create_adjustment(body: PayrollAdjustmentIn, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     if body.month < 1 or body.month > 12:
         fail("Invalid month.", 400)
     _check_period_not_locked(db, body.month, body.year)
     cur = get_cur(db)
+    _check_staff_campus(cur, body.staff_id, campus_id)
     cur.execute("SELECT is_permanent FROM payroll_components WHERE id=%s", (body.component_id,))
     comp = cur.fetchone()
     if not comp:
@@ -415,22 +468,23 @@ def create_adjustment(body: PayrollAdjustmentIn, user_id: int = Depends(require_
 
 
 @router.delete("/adjustments/{adj_id}")
-def delete_adjustment(adj_id: int, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db)):
+def delete_adjustment(adj_id: int, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    _check_adjustment_campus(cur, adj_id, campus_id)
     cur.execute("SELECT sp_delete_payroll_adjustment(%s)", (adj_id,))
     db.commit()
     return ok(message="Adjustment removed.")
 
 
 @router.get("/staff-list")
-def payroll_staff_list(user_id: int = Depends(require_permission("payroll.view")), db=Depends(get_db)):
+def payroll_staff_list(user_id: int = Depends(require_permission("payroll.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Lightweight staff list for payroll dropdowns - gated by payroll.view instead
     of hr.view, so finance_officer (and anyone else with payroll access but not
     full HR access) can still use Payroll Adjustments, Salary tab, etc."""
     cur = get_cur(db)
     cur.execute("""SELECT s.id, s.first_name, s.last_name, s.department_id, d.name AS department_name
         FROM staff s LEFT JOIN departments d ON d.id = s.department_id
-        WHERE s.status = \'active\' ORDER BY s.first_name""")
+        WHERE s.status = \'active\' AND (%s IS NULL OR s.campus_id = %s) ORDER BY s.first_name""", (campus_id, campus_id))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
@@ -488,28 +542,29 @@ def create_bulk_adjustments(body: BulkAdjustmentIn, user_id: int = Depends(requi
 
 
 @router.get("/departments-list")
-def payroll_departments_list(user_id: int = Depends(require_permission("payroll.view")), db=Depends(get_db)):
+def payroll_departments_list(user_id: int = Depends(require_permission("payroll.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Lightweight full department list for payroll dropdowns - gated by payroll.view,
     and includes every department (not just ones with active staff)."""
     cur = get_cur(db)
-    cur.execute("SELECT id, name FROM departments ORDER BY name")
+    cur.execute("SELECT id, name FROM departments WHERE (%s IS NULL OR campus_id IS NULL OR campus_id = %s) ORDER BY name", (campus_id, campus_id))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.get("/designations-list")
-def payroll_designations_list(user_id: int = Depends(require_permission("payroll.view")), db=Depends(get_db)):
+def payroll_designations_list(user_id: int = Depends(require_permission("payroll.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("""SELECT d.id, d.name, d.department_id, dept.name AS department_name
         FROM designations d LEFT JOIN departments dept ON dept.id = d.department_id
-        WHERE d.is_active = true ORDER BY dept.name, d.name""")
+        WHERE d.is_active = true AND (%s IS NULL OR d.campus_id IS NULL OR d.campus_id = %s)
+        ORDER BY dept.name, d.name""", (campus_id, campus_id))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 # --- DESIGNATION <-> GRADE MAPPING ---
 @router.get("/designation-grades")
-def list_designation_grades(user_id: int = Depends(require_permission("payroll.view")), db=Depends(get_db)):
+def list_designation_grades(user_id: int = Depends(require_permission("payroll.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_list_designation_grades()")
+    cur.execute("SELECT * FROM sp_list_designation_grades(%s)", (campus_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
@@ -519,16 +574,20 @@ class DesignationGradeIn(BaseModel):
 
 
 @router.post("/designation-grades")
-def upsert_designation_grade(body: DesignationGradeIn, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db)):
+def upsert_designation_grade(body: DesignationGradeIn, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    _check_grade_campus(cur, body.grade_id, campus_id)
     cur.execute("SELECT sp_upsert_designation_grade(%s,%s)", (body.designation_id, body.grade_id))
     db.commit()
     return ok(message="Designation-Grade mapping saved.")
 
 
 @router.delete("/designation-grades/{designation_id}")
-def remove_designation_grade(designation_id: int, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db)):
+def remove_designation_grade(designation_id: int, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    cur.execute("SELECT g.campus_id FROM staff_designation_grades sdg JOIN payroll_grades g ON g.id = sdg.grade_id WHERE sdg.designation_id=%s", (designation_id,))
+    _row = cur.fetchone()
+    if _row: enforce_same_campus(_row["campus_id"], campus_id)
     cur.execute("SELECT sp_remove_designation_grade(%s)", (designation_id,))
     db.commit()
     return ok(message="Mapping removed.")
@@ -537,8 +596,9 @@ def remove_designation_grade(designation_id: int, user_id: int = Depends(require
 # --- GRADE <-> DEPARTMENT-SPECIFIC COMPONENT OVERRIDES ---
 @router.get("/grades/{grade_id}/department-components/{department_id}")
 def get_grade_department_components(grade_id: int, department_id: int,
-        user_id: int = Depends(require_permission("payroll.view")), db=Depends(get_db)):
+        user_id: int = Depends(require_permission("payroll.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("payroll_grades"))):
     cur = get_cur(db)
+    _check_grade_campus(cur, grade_id, campus_id)
     cur.execute("SELECT * FROM sp_get_grade_department_components(%s,%s)", (grade_id, department_id))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
@@ -550,8 +610,9 @@ class GradeDepartmentComponentIn(BaseModel):
 
 @router.post("/grades/{grade_id}/department-components/{department_id}")
 def upsert_grade_department_component(grade_id: int, department_id: int, body: GradeDepartmentComponentIn,
-        user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db)):
+        user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("payroll_grades"))):
     cur = get_cur(db)
+    _check_grade_campus(cur, grade_id, campus_id)
     cur.execute("SELECT sp_upsert_grade_department_component(%s,%s,%s,%s)", (grade_id, department_id, body.component_id, body.value))
     db.commit()
     return ok(message="Department-specific override saved.")
@@ -559,8 +620,9 @@ def upsert_grade_department_component(grade_id: int, department_id: int, body: G
 
 @router.delete("/grades/{grade_id}/department-components/{department_id}/{component_id}")
 def remove_grade_department_component(grade_id: int, department_id: int, component_id: int,
-        user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db)):
+        user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("payroll_grades"))):
     cur = get_cur(db)
+    _check_grade_campus(cur, grade_id, campus_id)
     cur.execute("SELECT sp_remove_grade_department_component(%s,%s,%s)", (grade_id, department_id, component_id))
     db.commit()
     return ok(message="Override removed.")
@@ -713,7 +775,7 @@ def _calculate_payslip_for_staff(db, staff_id, month, year, from_date, to_date):
     if not profile or not profile["salary_type"]:
         return None
 
-    days_in_month = _get_days_in_month(db, month, year)
+    days_in_month = _get_days_in_month(db, month, year, staff_id)
     present, absent, half_day, on_leave, hours_worked = _get_month_attendance_stats(db, staff_id, from_date, to_date)
 
     earnings = []
@@ -736,8 +798,7 @@ def _calculate_payslip_for_staff(db, staff_id, month, year, from_date, to_date):
         earnings.append({"name": "Daily Wage (" + str(effective_days) + " day(s))", "amount": amount})
 
     elif salary_type == "structured":
-        cur.execute("SELECT basic_salary_mode FROM payroll_settings WHERE id=1")
-        mode = cur.fetchone()["basic_salary_mode"]
+        mode = _get_payroll_settings_row(db, staff_id=staff_id)["basic_salary_mode"]
         basic_amount = 0.0
         if mode == "individual":
             basic_amount = float(profile["basic_salary"] or 0)
@@ -821,9 +882,9 @@ class PayrollRunIn(BaseModel):
 
 
 @router.get("/runs")
-def list_payroll_runs(user_id: int = Depends(require_permission("payroll.view")), db=Depends(get_db)):
+def list_payroll_runs(user_id: int = Depends(require_permission("payroll.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_list_payroll_runs()")
+    cur.execute("SELECT * FROM sp_list_payroll_runs(%s)", (campus_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
@@ -893,12 +954,14 @@ def _advance_payroll_workflow(db, run_id, user_id, fallback_status=None, note=""
 
 
 @router.post("/runs")
-def create_payroll_run(body: PayrollRunIn, user_id: int = Depends(require_permission("payroll.create_run")), db=Depends(get_db)):
+def create_payroll_run(body: PayrollRunIn, user_id: int = Depends(require_permission("payroll.create_run")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     if body.month < 1 or body.month > 12:
         fail("Invalid month.", 400)
+    if campus_id is None:
+        fail("Select a specific campus before creating a payroll run.", 400)
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_create_payroll_run(%s,%s,%s,%s,%s)",
-        (body.month, body.year, user_id, body.from_date or None, body.to_date or None))
+    cur.execute("SELECT * FROM sp_create_payroll_run(%s,%s,%s,%s,%s,%s)",
+        (body.month, body.year, user_id, body.from_date or None, body.to_date or None, campus_id))
     row = cur.fetchone()
     if row["error_msg"]:
         fail(row["error_msg"], 400)
@@ -916,10 +979,11 @@ def create_payroll_run(body: PayrollRunIn, user_id: int = Depends(require_permis
 
 
 @router.post("/runs/{run_id}/hr-submit")
-def hr_submit_payroll_run(run_id: int, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db)):
+def hr_submit_payroll_run(run_id: int, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     """HR marks their configuration (incentives/arrears/adjustments) as done and
     hands the run off to Finance. Adjustments for this period become locked."""
     cur = get_cur(db)
+    _check_run_campus(cur, run_id, campus_id)
     cur.execute("SELECT status FROM payroll_runs WHERE id=%s", (run_id,))
     run = cur.fetchone()
     if not run:
@@ -933,10 +997,11 @@ def hr_submit_payroll_run(run_id: int, user_id: int = Depends(require_permission
 
 
 @router.post("/runs/{run_id}/mark-adjustments-done")
-def mark_adjustments_done(run_id: int, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db)):
+def mark_adjustments_done(run_id: int, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     """HR confirms they have finished entering incentives/arrears for this period.
     This reveals the View button in the runs list so HR can review and submit to Finance."""
     cur = get_cur(db)
+    _check_run_campus(cur, run_id, campus_id)
     cur.execute("SELECT status FROM payroll_runs WHERE id=%s", (run_id,))
     run = cur.fetchone()
     if not run:
@@ -952,8 +1017,9 @@ def mark_adjustments_done(run_id: int, user_id: int = Depends(require_permission
 
 
 @router.post("/runs/{run_id}/generate")
-def generate_payroll_run(run_id: int, user_id: int = Depends(require_permission("payroll.manage")), db=Depends(get_db)):
+def generate_payroll_run(run_id: int, user_id: int = Depends(require_permission("payroll.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    _check_run_campus(cur, run_id, campus_id)
     cur.execute("SELECT * FROM payroll_runs WHERE id=%s", (run_id,))
     run = cur.fetchone()
     if not run:
@@ -966,7 +1032,7 @@ def generate_payroll_run(run_id: int, user_id: int = Depends(require_permission(
     if cur.fetchone()["c"] > 0:
         fail("Payroll has already been generated for this period.", 400)
 
-    cur.execute("SELECT id FROM staff WHERE status='active'")
+    cur.execute("SELECT id FROM staff WHERE status='active' AND (%s IS NULL OR campus_id = %s)", (run["campus_id"], run["campus_id"]))
     staff_ids = [r["id"] for r in cur.fetchall()]
 
     generated = 0
@@ -985,8 +1051,7 @@ def generate_payroll_run(run_id: int, user_id: int = Depends(require_permission(
         # a Provident Fund deduction in their payslip.
         pf_deduction = next((d["amount"] for d in result["deductions_breakdown"] if "Provident Fund" in d["name"]), 0)
         if pf_deduction:
-            cur.execute("SELECT pf_employer_contribution_mode, pf_employer_percentage, pf_employer_fixed_amount FROM payroll_settings WHERE id=1")
-            pf_settings = cur.fetchone()
+            pf_settings = _get_payroll_settings_row(db, staff_id=sid)
             if pf_settings["pf_employer_contribution_mode"] == "percentage":
                 basic_amount = next((e["amount"] for e in result["earnings_breakdown"] if "Basic Salary" in e["name"] or "Lump Sum Salary" in e["name"]), 0)
                 employer_amount = round(float(basic_amount) * float(pf_settings["pf_employer_percentage"]) / 100.0, 2)
@@ -1005,14 +1070,14 @@ def generate_payroll_run(run_id: int, user_id: int = Depends(require_permission(
 
 
 @router.get("/runs/{run_id}/payslips")
-def get_payslips(run_id: int, user_id: int = Depends(require_permission("payroll.view")), db=Depends(get_db)):
+def get_payslips(run_id: int, user_id: int = Depends(require_permission("payroll.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
-    cur.execute("SELECT * FROM sp_list_payslips(%s)", (run_id,))
+    cur.execute("SELECT * FROM sp_list_payslips(%s, %s)", (run_id, campus_id))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.get("/runs/{run_id}/hr-summary")
-def hr_payroll_summary(run_id: int, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db)):
+def hr_payroll_summary(run_id: int, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Lightweight configuration summary for HR to review before submitting to
     Finance: what's included/deducted (names only, no computed amounts) plus
     this month's adjustments (with amounts, since HR entered those directly)
@@ -1026,7 +1091,7 @@ def hr_payroll_summary(run_id: int, user_id: int = Depends(require_permission("p
     from_date = run["from_date"]
     to_date = run["to_date"]
 
-    cur.execute("SELECT id, first_name, last_name, department_id FROM staff WHERE status='active' ORDER BY first_name")
+    cur.execute("SELECT id, first_name, last_name, department_id FROM staff WHERE status='active' AND (%s IS NULL OR campus_id = %s) ORDER BY first_name", (campus_id, campus_id))
     staff_rows = cur.fetchall()
 
     summary = []
@@ -1074,7 +1139,7 @@ def hr_payroll_summary(run_id: int, user_id: int = Depends(require_permission("p
 
 
 @router.get("/runs/{run_id}/preview")
-def preview_payroll_run(run_id: int, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db)):
+def preview_payroll_run(run_id: int, user_id: int = Depends(require_permission("payroll.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Read-only, non-persisted preview of what each employee's payslip would look
     like right now, based on current salary profiles + adjustments + attendance.
     Lets HR review their configuration (incentives/arrears/deductions) before
@@ -1084,7 +1149,7 @@ def preview_payroll_run(run_id: int, user_id: int = Depends(require_permission("
     run = cur.fetchone()
     if not run:
         fail("Payroll run not found.", 404)
-    cur.execute("SELECT id, first_name, last_name FROM staff WHERE status='active' ORDER BY first_name")
+    cur.execute("SELECT id, first_name, last_name FROM staff WHERE status='active' AND (%s IS NULL OR campus_id = %s) ORDER BY first_name", (campus_id, campus_id))
     staff_rows = cur.fetchall()
 
     preview = []
@@ -1105,8 +1170,9 @@ def preview_payroll_run(run_id: int, user_id: int = Depends(require_permission("
 
 
 @router.post("/runs/{run_id}/submit")
-def submit_payroll_run(run_id: int, user_id: int = Depends(require_permission("payroll.manage")), db=Depends(get_db)):
+def submit_payroll_run(run_id: int, user_id: int = Depends(require_permission("payroll.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
+    _check_run_campus(cur, run_id, campus_id)
     cur.execute("SELECT * FROM payroll_runs WHERE id=%s", (run_id,))
     run = cur.fetchone()
     if not run:
@@ -1130,7 +1196,8 @@ class PayrollRunAdvanceIn(BaseModel):
 
 @router.post("/runs/{run_id}/advance")
 def advance_payroll_run(run_id: int, body: PayrollRunAdvanceIn,
-        user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+        user_id: int = Depends(get_current_user_id), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+    _check_run_campus(get_cur(db), run_id, campus_id)
     """Advance the payroll-run approval workflow. Once fully approved, the run
     (and all its payslips) is permanently frozen - generate/regenerate is blocked."""
     if body.action not in ("approve", "reject"):
@@ -1174,12 +1241,13 @@ def advance_payroll_run(run_id: int, body: PayrollRunAdvanceIn,
 
 
 @router.post("/runs/{run_id}/release")
-def release_payroll_run(run_id: int, user_id: int = Depends(require_permission("payroll.manage")), db=Depends(get_db)):
+def release_payroll_run(run_id: int, user_id: int = Depends(require_permission("payroll.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Final Finance action after Finance Manager approval - releases the run
     for salary transfer. This is the true permanent-freeze point. Also notifies
     every employee about how their salary will reach them, based on their
     configured transfer mode."""
     cur = get_cur(db)
+    _check_run_campus(cur, run_id, campus_id)
     cur.execute("SELECT status, month, year FROM payroll_runs WHERE id=%s", (run_id,))
     run = cur.fetchone()
     if not run:
@@ -1218,7 +1286,7 @@ def release_payroll_run(run_id: int, user_id: int = Depends(require_permission("
 
 
 @router.get("/runs/{run_id}/download")
-def download_payroll_run(run_id: int, user_id: int = Depends(require_permission("payroll.manage")), db=Depends(get_db)):
+def download_payroll_run(run_id: int, user_id: int = Depends(require_permission("payroll.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Downloadable Excel summary of a released payroll run - includes bank
     transfer details for employees paid by bank transfer, so Finance can hand
     this directly to the bank for disbursement."""
@@ -1228,6 +1296,7 @@ def download_payroll_run(run_id: int, user_id: int = Depends(require_permission(
     from openpyxl.styles import Font, PatternFill, Alignment
 
     cur = get_cur(db)
+    _check_run_campus(cur, run_id, campus_id)
     cur.execute("SELECT * FROM payroll_runs WHERE id=%s", (run_id,))
     run = cur.fetchone()
     if not run:
@@ -1286,7 +1355,7 @@ def download_payroll_run(run_id: int, user_id: int = Depends(require_permission(
 
 
 @router.get("/runs/{run_id}/payslip/{staff_id}")
-def get_salary_slip_pdf(run_id: int, staff_id: int, user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+def get_salary_slip_pdf(run_id: int, staff_id: int, user_id: int = Depends(get_current_user_id), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Professional PDF salary slip. Accessible to anyone with payroll.view,
     or to the employee viewing their own slip."""
     import base64, io
@@ -1309,6 +1378,7 @@ def get_salary_slip_pdf(run_id: int, staff_id: int, user_id: int = Depends(get_c
             JOIN permissions p ON p.id=rp.permission_id WHERE ur.user_id=%s AND p.code='payroll.view'""", (user_id,))
         if not cur.fetchone():
             fail("Not authorized to view this salary slip.", 403)
+        _check_staff_campus(cur, staff_id, campus_id)
 
     cur.execute("""
         SELECT p.*, s.first_name, s.last_name, s.employee_code, d.name AS department_name,
@@ -1372,7 +1442,7 @@ def get_salary_slip_pdf(run_id: int, staff_id: int, user_id: int = Depends(get_c
     transfer_labels = {"bank_transfer": "Bank Transfer", "cash": "Cash", "cheque": "Cheque"}
     employee_type = "Permanent"
     if slip.get("is_probationary") is not False and slip.get("joining_date"):
-        cur.execute("SELECT probation_duration_days FROM hr_policy_settings LIMIT 1")
+        cur.execute("SELECT probation_duration_days FROM hr_policy_settings WHERE campus_id = (SELECT campus_id FROM staff WHERE id = %s) OR campus_id IS NULL ORDER BY campus_id NULLS LAST LIMIT 1", (staff_id,))
         policy = cur.fetchone()
         duration_days = policy["probation_duration_days"] if policy and policy.get("probation_duration_days") else 90
         from datetime import timedelta
@@ -1462,9 +1532,10 @@ def get_salary_slip_pdf(run_id: int, staff_id: int, user_id: int = Depends(get_c
 
 
 @router.post("/runs/{run_id}/send-payslips")
-def send_payslip_notifications(run_id: int, user_id: int = Depends(require_permission("payroll.send_slips")), db=Depends(get_db)):
+def send_payslip_notifications(run_id: int, user_id: int = Depends(require_permission("payroll.send_slips")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Notify every employee in this run that their salary slip is ready to view."""
     cur = get_cur(db)
+    _check_run_campus(cur, run_id, campus_id)
     cur.execute("SELECT month, year, status FROM payroll_runs WHERE id=%s", (run_id,))
     run = cur.fetchone()
     if not run:
