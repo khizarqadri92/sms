@@ -1,0 +1,348 @@
+.ann-page {
+  padding: 24px;
+  background: var(--bg-page);
+  min-height: 100vh;
+}
+
+.ann-header-row {
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ann-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-heading);
+  margin-bottom: 4px;
+}
+
+.ann-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.ann-new-btn {
+  padding: 9px 20px;
+  background: #0f4c35;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ann-form-card {
+  background: var(--bg-card);
+  border-radius: 12px;
+  border: 1.5px solid #0f4c35;
+  padding: 24px;
+  margin-bottom: 20px;
+}
+
+.ann-form-title {
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 16px;
+}
+
+.ann-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.ann-field-full {
+  grid-column: 1/-1;
+}
+
+.ann-field-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.ann-full-input {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1.5px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 13px;
+  background: var(--bg-input);
+  color: var(--text-heading);
+}
+
+.ann-disabled-select {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1.5px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 13px;
+  background: var(--select-bg);
+  color: var(--text-heading);
+}
+
+.ann-help-text {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.ann-campus-dropdown-wrap {
+  position: relative;
+}
+
+.ann-campus-dropdown-btn {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1.5px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 13px;
+  background: var(--bg-input);
+  color: var(--text-heading);
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ann-campus-dropdown-arrow {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.ann-campus-dropdown-panel {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: var(--bg-card);
+  border: 1.5px solid var(--border-color);
+  border-radius: 8px;
+  margin-top: 4px;
+  padding: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.ann-campus-all-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 8px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 4px;
+}
+
+.ann-campus-item-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  padding: 6px 8px;
+  cursor: pointer;
+}
+
+.ann-form-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.ann-publish-btn {
+  padding: 9px 24px;
+  background: #0f4c35;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ann-cancel-btn {
+  padding: 9px 18px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1.5px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ann-state-card {
+  background: var(--bg-card);
+  border-radius: 12px;
+  text-align: center;
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+}
+
+.ann-state-icon {
+  font-size: 32px;
+  margin-bottom: 12px;
+}
+
+.ann-state-text {
+  font-weight: 600;
+}
+
+.ann-list-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ann-card {
+  background: var(--card-bg);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  padding: 16px 20px;
+  border-left: 4px solid var(--card-border-color);
+}
+
+.ann-card-body-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.ann-card-main {
+  flex: 1;
+}
+
+.ann-tag-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.ann-type-tag {
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--type-bg);
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 10px;
+  text-transform: uppercase;
+}
+
+.ann-priority-tag {
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--prio-bg);
+  color: var(--prio-color);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.ann-target-text {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.ann-campus-tag {
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--bg-info-soft);
+  color: #1d4ed8;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.ann-auto-tag {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+.ann-card-title {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text-heading);
+  margin-bottom: 4px;
+}
+
+.ann-card-body-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+}
+
+.ann-card-link {
+  font-size: 12px;
+  color: #2563eb;
+}
+
+.ann-card-dates {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+.ann-card-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.ann-toggle-btn {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border-radius: 999px;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  background: var(--toggle-bg);
+  transition: background 0.15s ease;
+  flex-shrink: 0;
+}
+
+.ann-toggle-knob {
+  position: absolute;
+  top: 3px;
+  left: var(--knob-left);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+  transition: left 0.15s ease;
+}
+
+.ann-status-text {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--status-color);
+}
+
+.ann-delete-btn {
+  padding: 4px 12px;
+  background: var(--bg-danger-soft);
+  color: #991b1b;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ann-managed-text {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-style: italic;
+}

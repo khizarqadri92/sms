@@ -4,13 +4,19 @@ import { useAuth } from "../auth/AuthContext";
 import client from "../api/client";
 
 export default function Login() {
-  const { login }   = useAuth();
+  const { login, verify2FA, setFirstPassword } = useAuth();
   const navigate    = useNavigate();
   const [email, setEmail]     = useState("");
   const [password, setPass]   = useState("");
   const [error, setError]     = useState("");
   const [loading, setLoading] = useState(false);
   const [showPass, setShowPass] = useState(false);
+  const [step, setStep]       = useState("credentials"); // "credentials" | "2fa" | "new_password"
+  const [newPass, setNewPass] = useState("");
+  const [newPass2, setNewPass2] = useState("");
+  const [notice, setNotice]   = useState(() => { const n = sessionStorage.getItem("login_notice"); sessionStorage.removeItem("login_notice"); return n || ""; });
+  const [pendingToken, setPendingToken] = useState("");
+  const [twoFACode, setTwoFACode] = useState("");
   const [school, setSchool]   = useState({
     name:"Darul Madina International Islamic School System",
     address:"123 Main Street, Gulberg, Lahore",
@@ -31,9 +37,51 @@ export default function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(""); setLoading(true);
-    try { await login(email, password); navigate("/dashboard"); }
+    try {
+      const result = await login(email, password);
+      if (result && result.requires_2fa) {
+        setPendingToken(result.pending_token);
+        setStep("2fa");
+      } else if (result && result.must_change_password) {
+        setPendingToken(result.pending_token);
+        setStep("new_password");
+      } else {
+        navigate("/dashboard");
+      }
+    }
     catch (err) {
       const msg = err.response?.data?.message || "Invalid email or password.";
+      setError(msg); setTimeout(()=>setError(""), 10000);
+    } finally { setLoading(false); }
+  };
+
+  const handleVerify2FA = async (e) => {
+    e.preventDefault();
+    setError(""); setLoading(true);
+    try {
+      const result = await verify2FA(twoFACode, pendingToken);
+      if (result && result.must_change_password) { setPendingToken(result.pending_token); setStep("new_password"); }
+      else navigate("/dashboard");
+    }
+    catch (err) {
+      const msg = err.response?.data?.message || "Invalid or expired code.";
+      setError(msg); setTimeout(()=>setError(""), 10000);
+    } finally { setLoading(false); }
+  };
+
+  const passRules = [
+    ["At least 8 characters", newPass.length >= 8],
+    ["Letters and numbers", /[A-Za-z]/.test(newPass) && /\d/.test(newPass)],
+    ["Both entries match", newPass.length > 0 && newPass === newPass2],
+  ];
+  const passOk = passRules.every(([, ok]) => ok);
+  const handleNewPassword = async (e) => {
+    e.preventDefault();
+    if (!passOk) return;
+    setError(""); setLoading(true);
+    try { await setFirstPassword(newPass, pendingToken); navigate("/dashboard"); }
+    catch (err) {
+      const msg = err.response?.data?.message || "Could not set the password. Please sign in again.";
       setError(msg); setTimeout(()=>setError(""), 10000);
     } finally { setLoading(false); }
   };
@@ -206,6 +254,12 @@ export default function Login() {
           <div style={S.divider}/>
           <div style={S.formLabel}>Sign in to your account</div>
 
+          {notice&&!error&&(
+            <div style={{...S.errorBox, background:"#eff6ff", borderColor:"#bfdbfe"}}>
+              <span style={{fontSize:14,flexShrink:0}}>&#9432;</span>
+              <span style={{...S.errorTxt, color:"#1e40af"}}>{notice}</span>
+            </div>
+          )}
           {error&&(
             <div style={S.errorBox}>
               <span style={{fontSize:14,flexShrink:0}}>&#9888;</span>
@@ -213,6 +267,7 @@ export default function Login() {
             </div>
           )}
 
+          {step === "credentials" ? (
           <form onSubmit={handleSubmit}>
             <div style={S.field}>
               <label style={S.fieldLabel}>Email, Registration No., or Phone</label>
@@ -246,8 +301,74 @@ export default function Login() {
               ) : <>Sign In <IconArrow/></>}
             </button>
           </form>
+          ) : step === "new_password" ? (
+          <form onSubmit={handleNewPassword}>
+            <div style={{ fontSize:12, color:"#64748b", marginBottom:16, textAlign:"center" }}>
+              You signed in with a temporary password. Please choose your own password to continue.
+            </div>
+            <div style={S.field}>
+              <label style={S.fieldLabel}>New password</label>
+              <div style={S.fieldWrap}>
+                <div style={S.fieldIcon}><IconLock/></div>
+                <input style={S.inp} type={showPass?"text":"password"} value={newPass} onChange={e=>setNewPass(e.target.value)} placeholder="Choose a new password" required autoFocus autoComplete="new-password"
+                  onFocus={e=>e.target.style.borderColor="#0a2e1c"}
+                  onBlur={e=>e.target.style.borderColor="#e2e8f0"}
+                />
+                <button type="button" style={S.showBtn} onClick={()=>setShowPass(!showPass)} aria-label={showPass?"Hide password":"Show password"}>{showPass?<IconEyeOff/>:<IconEye/>}</button>
+              </div>
+            </div>
+            <div style={S.field}>
+              <label style={S.fieldLabel}>Confirm new password</label>
+              <div style={S.fieldWrap}>
+                <div style={S.fieldIcon}><IconLock/></div>
+                <input style={S.inp} type={showPass?"text":"password"} value={newPass2} onChange={e=>setNewPass2(e.target.value)} placeholder="Type it again" required autoComplete="new-password"
+                  onFocus={e=>e.target.style.borderColor="#0a2e1c"}
+                  onBlur={e=>e.target.style.borderColor="#e2e8f0"}
+                />
+              </div>
+            </div>
+            <div style={{ marginBottom:14 }}>
+              {passRules.map(([label, ok]) => (
+                <div key={label} style={{ fontSize:12, color: ok ? "#16a34a" : "#94a3b8", display:"flex", gap:6, alignItems:"center", marginBottom:3 }}>
+                  <span>{ok ? "\u2713" : "\u25CB"}</span>{label}
+                </div>
+              ))}
+            </div>
+            <button type="submit" disabled={loading || !passOk} style={(loading || !passOk)?S.signBtnDisabled:S.signBtn}>
+              {loading ? "Saving..." : <>Set password and continue <IconArrow/></>}
+            </button>
+            <button type="button" onClick={()=>{ setStep("credentials"); setNewPass(""); setNewPass2(""); setPendingToken(""); setPass(""); setError(""); }}
+              style={{ width:"100%", marginTop:10, background:"none", border:"none", color:"#64748b", fontSize:12, cursor:"pointer" }}>
+              Back to sign in
+            </button>
+          </form>
+          ) : (
+          <form onSubmit={handleVerify2FA}>
+            <div style={{ fontSize:12, color:"#64748b", marginBottom:16, textAlign:"center" }}>
+              Enter the 6-digit code from your authenticator app.
+            </div>
+            <div style={S.field}>
+              <label style={S.fieldLabel}>Verification Code</label>
+              <input style={{...S.inp, paddingLeft:14, textAlign:"center", letterSpacing:"0.3em", fontSize:18}} type="text" inputMode="numeric" maxLength={6}
+                value={twoFACode} onChange={e=>setTwoFACode(e.target.value.replace(/\D/g,""))} placeholder="000000" required autoFocus
+                onFocus={e=>e.target.style.borderColor="#0a2e1c"}
+                onBlur={e=>e.target.style.borderColor="#e2e8f0"}
+              />
+            </div>
+            <button type="submit" disabled={loading || twoFACode.length !== 6} style={(loading || twoFACode.length !== 6)?S.signBtnDisabled:S.signBtn}>
+              {loading ? "Verifying..." : <>Verify <IconArrow/></>}
+            </button>
+            <button type="button" onClick={()=>{ setStep("credentials"); setTwoFACode(""); setError(""); }}
+              style={{ width:"100%", marginTop:10, background:"none", border:"none", color:"#64748b", fontSize:12, cursor:"pointer" }}>
+              Back to sign in
+            </button>
+          </form>
+          )}
 
           <div style={S.helpText}>Having trouble? Contact your administrator.</div>
+          <div style={{ ...S.helpText, marginTop: 8 }}>
+            New to the school? <a href="/admissions/apply" style={{ color: "#0a2e1c", fontWeight: 700 }}>Apply for admission online</a>
+          </div>
         </div>
       </div>
 

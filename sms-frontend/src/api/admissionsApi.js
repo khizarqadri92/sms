@@ -1,0 +1,60 @@
+import client from "./client";
+
+// Admissions (internal). Phase 2: settings + dashboard.
+const admissionsApi = {
+  years:        (params)       => client.get("/admissions/years", { params }),
+  getSettings:  (params)       => client.get("/admissions/settings", { params }),
+  saveSettings: (data)         => client.put("/admissions/settings", data),
+  staff:        ()             => client.get("/admissions/staff"),
+  examiners:    (params)       => client.get("/admissions/examiners", { params }),
+  panels:       (params)       => client.get("/admissions/interview-panels", { params }),
+  fees:         (params)       => client.get("/admissions/fees", { params }),
+  fee:          (id)           => client.get("/admissions/fees/" + id),
+  feePayment:   (id, data)     => client.post("/admissions/fees/" + id + "/payments", data),
+  reviewFeePay: (pid, data)    => client.put("/admissions/fees/payments/" + pid, data),
+  voucher:      (id)           => client.get("/admissions/fees/" + id + "/voucher", { responseType: "blob" }),
+  sections:     (id)           => client.get("/admissions/applications/" + id + "/sections"),
+  register:     (id, data)     => client.post("/admissions/applications/" + id + "/register", data),
+  parentAccount:(id)           => client.post("/admissions/applications/" + id + "/parent-account"),
+  feeReceipt:   (pid)          => client.get("/admissions/fees/payments/" + pid + "/receipt"),
+  formPdf:      (id)           => client.get("/admissions/applications/" + id + "/pdf", { responseType: "blob" }),
+  lookupCnic:   (cnic)         => client.get("/admissions/lookup/cnic", { params: { cnic } }),
+  lookupStudent:(no)           => client.get("/admissions/lookup/student", { params: { enrollment_no: no } }),
+  bannerPreview:(params)       => client.get("/admissions/settings/banner", { params, responseType: "blob" }),
+  uploadBanner: (yearId, campus, file) => { const f = new FormData(); f.append("academic_year_id", yearId); if (campus) f.append("campus", campus);
+                                            f.append("file", file); return client.post("/admissions/settings/banner", f); },
+  removeBanner: (params)       => client.delete("/admissions/settings/banner", { params }),
+  createPanel:  (data)         => client.post("/admissions/interview-panels", data),
+  updatePanel:  (id, data)     => client.put("/admissions/interview-panels/" + id, data),
+  deletePanel:  (id)           => client.delete("/admissions/interview-panels/" + id),
+  dashboard:    (params)       => client.get("/admissions/dashboard", { params }),
+  // Phase 3: applications
+  classOptions: (params)       => client.get("/admissions/class-options", { params }),
+  list:         (params)       => client.get("/admissions/applications", { params }),
+  get:          (id)           => client.get("/admissions/applications/" + id),
+  create:       (data, submit) => client.post("/admissions/applications", data, { params: { submit: !!submit } }),
+  update:       (id, data)     => client.put("/admissions/applications/" + id, data),
+  action:       (id, data)     => client.post("/admissions/applications/" + id + "/action", data),
+  assign:       (id, userId)   => client.put("/admissions/applications/" + id + "/assign", { assigned_to: userId }),
+  uploadDoc:    (id, name, file) => { const f = new FormData(); f.append("document_name", name); f.append("file", file);
+                                       return client.post("/admissions/applications/" + id + "/documents", f); },
+  downloadDoc:  (id, docId)    => client.get("/admissions/applications/" + id + "/documents/" + docId, { responseType: "blob" }),
+  reviewDoc:    (id, docId, data) => client.put("/admissions/applications/" + id + "/documents/" + docId + "/review", data),
+  verifyAllDocs:(id)           => client.post("/admissions/applications/" + id + "/documents/verify-all"),
+  scheduleTest: (id, data)     => client.post("/admissions/applications/" + id + "/test", data),
+  recordTest:   (id, testId, data) => client.put("/admissions/applications/" + id + "/test/" + testId + "/result", data),
+  scheduleInterview: (id, data)    => client.post("/admissions/applications/" + id + "/interview", data),
+  recordInterview:   (id, iid, data) => client.put("/admissions/applications/" + id + "/interview/" + iid + "/result", data),
+  approvalStep: (id, data)     => client.post("/admissions/applications/" + id + "/approval", data),
+  // schedule + class-wise tests
+  schedule:       (params)       => client.get("/admissions/schedule", { params }),
+  publish:        (data)         => client.post("/admissions/schedule/publish", data),
+  sessions:       (params)       => client.get("/admissions/test-sessions", { params }),
+  createSession:  (data)         => client.post("/admissions/test-sessions", data),
+  updateSession:  (id, data)     => client.put("/admissions/test-sessions/" + id, data),
+  deleteSession:  (id)           => client.delete("/admissions/test-sessions/" + id),
+  candidates:     (id)           => client.get("/admissions/test-sessions/" + id + "/candidates"),
+  saveMarks:      (id, rows)     => client.put("/admissions/test-sessions/" + id + "/marks", { rows }),
+};
+
+export default admissionsApi;

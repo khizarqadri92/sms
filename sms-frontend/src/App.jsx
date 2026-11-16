@@ -21,6 +21,7 @@ import ProcurementManagementHub from "./pages/ProcurementManagementHub";
 import AcademicManagementHub from "./pages/AcademicManagementHub";
 import AcademicSetupHub from "./pages/AcademicSetupHub";
 import Settings       from "./pages/Settings";
+import NotificationTemplates from "./pages/NotificationTemplates";
 import Profile        from "./pages/Profile";
 import Finance       from "./pages/Finance";
 import FinanceSetup  from "./pages/FinanceSetup";
@@ -66,6 +67,21 @@ import HRSetupHub        from "./pages/HRSetupHub";
 import ConfigPage        from "./pages/ConfigPage";
 import Exams            from "./pages/Exams";
 import Datesheet        from "./pages/Datesheet";
+import Promotions from "./pages/Promotions";
+import AdmissionDashboard from "./pages/AdmissionDashboard";
+import AdmissionSettings from "./pages/AdmissionSettings";
+import AdmissionAnnouncement from "./pages/AdmissionAnnouncement";
+import AdmissionApply from "./pages/AdmissionApply";
+import MyAdmissions from "./pages/MyAdmissions";
+import AdmissionFees from "./pages/AdmissionFees";
+import AdmissionPanels from "./pages/AdmissionPanels";
+import AdmissionTests from "./pages/AdmissionTests";
+import AdmissionTestMarks from "./pages/AdmissionTestMarks";
+import AdmissionApplications from "./pages/AdmissionApplications";
+import AdmissionApplicationDetail from "./pages/AdmissionApplicationDetail";
+import AdmissionApplicationEdit from "./pages/AdmissionApplicationEdit";
+import AcademicHistory from "./pages/AcademicHistory";
+import ExamRooms from "./pages/ExamRooms";
 import DatesheetView    from "./pages/DatesheetView";
 import ExamMarks        from "./pages/ExamMarks";
 import ExamDetail       from "./pages/ExamDetail";
@@ -127,6 +143,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/admissions/apply" element={<AdmissionApply />} />
           <Route path="/403"   element={<PrivateRoute><RoleLayout><Forbidden /></RoleLayout></PrivateRoute>} />
           <Route path="/"      element={<Navigate to="/dashboard" replace />} />
 
@@ -240,6 +257,11 @@ export default function App() {
               <RoleLayout><Settings /></RoleLayout>
             </PrivateRoute>
           }/>
+          <Route path="/notification-templates" element={
+            <PrivateRoute permission="settings.view">
+              <RoleLayout><NotificationTemplates /></RoleLayout>
+            </PrivateRoute>
+          }/>
           <Route path="/settings-other" element={
             <PrivateRoute permission="settings.view">
               <RoleLayout><Settings visibleTabs={["id_formats","school_info","fee_settings","regional_format","account_settings"]} /></RoleLayout>
@@ -332,6 +354,21 @@ export default function App() {
           <Route path="/workflow-config"     element={<PrivateRoute permission="settings.manage"><RoleLayout><ConfigPage /></RoleLayout></PrivateRoute>} />
           <Route path="/exams"               element={<PrivateRoute permission="exam.view"><RoleLayout><Exams /></RoleLayout></PrivateRoute>} />
           <Route path="/datesheet"           element={<PrivateRoute permission="exam.manage"><RoleLayout><Datesheet /></RoleLayout></PrivateRoute>} />
+          <Route path="/promotions" element={<PrivateRoute permission="exam.view"><RoleLayout><Promotions /></RoleLayout></PrivateRoute>} />
+          <Route path="/admissions" element={<PrivateRoute permission="admission.view"><RoleLayout><AdmissionDashboard /></RoleLayout></PrivateRoute>} />
+          <Route path="/admissions/settings" element={<PrivateRoute permission="admission.view"><RoleLayout><AdmissionSettings /></RoleLayout></PrivateRoute>} />
+          <Route path="/my-admissions" element={<PrivateRoute><RoleLayout><MyAdmissions /></RoleLayout></PrivateRoute>} />
+          <Route path="/admission-news/:id" element={<PrivateRoute><RoleLayout><AdmissionAnnouncement /></RoleLayout></PrivateRoute>} />
+          <Route path="/admissions/fees" element={<PrivateRoute permission="admission.view"><RoleLayout><AdmissionFees /></RoleLayout></PrivateRoute>} />
+          <Route path="/admissions/panels" element={<PrivateRoute permission="admission.view"><RoleLayout><AdmissionPanels /></RoleLayout></PrivateRoute>} />
+          <Route path="/admissions/tests" element={<PrivateRoute permission="admission.view"><RoleLayout><AdmissionTests /></RoleLayout></PrivateRoute>} />
+          <Route path="/admissions/tests/:id" element={<PrivateRoute><RoleLayout><AdmissionTestMarks /></RoleLayout></PrivateRoute>} />
+          <Route path="/admissions/applications" element={<PrivateRoute permission="admission.view"><RoleLayout><AdmissionApplications /></RoleLayout></PrivateRoute>} />
+          <Route path="/admissions/applications/new" element={<PrivateRoute permission="admission.create"><RoleLayout><AdmissionApplicationEdit /></RoleLayout></PrivateRoute>} />
+          <Route path="/admissions/applications/:id" element={<PrivateRoute><RoleLayout><AdmissionApplicationDetail /></RoleLayout></PrivateRoute>} />
+          <Route path="/admissions/applications/:id/edit" element={<PrivateRoute permission="admission.edit"><RoleLayout><AdmissionApplicationEdit /></RoleLayout></PrivateRoute>} />
+          <Route path="/academic-history" element={<PrivateRoute permission="exam.view"><RoleLayout><AcademicHistory /></RoleLayout></PrivateRoute>} />
+          <Route path="/exam-rooms" element={<PrivateRoute permission="exam.manage"><RoleLayout><ExamRooms /></RoleLayout></PrivateRoute>} />
           <Route path="/datesheet-view"      element={<PrivateRoute><RoleLayout><DatesheetView /></RoleLayout></PrivateRoute>} />
           <Route path="/exam-marks"          element={<PrivateRoute permission="exam.marks"><RoleLayout><ExamMarks /></RoleLayout></PrivateRoute>} />
           <Route path="/exams/:id"            element={<PrivateRoute permission="exam.view"><RoleLayout><ExamDetail /></RoleLayout></PrivateRoute>} />

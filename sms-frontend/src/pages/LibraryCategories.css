@@ -1,0 +1,48 @@
+.lib-cat-mb16 { margin-bottom: 16px; }
+.lib-cat-mb12 { margin-bottom: 12px; }
+
+.lib-cat-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.lib-cat-modal {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-radius: 12px;
+  padding: 24px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.lib-cat-modal-title {
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 16px;
+}
+
+.lib-cat-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.lib-cat-muted { color: var(--text-muted); }
+
+.lib-cat-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: nowrap;
+  align-items: center;
+  min-height: 32px;
+  width: 100%;
+  box-sizing: border-box;
+}

@@ -69,7 +69,7 @@ def _wq_leave(db, action, leave_id, student_name, duration, user_id):
 
 def _notify_teachers(cur, student_id, leave_request_id, notify_mode):
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         import main as _main
         cur.execute("SELECT * FROM sp_get_student_class_and_name(%s)", (student_id,))
         st = cur.fetchone()
@@ -78,11 +78,18 @@ def _notify_teachers(cur, student_id, leave_request_id, notify_mode):
         all_teachers = notify_mode == "all_teachers"
         cur.execute("SELECT * FROM sp_get_teachers_for_notify(%s, %s)", (st["class_id"], all_teachers))
         rows = cur.fetchall()
+        cur.execute("SELECT campus_id FROM students WHERE id=%s", (student_id,))
+        _stu_campus_row = cur.fetchone()
+        _stu_campus_id = _stu_campus_row["campus_id"] if _stu_campus_row else None
         with _main.flask_app.app_context():
+            _t, _b = render_templated_notification("leave_request_teacher",
+                {"student_name": st["student_name"], "request_id": leave_request_id},
+                "Leave Request", st["student_name"] + " has applied for leave (Request #" + str(leave_request_id) + ")",
+                campus_id=_stu_campus_id)
             for t in rows:
                 send_notification(
-                    t["user_id"], title="Leave Request",
-                    body=st["student_name"] + " has applied for leave (Request #" + str(leave_request_id) + ")",
+                    t["user_id"], title=_t,
+                    body=_b,
                     ntype="leave"
                 )
     except Exception as e:
@@ -91,19 +98,25 @@ def _notify_teachers(cur, student_id, leave_request_id, notify_mode):
 
 def _notify_student_parent(cur, student_id, status):
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         import main as _main
         cur.execute("SELECT * FROM sp_get_student_notify_info(%s)", (student_id,))
         st = cur.fetchone()
         if not st:
             return
         msg = "Your leave request has been " + status + "."
+        cur.execute("SELECT campus_id FROM students WHERE id=%s", (student_id,))
+        _stu2_campus_row = cur.fetchone()
+        _stu2_campus_id = _stu2_campus_row["campus_id"] if _stu2_campus_row else None
         with _main.flask_app.app_context():
-            send_notification(st["student_user_id"], title="Leave " + status.capitalize(), body=msg, ntype="leave")
+            _t1, _b1 = render_templated_notification("leave_status_student", {"status": status}, "Leave " + status.capitalize(), msg, campus_id=_stu2_campus_id)
+            send_notification(st["student_user_id"], title=_t1, body=_b1, ntype="leave")
             if st["parent_id"]:
+                _pmsg = st["student_name"] + "'s leave request has been " + status + "."
+                _t2, _b2 = render_templated_notification("leave_status_parent", {"student_name": st["student_name"], "status": status}, "Leave " + status.capitalize(), _pmsg, campus_id=_stu2_campus_id)
                 send_notification(
-                    st["parent_id"], title="Leave " + status.capitalize(),
-                    body=st["student_name"] + "'s leave request has been " + status + ".", ntype="leave"
+                    st["parent_id"], title=_t2,
+                    body=_b2, ntype="leave"
                 )
     except Exception as e:
         print("[leave notify student]", e)
@@ -245,18 +258,24 @@ def apply_leave(
             total_days = (td - fd).days + 1
             rule = _get_matching_rule(cur, leave_type_id, total_days)
             if rule and rule.get("recommender_role"):
-                from app.utils.notify import send_notification
+                from app.utils.notify import send_notification, render_templated_notification
                 import main as _main
                 cur.execute("SELECT * FROM sp_get_leave_request_notify_info(%s)", (leave_id,))
                 lr_info = cur.fetchone()
                 student_name = lr_info["student_name"] if lr_info else "A student"
                 cur.execute("SELECT * FROM sp_get_active_users_by_role(%s)", (rule["recommender_role"],))
                 recommenders = cur.fetchall()
+                cur.execute("SELECT s.campus_id FROM leave_requests lr JOIN students s ON s.id=lr.student_id WHERE lr.id=%s", (leave_id,))
+                _lv_campus_row = cur.fetchone()
+                _lv_campus_id = _lv_campus_row["campus_id"] if _lv_campus_row else None
                 with _main.flask_app.app_context():
+                    _t, _b = render_templated_notification("leave_needs_recommendation", {"student_name": student_name},
+                        "Leave Needs Recommendation", "Leave request for " + student_name + " needs your recommendation.",
+                        campus_id=_lv_campus_id)
                     for r in recommenders:
                         send_notification(
-                            r["id"], title="Leave Needs Recommendation",
-                            body="Leave request for " + student_name + " needs your recommendation.", ntype="leave"
+                            r["id"], title=_t,
+                            body=_b, ntype="leave"
                         )
     except Exception as e:
         print("[leave recommender notify]", e)
@@ -425,18 +444,24 @@ def recommend_leave(leave_id: int, body: RecommendIn, user_id: int = Depends(req
         if lr_basic:
             rule = _get_matching_rule(cur, lr_basic["leave_type_id"], lr_basic["total_days"])
             if rule and rule.get("approver_role"):
-                from app.utils.notify import send_notification
+                from app.utils.notify import send_notification, render_templated_notification
                 import main as _main
                 cur.execute("SELECT * FROM sp_get_leave_request_notify_info(%s)", (leave_id,))
                 lr = cur.fetchone()
                 student_name = lr["student_name"] if lr else "A student"
                 cur.execute("SELECT * FROM sp_get_active_users_by_role(%s)", (rule["approver_role"],))
                 approvers = cur.fetchall()
+                cur.execute("SELECT s.campus_id FROM leave_requests lr JOIN students s ON s.id=lr.student_id WHERE lr.id=%s", (leave_id,))
+                _lv2_campus_row = cur.fetchone()
+                _lv2_campus_id = _lv2_campus_row["campus_id"] if _lv2_campus_row else None
                 with _main.flask_app.app_context():
+                    _t, _b = render_templated_notification("leave_recommended_approval", {"student_name": student_name},
+                        "Leave Recommended", "Leave request for " + student_name + " is awaiting your approval.",
+                        campus_id=_lv2_campus_id)
                     for row in approvers:
                         send_notification(
-                            row["id"], title="Leave Recommended",
-                            body="Leave request for " + student_name + " is awaiting your approval.", ntype="leave"
+                            row["id"], title=_t,
+                            body=_b, ntype="leave"
                         )
     except Exception as e:
         print("[recommend notify]", e)

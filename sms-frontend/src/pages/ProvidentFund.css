@@ -1,99 +1,207 @@
 .pf-page {
   padding: 24px;
+  background: var(--bg-page);
+  min-height: 100vh;
 }
 
-.pf-hero {
+.pf-header {
   margin-bottom: 20px;
 }
 
-.pf-hero h1 {
-  margin: 0 0 4px 0;
-}
-
-.pf-toolbar {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 20px;
-}
-
-.pf-toolbar .form-input {
-  flex: 1;
-  max-width: 320px;
-}
-
-.pf-card {
-  background: var(--card-bg, #fff);
-  border-radius: 10px;
-  padding: 20px;
-  margin-top: 12px;
-}
-
-.pf-detail-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 16px;
-}
-
-.pf-detail-sub {
-  color: #666;
-  margin: 4px 0 0 0;
-  font-size: 13px;
-}
-
-.pf-card-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
-.pf-stat {
-  display: flex;
-  flex-direction: column;
-  padding: 12px;
-  border-radius: 8px;
-  background: var(--stat-bg, #f7f7f9);
-}
-
-.pf-stat-label {
-  font-size: 12px;
-  color: #666;
+.pf-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-heading);
   margin-bottom: 4px;
 }
 
-.pf-stat-value {
-  font-size: 20px;
-  font-weight: 600;
+.pf-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.pf-filter-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.pf-dept-select {
+  width: 200px;
+  font-size: 13px;
+}
+
+.pf-search-input {
+  font-size: 13px;
+  width: 240px;
+}
+
+.pf-searching-text {
+  font-size: 12px;
+  color: var(--text-muted);
+  align-self: center;
+}
+
+.pf-table-wrap {
+  background: var(--bg-card);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  overflow: hidden;
 }
 
 .pf-table {
   width: 100%;
   border-collapse: collapse;
+  font-size: 13px;
 }
 
-.pf-table th, .pf-table td {
+.pf-th-row {
+  background: var(--bg-hover);
+}
+
+.pf-th {
+  padding: 10px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
   text-align: left;
-  padding: 10px 12px;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border-color);
 }
 
-.pf-row-clickable {
+.pf-tr {
+  border-bottom: 1px solid var(--border-color);
   cursor: pointer;
 }
 
-.pf-row-clickable:hover {
-  background: #f5f7fb;
+.pf-tr:hover {
+  background: var(--bg-hover);
 }
 
-.pf-empty-row {
+.pf-tr-static {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.pf-td-name {
+  padding: 10px 14px;
+  font-weight: 600;
+}
+
+.pf-td-code {
+  padding: 10px 14px;
+  color: var(--text-secondary);
+}
+
+.pf-td {
+  padding: 10px 14px;
+}
+
+.pf-td-bold {
+  padding: 10px 14px;
+  font-weight: 600;
+}
+
+.pf-td-bolder {
+  padding: 10px 14px;
+  font-weight: 700;
+}
+
+.pf-view-btn {
+  font-size: 11px;
+}
+
+.pf-empty-td {
+  padding: 30px;
   text-align: center;
-  color: #888;
-  padding: 24px;
+  color: var(--text-muted);
 }
 
-.pf-loading, .pf-empty {
+.pf-detail-card {
+  background: var(--bg-card);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.pf-detail-header {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pf-detail-name {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.pf-detail-subtext {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.pf-detail-body {
+  padding: 20px;
+}
+
+.pf-loading-text {
   padding: 40px;
   text-align: center;
-  color: #666;
+  color: var(--text-muted);
+}
+
+.pf-rate-grid {
+  display: grid;
+  grid-template-columns: repeat(2,1fr);
+  gap: 10px;
+  margin-bottom: 20px;
+  padding: 12px;
+  background: var(--bg-hover);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.pf-rate-box {
+  text-align: center;
+}
+
+.pf-rate-value-green {
+  font-size: 18px;
+  font-weight: 700;
+  color: #01c649;
+}
+
+.pf-rate-value-blue {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0185cc;
+}
+
+.pf-rate-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.pf-section-title {
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+.pf-summary-table-wrap {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.pf-tfoot-row {
+  background: var(--bg-hover);
+  border-top: 2px solid var(--border-color);
+}
+
+.pf-tfoot-td {
+  padding: 10px 14px;
+  font-weight: 700;
 }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import libraryApi from "../api/libraryApi";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
+import "./LibraryPendingFines.css";
 
 function PayModal({ fine, onClose, onSaved }) {
   const [amount, setAmount] = useState(fine.fine_amount);
@@ -33,21 +34,21 @@ function PayModal({ fine, onClose, onSaved }) {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
-      <div style={{ background: "#fff", borderRadius: 12, padding: 24, width: "100%", maxWidth: 400 }} onClick={e => e.stopPropagation()}>
-        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>Settle Fine</div>
-        <div style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>
+    <div className="lib-pf-modal-overlay" onClick={onClose}>
+      <div className="lib-pf-modal" onClick={e => e.stopPropagation()}>
+        <div className="lib-pf-modal-title">Settle Fine</div>
+        <div className="lib-pf-modal-subtitle">
           {fine.first_name} {fine.last_name} — {fine.book_title}
         </div>
 
-        {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}
+        {error && <div className="alert alert-error lib-pf-mb12">{error}</div>}
 
         <div className="form-group">
           <label className="form-label">Amount to Collect</label>
           <input className="form-control" type="number" min="0" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} />
         </div>
 
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+        <div className="lib-pf-modal-footer">
           <button className="btn btn-secondary" disabled={saving} onClick={handleWaive}>Waive</button>
           <button className="btn btn-primary" disabled={saving} onClick={handlePay}>{saving ? "Processing..." : "Collect Payment"}</button>
         </div>
@@ -87,23 +88,23 @@ export default function LibraryPendingFines() {
 
   return (
     <div>
-      <div className="page-header" style={{ marginBottom: 16 }}>
+      <div className="page-header lib-pf-mb16">
         <h1 className="page-heading">Pending Fines</h1>
       </div>
 
-      {success && <div className="alert alert-success" style={{ marginBottom: 16 }}>{success}</div>}
-      {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
+      {success && <div className="alert alert-success lib-pf-mb16">{success}</div>}
+      {error && <div className="alert alert-error lib-pf-mb16">{error}</div>}
 
-      <div className="section-card" style={{ marginBottom: 16 }}>
-        <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
-          <div className="form-group" style={{ flex: 1, minWidth: 220, marginBottom: 0 }}>
+      <div className="section-card lib-pf-search-card">
+        <div className="lib-pf-search-row">
+          <div className="form-group lib-pf-search-group">
             <label className="form-label">Search</label>
             <input className="form-control" placeholder="Member name, card no., or book title" value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => e.key === "Enter" && fetchFines()} />
           </div>
           <button className="btn btn-primary" onClick={() => fetchFines()}>Search</button>
           {fines.length > 0 && (
-            <div style={{ marginLeft: "auto", fontSize: 13, color: "#64748b", alignSelf: "center" }}>
-              Total pending: <strong style={{ color: "#dc2626" }}>Rs. {totalPending.toLocaleString()}</strong> across {fines.length} fine(s)
+            <div className="lib-pf-total">
+              Total pending: <strong className="lib-pf-amount">Rs. {totalPending.toLocaleString()}</strong> across {fines.length} fine(s)
             </div>
           )}
         </div>
@@ -131,16 +132,16 @@ export default function LibraryPendingFines() {
                 <tr key={f.transaction_id}>
                   <td>
                     <div>{f.first_name} {f.last_name}</div>
-                    <div style={{ fontSize: 11, color: "#94a3b8" }}>{f.library_card_no} · {f.member_type}</div>
+                    <div className="lib-pf-muted lib-pf-card-info">{f.library_card_no} · {f.member_type}</div>
                   </td>
                   <td>{f.book_title}</td>
                   <td>
-                    <span className={"badge " + (f.return_condition === "damaged" ? "badge-warning" : f.return_condition === "lost" ? "badge-danger" : "badge-gray")} style={{ textTransform: "capitalize" }}>
+                    <span className={"badge lib-pf-capitalize " + (f.return_condition === "damaged" ? "badge-warning" : f.return_condition === "lost" ? "badge-danger" : "badge-gray")}>
                       {f.return_condition === "damaged" ? "Damage" : f.return_condition === "lost" ? "Lost" : "Overdue"}
                     </span>
                   </td>
-                  <td style={{ fontSize: 12, color: "#64748b" }}>{f.returned_at ? formatDate(f.returned_at) : "Not returned yet"}</td>
-                  <td><strong style={{ color: "#dc2626" }}>Rs. {Number(f.fine_amount).toLocaleString()}</strong></td>
+                  <td className="lib-pf-date">{f.returned_at ? formatDate(f.returned_at) : "Not returned yet"}</td>
+                  <td><strong className="lib-pf-amount">Rs. {Number(f.fine_amount).toLocaleString()}</strong></td>
                   <td>
                     <button className="btn btn-primary btn-xs" onClick={() => setPayFine(f)}>Settle</button>
                   </td>

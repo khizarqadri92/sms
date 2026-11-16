@@ -115,31 +115,57 @@ class WorkflowEngine:
             )
             return {'id': instance_id, 'status': 'completed', 'workflow_id': workflow['id']}
 
-        # 5. Create step instances
+        submitter_id_resolved = submitter_id or initiated_by
+
+        # 5. Create step instances, auto-skipping any dept_head step whose
+        # resolved approver can't actually act: either the department has no
+        # head_user_id set, or the head IS the submitter themselves (an
+        # employee can't approve their own request). Those steps are stored
+        # as 'skipped' up front rather than left as an unfulfillable pending
+        # step nobody can ever action.
+        first_active_idx = None
+        first_active_step = None
+        first_active_assigned_to_id = None
+        first_active_assigned_role = None
         for i, step in enumerate(active_steps):
             assigned_to_id, assigned_role = self._resolve_approver(cur, step, context)
+            auto_skip = self._should_auto_skip(step, assigned_to_id, submitter_id_resolved)
+            step_status = 'skipped' if auto_skip else 'pending'
             cur.execute("""
                 INSERT INTO workflow_step_instances
                     (instance_id, step_id, step_order, step_name, step_type,
                      status, assigned_to_id, assigned_role, created_at)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (instance_id, step['id'], i + 1, step['step_name'], step['step_type'],
-                  'pending' if i == 0 else 'pending',
-                  assigned_to_id, assigned_role, proc_time))
+                  step_status, assigned_to_id, assigned_role, proc_time))
+            if not auto_skip and first_active_idx is None:
+                first_active_idx = i
+                first_active_step = step
+                first_active_assigned_to_id = assigned_to_id
+                first_active_assigned_role = assigned_role
 
-        # 6. Activate first step
+        if first_active_idx is None:
+            # Every step was auto-skipped - complete the workflow immediately
+            cur.execute(
+                "UPDATE workflow_instances SET status='completed', completed_at=%s WHERE id=%s",
+                (proc_time, instance_id)
+            )
+            final_status = (active_steps[-1].get('entity_status_on_approve') or 'approved').lower()
+            self._update_entity_wq(cur, module, entity_id, entity_type,
+                                   final_status, initiated_by, proc_time=proc_time)
+            return {'id': instance_id, 'status': 'completed', 'workflow_id': workflow['id']}
+
+        # 6. Activate first non-skipped step
         cur.execute("""
-            UPDATE workflow_instances SET current_step_order=1 WHERE id=%s
-        """, (instance_id,))
+            UPDATE workflow_instances SET current_step_order=%s WHERE id=%s
+        """, (first_active_idx + 1, instance_id))
 
-        first_step = active_steps[0]
-        assigned_to_id, assigned_role = self._resolve_approver(cur, first_step, context)
-        self._activate_step(db, cur, instance_id, first_step, assigned_to_id,
-                            assigned_role, module, entity_type, entity_id,
-                            initiated_by, submitter_id or initiated_by)
+        self._activate_step(db, cur, instance_id, first_active_step, first_active_assigned_to_id,
+                            first_active_assigned_role, module, entity_type, entity_id,
+                            initiated_by, submitter_id_resolved)
 
         return {'id': instance_id, 'status': 'active', 'workflow_id': workflow['id'],
-                'current_step': first_step['step_name']}
+                'current_step': first_active_step['step_name']}
 
     def advance(self, db, module: str, entity_type: str, entity_id: int,
                 action: str, actioned_by: int, note: str = "") -> Optional[Dict]:
@@ -215,24 +241,51 @@ class WorkflowEngine:
                                    entity_status, actioned_by, proc_time=proc_time)
             return {'status': 'rejected', 'entity_status': entity_status}
 
-        # Approval: find next pending step
-        cur.execute("""
-            SELECT wsi.*, ws.step_name, ws.step_type, ws.approver_type,
-                   ws.approver_role, ws.approver_user_id, ws.approver_lookup,
-                   ws.entity_status_on_approve, ws.notify_on_assign,
-                   ws.notify_title, ws.notify_body, ws.wq_link_template,
-                   ws.wq_priority, ws.action_label
-            FROM workflow_step_instances wsi
-            JOIN workflow_steps ws ON ws.id = wsi.step_id
-            WHERE wsi.instance_id=%s AND wsi.status='pending'
-            ORDER BY wsi.step_order LIMIT 1
-        """, (instance['id'],))
-        next_step_inst = cur.fetchone()
-
+        # Approval: find next pending step, auto-skipping any dept_head step
+        # whose resolved approver is missing (no head_user_id set) or is the
+        # submitter themselves (can't approve your own request) - same rule
+        # applied when the workflow was first triggered, but steps later in
+        # the chain are only resolved now since department heads can change
+        # between when the workflow starts and when it reaches that step.
         entity_status_on_approve = current_step_inst.get('entity_status_on_approve')
+        context = instance.get('context') or {}
+        if isinstance(context, str):
+            context = json.loads(context)
+        submitter_id = instance.get('submitter_id')
+
+        next_step_inst = None
+        assigned_to_id = None
+        assigned_role = None
+        while True:
+            cur.execute("""
+                SELECT wsi.*, ws.step_name, ws.step_type, ws.approver_type,
+                       ws.approver_role, ws.approver_user_id, ws.approver_lookup,
+                       ws.entity_status_on_approve, ws.notify_on_assign,
+                       ws.notify_title, ws.notify_body, ws.wq_link_template,
+                       ws.wq_priority, ws.action_label
+                FROM workflow_step_instances wsi
+                JOIN workflow_steps ws ON ws.id = wsi.step_id
+                WHERE wsi.instance_id=%s AND wsi.status='pending'
+                ORDER BY wsi.step_order LIMIT 1
+            """, (instance['id'],))
+            candidate = cur.fetchone()
+            if not candidate:
+                break
+            candidate_assigned_to_id, candidate_assigned_role = self._resolve_approver(cur, candidate, context)
+            if self._should_auto_skip(candidate, candidate_assigned_to_id, submitter_id):
+                cur.execute("""
+                    UPDATE workflow_step_instances
+                    SET status='skipped', assigned_to_id=%s, assigned_role=%s
+                    WHERE id=%s
+                """, (candidate_assigned_to_id, candidate_assigned_role, candidate['id']))
+                continue
+            next_step_inst = candidate
+            assigned_to_id = candidate_assigned_to_id
+            assigned_role = candidate_assigned_role
+            break
 
         if not next_step_inst:
-            # All steps done — complete workflow
+            # All steps done (or every remaining step was auto-skipped) — complete workflow
             cur.execute("""
                 UPDATE workflow_instances
                 SET status='completed', completed_at=%s, updated_at=%s
@@ -242,13 +295,6 @@ class WorkflowEngine:
             self._update_entity_wq(cur, module, entity_id, entity_type,
                                    final_status, actioned_by, proc_time=proc_time)
             return {'status': 'completed', 'entity_status': final_status}
-
-        # Activate next step
-        context = instance.get('context') or {}
-        if isinstance(context, str):
-            context = json.loads(context)
-
-        assigned_to_id, assigned_role = self._resolve_approver(cur, next_step_inst, context)
 
         # Update assignment on step instance
         cur.execute("""
@@ -425,6 +471,21 @@ class WorkflowEngine:
             if match and cond.get('effect') == 'include_step':
                 return True
         return True
+
+    def _should_auto_skip(self, step, assigned_to_id, submitter_id):
+        """A dept_head step that cannot actually be acted on should be
+        auto-skipped instead of left as a pending step nobody can ever
+        action. Two cases: the department has no head_user_id set at all,
+        or the resolved head IS the submitter themselves (an employee can't
+        approve their own request). Only applies to dept_head steps - other
+        approver types (role, specific_user, etc.) are left untouched."""
+        if step.get('approver_type') != 'dept_head':
+            return False
+        if assigned_to_id is None:
+            return True
+        if submitter_id is not None and assigned_to_id == submitter_id:
+            return True
+        return False
 
     def _resolve_approver(self, cur, step, context: dict):
         """Resolve the actual user_id and role for a step's approver."""

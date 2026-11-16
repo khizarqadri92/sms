@@ -28,8 +28,9 @@ snapshotted from class_fee_config at invoice-generation time:
 """
 import psycopg2.extras
 from datetime import date, datetime as _dt
+from zoneinfo import ZoneInfo
 from app.db.connection import get_db
-from app.utils.notify import send_notification
+from app.utils.notify import send_notification, render_templated_notification
 from app.utils.processing_date import get_processing_date, get_processing_datetime
 
 def _calculate_late_fee(late_fee_type, late_fee_amount, invoice_amount, days_overdue, grace_days):
@@ -77,7 +78,7 @@ def run_fee_reminders():
         SELECT fi.id, fi.student_id, fi.due_date, fi.amount, fi.discount, fi.fine,
                fi.late_fee_type, fi.late_fee_amount,
                fi.status, fi.notice_level,
-               s.user_id, s.parent_id, s.first_name, s.last_name, s.enrollment_no,
+               s.user_id, s.parent_id, s.first_name, s.last_name, s.enrollment_no, s.campus_id,
                u.is_active AS student_active
         FROM fee_invoices fi
         JOIN students s ON s.id = fi.student_id
@@ -119,35 +120,44 @@ def run_fee_reminders():
 
         # 1st Notice
         if days_overdue >= reminder1_days and notice_level < 1:
-            msg = (f"Fee payment reminder (1st Notice): Rs. {amount:,.0f} is overdue by {days_overdue} days. "
+            default_msg = (f"Fee payment reminder (1st Notice): Rs. {amount:,.0f} is overdue by {days_overdue} days. "
                    f"Due date was {due_date}. Please pay immediately to avoid account suspension.")
+            tags = {"student_name": name, "amount": f"{amount:,.0f}", "days_overdue": days_overdue, "due_date": due_date}
             if inv["user_id"]:
-                send_notification(inv["user_id"], "Fee Overdue - 1st Notice", msg, "warning", "/my-fees")
+                t, b = render_templated_notification("fee_overdue_notice1_student", tags, "Fee Overdue - 1st Notice", default_msg, campus_id=inv["campus_id"])
+                send_notification(inv["user_id"], t, b, "warning", "/my-fees")
             if inv["parent_id"]:
-                send_notification(inv["parent_id"], f"{name}: Fee Overdue - 1st Notice", msg, "warning", "/my-fees")
+                t, b = render_templated_notification("fee_overdue_notice1_parent", tags, f"{name}: Fee Overdue - 1st Notice", default_msg, campus_id=inv["campus_id"])
+                send_notification(inv["parent_id"], t, b, "warning", "/my-fees")
             cur.execute("UPDATE fee_invoices SET notice_level=1 WHERE id=%s", (inv["id"],))
             results["notice1"] += 1
 
         # 2nd Notice
         elif days_overdue >= reminder2_days and notice_level < 2:
-            msg = (f"Fee payment reminder (2nd Notice): Rs. {amount:,.0f} is overdue by {days_overdue} days. "
+            default_msg = (f"Fee payment reminder (2nd Notice): Rs. {amount:,.0f} is overdue by {days_overdue} days. "
                    f"Your account will be LOCKED in {lock_days - days_overdue} days if not paid.")
+            tags = {"student_name": name, "amount": f"{amount:,.0f}", "days_overdue": days_overdue, "days_until_lock": lock_days - days_overdue}
             if inv["user_id"]:
-                send_notification(inv["user_id"], "Fee Overdue - 2nd Notice", msg, "danger", "/my-fees")
+                t, b = render_templated_notification("fee_overdue_notice2_student", tags, "Fee Overdue - 2nd Notice", default_msg, campus_id=inv["campus_id"])
+                send_notification(inv["user_id"], t, b, "danger", "/my-fees")
             if inv["parent_id"]:
-                send_notification(inv["parent_id"], f"{name}: Fee Overdue - 2nd Notice", msg, "danger", "/my-fees")
+                t, b = render_templated_notification("fee_overdue_notice2_parent", tags, f"{name}: Fee Overdue - 2nd Notice", default_msg, campus_id=inv["campus_id"])
+                send_notification(inv["parent_id"], t, b, "danger", "/my-fees")
             cur.execute("UPDATE fee_invoices SET notice_level=2 WHERE id=%s", (inv["id"],))
             results["notice2"] += 1
 
         # Account Lock
         elif days_overdue >= lock_days and notice_level < 3:
-            msg = (f"Account Locked: Your account has been locked due to non-payment of Rs. {amount:,.0f}. "
+            default_msg = (f"Account Locked: Your account has been locked due to non-payment of Rs. {amount:,.0f}. "
                    f"Please contact school administration immediately.")
+            tags = {"student_name": name, "amount": f"{amount:,.0f}"}
             if inv["user_id"]:
-                send_notification(inv["user_id"], "Account Locked - Fee Overdue", msg, "danger", "/my-fees")
+                t, b = render_templated_notification("fee_overdue_locked_student", tags, "Account Locked - Fee Overdue", default_msg, campus_id=inv["campus_id"])
+                send_notification(inv["user_id"], t, b, "danger", "/my-fees")
                 cur.execute("UPDATE users SET is_active=FALSE, lock_reason='fee_overdue' WHERE id=%s", (inv["user_id"],))
             if inv["parent_id"]:
-                send_notification(inv["parent_id"], f"{name}: Account Locked", msg, "danger", "/my-fees")
+                t, b = render_templated_notification("fee_overdue_locked_parent", tags, f"{name}: Account Locked", default_msg, campus_id=inv["campus_id"])
+                send_notification(inv["parent_id"], t, b, "danger", "/my-fees")
             cur.execute("UPDATE fee_invoices SET notice_level=3 WHERE id=%s", (inv["id"],))
             results["locked"] += 1
         else:
@@ -181,8 +191,15 @@ def run_fee_reminders_scheduled(app, force=False):
                 target_hour, target_minute = [int(p) for p in target_time_str.split(":")]
             except ValueError:
                 target_hour, target_minute = 8, 0
+            cur.execute("SELECT value FROM system_settings WHERE key = \'timezone\'")
+            tz_row = cur.fetchone()
+            school_tz = tz_row["value"] if tz_row and tz_row["value"] else "UTC"
+            try:
+                now_local = now.astimezone(ZoneInfo(school_tz))
+            except Exception:
+                now_local = now
             target_total_minutes = target_hour * 60 + target_minute
-            now_total_minutes = now.hour * 60 + now.minute
+            now_total_minutes = now_local.hour * 60 + now_local.minute
             if now_total_minutes < target_total_minutes or now_total_minutes >= target_total_minutes + 15:
                 return {"ran": False, "reason": "Not within the configured time window yet."}
 

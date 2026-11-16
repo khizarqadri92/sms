@@ -1,0 +1,48 @@
+/* Results tab additions: classes without students, compartment result */
+.ed-rt-class-row--off { opacity: .6; cursor: default !important; }
+.ed-rt-norequired-tag, .ed-rt-comp-tag {
+  font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; white-space: nowrap;
+}
+.ed-rt-norequired-tag { background: var(--color-background-secondary, #f1f5f9); color: var(--text-secondary, #64748b); border: 1px dashed var(--border-color, #cbd5e1); }
+.ed-rt-comp-tag { background: #fef3c7; color: #92400e; }
+html[data-color-mode="dark"] .ed-rt-comp-tag { background: rgba(245,158,11,.18); color: #fcd34d; }
+
+/* Final (year) result + documents */
+.ed-fr-bar {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 10px 14px; margin-bottom: 10px; border-radius: 8px;
+  background: var(--bg-success-soft, #f0fdf4); border: 1px solid #bbf7d0;
+}
+html[data-color-mode="dark"] .ed-fr-bar { border-color: rgba(34,197,94,.35); }
+.ed-fr-bar-title { font-weight: 700; font-size: 13px; color: var(--text-heading, #0f172a); }
+.ed-fr-bar-sub { font-size: 12px; color: var(--text-secondary, #64748b); margin-top: 2px; }
+.ed-fr-btn {
+  padding: 7px 14px; border: none; border-radius: 7px; font-size: 12px; font-weight: 700; cursor: pointer;
+  background: #0f4c35; color: #fff;
+}
+html[data-color-mode="dark"] .ed-fr-btn { background: #16a34a; color: #052e1c; }
+.ed-fr-th { background: rgba(212,160,23,.12); }
+.ed-fr-td { background: rgba(212,160,23,.06); }
+.ed-fr-grade { font-size: 10px; color: var(--text-secondary, #64748b); font-weight: 600; }
+.ed-fr-none { font-size: 11px; color: var(--text-muted, #94a3b8); }
+.ed-fr-docs { white-space: nowrap; padding: 6px 8px; }
+.ed-fr-doc-btn {
+  font-size: 11px; font-weight: 600; padding: 4px 9px; margin-right: 4px; border-radius: 6px; cursor: pointer;
+  border: 1px solid var(--border-color, #e2e8f0); background: var(--bg-card, #fff); color: var(--text-heading, #0f172a);
+}
+.ed-fr-doc-btn:hover { border-color: #0f4c35; }
+.ed-fr-doc-btn--cert { border-color: #d4a017; color: #92400e; background: #fffbeb; }
+html[data-color-mode="dark"] .ed-fr-doc-btn--cert { background: rgba(212,160,23,.15); color: #fcd34d; }
+.ed-fr-doc-btn:disabled { opacity: .6; cursor: wait; }
+
+/* Fee-due result withholding */
+.ed-fw-note {
+  font-size: 12px; padding: 8px 12px; margin-bottom: 10px; border-radius: 8px;
+  background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa;
+}
+html[data-color-mode="dark"] .ed-fw-note { background: rgba(249,115,22,.12); color: #fdba74; border-color: rgba(249,115,22,.35); }
+.ed-fw-tag {
+  display: inline-block; margin-top: 2px; font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 8px;
+  background: #ffedd5; color: #9a3412;
+}
+html[data-color-mode="dark"] .ed-fw-tag { background: rgba(249,115,22,.18); color: #fdba74; }

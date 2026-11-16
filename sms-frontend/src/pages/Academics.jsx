@@ -6,6 +6,7 @@ import teachersApi  from "../api/teachersApi";
 import settingsApi from "../api/settingsApi";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
 import DatePicker from "../components/DatePicker";
+import "./Academics.css";
 
 const TABS = ["Academic Years", "Classes", "Subjects", "Timetable", "Class Overview"];
 const DAYS = [
@@ -98,22 +99,22 @@ function YearsTab() {
 
   return (
     <div>
-      <div className="page-header" style={{ marginBottom:16 }}>
-        <h2 style={{ fontSize:16, fontWeight:700, color:"#0f172a" }}>Academic Years</h2>
+      <div className="page-header aca-tab-header">
+        <h2 className="aca-tab-title">Academic Years</h2>
         {canManage && <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
           {showForm ? "Cancel" : "+ New Academic Year"}
         </button>}
       </div>
 
       {isGlobalLocked && (
-        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+        <div className="alert aca-locked-alert">
           Academic Years are managed centrally by the superadmin. This list is read-only here.
         </div>
       )}
       {success && <div className="alert alert-success">{success}</div>}
       {error   && <div className="alert alert-error">{error}</div>}
       {showForm && (
-        <div className="section-card" style={{ marginBottom:16 }}>
+        <div className="section-card aca-form-card">
           <div className="section-card-header">
             <span className="section-card-title">Create Academic Year</span>
           </div>
@@ -133,7 +134,7 @@ function YearsTab() {
                 <DatePicker value={form.end_date} onChange={val => setForm({...form, end_date:val})} />
               </div>
             </div>
-            <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
+            <div className="aca-form-actions">
               <button type="button" className="btn btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
               <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Creating..." : "Create Year"}</button>
             </div>
@@ -248,13 +249,13 @@ function ClassesTab() {
 
   return (
     <div>
-      <div className="page-header" style={{ marginBottom:16 }}>
-        <h2 style={{ fontSize:16, fontWeight:700, color:"#0f172a" }}>Classes</h2>
+      <div className="page-header aca-tab-header">
+        <h2 className="aca-tab-title">Classes</h2>
         {canManage && <button className="btn btn-primary" onClick={openCreate}>+ New Class</button>}
       </div>
 
       {isGlobalLocked && (
-        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+        <div className="alert aca-locked-alert">
           Classes are managed centrally by the superadmin. This list is read-only here.
         </div>
       )}
@@ -262,7 +263,7 @@ function ClassesTab() {
       {error   && <div className="alert alert-error">{error}</div>}
 
       {showForm && (
-        <div className="section-card" style={{ marginBottom:16 }}>
+        <div className="section-card aca-form-card">
           <div className="section-card-header">
             <span className="section-card-title">{editItem ? "Edit Class" : "Create Class"}</span>
           </div>
@@ -299,7 +300,7 @@ function ClassesTab() {
                 </select>
               </div>
             </div>
-            <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
+            <div className="aca-form-actions">
               <button type="button" className="btn btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
               <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Saving..." : editItem ? "Update Class" : "Create Class"}</button>
             </div>
@@ -433,13 +434,13 @@ function SubjectsTab() {
 
   return (
     <div>
-      <div className="page-header" style={{ marginBottom:16 }}>
-        <h2 style={{ fontSize:16, fontWeight:700, color:"#0f172a" }}>Subjects</h2>
+      <div className="page-header aca-tab-header">
+        <h2 className="aca-tab-title">Subjects</h2>
         {canManage && <button className="btn btn-primary" onClick={openCreate}>+ New Subject</button>}
       </div>
 
       {isGlobalLocked && (
-        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+        <div className="alert aca-locked-alert">
           Subjects are managed centrally by the superadmin. This list is read-only here.
         </div>
       )}
@@ -447,7 +448,7 @@ function SubjectsTab() {
       {error   && <div className="alert alert-error">{error}</div>}
 
       {showForm && (
-        <div className="section-card" style={{ marginBottom:16 }}>
+        <div className="section-card aca-form-card">
           <div className="section-card-header">
             <span className="section-card-title">{editItem ? "Edit Subject" : "Create Subject"}</span>
           </div>
@@ -471,7 +472,7 @@ function SubjectsTab() {
                 <input className="form-control" value={form.description} onChange={e => setForm({...form, description:e.target.value})} placeholder="Brief description" />
               </div>
             </div>
-            <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
+            <div className="aca-form-actions">
               <button type="button" className="btn btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
               <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Saving..." : editItem ? "Update Subject" : "Create Subject"}</button>
             </div>
@@ -498,9 +499,9 @@ function SubjectsTab() {
               {subjects.map(s => (
                 <tr key={s.id}>
                   <td><strong>{s.name}</strong></td>
-                  <td><code style={{ background:"#f1f5f9", padding:"2px 7px", borderRadius:5, fontSize:12 }}>{s.code}</code></td>
+                  <td><code className="aca-code-badge">{s.code}</code></td>
                   <td>{s.credit_hours}</td>
-                  <td style={{ color:"#64748b", fontSize:13 }}>{s.description || "N/A"}</td>
+                  <td style={{ color:"var(--text-secondary)", fontSize:13 }}>{s.description || "N/A"}</td>
                   <td>
                     {s.is_active
                       ? <span className="badge badge-success">Active</span>
@@ -632,8 +633,8 @@ function TimetableTab() {
 
   return (
     <div>
-      <div className="page-header" style={{ marginBottom:16 }}>
-        <h2 style={{ fontSize:16, fontWeight:700, color:"#0f172a" }}>Timetable</h2>
+      <div className="page-header aca-tab-header">
+        <h2 className="aca-tab-title">Timetable</h2>
         {can("timetable.manage") && (
           <div style={{ display:"flex", gap:8 }}>
             <button className="btn btn-secondary" onClick={() => { setShowAI(!showAI); setAIResult(null); setAIError(""); }}>
@@ -688,7 +689,7 @@ function TimetableTab() {
       )}
 
       {showForm && (
-        <div className="section-card" style={{ marginBottom:16 }}>
+        <div className="section-card aca-form-card">
           <div className="section-card-header">
             <span className="section-card-title">Add Timetable Entry</span>
           </div>
@@ -738,7 +739,7 @@ function TimetableTab() {
                 <input className="form-control" value={form.room_number} onChange={e => setForm({...form, room_number:e.target.value})} placeholder="e.g. 101" />
               </div>
             </div>
-            <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
+            <div className="aca-form-actions">
               <button type="button" className="btn btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
               <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Adding..." : "Add to Timetable"}</button>
             </div>
@@ -749,7 +750,7 @@ function TimetableTab() {
 
       <div className="section-card">
         {/* Day tabs */}
-        <div style={{ display:"flex", borderBottom:"1px solid #e2e8f0", marginBottom:0 }}>
+        <div style={{ display:"flex", borderBottom:"1px solid var(--border-color)", marginBottom:0 }}>
           {["All Classes","Monday","Tuesday","Wednesday","Thursday","Friday"].map((day, i) => (
             <button key={day}
               onClick={() => setActiveDay(i === 0 ? "all" : String(i))}
@@ -764,7 +765,7 @@ function TimetableTab() {
         </div>
 
         {/* Class filter */}
-        <div style={{ padding:"12px 16px", borderBottom:"1px solid #f1f5f9", display:"flex", alignItems:"center", gap:10 }}>
+        <div style={{ padding:"12px 16px", borderBottom:"1px solid var(--border-color)", display:"flex", alignItems:"center", gap:10 }}>
           <label style={{ fontSize:13, color:"var(--color-text-secondary)", whiteSpace:"nowrap" }}>Filter class:</label>
           <select className="form-control" style={{ maxWidth:220 }} value={classId} onChange={e => setClassId(e.target.value)}>
             <option value="">All Classes</option>
@@ -806,34 +807,34 @@ function TimetableTab() {
                   {filtCls.map(cls => {
                     const clsSlots = filtSlots.filter(s => String(s.class_id) === String(cls.id));
                     const colorPalette = [
-                    {bg:"#eff6ff",border:"#2563eb",text:"#1e40af"},
-                    {bg:"#f0fdf4",border:"#16a34a",text:"#166534"},
-                    {bg:"#fef9c3",border:"#ca8a04",text:"#854d0e"},
-                    {bg:"#fef2f2",border:"#dc2626",text:"#991b1b"},
-                    {bg:"#f5f3ff",border:"#7c3aed",text:"#5b21b6"},
-                    {bg:"#fff7ed",border:"#ea580c",text:"#9a3412"},
-                    {bg:"#ecfeff",border:"#0891b2",text:"#0e7490"},
-                    {bg:"#fdf4ff",border:"#a21caf",text:"#86198f"},
+                    {bg:"rgba(37,99,235,0.12)",border:"#2563eb",text:"#2563eb"},
+                    {bg:"rgba(22,163,74,0.12)",border:"#16a34a",text:"#16a34a"},
+                    {bg:"rgba(202,138,4,0.12)",border:"#ca8a04",text:"#ca8a04"},
+                    {bg:"rgba(220,38,38,0.12)",border:"#dc2626",text:"#dc2626"},
+                    {bg:"rgba(124,58,237,0.12)",border:"#7c3aed",text:"#7c3aed"},
+                    {bg:"rgba(234,88,12,0.12)",border:"#ea580c",text:"#ea580c"},
+                    {bg:"rgba(8,145,178,0.12)",border:"#0891b2",text:"#0891b2"},
+                    {bg:"rgba(162,28,175,0.12)",border:"#a21caf",text:"#a21caf"},
                   ];
                   const subjIds = [...new Set(clsSlots.map(s => s.subject_id))];
                   const subjColorMap = {};
                   subjIds.forEach((id, i) => { subjColorMap[id] = colorPalette[i % colorPalette.length]; });
                     return (
-                      <tr key={cls.id} style={{ borderBottom:"1px solid #f1f5f9" }}>
+                      <tr key={cls.id} style={{ borderBottom:"1px solid var(--border-color)" }}>
                         <td style={{ padding:"8px 10px", background:"var(--color-background-secondary)", fontWeight:500, fontSize:11, color:"var(--color-text-secondary)", verticalAlign:"top" }}>
-                          {cls.name}{cls.section ? <span style={{ fontSize:10, color:"#94a3b8" }}> ({cls.section})</span> : ""}
+                          {cls.name}{cls.section ? <span style={{ fontSize:10, color:"var(--text-muted)" }}> ({cls.section})</span> : ""}
                         </td>
                         {activeDay === "all" ? days.map(d => {
                           const daySlots = clsSlots.filter(s => String(s.day_of_week) === d);
                           return (
-                            <td key={d} style={{ padding:"4px 5px", verticalAlign:"top", border:"0.5px solid #f1f5f9" }}>
+                            <td key={d} style={{ padding:"4px 5px", verticalAlign:"top", border:"0.5px solid var(--border-color)" }}>
                               {daySlots.length === 0
-                                ? <div style={{ color:"#e2e8f0", textAlign:"center", fontSize:10 }}>—</div>
+                                ? <div style={{ color:"var(--text-muted)", textAlign:"center", fontSize:10 }}>—</div>
                                 : daySlots.map((s, si) => (
-                                  <div key={s.id} style={{ background:subjColorMap[s.subject_id]?.bg||"#f8fafc", borderLeft:"2px solid "+(subjColorMap[s.subject_id]?.border||"#94a3b8"), borderRadius:4, padding:"3px 5px", marginBottom:2 }}>
-                                    <div style={{ fontWeight:600, fontSize:10, color:subjColorMap[s.subject_id]?.text||"#334155" }}>{s.subject_name}</div>
+                                  <div key={s.id} style={{ background:subjColorMap[s.subject_id]?.bg||"var(--bg-hover)", borderLeft:"2px solid "+(subjColorMap[s.subject_id]?.border||"var(--text-muted)"), borderRadius:4, padding:"3px 5px", marginBottom:2 }}>
+                                    <div style={{ fontWeight:600, fontSize:10, color:subjColorMap[s.subject_id]?.text||"var(--text-heading)" }}>{s.subject_name}</div>
                                     <div style={{ fontSize:9, color:"var(--color-text-secondary)" }}>{s.teacher_name}</div>
-                                    <div style={{ fontSize:9, color:"#94a3b8" }}>{s.start_time ? s.start_time.slice(0,5) : ""}–{s.end_time ? s.end_time.slice(0,5) : ""}</div>
+                                    <div style={{ fontSize:9, color:"var(--text-muted)" }}>{s.start_time ? s.start_time.slice(0,5) : ""}–{s.end_time ? s.end_time.slice(0,5) : ""}</div>
                                     {can("timetable.manage") && <button onClick={() => handleDelete(s.id)} style={{ background:"none", border:"none", color:"#dc2626", cursor:"pointer", fontSize:10, padding:0 }}>×</button>}
                                   </div>
                                 ))
@@ -844,14 +845,14 @@ function TimetableTab() {
                           [...new Set(filtSlots.map(s => s.start_time))].sort().map(t => {
                             const s = clsSlots.find(sl => sl.start_time === t);
                             return (
-                              <td key={t} style={{ padding:"4px 5px", verticalAlign:"top", border:"0.5px solid #f1f5f9" }}>
+                              <td key={t} style={{ padding:"4px 5px", verticalAlign:"top", border:"0.5px solid var(--border-color)" }}>
                                 {s ? (
-                                  <div style={{ background:subjColorMap[s.subject_id]?.bg||"#eff6ff", borderLeft:"2px solid "+(subjColorMap[s.subject_id]?.border||"#2563eb"), borderRadius:4, padding:"3px 5px" }}>
-                                    <div style={{ fontWeight:600, fontSize:10, color:subjColorMap[s.subject_id]?.text||"#1e40af" }}>{s.subject_name}</div>
+                                  <div style={{ background:subjColorMap[s.subject_id]?.bg||"var(--bg-hover)", borderLeft:"2px solid "+(subjColorMap[s.subject_id]?.border||"#2563eb"), borderRadius:4, padding:"3px 5px" }}>
+                                    <div style={{ fontWeight:600, fontSize:10, color:subjColorMap[s.subject_id]?.text||"var(--text-heading)" }}>{s.subject_name}</div>
                                     <div style={{ fontSize:9, color:"var(--color-text-secondary)" }}>{s.teacher_name}</div>
                                     {can("timetable.manage") && <button onClick={() => handleDelete(s.id)} style={{ background:"none", border:"none", color:"#dc2626", cursor:"pointer", fontSize:10, padding:0 }}>×</button>}
                                   </div>
-                                ) : <div style={{ color:"#e2e8f0", textAlign:"center", fontSize:10 }}>—</div>}
+                                ) : <div style={{ color:"var(--text-muted)", textAlign:"center", fontSize:10 }}>—</div>}
                               </td>
                             );
                           })
@@ -953,27 +954,27 @@ export function ClassDetail({ classItem, onClose, isGlobalLocked }) {
                 <span className="section-card-title">Class Incharge</span>
               </div>
               {incharge ? (
-                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 14px", background:"#f0fdf4", borderRadius:8, border:"1px solid #bbf7d0", marginBottom:16 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 14px", background:"var(--bg-success-soft)", borderRadius:8, border:"1px solid #bbf7d0", marginBottom:16 }}>
                   <div>
                     <div style={{ fontWeight:700, fontSize:13 }}>{incharge.teacher_name}</div>
-                    <div style={{ fontSize:11, color:"#64748b" }}>{incharge.employee_no}</div>
+                    <div style={{ fontSize:11, color:"var(--text-secondary)" }}>{incharge.employee_no}</div>
                     {incharge.subject_names && <div style={{ fontSize:11, color:"#2563eb", marginTop:2 }}>{incharge.subject_names}</div>}
                     {isMontessori && <div style={{ fontSize:11, color:"#16a34a", fontWeight:600 }}>Teaches all subjects</div>}
                   </div>
                   {canManage && <button className="btn btn-danger btn-xs" onClick={() => handleRemove(incharge.teacher_id)}>Remove</button>}
                 </div>
               ) : (
-                <div style={{ fontSize:12, color:"#94a3b8", marginBottom:16 }}>No class incharge assigned.</div>
+                <div style={{ fontSize:12, color:"var(--text-muted)", marginBottom:16 }}>No class incharge assigned.</div>
               )}
 
               {!isMontessori && subjects.length > 0 && (
                 <div style={{ marginBottom:16 }}>
-                  <div style={{ fontSize:12, fontWeight:600, color:"#64748b", marginBottom:8 }}>Subject Teachers</div>
+                  <div style={{ fontSize:12, fontWeight:600, color:"var(--text-secondary)", marginBottom:8 }}>Subject Teachers</div>
                   {subjects.map(t => (
-                    <div key={t.teacher_id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 12px", background:"#f8fafc", borderRadius:6, marginBottom:4 }}>
+                    <div key={t.teacher_id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 12px", background:"var(--bg-hover)", borderRadius:6, marginBottom:4 }}>
                       <div>
                         <span style={{ fontWeight:600, fontSize:12 }}>{t.teacher_name}</span>
-                        <span style={{ fontSize:11, color:"#64748b", marginLeft:8 }}>{t.employee_no}</span>
+                        <span style={{ fontSize:11, color:"var(--text-secondary)", marginLeft:8 }}>{t.employee_no}</span>
                         {t.subject_names && <span style={{ fontSize:11, color:"#2563eb", marginLeft:8 }}>{t.subject_names}</span>}
                       </div>
                       {canManage && <button className="btn btn-danger btn-xs" onClick={() => handleRemove(t.teacher_id)}>Remove</button>}
@@ -1072,9 +1073,9 @@ function ClassSubjectsModal({ classItem, onClose, isGlobalLocked }) {
               ) : (
                 <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:16 }}>
                   {classSubjects.map(s => (
-                    <div key={s.id} style={{ display:"flex", alignItems:"center", gap:6, background:"#eff6ff", border:"1px solid #bfdbfe", borderRadius:20, padding:"5px 12px" }}>
+                    <div key={s.id} style={{ display:"flex", alignItems:"center", gap:6, background:"var(--bg-info-soft)", border:"1px solid var(--border-info-soft)", borderRadius:20, padding:"5px 12px" }}>
                       <span style={{ fontSize:13, fontWeight:600, color:"#1d4ed8" }}>{s.subject_name}</span>
-                      <span style={{ fontSize:11, color:"#64748b" }}>({s.code})</span>
+                      <span style={{ fontSize:11, color:"var(--text-secondary)" }}>({s.code})</span>
                       {canManage && (
                         <button style={{ border:"none", background:"none", color:"#dc2626", cursor:"pointer", fontSize:16, lineHeight:1 }}
                           onClick={async () => { await academicsApi.removeClassSubject(classItem.id, s.subject_id); await fetchData(); }}>×</button>
@@ -1507,7 +1508,7 @@ function AITimetableGenerator({ onApply, applying, aiError, setAIError }) {
 
   return (
     <div className="section-card" style={{ marginBottom:16, border:"2px solid #7c3aed" }}>
-      <div className="section-card-header" style={{ background:"#f5f3ff" }}>
+      <div className="section-card-header" style={{ background:"rgba(124,58,237,0.12)" }}>
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
           <span style={{ fontSize:18 }}>✨</span>
           <span className="section-card-title" style={{ color:"#5b21b6" }}>AI Timetable Generator</span>
@@ -1543,8 +1544,8 @@ function AITimetableGenerator({ onApply, applying, aiError, setAIError }) {
               <label key={c.id} style={{
                 display:"flex", alignItems:"center", gap:6, cursor:"pointer",
                 padding:"5px 12px", borderRadius:20, border:"1px solid",
-                borderColor: classes.includes(c.id) ? "#7c3aed" : "#e2e8f0",
-                background: classes.includes(c.id) ? "#f5f3ff" : "var(--color-background-primary)",
+                borderColor: classes.includes(c.id) ? "#7c3aed" : "var(--border-color)",
+                background: classes.includes(c.id) ? "rgba(124,58,237,0.12)" : "var(--color-background-primary)",
                 fontSize:12, fontWeight: classes.includes(c.id) ? 600 : 400,
                 color: classes.includes(c.id) ? "#5b21b6" : "var(--color-text-primary)",
               }}>
@@ -1597,26 +1598,26 @@ function AITimetableGenerator({ onApply, applying, aiError, setAIError }) {
               </thead>
               <tbody>
                 {grouped.map(cls => (
-                  <tr key={cls.id} style={{ borderBottom:"1px solid #f1f5f9" }}>
-                    <td style={{ padding:"6px 8px", background:"#f5f3ff", fontWeight:500, fontSize:11, color:"#5b21b6", verticalAlign:"top" }}>
+                  <tr key={cls.id} style={{ borderBottom:"1px solid var(--border-color)" }}>
+                    <td style={{ padding:"6px 8px", background:"rgba(124,58,237,0.12)", fontWeight:500, fontSize:11, color:"#5b21b6", verticalAlign:"top" }}>
                       {cls.name}{cls.section ? ` (${cls.section})` : ""}
                     </td>
                     {["1","2","3","4","5"].map(d => {
                       const daySlots = cls.slots.filter(s => String(s.day_of_week) === d).sort((a, b) => (a.start_time || "").localeCompare(b.start_time || ""));
                       return (
-                        <td key={d} style={{ padding:"3px 4px", verticalAlign:"top", border:"0.5px solid #f1f5f9" }}>
+                        <td key={d} style={{ padding:"3px 4px", verticalAlign:"top", border:"0.5px solid var(--border-color)" }}>
                           {daySlots.map((s, i) => {
                             const subj = (cls.subjects||[]).find(sub => sub.id === s.subject_id);
                             const tchr = (cls.teachers||[]).find(t => t.id === s.teacher_id);
                             return (
-                              <div key={i} style={{ background:"#ede9fe", borderLeft:"2px solid #7c3aed", borderRadius:3, padding:"2px 4px", marginBottom:2 }}>
+                              <div key={i} style={{ background:"rgba(124,58,237,0.12)", borderLeft:"2px solid #7c3aed", borderRadius:3, padding:"2px 4px", marginBottom:2 }}>
                                 <div style={{ fontWeight:600, fontSize:10, color:"#5b21b6" }}>{subj?.name || "?"}</div>
                                 <div style={{ fontSize:9, color:"#7c3aed" }}>{s.start_time?.slice(0,5)}-{s.end_time?.slice(0,5)}</div>
-                                <div style={{ fontSize:9, color:"#64748b" }}>{tchr?.name || "?"}</div>
+                                <div style={{ fontSize:9, color:"var(--text-secondary)" }}>{tchr?.name || "?"}</div>
                               </div>
                             );
                           })}
-                          {daySlots.length === 0 && <div style={{ color:"#e2e8f0", textAlign:"center" }}>—</div>}
+                          {daySlots.length === 0 && <div style={{ color:"var(--text-muted)", textAlign:"center" }}>—</div>}
                         </td>
                       );
                     })}
@@ -1666,7 +1667,7 @@ function ClassOverviewTab() {
 
   return (
     <div>
-      <div className="page-header" style={{ marginBottom:16 }}>
+      <div className="page-header aca-tab-header">
         <h2 style={{ fontSize:16, fontWeight:700 }}>Class Overview</h2>
         <input
           className="search-input"
@@ -1685,7 +1686,7 @@ function ClassOverviewTab() {
           return (
             <div key={cls.id} style={{ background:"var(--color-background-primary)", border:"1px solid var(--color-border-tertiary)", borderRadius:12, overflow:"hidden" }}>
               {/* Header */}
-              <div style={{ background: isMont ? "#fef9c3" : "#eff6ff", padding:"12px 16px", borderBottom:"1px solid var(--color-border-tertiary)", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
+              <div style={{ background: isMont ? "var(--bg-warning-soft)" : "var(--bg-info-soft)", padding:"12px 16px", borderBottom:"1px solid var(--color-border-tertiary)", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                 <div>
                   <div style={{ fontWeight:700, fontSize:14, color: isMont ? "#854d0e" : "#1d4ed8" }}>
                     {cls.name}{cls.section ? ` (${cls.section})` : ""}
@@ -1704,18 +1705,18 @@ function ClassOverviewTab() {
                 <div style={{ marginBottom:12 }}>
                   <div style={{ fontSize:11, fontWeight:600, color:"var(--color-text-secondary)", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:6 }}>Class Incharge</div>
                   {incharge ? (
-                    <div style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 10px", background:"#f0fdf4", borderRadius:8, border:"1px solid #bbf7d0" }}>
+                    <div style={{ display:"flex", alignItems:"center", gap:8, padding:"8px 10px", background:"var(--bg-success-soft)", borderRadius:8, border:"1px solid #bbf7d0" }}>
                       <div style={{ width:32, height:32, borderRadius:"50%", background:"#16a34a", display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, color:"#fff", flexShrink:0 }}>
                         {incharge.teacher_name ? incharge.teacher_name.split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase() : "?"}
                       </div>
                       <div>
                         <div style={{ fontWeight:600, fontSize:12 }}>{incharge.teacher_name}</div>
-                        <div style={{ fontSize:10, color:"#64748b" }}>{incharge.employee_no}</div>
+                        <div style={{ fontSize:10, color:"var(--text-secondary)" }}>{incharge.employee_no}</div>
                         {incharge.subject_names && <div style={{ fontSize:10, color:"#16a34a", fontWeight:500 }}>{incharge.subject_names}</div>}
                       </div>
                     </div>
                   ) : (
-                    <div style={{ fontSize:12, color:"#94a3b8", fontStyle:"italic" }}>No incharge assigned</div>
+                    <div style={{ fontSize:12, color:"var(--text-muted)", fontStyle:"italic" }}>No incharge assigned</div>
                   )}
                 </div>
 
@@ -1726,11 +1727,11 @@ function ClassOverviewTab() {
                     <div style={{ display:"flex", flexDirection:"column", gap:4 }}>
                       {subjectTeachers.map(t => (
                         <div key={t.teacher_id} style={{ display:"flex", alignItems:"center", gap:8, fontSize:12 }}>
-                          <div style={{ width:24, height:24, borderRadius:"50%", background:"#eff6ff", display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:700, color:"#2563eb", flexShrink:0 }}>
+                          <div style={{ width:24, height:24, borderRadius:"50%", background:"rgba(37,99,235,0.12)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:10, fontWeight:700, color:"#2563eb", flexShrink:0 }}>
                             {t.teacher_name ? t.teacher_name[0] : "?"}
                           </div>
                           <span style={{ fontWeight:500 }}>{t.teacher_name}</span>
-                          {t.subject_names && <span style={{ fontSize:10, color:"#64748b" }}>— {t.subject_names}</span>}
+                          {t.subject_names && <span style={{ fontSize:10, color:"var(--text-secondary)" }}>— {t.subject_names}</span>}
                         </div>
                       ))}
                     </div>
@@ -1743,11 +1744,11 @@ function ClassOverviewTab() {
                     Subjects ({cls.subjects.length})
                   </div>
                   {cls.subjects.length === 0 ? (
-                    <div style={{ fontSize:12, color:"#94a3b8", fontStyle:"italic" }}>No subjects assigned</div>
+                    <div style={{ fontSize:12, color:"var(--text-muted)", fontStyle:"italic" }}>No subjects assigned</div>
                   ) : (
                     <div style={{ display:"flex", flexWrap:"wrap", gap:5 }}>
                       {cls.subjects.map(s => (
-                        <span key={s.id} style={{ fontSize:11, padding:"3px 8px", background:"#f1f5f9", borderRadius:20, color:"#475569", border:"1px solid #e2e8f0" }}>
+                        <span key={s.id} style={{ fontSize:11, padding:"3px 8px", background:"var(--bg-hover)", borderRadius:20, color:"var(--text-secondary)", border:"1px solid var(--border-color)" }}>
                           {s.subject_name}
                         </span>
                       ))}

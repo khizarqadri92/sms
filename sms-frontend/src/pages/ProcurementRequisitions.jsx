@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import procurementApi from "../api/procurementApi";
 import { useAutoOpenById } from "../hooks/useAutoOpenById";
 import RequisitionDetailModal from "../components/RequisitionDetailModal";
+import "./ProcurementRequisitions.css";
 
 const statusBadge = (status) => ({
   draft: "badge-gray",
@@ -48,18 +49,18 @@ export default function ProcurementRequisitions() {
   useAutoOpenById(requisitions, (req) => setViewId(req.id));
   return (
     <div>
-      <div className="page-header" style={{ marginBottom: 16 }}>
+      <div className="page-header pr-page-header">
         <h1 className="page-heading">Requisitions Pipeline</h1>
       </div>
 
-      <div style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>
+      <div className="pr-intro-text">
         Every Purchase Requisition across the school, regardless of who's currently approving it. Once a requisition shows "Approved," it's ready to move ahead to a Purchase Order.
       </div>
 
-      {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
+      {error && <div className="alert alert-error pr-mb16">{error}</div>}
 
-      <div className="section-card" style={{ marginBottom: 16 }}>
-        <div style={{ display: "flex", gap: 8 }}>
+      <div className="section-card pr-mb16">
+        <div className="pr-filter-row">
           {filters.map(f => (
             <button
               key={f.value}
@@ -98,11 +99,11 @@ export default function ProcurementRequisitions() {
                   <td><strong>{pr.pr_number}</strong></td>
                   <td>{pr.requested_by_name}</td>
                   <td>{pr.department_name || "-"}</td>
-                  <td style={{ textTransform: "capitalize" }}>{pr.priority}{pr.is_emergency && " (Emergency)"}</td>
+                  <td className="pr-capitalize">{pr.priority}{pr.is_emergency && " (Emergency)"}</td>
                   <td>{pr.item_count}</td>
                   <td>Rs. {Number(pr.total_estimated_amount).toLocaleString()}</td>
-                  <td><span className={"badge " + statusBadge(pr.status)} style={{ textTransform: "capitalize" }}>{pr.status.replace("_", " ")}</span></td>
-                  <td style={{ fontSize: 12, color: "#64748b" }}>
+                  <td><span className={"badge pr-capitalize " + statusBadge(pr.status)}>{pr.status.replace("_", " ")}</span></td>
+                  <td className="pr-progress-cell">
                     {pr.wf_is_engine
                       ? (pr.wf_current_step
                           ? pr.wf_current_step + " (" + pr.wf_step_order + "/" + pr.wf_total_steps + ")"

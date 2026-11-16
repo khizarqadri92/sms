@@ -1262,23 +1262,28 @@ def release_payroll_run(run_id: int, user_id: int = Depends(require_permission("
         import calendar
         period_label = calendar.month_name[run["month"]] + " " + str(run["year"])
         cur.execute("""
-            SELECT s.user_id, p.net_pay, COALESCE(spp.transfer_mode, 'bank_transfer') AS transfer_mode
+            SELECT s.user_id, s.campus_id, p.net_pay, COALESCE(spp.transfer_mode, 'bank_transfer') AS transfer_mode
             FROM payroll_payslips p
             JOIN staff s ON s.id = p.staff_id
             LEFT JOIN staff_payroll_profile spp ON spp.staff_id = s.id
             WHERE p.payroll_run_id = %s AND s.user_id IS NOT NULL
         """, (run_id,))
         recipients = cur.fetchall()
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         import main as _main
         with _main.flask_app.app_context():
             for r in recipients:
+                net_pay_str = str(round(float(r["net_pay"] or 0)))
                 if r["transfer_mode"] == "bank_transfer":
-                    body = "Your salary of Rs. " + str(round(float(r["net_pay"] or 0))) + " for " + period_label + " has been transferred to your bank account."
+                    default_body = "Your salary of Rs. " + net_pay_str + " for " + period_label + " has been transferred to your bank account."
+                    _t, body = render_templated_notification("salary_released_bank",
+                        {"net_pay": net_pay_str, "period_label": period_label}, "Salary Released", default_body, campus_id=r["campus_id"])
                 else:
                     mode_label = "cheque" if r["transfer_mode"] == "cheque" else "cash"
-                    body = "Your salary of Rs. " + str(round(float(r["net_pay"] or 0))) + " for " + period_label + " is ready. Please collect your " + mode_label + " from the Finance department."
-                send_notification(r["user_id"], "Salary Released", body, "success")
+                    default_body = "Your salary of Rs. " + net_pay_str + " for " + period_label + " is ready. Please collect your " + mode_label + " from the Finance department."
+                    _t, body = render_templated_notification("salary_released_cash",
+                        {"net_pay": net_pay_str, "period_label": period_label, "mode_label": mode_label}, "Salary Released", default_body, campus_id=r["campus_id"])
+                send_notification(r["user_id"], _t, body, "success")
     except Exception as e:
         print(f"[payroll release notifications] {e}")
 
@@ -1546,19 +1551,20 @@ def send_payslip_notifications(run_id: int, user_id: int = Depends(require_permi
     import calendar
     period_label = calendar.month_name[run["month"]] + " " + str(run["year"])
     cur.execute("""
-        SELECT s.user_id FROM payroll_payslips p JOIN staff s ON s.id = p.staff_id
+        SELECT s.user_id, s.campus_id FROM payroll_payslips p JOIN staff s ON s.id = p.staff_id
         WHERE p.payroll_run_id = %s AND s.user_id IS NOT NULL
     """, (run_id,))
     recipients = cur.fetchall()
 
     sent = 0
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         import main as _main
         with _main.flask_app.app_context():
             for r in recipients:
-                send_notification(r["user_id"], "Salary Slip Ready",
-                    "Your salary slip for " + period_label + " is now available to view.", "info", "/my-payslips")
+                _t, _b = render_templated_notification("salary_slip_ready", {"period_label": period_label},
+                    "Salary Slip Ready", "Your salary slip for " + period_label + " is now available to view.", campus_id=r["campus_id"])
+                send_notification(r["user_id"], _t, _b, "info", "/my-payslips")
                 sent += 1
     except Exception as e:
         print(f"[send payslips] {e}")

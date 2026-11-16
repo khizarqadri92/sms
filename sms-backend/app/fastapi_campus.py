@@ -148,11 +148,10 @@ def resolve_governed_settings_campus_id(db, entity_key, campus_id):
         return None
     if campus_id is None:
         return None
-    cur.execute("SELECT uses_own_settings FROM campuses WHERE id=%s", (campus_id,))
-    crow = cur.fetchone()
-    if crow and crow["uses_own_settings"]:
-        return campus_id
-    return None
+    # Governance mode alone decides: per_campus means every campus gets its
+    # own independent settings, regardless of that campus's uses_own_settings
+    # flag (a separate, older per-campus opt-in that governance now supersedes).
+    return campus_id
 
 
 def resolve_governed_settings_campus_id_for_write(db, entity_key, raw_campus_id, own_campus_id):

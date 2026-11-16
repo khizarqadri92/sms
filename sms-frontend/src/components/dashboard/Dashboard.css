@@ -1,0 +1,121 @@
+/* =====================================================================
+   Role dashboards: cards, tiles, chart areas (light + dark)
+   ===================================================================== */
+.dk-wrap {
+  --dk-surface: var(--color-background-primary, #ffffff);
+  --dk-surface2: var(--color-background-secondary, #f8fafc);
+  --dk-ink: var(--color-text-primary, #0f172a);
+  --dk-soft: var(--color-text-secondary, #64748b);
+  --dk-line: var(--color-border-tertiary, #e2e8f0);
+  display: flex; flex-direction: column; gap: 14px; color: var(--dk-ink);
+}
+.dk-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.dk-title { font-size: 18px; font-weight: 800; }
+.dk-sub { font-size: 12px; color: var(--dk-soft); margin-top: 2px; }
+.dk-refresh {
+  padding: 6px 12px; border-radius: 7px; border: 1px solid var(--dk-line); background: var(--dk-surface);
+  color: var(--dk-ink); font-size: 12px; cursor: pointer;
+}
+
+.dk-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.dk-tile { background: var(--dk-surface); border: 1px solid var(--dk-line); border-radius: 12px; padding: 12px 14px; border-top: 3px solid #2563eb; }
+.dk-tile--ok   { border-top-color: #16a34a; }
+.dk-tile--warn { border-top-color: #d97706; }
+.dk-tile--bad  { border-top-color: #dc2626; }
+.dk-tile--link { cursor: pointer; }
+.dk-tile--link:hover { box-shadow: 0 2px 10px rgba(0,0,0,.08); }
+.dk-tile-label { font-size: 11px; font-weight: 600; color: var(--dk-soft); text-transform: uppercase; letter-spacing: .04em; }
+.dk-tile-value { font-size: 24px; font-weight: 800; margin-top: 4px; }
+.dk-tile-sub { font-size: 11px; color: var(--dk-soft); margin-top: 2px; }
+
+.dk-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 1100px) { .dk-grid { grid-template-columns: minmax(0, 1fr); } .dk-span2 { grid-column: auto !important; } }
+.dk-span2 { grid-column: span 2; }
+.dk-card { background: var(--dk-surface); border: 1px solid var(--dk-line); border-radius: 12px; padding: 14px 16px; min-width: 0; }
+.dk-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
+.dk-card-title { font-weight: 700; font-size: 14px; }
+.dk-card-sub { font-size: 12px; color: var(--dk-soft); margin-top: 2px; }
+.dk-chart { width: 100%; }
+.dk-empty {
+  height: 100%; min-height: 120px; display: flex; align-items: center; justify-content: center; text-align: center;
+  color: var(--dk-soft); font-size: 13px; border: 1px dashed var(--dk-line); border-radius: 10px; padding: 12px;
+}
+.dk-link { background: none; border: none; color: #2563eb; font-size: 12px; font-weight: 600; cursor: pointer; padding: 0; }
+html[data-color-mode="dark"] .dk-link { color: #93c5fd; }
+
+/* pending approvals */
+.dk-pending { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
+.dk-pend { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-radius: 10px;
+  background: var(--dk-surface2); border: 1px solid var(--dk-line); cursor: pointer; font-size: 13px; }
+.dk-pend:hover { border-color: #2563eb; }
+.dk-pend-n { font-weight: 800; font-size: 18px; }
+.dk-pend--hot .dk-pend-n { color: #d97706; }
+html[data-color-mode="dark"] .dk-pend--hot .dk-pend-n { color: #fbbf24; }
+
+/* at-risk table */
+.dk-table-wrap { overflow: auto; max-height: 320px; }
+.dk-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.dk-table th { text-align: left; font-size: 11px; color: var(--dk-soft); font-weight: 700; padding: 6px 8px; border-bottom: 1px solid var(--dk-line);
+  position: sticky; top: 0; background: var(--dk-surface); }
+.dk-table td { padding: 7px 8px; border-bottom: 1px solid var(--dk-line); vertical-align: top; }
+.dk-chip { display: inline-block; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 8px; margin: 0 4px 3px 0;
+  background: #fee2e2; color: #991b1b; }
+html[data-color-mode="dark"] .dk-chip { background: rgba(239,68,68,.18); color: #fca5a5; }
+.dk-progress { height: 8px; border-radius: 6px; background: var(--dk-surface2); border: 1px solid var(--dk-line); overflow: hidden; }
+.dk-progress > span { display: block; height: 100%; background: #16a34a; }
+.dk-prow { display: grid; grid-template-columns: 110px 1fr 70px; gap: 10px; align-items: center; font-size: 12.5px; padding: 5px 0; }
+.dk-prow-val { text-align: right; color: var(--dk-soft); }
+
+/* student / parent */
+/* parent: children cards act as the child selector */
+.dk-child-card { transition: border-color .15s, box-shadow .15s; }
+.dk-child-card:hover { border-color: #93c5fd !important; }
+.dk-child-card--on { border: 2px solid #2563eb !important; box-shadow: 0 0 0 3px rgba(37,99,235,.15); }
+html[data-color-mode="dark"] .dk-child-card--on { border-color: #60a5fa !important; box-shadow: 0 0 0 3px rgba(96,165,250,.2); }
+.dk-withheld { padding: 10px 14px; border-radius: 10px; font-size: 13px; background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; }
+html[data-color-mode="dark"] .dk-withheld { background: rgba(249,115,22,.12); color: #fdba74; border-color: rgba(249,115,22,.35); }
+
+/* =====================================================================
+   Hero banner (top of every role dashboard)
+   ===================================================================== */
+.dk-hero {
+  /* follows the school's theme colour (index.css), with a fallback */
+  --hero-a: var(--theme-primary-dark, #1d4ed8);
+  --hero-b: var(--theme-primary, #2563eb);
+  border-radius: 16px; padding: 18px 20px; color: #fff; position: relative; overflow: hidden;
+  background: linear-gradient(120deg, var(--hero-a) 0%, var(--hero-b) 100%);
+  box-shadow: 0 6px 20px color-mix(in srgb, var(--hero-b) 30%, transparent);
+}
+/* dark mode: same theme colour, deepened so it sits calmly on a dark page */
+html[data-color-mode="dark"] .dk-hero {
+  background: linear-gradient(120deg,
+              color-mix(in srgb, var(--hero-a) 55%, #020617) 0%,
+              color-mix(in srgb, var(--hero-b) 45%, #0f172a) 100%);
+  box-shadow: none; border: 1px solid color-mix(in srgb, var(--hero-b) 35%, #1e293b);
+}
+.dk-hero::after { content: ""; position: absolute; right: -60px; top: -60px; width: 220px; height: 220px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,.12), transparent 70%); pointer-events: none; }
+.dk-hero-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; position: relative; z-index: 1; }
+.dk-hero-id { display: flex; gap: 14px; align-items: center; }
+.dk-hero-avatar { width: 50px; height: 50px; border-radius: 50%; background: rgba(255,255,255,.18); border: 2px solid rgba(255,255,255,.45);
+  display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 17px; flex-shrink: 0; }
+.dk-hero-greet { font-size: 21px; font-weight: 800; line-height: 1.2; }
+.dk-hero-who { font-size: 13px; opacity: .92; margin-top: 2px; font-weight: 600; }
+.dk-hero-where { font-size: 12px; opacity: .78; margin-top: 2px; }
+.dk-hero-refresh { background: rgba(255,255,255,.15); color: #fff; border: 1px solid rgba(255,255,255,.35); border-radius: 8px;
+  padding: 6px 12px; font-size: 12px; cursor: pointer; white-space: nowrap; }
+.dk-hero-refresh:hover { background: rgba(255,255,255,.25); }
+.dk-hero-alert { display: flex; align-items: center; gap: 10px; margin-top: 14px; padding: 10px 14px; border-radius: 10px;
+  font-size: 13.5px; font-weight: 600; position: relative; z-index: 1; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.25); }
+.dk-hero-alert--bad  { background: rgba(254, 226, 226, .95); color: #991b1b; border-color: #fecaca; }
+.dk-hero-alert--warn { background: rgba(254, 243, 199, .95); color: #92400e; border-color: #fde68a; }
+.dk-hero-alert--ok   { background: rgba(255,255,255,.14); color: #fff; }
+.dk-hero-alert-icon { font-size: 15px; }
+.dk-hero-go { margin-left: auto; font-weight: 800; }
+.dk-hero-click { cursor: pointer; }
+.dk-hero-click:hover { filter: brightness(1.05); }
+.dk-hero-hl { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 12px; position: relative; z-index: 1; }
+.dk-hero-chip { background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.22); border-radius: 12px; padding: 10px 14px; }
+.dk-hero-chip-v { font-size: 20px; font-weight: 800; line-height: 1.15; }
+.dk-hero-chip-l { font-size: 12px; opacity: .85; margin-top: 2px; }
+.dk-hero-chip-s { font-size: 11px; opacity: .7; margin-top: 1px; }

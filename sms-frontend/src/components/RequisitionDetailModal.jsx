@@ -79,7 +79,7 @@ export default function RequisitionDetailModal({ requisitionId, onClose, onActed
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
-      <div style={{ background: "#fff", borderRadius: 12, padding: 24, width: "100%", maxWidth: 640, maxHeight: "90vh", overflow: "auto" }} onClick={e => e.stopPropagation()}>
+      <div style={{ background: "var(--bg-card)", borderRadius: 12, padding: 24, width: "100%", maxWidth: 640, maxHeight: "90vh", overflow: "auto" }} onClick={e => e.stopPropagation()}>
         {loading ? (
           <div className="loading-state">Loading...</div>
         ) : !pr ? (
@@ -89,12 +89,12 @@ export default function RequisitionDetailModal({ requisitionId, onClose, onActed
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
               <div>
                 <div style={{ fontWeight: 700, fontSize: 17 }}>{pr.pr_number}</div>
-                <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>{pr.requested_by_name} · {pr.department_name || "No department"} · {fmtDate(pr.created_at)}</div>
+                <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>{pr.requested_by_name} · {pr.department_name || "No department"} · {fmtDate(pr.created_at)}</div>
               </div>
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 <span className={"badge " + statusBadge(pr.status)} style={{ textTransform: "capitalize" }}>{pr.status.replace("_", " ")}</span>
                 {pr.workflow_steps && pr.workflow_steps.length > 0 && (
-                  <span style={{ fontSize: 12, marginLeft: 8, color: "#64748b" }}>
+                  <span style={{ fontSize: 12, marginLeft: 8, color: "var(--text-secondary)" }}>
                     {pr.workflow_steps.filter(s => s.status === "approved").length}/{pr.workflow_steps.length} steps done
                     {pr.current_wf_step ? " · Now: " + pr.current_wf_step : " · Completed"}
                   </span>
@@ -106,16 +106,16 @@ export default function RequisitionDetailModal({ requisitionId, onClose, onActed
             {error && <div className="alert alert-error" style={{ marginTop: 12 }}>{error}</div>}
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginTop: 16, marginBottom: 16 }}>
-              <div style={{ background: "#f8fafc", borderRadius: 8, padding: "10px 12px" }}>
-                <div style={{ fontSize: 11, color: "#64748b" }}>Priority</div>
+              <div style={{ background: "var(--bg-hover)", borderRadius: 8, padding: "10px 12px" }}>
+                <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>Priority</div>
                 <div style={{ fontSize: 14, fontWeight: 700, textTransform: "capitalize" }}>{pr.priority}{pr.is_emergency && " (Emergency)"}</div>
               </div>
-              <div style={{ background: "#f8fafc", borderRadius: 8, padding: "10px 12px" }}>
-                <div style={{ fontSize: 11, color: "#64748b" }}>Estimated Total</div>
+              <div style={{ background: "var(--bg-hover)", borderRadius: 8, padding: "10px 12px" }}>
+                <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>Estimated Total</div>
                 <div style={{ fontSize: 14, fontWeight: 700 }}>Rs. {Number(pr.total_estimated_amount).toLocaleString()}</div>
               </div>
-              <div style={{ background: "#f8fafc", borderRadius: 8, padding: "10px 12px" }}>
-                <div style={{ fontSize: 11, color: "#64748b" }}>Approval Rule</div>
+              <div style={{ background: "var(--bg-hover)", borderRadius: 8, padding: "10px 12px" }}>
+                <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>Approval Rule</div>
                 <div style={{ fontSize: 13, fontWeight: 600 }}>{pr.matched_rule_name || "-"}</div>
               </div>
             </div>
@@ -143,9 +143,9 @@ export default function RequisitionDetailModal({ requisitionId, onClose, onActed
                   {pr.items.map(it => (
                     <tr key={it.id}>
                       <td>
-                        {it.item_description}{it.category_name && <span style={{ fontSize: 11, color: "#94a3b8" }}> ({it.category_name})</span>}
+                        {it.item_description}{it.category_name && <span style={{ fontSize: 11, color: "var(--text-muted)" }}> ({it.category_name})</span>}
                         {it.specifications && (
-                          <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                          <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2 }}>
                             {Object.entries(it.specifications).map(([k, v]) => k + ": " + v).join(" · ")}
                           </div>
                         )}
@@ -164,28 +164,28 @@ export default function RequisitionDetailModal({ requisitionId, onClose, onActed
               <>
                 <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>Approval Timeline</div>
                 <div style={{ position: "relative", paddingLeft: 24, marginBottom: 16 }}>
-                  <div style={{ position: "absolute", left: 7, top: 6, bottom: 6, width: 2, background: "#e2e8f0" }} />
+                  <div style={{ position: "absolute", left: 7, top: 6, bottom: 6, width: 2, background: "var(--border-color)" }} />
                   {(pr.workflow_steps && pr.workflow_steps.length > 0 ? pr.workflow_steps : pr.approval_steps || []).map((step, idx) => {
                     const isEngine = !!(pr.workflow_steps && pr.workflow_steps.length > 0);
                     const status = isEngine ? step.status : step.status;
-                    const color = status === "approved" ? "#16a34a" : status === "rejected" ? "#dc2626" : status === "skipped" ? "#94a3b8" : "#f59e0b";
+                    const color = status === "approved" ? "#16a34a" : status === "rejected" ? "#dc2626" : status === "skipped" ? "var(--text-muted)" : "#f59e0b";
                     const stepName = isEngine ? step.step_name : ("Step " + step.step_order + ": " + roleLabel(step.approver_role));
                     const stepNum = isEngine ? step.step_order : step.step_order;
                     return (
                       <div key={idx} style={{ position: "relative", marginBottom: 16 }}>
-                        <div style={{ position: "absolute", left: -24, top: 2, width: 14, height: 14, borderRadius: "50%", background: color, border: "3px solid #fff", boxShadow: "0 0 0 1px " + color }} />
+                        <div style={{ position: "absolute", left: -24, top: 2, width: 14, height: 14, borderRadius: "50%", background: color, border: "3px solid var(--bg-card)", boxShadow: "0 0 0 1px " + color }} />
                         <div style={{ fontWeight: 700, fontSize: 13 }}>
                           Step {stepNum}: {stepName}
                         </div>
-                        <div style={{ fontSize: 12, color: "#64748b", marginTop: 2, textTransform: "capitalize" }}>{status}</div>
+                        <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2, textTransform: "capitalize" }}>{status}</div>
                         {isEngine && step.assigned_role && (
-                          <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>Assigned to: {step.assigned_role.replace(/_/g," ")}</div>
+                          <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>Assigned to: {step.assigned_role.replace(/_/g," ")}</div>
                         )}
                         {!isEngine && step.acted_by_name && (
-                          <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>{step.acted_by_name} · {fmtDateTime(step.acted_at)}</div>
+                          <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{step.acted_by_name} · {fmtDateTime(step.acted_at)}</div>
                         )}
                         {isEngine && step.actioned_at && (
-                          <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>{fmtDateTime(step.actioned_at)}</div>
+                          <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{fmtDateTime(step.actioned_at)}</div>
                         )}
                       </div>
                     );
@@ -195,7 +195,7 @@ export default function RequisitionDetailModal({ requisitionId, onClose, onActed
             )}
 
             {showApprovalActions && (
-              <div style={{ borderTop: "1px solid #f1f5f9", paddingTop: 16 }}>
+              <div style={{ borderTop: "1px solid var(--border-color)", paddingTop: 16 }}>
                 <div className="form-group">
                   <label className="form-label">Notes (required for rejection)</label>
                   <textarea className="form-control" rows={2} value={notes} onChange={e => setNotes(e.target.value)} />

@@ -89,8 +89,8 @@ def _get_role_user_ids(cur, role_name):
     return [row["user_id"] for row in cur.fetchall()]
 
 
-def _notify_current_step_approvers(cur, pr_id, pr_number):
-    from app.utils.notify import send_notification
+def _notify_current_step_approvers(cur, pr_id, pr_number, campus_id=None):
+    from app.utils.notify import send_notification, render_templated_notification
     cur.execute(
         "SELECT approver_role, resolved_approver_id FROM pr_approval_instances "
         "WHERE pr_id = %s AND status = 'pending' ORDER BY step_order LIMIT 1",
@@ -99,8 +99,8 @@ def _notify_current_step_approvers(cur, pr_id, pr_number):
     step = cur.fetchone()
     if not step:
         return
-    title = "Approval Needed"
-    body = "Purchase Requisition " + pr_number + " needs your approval."
+    title, body = render_templated_notification("pr_approval_needed", {"pr_number": pr_number},
+        "Approval Needed", "Purchase Requisition " + pr_number + " needs your approval.", campus_id=campus_id)
     if step["approver_role"] == "department_head":
         if step["resolved_approver_id"]:
             send_notification(step["resolved_approver_id"], title, body, "info", "/procurement/pending-approvals")
@@ -855,7 +855,7 @@ def _engine_advance_pr(db, pr_id, action, user_id, note):
 
 
 @router.post("/requisitions/{id}/submit")
-def submit_requisition(id: int, user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+def submit_requisition(id: int, user_id: int = Depends(get_current_user_id), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("SELECT requested_by FROM purchase_requisitions WHERE id = %s", (id,))
     row = cur.fetchone()
@@ -883,12 +883,11 @@ def submit_requisition(id: int, user_id: int = Depends(get_current_user_id), db=
     try:
         cur.execute("SELECT pr_number FROM purchase_requisitions WHERE id = %s", (id,))
         pr_number = cur.fetchone()["pr_number"]
-        _notify_procurement_role(
-            cur, "New Purchase Requisition Submitted",
-            "Requisition " + pr_number + " has been submitted and is in the approval pipeline.",
-            "/procurement/pipeline"
-        )
-        _notify_current_step_approvers(cur, id, pr_number)
+        from app.utils.notify import render_templated_notification
+        _t, _b = render_templated_notification("pr_submitted", {"pr_number": pr_number},
+            "New Purchase Requisition Submitted", "Requisition " + pr_number + " has been submitted and is in the approval pipeline.", campus_id=campus_id)
+        _notify_procurement_role(cur, _t, _b, "/procurement/pipeline")
+        _notify_current_step_approvers(cur, id, pr_number, campus_id=campus_id)
     except Exception:
         pass
 
@@ -926,7 +925,7 @@ def submit_requisition(id: int, user_id: int = Depends(get_current_user_id), db=
 
 
 @router.post("/requisitions/{id}/act")
-def act_on_requisition(id: int, body: RequisitionActIn, user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+def act_on_requisition(id: int, body: RequisitionActIn, user_id: int = Depends(get_current_user_id), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     if body.action not in ("approve", "reject", "verify", "recommend", "review", "clear", "sign", "publish"):
         fail("Invalid action.", 400)
     # Engine-first
@@ -946,30 +945,24 @@ def act_on_requisition(id: int, body: RequisitionActIn, user_id: int = Depends(g
     db.commit()
 
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         cur.execute("SELECT pr.pr_number, pr.requested_by FROM purchase_requisitions pr WHERE pr.id = %s", (id,))
         pr_row = cur.fetchone()
         pr_number, requested_by = pr_row["pr_number"], pr_row["requested_by"]
 
         if result["pr_status"] == "approved":
-            send_notification(
-                requested_by, "Requisition Fully Approved",
-                "Your requisition " + pr_number + " has been fully approved and is ready for a Purchase Order.",
-                "success", "/procurement/my-requisitions"
-            )
-            _notify_procurement_role(
-                cur, "Requisition Ready for PO",
-                "Requisition " + pr_number + " has completed all approvals and is ready to move to a Purchase Order.",
-                "/procurement/pipeline"
-            )
+            _t1, _b1 = render_templated_notification("requisition_fully_approved", {"pr_number": pr_number},
+                "Requisition Fully Approved", "Your requisition " + pr_number + " has been fully approved and is ready for a Purchase Order.", campus_id=campus_id)
+            send_notification(requested_by, _t1, _b1, "success", "/procurement/my-requisitions")
+            _t2, _b2 = render_templated_notification("requisition_ready_for_po", {"pr_number": pr_number},
+                "Requisition Ready for PO", "Requisition " + pr_number + " has completed all approvals and is ready to move to a Purchase Order.", campus_id=campus_id)
+            _notify_procurement_role(cur, _t2, _b2, "/procurement/pipeline")
         elif result["pr_status"] == "rejected":
-            send_notification(
-                requested_by, "Requisition Rejected",
-                "Your requisition " + pr_number + " was rejected.",
-                "warning", "/procurement/my-requisitions"
-            )
+            _t3, _b3 = render_templated_notification("requisition_rejected", {"pr_number": pr_number},
+                "Requisition Rejected", "Your requisition " + pr_number + " was rejected.", campus_id=campus_id)
+            send_notification(requested_by, _t3, _b3, "warning", "/procurement/my-requisitions")
         elif result["pr_status"] == "submitted":
-            _notify_current_step_approvers(cur, id, pr_number)
+            _notify_current_step_approvers(cur, id, pr_number, campus_id=campus_id)
     except Exception:
         pass
 
@@ -1030,7 +1023,7 @@ def create_purchase_order(body: PurchaseOrderIn, user_id: int = Depends(require_
     db.commit()
 
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         cur.execute(
             "SELECT pr.requested_by, pr.pr_number, po.po_number FROM purchase_requisitions pr "
             "JOIN purchase_orders po ON po.id = %s WHERE pr.id = %s",
@@ -1038,11 +1031,9 @@ def create_purchase_order(body: PurchaseOrderIn, user_id: int = Depends(require_
         )
         row = cur.fetchone()
         if row:
-            send_notification(
-                row["requested_by"], "Purchase Order Created",
-                "Your requisition " + row["pr_number"] + " is now Purchase Order " + row["po_number"] + ".",
-                "info", "/procurement/my-requisitions"
-            )
+            _t, _b = render_templated_notification("purchase_order_created", {"pr_number": row["pr_number"], "po_number": row["po_number"]},
+                "Purchase Order Created", "Your requisition " + row["pr_number"] + " is now Purchase Order " + row["po_number"] + ".", campus_id=campus_id)
+            send_notification(row["requested_by"], _t, _b, "info", "/procurement/my-requisitions")
     except Exception:
         pass
 
@@ -1074,7 +1065,7 @@ def issue_purchase_order(id: int, user_id: int = Depends(require_permission("pro
     db.commit()
 
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         cur.execute(
             "SELECT pr.requested_by, po.po_number FROM purchase_orders po "
             "JOIN purchase_requisitions pr ON pr.id = po.pr_id WHERE po.id = %s",
@@ -1082,11 +1073,9 @@ def issue_purchase_order(id: int, user_id: int = Depends(require_permission("pro
         )
         row = cur.fetchone()
         if row:
-            send_notification(
-                row["requested_by"], "Purchase Order Issued",
-                "Purchase Order " + row["po_number"] + " has been issued to the vendor.",
-                "info", "/procurement/my-requisitions"
-            )
+            _t, _b = render_templated_notification("purchase_order_issued", {"po_number": row["po_number"]},
+                "Purchase Order Issued", "Purchase Order " + row["po_number"] + " has been issued to the vendor.", campus_id=campus_id)
+            send_notification(row["requested_by"], _t, _b, "info", "/procurement/my-requisitions")
     except Exception:
         pass
 
@@ -1221,14 +1210,15 @@ def create_grn(body: GRNCreateIn, user_id: int = Depends(require_permission("pro
     db.commit()
 
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         import main as _main
         cur.execute("SELECT created_by FROM purchase_orders WHERE id=%s", (body.po_id,))
         po_row = cur.fetchone()
         with _main.flask_app.app_context():
             if po_row:
-                send_notification(po_row["created_by"], "GRN Created",
-                    f"Goods Receipt Note {grn_number} created for PO {po['po_number']}.", "info")
+                _t, _b = render_templated_notification("grn_created", {"grn_number": grn_number, "po_number": po["po_number"]},
+                    "GRN Created", f"Goods Receipt Note {grn_number} created for PO {po['po_number']}.", campus_id=campus_id)
+                send_notification(po_row["created_by"], _t, _b, "info")
     except Exception:
         pass
 
@@ -1268,15 +1258,17 @@ def confirm_grn(grn_id: int, user_id: int = Depends(require_permission("procurem
             """, (grn_id,))
             items = cur.fetchall()
             item_list = ", ".join(f"{i['item_description']} x{i['quantity_received']} {i['unit'] or ''}" for i in items)
+            from app.utils.notify import render_templated_notification
             with _main.flask_app.app_context():
                 # Notify PO creator
-                send_notification(row["created_by"], "GRN Confirmed",
-                    f"GRN {row['grn_number']} confirmed for PO {row['po_number']}.", "success")
+                _t1, _b1 = render_templated_notification("grn_confirmed", {"grn_number": row["grn_number"], "po_number": row["po_number"]},
+                    "GRN Confirmed", f"GRN {row['grn_number']} confirmed for PO {row['po_number']}.", campus_id=campus_id)
+                send_notification(row["created_by"], _t1, _b1, "success")
                 # Notify PR requester to collect order
                 if row["requested_by"] != row["created_by"]:
-                    send_notification(row["requested_by"], "Your Order Has Arrived — Ready for Collection",
-                        f"The items you requested are ready for collection. GRN {row['grn_number']}: {item_list}",
-                        "success", "/procurement/my-requisitions")
+                    _t2, _b2 = render_templated_notification("order_ready_collection", {"grn_number": row["grn_number"], "item_list": item_list},
+                        "Your Order Has Arrived - Ready for Collection", f"The items you requested are ready for collection. GRN {row['grn_number']}: {item_list}", campus_id=campus_id)
+                    send_notification(row["requested_by"], _t2, _b2, "success", "/procurement/my-requisitions")
     except Exception:
         pass
 
@@ -1357,7 +1349,7 @@ def update_stock_from_grn(grn_id: int, user_id: int = Depends(require_permission
     db.commit()
 
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         import main as _main
         cur.execute("""
             SELECT g.grn_number, po.po_number, po.created_by
@@ -1367,8 +1359,10 @@ def update_stock_from_grn(grn_id: int, user_id: int = Depends(require_permission
         row = cur.fetchone()
         if row:
             with _main.flask_app.app_context():
-                send_notification(row["created_by"], "Stock Updated",
-                    f"Stock updated from GRN {row['grn_number']} (PO {row['po_number']}). {result['items_updated']} item(s) updated.", "success")
+                _t, _b = render_templated_notification("stock_updated",
+                    {"grn_number": row["grn_number"], "po_number": row["po_number"], "items_updated": result["items_updated"]},
+                    "Stock Updated", f"Stock updated from GRN {row['grn_number']} (PO {row['po_number']}). {result['items_updated']} item(s) updated.", campus_id=campus_id)
+                send_notification(row["created_by"], _t, _b, "success")
     except Exception:
         pass
 
@@ -1454,13 +1448,16 @@ def notify_collection(grn_id: int, user_id: int = Depends(require_permission("pr
         for i in items
     )
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         import main as _main
         with _main.flask_app.app_context():
+            _t, _b = render_templated_notification("order_ready_collection_reminder",
+                {"grn_number": row["grn_number"], "po_number": row["po_number"], "item_list": item_list},
+                "Your Order Is Ready for Collection", f"Please collect your items for GRN {row['grn_number']} (PO {row['po_number']}): {item_list}", campus_id=campus_id)
             send_notification(
                 row["requested_by"],
-                "Your Order Is Ready for Collection",
-                f"Please collect your items for GRN {row['grn_number']} (PO {row['po_number']}): {item_list}",
+                _t,
+                _b,
                 "success", "/procurement/my-requisitions"
             )
     except Exception as e:
@@ -1677,14 +1674,15 @@ def create_vendor_invoice(body: VendorInvoiceIn, user_id: int = Depends(require_
     db.commit()
 
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         import main as _main
         cur.execute("SELECT u.id FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id WHERE r.name='finance_officer' AND u.is_active=TRUE")
         rows = cur.fetchall()
         with _main.flask_app.app_context():
+            _t, _b = render_templated_notification("new_vendor_invoice", {"invoice_no": body.vendor_invoice_no, "po_number": po["po_number"]},
+                "New Vendor Invoice", f"Vendor invoice {body.vendor_invoice_no} received for PO {po['po_number']}. Please verify.", campus_id=campus_id)
             for row in rows:
-                send_notification(row["id"], "New Vendor Invoice",
-                    f"Vendor invoice {body.vendor_invoice_no} received for PO {po['po_number']}. Please verify.", "info")
+                send_notification(row["id"], _t, _b, "info")
     except Exception:
         pass
 
@@ -1779,14 +1777,15 @@ def verify_vendor_invoice(inv_id: int, user_id: int = Depends(require_permission
     if not row: fail("Invoice not found or not in pending status.", 400)
     db.commit()
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         import main as _main
         cur.execute("SELECT u.id FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id WHERE r.name IN ('principal','admin') AND u.is_active=TRUE")
         rows = cur.fetchall()
         with _main.flask_app.app_context():
+            _t, _b = render_templated_notification("invoice_verified_awaiting_approval", {"invoice_no": row["vendor_invoice_no"]},
+                "Invoice Verified - Awaiting Approval", f"Vendor invoice {row['vendor_invoice_no']} has been verified and needs your approval.", campus_id=campus_id)
             for r in rows:
-                send_notification(r["id"], "Invoice Verified — Awaiting Approval",
-                    f"Vendor invoice {row['vendor_invoice_no']} has been verified and needs your approval.", "info")
+                send_notification(r["id"], _t, _b, "info")
     except Exception:
         pass
         _wq_invoice(db, "verified", inv_id, "", 0, "", "", user_id)
@@ -1807,14 +1806,15 @@ def approve_vendor_invoice(inv_id: int, user_id: int = Depends(require_permissio
     if not row: fail("Invoice not found or not verified yet.", 400)
     db.commit()
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         import main as _main
         cur.execute("SELECT u.id FROM users u JOIN user_roles ur ON ur.user_id=u.id JOIN roles r ON r.id=ur.role_id WHERE r.name='finance_officer' AND u.is_active=TRUE")
         rows = cur.fetchall()
         with _main.flask_app.app_context():
+            _t, _b = render_templated_notification("invoice_approved_ready_payment", {"invoice_no": row["vendor_invoice_no"]},
+                "Invoice Approved - Ready for Payment", f"Vendor invoice {row['vendor_invoice_no']} has been approved. Please process payment.", campus_id=campus_id)
             for r in rows:
-                send_notification(r["id"], "Invoice Approved — Ready for Payment",
-                    f"Vendor invoice {row['vendor_invoice_no']} has been approved. Please process payment.", "success")
+                send_notification(r["id"], _t, _b, "success")
     except Exception:
         pass
         _wq_invoice(db, "approved", inv_id, "", 0, "", "", user_id)
@@ -1835,11 +1835,12 @@ def dispute_vendor_invoice(inv_id: int, body: DisputeIn, user_id: int = Depends(
     if not row: fail("Invoice not found or cannot be disputed at this stage.", 400)
     db.commit()
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         import main as _main
         with _main.flask_app.app_context():
-            send_notification(row["created_by"], "Vendor Invoice Disputed",
-                f"Invoice {row['vendor_invoice_no']} has been disputed: {body.reason}", "warning")
+            _t, _b = render_templated_notification("vendor_invoice_disputed", {"invoice_no": row["vendor_invoice_no"], "reason": body.reason},
+                "Vendor Invoice Disputed", f"Invoice {row['vendor_invoice_no']} has been disputed: {body.reason}", campus_id=campus_id)
+            send_notification(row["created_by"], _t, _b, "warning")
     except Exception:
         pass
         _wq_invoice(db, "disputed", inv_id, "", 0, "", "", user_id)

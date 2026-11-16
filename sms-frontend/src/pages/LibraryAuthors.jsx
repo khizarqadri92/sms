@@ -3,6 +3,7 @@ import libraryApi from "../api/libraryApi";
 import DatePicker from "../components/DatePicker";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
 import { useGovernanceMode } from "../hooks/useGovernanceMode";
+import "./LibraryAuthors.css";
 
 function AuthorFormModal({ author, onClose, onSaved }) {
   const [form, setForm] = useState({
@@ -33,10 +34,10 @@ function AuthorFormModal({ author, onClose, onSaved }) {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
-      <div style={{ background: "#fff", borderRadius: 12, padding: 24, width: "100%", maxWidth: 420, maxHeight: "85vh", overflow: "auto" }} onClick={e => e.stopPropagation()}>
-        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>{author ? "Edit Author" : "Add Author"}</div>
-        {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}
+    <div className="lib-auth-modal-overlay" onClick={onClose}>
+      <div className="lib-auth-modal" onClick={e => e.stopPropagation()}>
+        <div className="lib-auth-modal-title">{author ? "Edit Author" : "Add Author"}</div>
+        {error && <div className="alert alert-error lib-auth-mb12">{error}</div>}
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label className="form-label">Name *</label>
@@ -54,7 +55,7 @@ function AuthorFormModal({ author, onClose, onSaved }) {
             <label className="form-label">Biography</label>
             <textarea className="form-control" rows={3} value={form.bio} onChange={e => setForm({ ...form, bio: e.target.value })} />
           </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
+          <div className="lib-auth-modal-footer">
             <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Saving..." : author ? "Update" : "Add"}</button>
           </div>
@@ -106,18 +107,18 @@ export default function LibraryAuthors() {
 
   return (
     <div>
-      <div className="page-header" style={{ marginBottom: 16 }}>
+      <div className="page-header lib-auth-mb16">
         <h1 className="page-heading">Authors</h1>
         {!isGlobalLocked && <button className="btn btn-primary" onClick={() => { setEditAuthor(null); setShowForm(true); }}>+ Add Author</button>}
       </div>
 
       {isGlobalLocked && (
-        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+        <div className="alert alert-warning lib-auth-mb16">
           Library Authors are managed centrally by the superadmin. This list is read-only here.
         </div>
       )}
-      {success && <div className="alert alert-success" style={{ marginBottom: 16 }}>{success}</div>}
-      {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
+      {success && <div className="alert alert-success lib-auth-mb16">{success}</div>}
+      {error && <div className="alert alert-error lib-auth-mb16">{error}</div>}
 
       {loading ? (
         <div className="loading-state">Loading authors...</div>
@@ -140,12 +141,12 @@ export default function LibraryAuthors() {
               {authors.map(a => (
                 <tr key={a.id}>
                   <td><strong>{a.name}</strong></td>
-                  <td>{a.nationality || <span style={{ color: "#94a3b8" }}>-</span>}</td>
-                  <td>{a.date_of_birth ? formatDate(a.date_of_birth) : <span style={{ color: "#94a3b8" }}>-</span>}</td>
-                  <td style={{ maxWidth: 260, fontSize: 12, color: "#64748b" }}>{a.bio ? (a.bio.length > 80 ? a.bio.slice(0, 80) + "..." : a.bio) : "-"}</td>
+                  <td>{a.nationality || <span className="lib-auth-muted">-</span>}</td>
+                  <td>{a.date_of_birth ? formatDate(a.date_of_birth) : <span className="lib-auth-muted">-</span>}</td>
+                  <td className="lib-auth-bio">{a.bio ? (a.bio.length > 80 ? a.bio.slice(0, 80) + "..." : a.bio) : "-"}</td>
                   <td><span className={"badge " + (a.is_active ? "badge-success" : "badge-gray")}>{a.is_active ? "Active" : "Inactive"}</span></td>
                   {!isGlobalLocked && (
-                    <td style={{ display: "flex", gap: 6, flexWrap: "nowrap" }}>
+                    <td className="lib-auth-actions">
                       <button className="btn btn-ghost btn-xs" onClick={() => { setEditAuthor(a); setShowForm(true); }}>Edit</button>
                       <button className={"btn btn-xs " + (a.is_active ? "btn-danger" : "btn-secondary")} onClick={() => handleToggleActive(a)}>
                         {a.is_active ? "Deactivate" : "Reactivate"}

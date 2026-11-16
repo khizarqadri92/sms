@@ -4,6 +4,12 @@ import { useGovernanceMode } from "../hooks/useGovernanceMode";
 import { configApi } from "../api/configApi";
 import { examsApi } from "../api/examsApi";
 import hrApi from "../api/hrApi";
+import "../styles/theme-tokens.css";
+
+// The backend sends errors as {status:"error", message:"..."}; show that message
+// instead of a generic one (falls back to the old text when there's no message).
+const errMsg = (e, fallback = "Failed.") =>
+  e?.response?.data?.message || e?.response?.data?.detail?.message || fallback;
 
 const DEPT_OPTIONS = [
   {key:"finance",   label:"Finance",   icon:"💰"},
@@ -78,7 +84,7 @@ export default function ConfigPage({ visibleTabs } = {}) {
   const [newDoc,       setNewDoc]       = useState("");
   const [newViolation, setNewViolation] = useState({label:"",default_severity:1});
 
-  const flash = (type, msg) => { setToastType(type); setToast(msg); setTimeout(()=>setToast(""),3500); };
+  const flash = (type, msg) => { setToastType(type); setToast(msg); setTimeout(()=>setToast(""), type==="error"?7000:3500); };
 
   useEffect(() => {
     configApi.getWithdrawal().then(r=>setWConfig(r.data.data||wConfig)).catch(()=>{});
@@ -86,7 +92,7 @@ export default function ConfigPage({ visibleTabs } = {}) {
     configApi.getDiscipline().then(r=>setDConfig(r.data.data||dConfig)).catch(()=>{});
     examsApi.getTypes().then(r=>setExamTypes(r.data.data||[])).catch(()=>{});
     examsApi.getComponents().then(r=>setComponents(r.data.data||[])).catch(()=>{});
-    examsApi.getFormula().then(r=>{ if(r.data.data) { setFormula(r.data.data.formula||[]); setFormulaTotal(r.data.data.total_weight||0); if(r.data.data.formula_mode) setFormulaMode(r.data.data.formula_mode||"percentage"); } }).catch(()=>{});
+    examsApi.getFormula().then(r=>{ if(r.data.data) { setFormula(r.data.data.formula||[]); setFormulaTotal(r.data.data.total_weight||0); if(r.data.data.formula_mode) setFormulaMode(r.data.data.formula_mode||"percentage"); } }).catch(e=>{ if(e?.response?.data?.message) flash("error", e.response.data.message); });
     examsApi.getGrading().then(r=>setGradingScale(r.data.data||[])).catch(()=>{});
     examsApi.getExamConfig().then(r=>{
       if (r.data.data) {
@@ -99,13 +105,13 @@ export default function ConfigPage({ visibleTabs } = {}) {
   const saveWithdrawal = async () => {
     setLoading(true);
     try { await configApi.updateWithdrawal(wConfig); flash("success","Withdrawal config saved."); }
-    catch { flash("error","Failed to save."); } finally { setLoading(false); }
+    catch (e) { flash("error", errMsg(e, "Failed to save.")); } finally { setLoading(false); }
   };
 
   const saveDiscipline = async () => {
     setLoading(true);
     try { await configApi.updateDiscipline(dConfig); flash("success","Discipline config saved."); }
-    catch { flash("error","Failed."); } finally { setLoading(false); }
+    catch (e) { flash("error", errMsg(e)); } finally { setLoading(false); }
   };
 
   const SEVERITY_COLORS = {1:"#22c55e",2:"#f59e0b",3:"#ef4444",4:"#991b1b"};
@@ -243,7 +249,7 @@ export default function ConfigPage({ visibleTabs } = {}) {
                 <option value="admin">Admin</option>
                 <option value="academic_coordinator">Academic Coordinator</option>
               </select>
-              <button className="btn btn-primary btn-sm" style={{color:"#fff"}} onClick={async()=>{try{await fetch("/api/v1/settings/category/finance",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+(localStorage.getItem("access_token")||"")},body:JSON.stringify({waiver_authority_role:waiverAuthRole})});flash("success","Waiver authority saved.");}catch(e){flash("error","Failed to save.");}}}>Save</button>
+              <button className="btn btn-primary btn-sm" style={{color:"#fff"}} onClick={async()=>{try{const res=await fetch("/api/v1/settings/category/finance",{method:"POST",headers:{"Content-Type":"application/json","Authorization":"Bearer "+(localStorage.getItem("access_token")||"")},body:JSON.stringify({waiver_authority_role:waiverAuthRole})});if(!res.ok){const d=await res.json().catch(()=>({}));throw {response:{data:d}};}flash("success","Waiver authority saved.");}catch(e){flash("error",errMsg(e,"Failed to save."));}}}>Save</button>
             </div>
           </div>
           <div className="section-card">
@@ -342,7 +348,7 @@ export default function ConfigPage({ visibleTabs } = {}) {
         <div>
           {/* Exam Sub-tabs */}
           <div style={{display:"flex",background:"var(--color-background-secondary)",borderRadius:10,padding:4,marginBottom:20,border:"1px solid var(--color-border-tertiary)",width:"fit-content"}}>
-            {[{key:"types",label:"Exam Types"},{key:"formula",label:"Result Formula"},{key:"grading",label:"Grading Scale"}].map(t=>(
+            {[{key:"types",label:"Exam Types"},{key:"formula",label:"Result Formula"},{key:"grading",label:"Grading Scale"},{key:"rules",label:"Result Rules"}].map(t=>(
               <button key={t.key} onClick={()=>setExamSubTab(t.key)} style={{padding:"8px 18px",borderRadius:8,border:"none",fontSize:13,cursor:"pointer",background:examSubTab===t.key?"var(--color-background-primary)":"transparent",color:examSubTab===t.key?"var(--color-text-primary)":"var(--color-text-secondary)",fontWeight:examSubTab===t.key?600:400,boxShadow:examSubTab===t.key?"0 1px 3px rgba(0,0,0,0.08)":"none",transition:"all .15s",whiteSpace:"nowrap"}}>
                 {t.label}
               </button>
@@ -353,7 +359,7 @@ export default function ConfigPage({ visibleTabs } = {}) {
           {examSubTab==="types" && (
             <>
             {examTypesLocked && (
-              <div style={{marginBottom:16,padding:"8px 12px",background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,fontSize:12,color:"#92400e"}}>
+              <div style={{marginBottom:16,padding:"8px 12px",background:"var(--dm-tint-amber)",border:"1px solid var(--dm-amber-line)",borderRadius:8,fontSize:12,color:"var(--dm-amber-ink)"}}>
                 Exam Types are managed centrally by the superadmin. This section is read-only here.
               </div>
             )}
@@ -363,7 +369,7 @@ export default function ConfigPage({ visibleTabs } = {}) {
               <div style={{flex:1,display:"flex",flexDirection:"column",gap:12}}>
                 {examTypes.map((t,i)=>(
                   <div key={t.id} onClick={()=>setSelectedType(prev=>prev?.id===t.id?null:{...t})}
-                    style={{background:"#fff",border:"1.5px solid",borderColor:selectedType?.id===t.id?"#0f4c35":"#e2e8f0",borderRadius:10,overflow:"hidden",cursor:"pointer",transition:"all .15s",boxShadow:selectedType?.id===t.id?"0 0 0 2px rgba(15,76,53,0.15)":"none",opacity:t.is_active?1:0.6}}>
+                    style={{background:"var(--dm-surface)",border:"1.5px solid",borderColor:selectedType?.id===t.id?"#0f4c35":"var(--dm-line)",borderRadius:10,overflow:"hidden",cursor:"pointer",transition:"all .15s",boxShadow:selectedType?.id===t.id?"0 0 0 2px rgba(15,76,53,0.15)":"none",opacity:t.is_active?1:0.6}}>
 
                     {/* Card Header */}
                     <div style={{display:"flex",alignItems:"center",gap:14,padding:"14px 18px"}}>
@@ -379,14 +385,14 @@ export default function ConfigPage({ visibleTabs } = {}) {
                         <>
                           <div style={{flex:1}}>
                             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:2}}>
-                              <span style={{fontWeight:700,fontSize:14,color:"#0f172a"}}>{t.name}</span>
-                              <span style={{fontSize:11,color:"#94a3b8",background:"#f1f5f9",padding:"1px 7px",borderRadius:6}}>{t.code}</span>
-                              {!t.is_active&&<span style={{fontSize:10,fontWeight:600,background:"#fee2e2",color:"#991b1b",padding:"1px 7px",borderRadius:10}}>Inactive</span>}
+                              <span style={{fontWeight:700,fontSize:14,color:"var(--dm-ink)"}}>{t.name}</span>
+                              <span style={{fontSize:11,color:"var(--dm-faint)",background:"var(--dm-surface-3)",padding:"1px 7px",borderRadius:6}}>{t.code}</span>
+                              {!t.is_active&&<span style={{fontSize:10,fontWeight:600,background:"var(--dm-tint-red)",color:"var(--dm-red-ink)",padding:"1px 7px",borderRadius:10}}>Inactive</span>}
                             </div>
-                            <div style={{fontSize:11,color:"#64748b",display:"flex",gap:12}}>
+                            <div style={{fontSize:11,color:"var(--dm-soft)",display:"flex",gap:12}}>
                               <span>Publish: <strong>{(t.publish_mode||"per_class")==="per_class"?"Per Class":"All Classes"}</strong></span>
                               <span>Approval: <strong>{t.require_datesheet_approval!==false?"Required":"Not required"}</strong></span>
-                              <span>Weight: <strong style={{color:"#2563eb"}}>{t.weight}%</strong></span>
+                              <span>Weight: <strong style={{color:"var(--dm-blue)"}}>{t.weight}%</strong></span>
                             </div>
                           </div>
                           <div style={{display:"flex",alignItems:"center",gap:10}} onClick={e=>e.stopPropagation()}>
@@ -400,7 +406,7 @@ export default function ConfigPage({ visibleTabs } = {}) {
                 ))}
 
                 {/* Add New */}
-                <div style={{background:"#f8fafc",border:"1.5px dashed #cbd5e1",borderRadius:10,padding:"16px 18px"}}>
+                <div style={{background:"var(--dm-surface-2)",border:"1.5px dashed var(--dm-line)",borderRadius:10,padding:"16px 18px"}}>
                   <div style={{fontWeight:600,fontSize:13,marginBottom:10}}>Add Exam Type</div>
                   <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
                     <div className="form-group" style={{marginBottom:0,flex:2,minWidth:130}}><label className="form-label" style={{fontSize:11}}>Name *</label><input className="form-control" value={newExamType.name} onChange={e=>setNewExamType(f=>({...f,name:e.target.value}))} placeholder="e.g. Second Term" /></div>
@@ -413,22 +419,22 @@ export default function ConfigPage({ visibleTabs } = {}) {
 
               {/* Right: Config Panel */}
               {selectedType&&(
-                <div style={{width:300,flexShrink:0,background:"#fff",border:"1.5px solid #0f4c35",borderRadius:12,overflow:"hidden",position:"sticky",top:20}}>
-                  <div style={{padding:"14px 18px",borderBottom:"1px solid #f1f5f9",background:"#f0fdf4",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                <div style={{width:300,flexShrink:0,background:"var(--dm-surface)",border:"1.5px solid #0f4c35",borderRadius:12,overflow:"hidden",position:"sticky",top:20}}>
+                  <div style={{padding:"14px 18px",borderBottom:"1px solid var(--dm-line)",background:"var(--dm-tint-green)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
                     <div>
-                      <div style={{fontWeight:700,fontSize:15,color:"#0f172a"}}>{selectedType.name}</div>
-                      <div style={{fontSize:11,color:"#64748b",marginTop:1}}>{selectedType.code} &middot; {selectedType.weight}% weight</div>
+                      <div style={{fontWeight:700,fontSize:15,color:"var(--dm-ink)"}}>{selectedType.name}</div>
+                      <div style={{fontSize:11,color:"var(--dm-soft)",marginTop:1}}>{selectedType.code} &middot; {selectedType.weight}% weight</div>
                     </div>
-                    <button onClick={()=>setSelectedType(null)} style={{background:"none",border:"none",fontSize:20,color:"#94a3b8",cursor:"pointer",lineHeight:1,padding:"0 4px"}}>&#215;</button>
+                    <button onClick={()=>setSelectedType(null)} style={{background:"none",border:"none",fontSize:20,color:"var(--dm-faint)",cursor:"pointer",lineHeight:1,padding:"0 4px"}}>&#215;</button>
                   </div>
 
                   {/* Datesheet Workflow */}
-                  <div style={{padding:"16px 18px",borderBottom:"1px solid #f1f5f9"}}>
-                    <div style={{fontSize:11,fontWeight:700,color:"#94a3b8",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>Datesheet Workflow</div>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 12px",background:"#f8fafc",borderRadius:8,marginBottom:10}}>
+                  <div style={{padding:"16px 18px",borderBottom:"1px solid var(--dm-line)"}}>
+                    <div style={{fontSize:11,fontWeight:700,color:"var(--dm-faint)",textTransform:"uppercase",letterSpacing:".08em",marginBottom:12}}>Datesheet Workflow</div>
+                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 12px",background:"var(--dm-surface-2)",borderRadius:8,marginBottom:10}}>
                       <div>
                         <div style={{fontSize:13,fontWeight:600}}>Require Approval</div>
-                        <div style={{fontSize:11,color:"#64748b"}}>Before coordinator can publish</div>
+                        <div style={{fontSize:11,color:"var(--dm-soft)"}}>Before coordinator can publish</div>
                       </div>
                       <Toggle checked={selectedType.require_datesheet_approval!==false} onChange={async()=>{
                         const val=!(selectedType.require_datesheet_approval!==false);
@@ -445,14 +451,14 @@ export default function ConfigPage({ visibleTabs } = {}) {
                       {key:"datesheet_publish_role",label:"Who Publishes Datesheet",def:"academic_coordinator"},
                     ].map(row=>(
                       <div key={row.key} style={{marginBottom:10}}>
-                        <div style={{fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>{row.label}</div>
+                        <div style={{fontSize:11,fontWeight:600,color:"var(--dm-ink)",marginBottom:4}}>{row.label}</div>
                         <select value={selectedType[row.key]||row.def} onChange={async e=>{
                           const updated={...selectedType,[row.key]:e.target.value};
                           setSelectedType(updated);
                           setExamTypes(prev=>prev.map(x=>x.id===selectedType.id?updated:x));
                           await examsApi.updateType(selectedType.id,updated);
                           flash("success","Updated.");
-                        }} style={{width:"100%",padding:"7px 10px",border:"1.5px solid #e2e8f0",borderRadius:7,fontSize:13,color:"#0f172a",background:"#fff"}}>
+                        }} style={{width:"100%",padding:"7px 10px",border:"1.5px solid var(--dm-line)",borderRadius:7,fontSize:13,color:"var(--dm-ink)",background:"var(--dm-surface)"}}>
                           <option value="academic_coordinator">Academic Coordinator</option>
                           <option value="principal">Principal</option>
                           <option value="admin">Admin</option>
@@ -464,7 +470,7 @@ export default function ConfigPage({ visibleTabs } = {}) {
 
                   {/* Result Weight */}
                   <div style={{padding:"16px 18px"}}>
-                    <div style={{fontSize:11,fontWeight:700,color:"#94a3b8",textTransform:"uppercase",letterSpacing:".08em",marginBottom:10}}>Result Weight</div>
+                    <div style={{fontSize:11,fontWeight:700,color:"var(--dm-faint)",textTransform:"uppercase",letterSpacing:".08em",marginBottom:10}}>Result Weight</div>
                     <div style={{display:"flex",alignItems:"center",gap:10}}>
                       <input type="number" min={0} max={100} value={selectedType.weight||0}
                         onChange={e=>setSelectedType(prev=>({...prev,weight:e.target.value}))}
@@ -473,8 +479,8 @@ export default function ConfigPage({ visibleTabs } = {}) {
                           await examsApi.updateType(selectedType.id,{...selectedType});
                           flash("success","Weight updated.");
                         }}
-                        style={{width:80,padding:"8px 12px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:18,fontWeight:800,color:"#0f172a",textAlign:"center"}} />
-                      <span style={{fontSize:13,color:"#64748b"}}>% of final result</span>
+                        style={{width:80,padding:"8px 12px",border:"1.5px solid var(--dm-line)",borderRadius:8,fontSize:18,fontWeight:800,color:"var(--dm-ink)",textAlign:"center"}} />
+                      <span style={{fontSize:13,color:"var(--dm-soft)"}}>% of final result</span>
                     </div>
                   </div>
                 </div>
@@ -492,17 +498,17 @@ export default function ConfigPage({ visibleTabs } = {}) {
             <div style={{display:"flex",flexDirection:"column",gap:16}}>
 
               {/* Formula Mode Toggle */}
-              <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"16px 20px",marginBottom:0}}>
+              <div style={{background:"var(--dm-surface)",border:"1px solid var(--dm-line)",borderRadius:12,padding:"16px 20px",marginBottom:0}}>
                 <div style={{fontWeight:700,fontSize:14,marginBottom:4}}>Calculation Mode</div>
-                <div style={{fontSize:12,color:"#64748b",marginBottom:12}}>Choose how the final result is calculated across components.</div>
+                <div style={{fontSize:12,color:"var(--dm-soft)",marginBottom:12}}>Choose how the final result is calculated across components.</div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
                   {[
                     {v:"percentage",l:"Percentage Mode",d:"Each component has a weight % that must total 100%. System converts marks to percentage then applies weights.",icon:"%"},
                     {v:"marks",     l:"Marks Mode",     d:"Each component has a maximum marks value. System adds all marks directly. Total = sum of all max marks.",icon:"#"},
                   ].map(opt=>(
-                    <div key={opt.v} onClick={()=>{setFormulaMode(opt.v);setFormula(prev=>prev.map(c=>({...c,weight:0})));setFormulaTotal(0);}} style={{padding:"14px 16px",borderRadius:10,border:"2px solid",borderColor:formulaMode===opt.v?"#2563eb":"#e2e8f0",background:formulaMode===opt.v?"#eff6ff":"var(--color-background-secondary)",cursor:"pointer",transition:"all .15s"}}>
-                      <div style={{fontSize:18,fontWeight:800,color:formulaMode===opt.v?"#2563eb":"#94a3b8",marginBottom:6,fontFamily:"monospace"}}>{opt.icon}</div>
-                      <div style={{fontWeight:700,fontSize:13,color:formulaMode===opt.v?"#2563eb":"var(--color-text-primary)"}}>{opt.l}</div>
+                    <div key={opt.v} onClick={()=>{setFormulaMode(opt.v);setFormula(prev=>prev.map(c=>({...c,weight:0})));setFormulaTotal(0);}} style={{padding:"14px 16px",borderRadius:10,border:"2px solid",borderColor:formulaMode===opt.v?"#2563eb":"var(--dm-line)",background:formulaMode===opt.v?"var(--dm-tint-blue)":"var(--color-background-secondary)",cursor:"pointer",transition:"all .15s"}}>
+                      <div style={{fontSize:18,fontWeight:800,color:formulaMode===opt.v?"var(--dm-blue)":"var(--dm-faint)",marginBottom:6,fontFamily:"monospace"}}>{opt.icon}</div>
+                      <div style={{fontWeight:700,fontSize:13,color:formulaMode===opt.v?"var(--dm-blue)":"var(--color-text-primary)"}}>{opt.l}</div>
                       <div style={{fontSize:11,color:"var(--color-text-secondary)",marginTop:4,lineHeight:1.4}}>{opt.d}</div>
                     </div>
                   ))}
@@ -510,20 +516,20 @@ export default function ConfigPage({ visibleTabs } = {}) {
               </div>
 
               {/* Formula Status */}
-              <div style={{background:Math.abs(safeTotal-100)<0.5?"#f0fdf4":"#fffbeb",border:"1.5px solid "+(Math.abs(safeTotal-100)<0.5?"#bbf7d0":"#fde68a"),borderRadius:12,padding:"16px 20px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div style={{background:Math.abs(safeTotal-100)<0.5?"var(--dm-tint-green)":"var(--dm-tint-amber)",border:"1.5px solid "+(Math.abs(safeTotal-100)<0.5?"var(--dm-green-line)":"var(--dm-amber-line)"),borderRadius:12,padding:"16px 20px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                 <div>
-                  <div style={{fontWeight:700,fontSize:15,color:formulaMode==="marks"?"#166534":Math.abs(safeTotal-100)<0.5?"#166534":"#854d0e"}}>{formulaMode==="marks"?(formula.length>0?"Formula Configured":"No Components Selected"):Math.abs(safeTotal-100)<0.5?"Formula Configured":"Formula Incomplete"}</div>
-                  <div style={{fontSize:12,color:formulaMode==="marks"?"#166534":Math.abs(safeTotal-100)<0.5?"#166534":"#854d0e",marginTop:2}}>{formulaMode==="marks"?formula.length+" component(s) selected ? marks added directly for final result.":Math.abs(safeTotal-100)<0.5?"All weights total 100%.":"Weights must total 100%. Currently at "+safeTotal.toFixed(1)+"%."}</div>
+                  <div style={{fontWeight:700,fontSize:15,color:formulaMode==="marks"?"var(--dm-green-ink)":Math.abs(safeTotal-100)<0.5?"var(--dm-green-ink)":"var(--dm-amber-ink)"}}>{formulaMode==="marks"?(formula.length>0?"Formula Configured":"No Components Selected"):Math.abs(safeTotal-100)<0.5?"Formula Configured":"Formula Incomplete"}</div>
+                  <div style={{fontSize:12,color:formulaMode==="marks"?"var(--dm-green-ink)":Math.abs(safeTotal-100)<0.5?"var(--dm-green-ink)":"var(--dm-amber-ink)",marginTop:2}}>{formulaMode==="marks"?formula.length+" component(s) selected ? marks added directly for final result.":Math.abs(safeTotal-100)<0.5?"All weights total 100%.":"Weights must total 100%. Currently at "+safeTotal.toFixed(1)+"%."}</div>
                 </div>
-                <div style={{fontSize:32,fontWeight:800,color:formulaMode==="marks"?"#166534":Math.abs(safeTotal-100)<0.5?"#166534":"#854d0e"}}>{formulaMode==="marks"?formula.length+" selected":safeTotal.toFixed(0)+"%"}</div>
+                <div style={{fontSize:32,fontWeight:800,color:formulaMode==="marks"?"var(--dm-green-ink)":Math.abs(safeTotal-100)<0.5?"var(--dm-green-ink)":"var(--dm-amber-ink)"}}>{formulaMode==="marks"?formula.length+" selected":safeTotal.toFixed(0)+"%"}</div>
               </div>
 
               {/* Weight Bar */}
               {formula.filter(c=>c.weight>0).length>0&&(
-                <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:12,padding:"16px 20px"}}>
+                <div style={{background:"var(--dm-surface)",border:"1px solid var(--dm-line)",borderRadius:12,padding:"16px 20px"}}>
                   <div style={{fontWeight:600,fontSize:13,marginBottom:10}}>Distribution Preview</div>
                   {formulaMode==="percentage"&&(
-                    <div style={{height:12,borderRadius:8,background:"#f1f5f9",overflow:"hidden",display:"flex",marginBottom:10}}>
+                    <div style={{height:12,borderRadius:8,background:"var(--dm-surface-3)",overflow:"hidden",display:"flex",marginBottom:10}}>
                       {formula.filter(c=>Number(c.weight||0)>0).map((c,i)=>{
                         const colors=["#2563eb","#7c3aed","#f59e0b","#059669","#0891b2","#dc2626","#8b5cf6","#d97706"];
                         return <div key={i} style={{height:"100%",width:Math.min(Number(c.weight),100)+"%",background:colors[i%colors.length],flexShrink:0,transition:"width .2s"}} />;
@@ -531,13 +537,13 @@ export default function ConfigPage({ visibleTabs } = {}) {
                     </div>
                   )}
                   {formulaMode==="marks"&&formula.length>0&&(
-                    <div style={{padding:"10px 14px",background:"#f0fdf4",borderRadius:8,border:"1px solid #bbf7d0",marginBottom:10}}>
-                      <div style={{fontSize:11,fontWeight:700,color:"#166534",marginBottom:6,textTransform:"uppercase",letterSpacing:".05em"}}>Selected Components</div>
-                      <div style={{fontSize:14,fontWeight:600,color:"#0f172a",lineHeight:2}}>
+                    <div style={{padding:"10px 14px",background:"var(--dm-tint-green)",borderRadius:8,border:"1px solid var(--dm-green-line)",marginBottom:10}}>
+                      <div style={{fontSize:11,fontWeight:700,color:"var(--dm-green-ink)",marginBottom:6,textTransform:"uppercase",letterSpacing:".05em"}}>Selected Components</div>
+                      <div style={{fontSize:14,fontWeight:600,color:"var(--dm-ink)",lineHeight:2}}>
                         {formula.map((c,i)=>(
                           <span key={i}>
-                            <span style={{background:"#eff6ff",color:"#2563eb",padding:"2px 10px",borderRadius:20,fontSize:13}}>{c.name}</span>
-                            {i<formula.length-1&&<span style={{color:"#94a3b8",margin:"0 8px",fontSize:16}}>+</span>}
+                            <span style={{background:"var(--dm-tint-blue)",color:"var(--dm-blue)",padding:"2px 10px",borderRadius:20,fontSize:13}}>{c.name}</span>
+                            {i<formula.length-1&&<span style={{color:"var(--dm-faint)",margin:"0 8px",fontSize:16}}>+</span>}
                           </span>
                         ))}
                       </div>
@@ -547,78 +553,78 @@ export default function ConfigPage({ visibleTabs } = {}) {
               )}
 
               {/* Exam Types */}
-              <div style={{background:"#fff",border:"1.5px solid #e2e8f0",borderRadius:12,overflow:"hidden"}}>
-                <div style={{padding:"14px 20px",borderBottom:"1px solid #f1f5f9",background:"#f8fafc"}}>
+              <div style={{background:"var(--dm-surface)",border:"1.5px solid var(--dm-line)",borderRadius:12,overflow:"hidden"}}>
+                <div style={{padding:"14px 20px",borderBottom:"1px solid var(--dm-line)",background:"var(--dm-surface-2)"}}>
                   <div style={{fontWeight:700,fontSize:14}}>Exam Types</div>
-                  <div style={{fontSize:12,color:"#64748b",marginTop:2}}>Formal exams with datesheet and marks entry</div>
+                  <div style={{fontSize:12,color:"var(--dm-soft)",marginTop:2}}>Formal exams with datesheet and marks entry</div>
                 </div>
                 {examTypes.map((t,i)=>{
                   const entry = formula.find(f=>f.source==="exam_type"&&f.ref_id===t.id);
                   const included = !!entry;
                   const weight = entry?.weight||0;
                   return (
-                    <div key={t.id} style={{display:"flex",alignItems:"center",gap:16,padding:"12px 20px",borderBottom:"1px solid #f8fafc",background:included?"#fafeff":"#fff"}}>
+                    <div key={t.id} style={{display:"flex",alignItems:"center",gap:16,padding:"12px 20px",borderBottom:"1px solid var(--dm-line)",background:included?"var(--dm-surface-2)":"var(--dm-surface)"}}>
                       <input type="checkbox" checked={included} onChange={e=>{
                         if(e.target.checked){setFormula(prev=>[...prev,{source:"exam_type",ref_id:t.id,name:t.name,weight:0}]);}else{setFormula(prev=>{const updated=prev.filter(f=>!(f.source==="exam_type"&&f.ref_id===t.id));setFormulaTotal(updated.reduce((s,c)=>s+Number(c.weight||0),0));return updated;});}
                       }} style={{width:16,height:16,cursor:"pointer"}} />
                       <div style={{flex:1}}>
                         <div style={{fontWeight:600,fontSize:13}}>{t.name}</div>
-                        <div style={{fontSize:11,color:"#94a3b8"}}>{t.code}</div>
+                        <div style={{fontSize:11,color:"var(--dm-faint)"}}>{t.code}</div>
                       </div>
                       {included&&formulaMode==="percentage"&&(
                         <div style={{display:"flex",alignItems:"center",gap:8}}>
-                          <input type="number" min={0} max={100} placeholder={formulaMode==="marks"?"e.g. 100":"e.g. 40"} style={{width:80,padding:"5px 8px",border:"1.5px solid #2563eb",borderRadius:6,fontSize:13,fontWeight:700,color:"#2563eb",textAlign:"center"}}
+                          <input type="number" min={0} max={100} placeholder={formulaMode==="marks"?"e.g. 100":"e.g. 40"} style={{width:80,padding:"5px 8px",border:"1.5px solid #2563eb",borderRadius:6,fontSize:13,fontWeight:700,color:"var(--dm-blue)",textAlign:"center"}}
                             value={weight||""}
                             onChange={e=>{const w=Number(e.target.value);setFormula(prev=>{const updated=prev.map(f=>f.source==="exam_type"&&f.ref_id===t.id?{...f,weight:w}:f);setFormulaTotal(updated.reduce((s,x)=>s+Number(x.weight||0),0));return updated;});}} />
-                          <span style={{fontSize:12,color:"#64748b"}}>{formulaMode==="marks"?"max marks":"%"}</span>
+                          <span style={{fontSize:12,color:"var(--dm-soft)"}}>{formulaMode==="marks"?"max marks":"%"}</span>
                         </div>
                       )}
-                      {!included&&<span style={{fontSize:11,color:"#cbd5e1"}}>Not included</span>}
+                      {!included&&<span style={{fontSize:11,color:"var(--dm-faint)"}}>Not included</span>}
                     </div>
                   );
                 })}
               </div>
 
               {/* Custom Components */}
-              <div style={{background:"#fff",border:"1.5px solid #e2e8f0",borderRadius:12,overflow:"hidden"}}>
-                <div style={{padding:"14px 20px",borderBottom:"1px solid #f1f5f9",background:"#f8fafc"}}>
+              <div style={{background:"var(--dm-surface)",border:"1.5px solid var(--dm-line)",borderRadius:12,overflow:"hidden"}}>
+                <div style={{padding:"14px 20px",borderBottom:"1px solid var(--dm-line)",background:"var(--dm-surface-2)"}}>
                   <div style={{fontWeight:700,fontSize:14}}>Custom Components</div>
-                  <div style={{fontSize:12,color:"#64748b",marginTop:2}}>Assignment, Quiz, Attendance and other continuous assessments</div>
+                  <div style={{fontSize:12,color:"var(--dm-soft)",marginTop:2}}>Assignment, Quiz, Attendance and other continuous assessments</div>
                 </div>
                 {components.map((c,i)=>{
                   const entry = formula.find(f=>f.source==="component"&&f.ref_id===c.id);
                   const included = !!entry;
                   const weight = entry?.weight||0;
-                  const methodColors = {per_subject:"#eff6ff",overall:"#fdf4ff",auto:"#f0fdf4"};
+                  const methodColors = {per_subject:"var(--dm-tint-blue)",overall:"var(--dm-tint-purple)",auto:"var(--dm-tint-green)"};
                   const methodLabels = {per_subject:"Per Subject",overall:"Overall",auto:"Auto"};
                   return (
-                    <div key={c.id} style={{display:"flex",alignItems:"center",gap:16,padding:"12px 20px",borderBottom:"1px solid #f8fafc",background:included?"#fafeff":"#fff",opacity:c.is_active?1:0.5}}>
+                    <div key={c.id} style={{display:"flex",alignItems:"center",gap:16,padding:"12px 20px",borderBottom:"1px solid var(--dm-line)",background:included?"var(--dm-surface-2)":"var(--dm-surface)",opacity:c.is_active?1:0.5}}>
                       <input type="checkbox" checked={included} disabled={!c.is_active} onChange={e=>{
                         if(e.target.checked){setFormula(prev=>[...prev,{source:"component",ref_id:c.id,name:c.name,code:c.code,weight:0}]);}else{setFormula(prev=>{const updated=prev.filter(f=>!(f.source==="component"&&f.ref_id===c.id));setFormulaTotal(updated.reduce((s,x)=>s+Number(x.weight||0),0));return updated;});}
                       }} style={{width:16,height:16,cursor:"pointer"}} />
                       <div style={{flex:1}}>
                         <div style={{display:"flex",alignItems:"center",gap:6}}>
                           <span style={{fontWeight:600,fontSize:13}}>{c.name}</span>
-                          <span style={{fontSize:10,fontWeight:600,padding:"1px 7px",borderRadius:10,background:methodColors[c.collection_method]||"#f1f5f9",color:"#475569"}}>{methodLabels[c.collection_method]||c.collection_method}</span>
+                          <span style={{fontSize:10,fontWeight:600,padding:"1px 7px",borderRadius:10,background:methodColors[c.collection_method]||"var(--dm-surface-3)",color:"var(--dm-soft)"}}>{methodLabels[c.collection_method]||c.collection_method}</span>
                         </div>
-                        <div style={{fontSize:11,color:"#94a3b8"}}>{c.description||c.code}</div>
+                        <div style={{fontSize:11,color:"var(--dm-faint)"}}>{c.description||c.code}</div>
                       </div>
                       {included&&formulaMode==="percentage"&&(
                         <div style={{display:"flex",alignItems:"center",gap:8}}>
-                          <input type="number" min={0} max={100} placeholder={formulaMode==="marks"?"e.g. 20":"e.g. 10"} style={{width:80,padding:"5px 8px",border:"1.5px solid #2563eb",borderRadius:6,fontSize:13,fontWeight:700,color:"#2563eb",textAlign:"center"}}
+                          <input type="number" min={0} max={100} placeholder={formulaMode==="marks"?"e.g. 20":"e.g. 10"} style={{width:80,padding:"5px 8px",border:"1.5px solid #2563eb",borderRadius:6,fontSize:13,fontWeight:700,color:"var(--dm-blue)",textAlign:"center"}}
                             value={weight||""}
                             onChange={e=>{const w=Number(e.target.value);setFormula(prev=>{const updated=prev.map(f=>f.source==="component"&&f.ref_id===c.id?{...f,weight:w}:f);setFormulaTotal(updated.reduce((s,x)=>s+Number(x.weight||0),0));return updated;});}} />
-                          <span style={{fontSize:12,color:"#64748b"}}>{formulaMode==="marks"?"max marks":"%"}</span>
+                          <span style={{fontSize:12,color:"var(--dm-soft)"}}>{formulaMode==="marks"?"max marks":"%"}</span>
                         </div>
                       )}
-                      {!included&&<span style={{fontSize:11,color:"#cbd5e1"}}>Not included</span>}
+                      {!included&&<span style={{fontSize:11,color:"var(--dm-faint)"}}>Not included</span>}
                     </div>
                   );
                 })}
 
                 {/* Add Custom Component */}
-                <div style={{padding:"14px 20px",borderTop:"1px solid #f1f5f9",background:"#fafafa"}}>
-                  <div style={{fontSize:12,fontWeight:600,color:"#64748b",marginBottom:10}}>Add Custom Component</div>
+                <div style={{padding:"14px 20px",borderTop:"1px solid var(--dm-line)",background:"var(--dm-surface-2)"}}>
+                  <div style={{fontSize:12,fontWeight:600,color:"var(--dm-soft)",marginBottom:10}}>Add Custom Component</div>
                   <div style={{display:"flex",gap:10,flexWrap:"wrap",alignItems:"flex-end"}}>
                     <div className="form-group" style={{marginBottom:0,flex:2,minWidth:120}}><label className="form-label" style={{fontSize:11}}>Name *</label><input className="form-control" value={newComponent.name} onChange={e=>setNewComponent(f=>({...f,name:e.target.value}))} placeholder="e.g. Oral Test" /></div>
                     <div className="form-group" style={{marginBottom:0,width:110}}><label className="form-label" style={{fontSize:11}}>Code *</label><input className="form-control" value={newComponent.code} onChange={e=>setNewComponent(f=>({...f,code:e.target.value.toUpperCase()}))} placeholder="ORAL_TEST" /></div>
@@ -645,13 +651,13 @@ export default function ConfigPage({ visibleTabs } = {}) {
 
               {/* Save Button */}
               <div style={{display:"flex",justifyContent:"flex-end",gap:10}}>
-                <div style={{fontSize:12,color:"var(--color-text-secondary)",alignSelf:"center"}}>Total: <strong style={{color:Math.abs(safeTotal-100)<0.5?"#166534":"#854d0e"}}>{formula.reduce((s,c)=>s+Number(c.weight||0),0).toFixed(1)}%</strong></div>
+                <div style={{fontSize:12,color:"var(--color-text-secondary)",alignSelf:"center"}}>Total: <strong style={{color:Math.abs(safeTotal-100)<0.5?"var(--dm-green-ink)":"var(--dm-amber-ink)"}}>{formula.reduce((s,c)=>s+Number(c.weight||0),0).toFixed(1)}%</strong></div>
                 <button className="btn btn-primary" disabled={loading} onClick={async()=>{
                   const total = formula.reduce((s,c)=>s+Number(c.weight||0),0);
                   setFormulaTotal(total);
                   setLoading(true);
                   try { await examsApi.updateFormula({formula, formula_mode:formulaMode}); flash("success","Result formula saved."); }
-                  catch { flash("error","Failed."); } finally { setLoading(false); }
+                  catch (e) { flash("error", errMsg(e)); } finally { setLoading(false); }
                 }}>{loading?"Saving...":"Save Formula"}</button>
               </div>
             </div>
@@ -664,9 +670,9 @@ export default function ConfigPage({ visibleTabs } = {}) {
                 <div className="section-card-header"><span className="section-card-title">Grading Mode</span></div>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
                   {[{v:"score",l:"Score Based",d:"Show marks and percentage. Grade letter displayed as secondary info.",icon:"🔢"},{v:"gpa",l:"GPA Based",d:"GPA and letter grade are primary. Percentage shown as reference.",icon:"🎓"},{v:"both",l:"Score + GPA",d:"All values shown equally — marks, percentage, grade and GPA.",icon:"📊"}].map(opt=>(
-                    <div key={opt.v} onClick={async()=>{setGradingMode(opt.v);const cfg=await examsApi.getExamConfig();await examsApi.updateExamConfig({...cfg.data.data,grading_mode:opt.v});flash("success","Mode updated.");}} style={{padding:"14px 16px",borderRadius:10,border:"2px solid",borderColor:gradingMode===opt.v?"#2563eb":"#e2e8f0",background:gradingMode===opt.v?"#eff6ff":"var(--color-background-secondary)",cursor:"pointer",transition:"all .15s"}}>
-                      <div style={{fontSize:18,fontWeight:800,color:formulaMode===opt.v?"#2563eb":"#94a3b8",marginBottom:6,fontFamily:"monospace"}}>{opt.icon}</div>
-                      <div style={{fontWeight:700,fontSize:13,color:gradingMode===opt.v?"#2563eb":"var(--color-text-primary)"}}>{opt.l}</div>
+                    <div key={opt.v} onClick={async()=>{setGradingMode(opt.v);const cfg=await examsApi.getExamConfig();await examsApi.updateExamConfig({...cfg.data.data,grading_mode:opt.v});flash("success","Mode updated.");}} style={{padding:"14px 16px",borderRadius:10,border:"2px solid",borderColor:gradingMode===opt.v?"#2563eb":"var(--dm-line)",background:gradingMode===opt.v?"var(--dm-tint-blue)":"var(--color-background-secondary)",cursor:"pointer",transition:"all .15s"}}>
+                      <div style={{fontSize:18,fontWeight:800,color:formulaMode===opt.v?"var(--dm-blue)":"var(--dm-faint)",marginBottom:6,fontFamily:"monospace"}}>{opt.icon}</div>
+                      <div style={{fontWeight:700,fontSize:13,color:gradingMode===opt.v?"var(--dm-blue)":"var(--color-text-primary)"}}>{opt.l}</div>
                       <div style={{fontSize:11,color:"var(--color-text-secondary)",marginTop:4}}>{opt.d}</div>
                     </div>
                   ))}
@@ -686,17 +692,85 @@ export default function ConfigPage({ visibleTabs } = {}) {
                       <input type="number" className="form-control" value={g.max_pct} onChange={e=>setGradingScale(p=>p.map((x,j)=>j===i?{...x,max_pct:e.target.value}:x))} style={{padding:"5px"}} />
                       <input type="number" step="0.1" className="form-control" value={g.gpa} onChange={e=>setGradingScale(p=>p.map((x,j)=>j===i?{...x,gpa:e.target.value}:x))} style={{padding:"5px"}} />
                       <input className="form-control" value={g.description||""} onChange={e=>setGradingScale(p=>p.map((x,j)=>j===i?{...x,description:e.target.value}:x))} placeholder="e.g. Excellent" style={{padding:"5px"}} />
-                      <button onClick={()=>setGradingScale(p=>p.filter((_,j)=>j!==i))} style={{background:"#fef2f2",border:"1px solid #fecaca",borderRadius:6,color:"#ef4444",cursor:"pointer",fontSize:11,padding:"4px 8px",fontWeight:600}}>Remove</button>
+                      <button onClick={()=>setGradingScale(p=>p.filter((_,j)=>j!==i))} style={{background:"var(--dm-tint-red)",border:"1px solid #fecaca",borderRadius:6,color:"#ef4444",cursor:"pointer",fontSize:11,padding:"4px 8px",fontWeight:600}}>Remove</button>
                     </div>
                   ))}
                 </div>
                 <div style={{display:"flex",gap:8,justifyContent:"space-between"}}>
                   <button className="btn btn-ghost btn-sm" onClick={()=>setGradingScale(p=>[...p,{grade:"",min_pct:0,max_pct:0,gpa:0,description:""}])}>+ Add Grade</button>
-                  <button className="btn btn-primary" disabled={loading} onClick={async()=>{setLoading(true);try{await examsApi.updateGrading({grades:gradingScale});flash("success","Grading scale saved.");}catch{flash("error","Failed.");}finally{setLoading(false);}}}>{loading?"Saving...":"Save Grading Scale"}</button>
+                  <button className="btn btn-primary" disabled={loading} onClick={async()=>{setLoading(true);try{await examsApi.updateGrading({grades:gradingScale});flash("success","Grading scale saved.");}catch(e){flash("error",errMsg(e));}finally{setLoading(false);}}}>{loading?"Saving...":"Save Grading Scale"}</button>
                 </div>
               </div>
             </div>
           )}
+
+          {/* Result Rules Sub-tab: pass / compartment rules + fee-due result withholding */}
+          {examSubTab==="rules" && (()=>{
+            const ec = examConfig||{};
+            const setEc = (k,v)=>setExamConfig(p=>({...p,[k]:v}));
+            const num = (k,fb)=>ec[k]===undefined||ec[k]===null||ec[k]===""?fb:ec[k];
+            const row = {display:"grid",gridTemplateColumns:"260px 160px 1fr",gap:12,alignItems:"center",padding:"10px 0",borderBottom:"1px solid var(--color-border-tertiary)"};
+            const hint = {fontSize:12,color:"var(--color-text-secondary)"};
+            const save = async ()=>{
+              setLoading(true);
+              try {
+                await examsApi.updateExamConfig({...ec,
+                  passing_pct:Number(num("passing_pct",40)), max_fail_subjects:Number(num("max_fail_subjects",2)),
+                  allow_compartment:ec.allow_compartment!==false, compartment_min_pct:Number(num("compartment_min_pct",33)),
+                  withhold_on_fee_due:!!ec.withhold_on_fee_due, withhold_fee_months:Math.max(1,Number(num("withhold_fee_months",1))),
+                  grading_mode:ec.grading_mode||gradingMode||"score", position_formula:ec.position_formula||[]});
+                flash("success","Result rules saved. They apply to results compiled from now on; withholding applies immediately.");
+              } catch(e){ flash("error", errMsg(e)); } finally { setLoading(false); }
+            };
+            return (
+            <div style={{display:"flex",flexDirection:"column",gap:16}}>
+              <div className="section-card">
+                <div className="section-card-header"><span className="section-card-title">Pass &amp; Compartment</span></div>
+                <div style={row}>
+                  <label className="form-label" style={{margin:0}}>Passing percentage</label>
+                  <input type="number" min="0" max="100" className="form-control" value={num("passing_pct",40)} onChange={e=>setEc("passing_pct",e.target.value)} />
+                  <div style={hint}>Overall % needed to pass, with no failed subject.</div>
+                </div>
+                <div style={row}>
+                  <label className="form-label" style={{margin:0}}>Allow compartment</label>
+                  <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
+                    <input type="checkbox" checked={ec.allow_compartment!==false} onChange={e=>setEc("allow_compartment",e.target.checked)} /> Enabled
+                  </label>
+                  <div style={hint}>Students who fail a few subjects get Compartment (re-appear) instead of Fail.</div>
+                </div>
+                <div style={row}>
+                  <label className="form-label" style={{margin:0}}>Max failed subjects for compartment</label>
+                  <input type="number" min="0" className="form-control" disabled={ec.allow_compartment===false} value={num("max_fail_subjects",2)} onChange={e=>setEc("max_fail_subjects",e.target.value)} />
+                  <div style={hint}>Failing more subjects than this is a Fail.</div>
+                </div>
+                <div style={{...row,borderBottom:"none"}}>
+                  <label className="form-label" style={{margin:0}}>Compartment minimum %</label>
+                  <input type="number" min="0" max="100" className="form-control" disabled={ec.allow_compartment===false} value={num("compartment_min_pct",33)} onChange={e=>setEc("compartment_min_pct",e.target.value)} />
+                  <div style={hint}>Overall % needed to qualify for compartment.</div>
+                </div>
+              </div>
+
+              <div className="section-card">
+                <div className="section-card-header"><span className="section-card-title">Withhold Results for Unpaid Fee</span></div>
+                <div style={row}>
+                  <label className="form-label" style={{margin:0}}>Withhold results</label>
+                  <label style={{display:"flex",alignItems:"center",gap:8,cursor:"pointer"}}>
+                    <input type="checkbox" checked={!!ec.withhold_on_fee_due} onChange={e=>setEc("withhold_on_fee_due",e.target.checked)} /> Enabled
+                  </label>
+                  <div style={hint}>When on, students with overdue fee can&apos;t see their result, result card or certificate.</div>
+                </div>
+                <div style={{...row,borderBottom:"none"}}>
+                  <label className="form-label" style={{margin:0}}>Unpaid months before withholding</label>
+                  <input type="number" min="1" className="form-control" disabled={!ec.withhold_on_fee_due} value={num("withhold_fee_months",1)} onChange={e=>setEc("withhold_fee_months",e.target.value)} />
+                  <div style={hint}>Withhold once fee for this many months is unpaid past its due date. Paying the dues releases the result automatically.</div>
+                </div>
+              </div>
+
+              <div style={{display:"flex",justifyContent:"flex-end"}}>
+                <button className="btn btn-primary" disabled={loading} onClick={save}>{loading?"Saving...":"Save Result Rules"}</button>
+              </div>
+            </div>);
+          })()}
         </div>
       )}
     </div>

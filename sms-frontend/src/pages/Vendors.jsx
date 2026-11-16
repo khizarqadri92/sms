@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import procurementApi from "../api/procurementApi";
 import { useGovernanceMode } from "../hooks/useGovernanceMode";
+import "./Vendors.css";
 
 function QuickAddCategoryModal({ onClose, onSaved }) {
   const [name, setName] = useState("");
@@ -22,16 +23,16 @@ function QuickAddCategoryModal({ onClose, onSaved }) {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1100, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
-      <div style={{ background: "#fff", borderRadius: 12, padding: 24, width: "100%", maxWidth: 340 }} onClick={e => e.stopPropagation()}>
-        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>Add Vendor Category</div>
-        {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}
+    <div className="vnd-modal-overlay" style={{ "--z": 1100 }} onClick={onClose}>
+      <div className="vnd-modal-box-sm" onClick={e => e.stopPropagation()}>
+        <div className="vnd-modal-title">Add Vendor Category</div>
+        {error && <div className="alert alert-error vnd-mb12">{error}</div>}
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label className="form-label">Name *</label>
             <input className="form-control" value={name} onChange={e => setName(e.target.value)} autoFocus />
           </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
+          <div className="vnd-btn-row">
             <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Saving..." : "Add"}</button>
           </div>
@@ -78,13 +79,13 @@ function VendorFormModal({ vendor, categories, onClose, onSaved, onQuickAddCateg
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
-      <div style={{ background: "#fff", borderRadius: 12, padding: 24, width: "100%", maxWidth: 520, maxHeight: "88vh", overflow: "auto" }} onClick={e => e.stopPropagation()}>
-        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>{vendor ? "Edit Vendor" : "Add Vendor"}</div>
-        {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}
+    <div className="vnd-modal-overlay" onClick={onClose}>
+      <div className="vnd-modal-box-lg" onClick={e => e.stopPropagation()}>
+        <div className="vnd-modal-title">{vendor ? "Edit Vendor" : "Add Vendor"}</div>
+        {error && <div className="alert alert-error vnd-mb12">{error}</div>}
         <form onSubmit={handleSubmit}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+          <div className="vnd-form-grid">
+            <div className="form-group vnd-full-field">
               <label className="form-label">Vendor Name *</label>
               <input className="form-control" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} autoFocus />
             </div>
@@ -96,11 +97,11 @@ function VendorFormModal({ vendor, categories, onClose, onSaved, onQuickAddCateg
               <label className="form-label">Phone</label>
               <input className="form-control" value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} />
             </div>
-            <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+            <div className="form-group vnd-full-field">
               <label className="form-label">Email</label>
               <input className="form-control" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
             </div>
-            <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+            <div className="form-group vnd-full-field">
               <label className="form-label">Address</label>
               <input className="form-control" value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} />
             </div>
@@ -120,13 +121,13 @@ function VendorFormModal({ vendor, categories, onClose, onSaved, onQuickAddCateg
               <label className="form-label">Account No.</label>
               <input className="form-control" value={form.bank_account_no} onChange={e => setForm({ ...form, bank_account_no: e.target.value })} />
             </div>
-            <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+            <div className="form-group vnd-full-field">
               <label className="form-label">IBAN</label>
               <input className="form-control" value={form.bank_iban} onChange={e => setForm({ ...form, bank_iban: e.target.value })} />
             </div>
-            <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+            <div className="form-group vnd-full-field">
               <label className="form-label">Category</label>
-              <div style={{ display: "flex", gap: 6 }}>
+              <div className="vnd-cat-row">
                 <select className="form-control" value={form.category_id} onChange={e => setForm({ ...form, category_id: e.target.value })}>
                   <option value="">None</option>
                   {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -135,7 +136,7 @@ function VendorFormModal({ vendor, categories, onClose, onSaved, onQuickAddCateg
               </div>
             </div>
           </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 16 }}>
+          <div className="vnd-btn-row-mt16">
             <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Saving..." : vendor ? "Update" : "Add"}</button>
           </div>
@@ -161,16 +162,16 @@ function BlacklistModal({ vendor, onClose, onSaved }) {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
-      <div style={{ background: "#fff", borderRadius: 12, padding: 24, width: "100%", maxWidth: 380 }} onClick={e => e.stopPropagation()}>
-        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>Blacklist Vendor</div>
-        <div style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>{vendor.name}</div>
+    <div className="vnd-modal-overlay" onClick={onClose}>
+      <div className="vnd-modal-box-md" onClick={e => e.stopPropagation()}>
+        <div className="vnd-modal-title-mb4">Blacklist Vendor</div>
+        <div className="vnd-modal-subtitle">{vendor.name}</div>
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label className="form-label">Reason</label>
             <textarea className="form-control" rows={3} value={reason} onChange={e => setReason(e.target.value)} required />
           </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
+          <div className="vnd-btn-row">
             <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-danger" disabled={saving}>{saving ? "Saving..." : "Blacklist"}</button>
           </div>
@@ -243,21 +244,21 @@ export default function Vendors() {
 
   return (
     <div>
-      <div className="page-header" style={{ marginBottom: 16 }}>
+      <div className="page-header vnd-page-header">
         <h1 className="page-heading">Vendors</h1>
         {!isGlobalLocked && <button className="btn btn-primary" onClick={() => { setEditVendor(null); setShowForm(true); }}>+ Add Vendor</button>}
       </div>
 
       {isGlobalLocked && (
-        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+        <div className="alert vnd-readonly-alert">
           Vendors are managed centrally by the superadmin. This list is read-only here.
         </div>
       )}
-      {success && <div className="alert alert-success" style={{ marginBottom: 16 }}>{success}</div>}
-      {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
+      {success && <div className="alert alert-success vnd-mb16">{success}</div>}
+      {error && <div className="alert alert-error vnd-mb16">{error}</div>}
 
-      <div className="section-card" style={{ marginBottom: 16 }}>
-        <div style={{ display: "flex", gap: 10 }}>
+      <div className="section-card vnd-mb16">
+        <div className="vnd-search-row">
           <input className="form-control" placeholder="Search by name, contact, or NTN" value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => e.key === "Enter" && fetchVendors()} />
           <button className="btn btn-secondary" onClick={() => fetchVendors()}>Search</button>
         </div>
@@ -284,21 +285,21 @@ export default function Vendors() {
               {vendors.map(v => (
                 <tr key={v.id}>
                   <td><strong>{v.name}</strong></td>
-                  <td>{v.category_name || <span style={{ color: "#94a3b8" }}>-</span>}</td>
+                  <td>{v.category_name || <span className="vnd-none-text">-</span>}</td>
                   <td>
                     <div>{v.contact_person || "-"}</div>
-                    <div style={{ fontSize: 11, color: "#94a3b8" }}>{v.phone || v.email || ""}</div>
+                    <div className="vnd-contact-subtext">{v.phone || v.email || ""}</div>
                   </td>
-                  <td style={{ fontSize: 12, color: "#64748b" }}>{v.ntn || "-"} / {v.strn || "-"}</td>
+                  <td className="vnd-ntn-cell">{v.ntn || "-"} / {v.strn || "-"}</td>
                   <td>
-                    <div style={{ display: "flex", gap: 4, flexWrap: "nowrap" }}>
+                    <div className="vnd-status-row">
                       <span className={"badge " + (v.is_active ? "badge-success" : "badge-gray")}>{v.is_active ? "Active" : "Inactive"}</span>
                       {v.is_blacklisted && <span className="badge badge-danger">Blacklisted</span>}
                     </div>
                   </td>
                   {!isGlobalLocked && (
                     <td>
-                      <div style={{ display: "flex", gap: 6, flexWrap: "nowrap" }}>
+                      <div className="vnd-actions-cell">
                         <button className="btn btn-ghost btn-xs" onClick={() => { setEditVendor(v); setShowForm(true); }}>Edit</button>
                         <button className={"btn btn-xs " + (v.is_active ? "btn-danger" : "btn-secondary")} onClick={() => handleToggleActive(v)}>
                           {v.is_active ? "Deactivate" : "Reactivate"}

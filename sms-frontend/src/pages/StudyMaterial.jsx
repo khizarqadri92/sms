@@ -3,6 +3,7 @@ import { useAuth } from "../auth/AuthContext";
 import materialsApi from "../api/materialsApi";
 import academicsApi from "../api/academicsApi";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
+import "./StudyMaterial.css";
 
 const FILE_ICONS = {
   pdf: "📄", doc:"📝", docx:"📝", xls:"📊", xlsx:"📊",
@@ -69,7 +70,7 @@ function PrincipalMaterials() {
     <div>
       <div className="page-header">
         <h1 className="page-heading">Study Materials</h1>
-        <select className="form-control" style={{ maxWidth:200 }} value={selClass} onChange={e => setSelClass(e.target.value)}>
+        <select className="form-control sm-class-select" value={selClass} onChange={e => setSelClass(e.target.value)}>
           <option value="">All Classes</option>
           {classes.map(c => <option key={c.id} value={c.id}>{c.name}{c.section?" ("+c.section+")":""}</option>)}
         </select>
@@ -77,7 +78,7 @@ function PrincipalMaterials() {
       {loading ? <div className="loading-state">Loading...</div> : materials.length === 0 ? (
         <div className="section-card"><div className="empty-state">No materials uploaded yet.</div></div>
       ) : (
-        <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+        <div className="sm-list-stack">
           {materials.map(m => <MaterialCard key={m.id} m={m} onDownload={handleDownload} />)}
         </div>
       )}
@@ -173,13 +174,13 @@ function TeacherMaterials() {
         <h1 className="page-heading">Study Materials</h1>
       </div>
 
-      <div style={{ display:"grid", gridTemplateColumns:"340px 1fr", gap:16 }}>
+      <div className="sm-upload-grid">
         {/* Upload Panel */}
         {can.includes("material.upload") && (
         <div className="section-card">
           <div className="section-card-header"><span className="section-card-title">Upload Material</span></div>
-          {msg && <div style={{ color:"#16a34a", fontSize:12, marginBottom:8, fontWeight:600 }}>{msg}</div>}
-          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          {msg && <div className="sm-success-msg">{msg}</div>}
+          <div className="sm-form-stack">
             <div className="form-group">
               <label className="form-label">Class</label>
               <select className="form-control" value={selClass} onChange={e => setSelClass(e.target.value)}>
@@ -205,7 +206,7 @@ function TeacherMaterials() {
               <label className="form-label">File *</label>
               <input type="file" ref={fileRef} className="form-control"
                 accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.jpg,.jpeg,.png,.mp4,.zip,.txt" />
-              <div style={{ fontSize:11, color:"#94a3b8", marginTop:4 }}>PDF, Word, Excel, PPT, Images, ZIP</div>
+              <div className="sm-help-text">PDF, Word, Excel, PPT, Images, ZIP</div>
             </div>
             <button className="btn btn-primary" onClick={handleUpload} disabled={uploading}>
               {uploading ? "Uploading..." : "⬆ Upload Material"}
@@ -223,7 +224,7 @@ function TeacherMaterials() {
           {loading ? <div className="loading-state">Loading...</div> : materials.length === 0 ? (
             <div className="empty-state">No materials uploaded yet.</div>
           ) : (
-            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            <div className="sm-list-stack">
               {materials.map(m => <MaterialCard key={m.id} m={m} onDownload={handleDownload} onDelete={can.includes("material.delete") ? handleDelete : null} />)}
             </div>
           )}
@@ -274,7 +275,7 @@ function StudentMaterials() {
     <div>
       <div className="page-header">
         <h1 className="page-heading">Study Materials</h1>
-        <select className="form-control" style={{ maxWidth:200 }} value={selSubj} onChange={e => setSelSubj(e.target.value)}>
+        <select className="form-control sm-class-select" value={selSubj} onChange={e => setSelSubj(e.target.value)}>
           <option value="">All Subjects</option>
           {subjects.map(s => <option key={s.id} value={s.id}>{s.subject_name}</option>)}
         </select>
@@ -282,7 +283,7 @@ function StudentMaterials() {
       {loading ? <div className="loading-state">Loading...</div> : materials.length === 0 ? (
         <div className="section-card"><div className="empty-state">No study materials available yet.</div></div>
       ) : (
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))", gap:12 }}>
+        <div className="sm-grid-cards">
           {materials.map(m => <MaterialCard key={m.id} m={m} onDownload={handleDownload} grid />)}
         </div>
       )}
@@ -333,11 +334,11 @@ function ParentMaterials() {
     <div>
       <div className="page-header">
         <h1 className="page-heading">Study Materials</h1>
-        <div style={{ display:"flex", gap:10 }}>
-          <select className="form-control" style={{ maxWidth:180 }} value={selChild} onChange={e => { setSelChild(e.target.value); setSelSubj(""); }}>
+        <div className="sm-parent-select-row">
+          <select className="form-control sm-select-180" value={selChild} onChange={e => { setSelChild(e.target.value); setSelSubj(""); }}>
             {children.map(c => <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>)}
           </select>
-          <select className="form-control" style={{ maxWidth:180 }} value={selSubj} onChange={e => setSelSubj(e.target.value)}>
+          <select className="form-control sm-select-180" value={selSubj} onChange={e => setSelSubj(e.target.value)}>
             <option value="">All Subjects</option>
             {subjects.map(s => <option key={s.id} value={s.id}>{s.subject_name}</option>)}
           </select>
@@ -346,7 +347,7 @@ function ParentMaterials() {
       {loading ? <div className="loading-state">Loading...</div> : materials.length === 0 ? (
         <div className="section-card"><div className="empty-state">No study materials available yet.</div></div>
       ) : (
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))", gap:12 }}>
+        <div className="sm-grid-cards">
           {materials.map(m => <MaterialCard key={m.id} m={m} onDownload={handleDownload} grid />)}
         </div>
       )}
@@ -363,25 +364,23 @@ function MaterialCard({ m, onDownload, onDelete, grid }) {
   const color = FILE_COLORS[ext] || "#64748b";
 
   return (
-    <div style={{ background:"#fff", border:"1px solid #e2e8f0", borderRadius:10, padding:"12px 14px",
-      display:"flex", flexDirection: grid ? "column" : "row", gap:12,
-      alignItems: grid ? "flex-start" : "center" }}>
-      <div style={{ width:44, height:44, borderRadius:10, background:color+"18", display:"flex", alignItems:"center", justifyContent:"center", fontSize:22, flexShrink:0 }}>
+    <div className="sm-card" style={{ "--card-flex-dir": grid ? "column" : "row", "--card-align": grid ? "flex-start" : "center" }}>
+      <div className="sm-card-icon" style={{ "--icon-bg": color+"18", "--icon-color": color }}>
         {icon}
       </div>
-      <div style={{ flex:1, minWidth:0 }}>
-        <div style={{ fontWeight:600, fontSize:13, color:"#1e3a5f", marginBottom:2, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{m.title}</div>
-        <div style={{ fontSize:11, color:"#64748b", marginBottom:2 }}>{m.class_name}{m.section?" ("+m.section+")":""} · {m.subject_name} · {m.teacher_name}</div>
-        {m.description && <div style={{ fontSize:11, color:"#94a3b8", marginBottom:4, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>{m.description}</div>}
-        <div style={{ display:"flex", alignItems:"center", gap:8, flexWrap:"wrap" }}>
-          <span style={{ fontSize:10, padding:"2px 8px", background:color+"18", color:color, borderRadius:20, fontWeight:600, textTransform:"uppercase" }}>{ext}</span>
-          <span style={{ fontSize:10, color:"#94a3b8" }}>{formatSize(m.file_size)}</span>
-          <span style={{ fontSize:10, color:"#94a3b8" }}>{formatDate(m.created_at)}</span>
+      <div className="sm-card-body">
+        <div className="sm-card-title">{m.title}</div>
+        <div className="sm-card-meta">{m.class_name}{m.section?" ("+m.section+")":""} · {m.subject_name} · {m.teacher_name}</div>
+        {m.description && <div className="sm-card-desc">{m.description}</div>}
+        <div className="sm-card-tags-row">
+          <span className="sm-ext-tag" style={{ "--tag-bg": color+"18", "--tag-color": color }}>{ext}</span>
+          <span className="sm-meta-text">{formatSize(m.file_size)}</span>
+          <span className="sm-meta-text">{formatDate(m.created_at)}</span>
         </div>
       </div>
-      <div style={{ display:"flex", gap:6, flexShrink:0 }}>
-        <button className="btn btn-ghost" style={{ fontSize:12, padding:"4px 10px" }} onClick={() => onDownload(m)}>⬇ Download</button>
-        {onDelete && <button className="btn btn-ghost" style={{ fontSize:12, padding:"4px 10px", color:"#dc2626" }} onClick={() => onDelete(m.id)}>🗑</button>}
+      <div className="sm-card-actions">
+        <button className="btn btn-ghost sm-download-btn" onClick={() => onDownload(m)}>⬇ Download</button>
+        {onDelete && <button className="btn btn-ghost sm-delete-btn" onClick={() => onDelete(m.id)}>🗑</button>}
       </div>
     </div>
   );

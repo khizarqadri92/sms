@@ -4,6 +4,7 @@ import academicsApi from "../api/academicsApi";
 import { printReport, exportToCSV, exportToPDF } from "../utils/reportExport";
 import { useProcessingToday } from "../hooks/useProcessingToday";
 import DatePicker from "../components/DatePicker";
+import "./StudentAttendanceReport.css";
 
 const today = () => new Date().toISOString().split("T")[0];
 const monthStart = () => new Date().toISOString().slice(0,7) + "-01";
@@ -99,17 +100,17 @@ export default function StudentAttendanceReport() {
   const perfect = filtered.filter(s=>(s.absent||0)===0&&(s.on_leave||0)===0).length;
 
   return (
-    <div style={{padding:24,background:"#f1f5f9",minHeight:"100vh"}}>
-      <div style={{marginBottom:20,display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
+    <div className="sar-page">
+      <div className="sar-header-row">
         <div>
-          <div style={{fontSize:22,fontWeight:800,color:"#0f172a",marginBottom:4}}>Attendance Report — By Student</div>
-          <div style={{fontSize:13,color:"#64748b"}}>Filter students by attendance conditions</div>
+          <div className="sar-title">Attendance Report — By Student</div>
+          <div className="sar-subtitle">Filter students by attendance conditions</div>
         </div>
-        {hasRun&&<button onClick={reset} style={{padding:"7px 16px",background:"#fff",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:12,fontWeight:600,cursor:"pointer",color:"#64748b"}}>Reset</button>}
+        {hasRun&&<button onClick={reset} className="sar-reset-btn">Reset</button>}
       </div>
 
       {hasRun && filtered.length>0 && (
-        <div className="no-print" style={{display:"flex",justifyContent:"flex-end",gap:8,marginBottom:12}}>
+        <div className="no-print sar-export-row">
           <button className="btn btn-ghost btn-sm" onClick={printReport}>Print</button>
           <button className="btn btn-ghost btn-sm" onClick={()=>exportToCSV(columns, filtered, "Student_Attendance")}>Export CSV</button>
           <button className="btn btn-ghost btn-sm" onClick={()=>exportToPDF("Student Attendance", columns, filtered, "Student_Attendance")}>Export PDF</button>
@@ -117,12 +118,12 @@ export default function StudentAttendanceReport() {
       )}
 
       {/* Filter Builder */}
-      <div className="no-print" style={{background:"#fff",borderRadius:12,border:"1px solid #e2e8f0",padding:"20px",marginBottom:20}}>
-        <div style={{fontWeight:700,fontSize:14,color:"#0f172a",marginBottom:16}}>Report Conditions</div>
+      <div className="no-print sar-filter-card">
+        <div className="sar-filter-card-title">Report Conditions</div>
 
         {/* Quick presets */}
-        <div style={{display:"flex",gap:8,flexWrap:"wrap",marginBottom:16}}>
-          <div style={{fontSize:11,fontWeight:600,color:"#374151",alignSelf:"center",marginRight:4}}>Quick Filter:</div>
+        <div className="sar-preset-row">
+          <div className="sar-preset-label">Quick Filter:</div>
           {[
             {k:"",     l:"All Students"},
             {k:"low_att",    l:"Below 75% Attendance"},
@@ -130,59 +131,60 @@ export default function StudentAttendanceReport() {
             {k:"late_prone", l:"3+ Late Arrivals"},
             {k:"perfect",    l:"Perfect Attendance"},
           ].map(p=>(
-            <button key={p.k} onClick={()=>setStatusType(p.k)} style={{padding:"5px 12px",borderRadius:20,border:"1.5px solid",borderColor:statusType===p.k?"#0f4c35":"#e2e8f0",background:statusType===p.k?"#f0fdf4":"#fff",color:statusType===p.k?"#0f4c35":"#64748b",fontSize:12,fontWeight:statusType===p.k?700:400,cursor:"pointer"}}>
+            <button key={p.k} onClick={()=>setStatusType(p.k)} className="sar-preset-btn"
+              style={{ "--preset-border": statusType===p.k?"#0f4c35":"var(--border-color)", "--preset-bg": statusType===p.k?"var(--bg-success-soft)":"var(--bg-card)", "--preset-color": statusType===p.k?"#0f4c35":"var(--text-secondary)", "--preset-weight": statusType===p.k?700:400 }}>
               {p.l}
             </button>
           ))}
         </div>
 
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(160px,1fr))",gap:14,marginBottom:16}}>
+        <div className="sar-filter-grid">
           <div>
-            <label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>From Date</label>
-            <DatePicker value={from} onChange={val=>setFrom(val)} style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:13}} />
+            <label className="sar-field-label">From Date</label>
+            <DatePicker value={from} onChange={val=>setFrom(val)} style={{width:"100%",padding:"8px 10px",border:"1.5px solid var(--border-color)",borderRadius:8,fontSize:13}} />
           </div>
           <div>
-            <label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>To Date</label>
-            <DatePicker value={to} onChange={val=>setTo(val)} style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:13}} />
+            <label className="sar-field-label">To Date</label>
+            <DatePicker value={to} onChange={val=>setTo(val)} style={{width:"100%",padding:"8px 10px",border:"1.5px solid var(--border-color)",borderRadius:8,fontSize:13}} />
           </div>
           <div>
-            <label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>Class</label>
-            <select value={classId} onChange={e=>setClassId(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:13}}>
+            <label className="sar-field-label">Class</label>
+            <select value={classId} onChange={e=>setClassId(e.target.value)} className="sar-filter-input">
               <option value="">All Classes</option>
               {classes.map(c=><option key={c.id} value={c.id}>{c.name}{c.section?" ("+c.section+")":""}</option>)}
             </select>
           </div>
           <div>
-            <label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>Search Student</label>
-            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Name or enrollment..." style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:13}} />
+            <label className="sar-field-label">Search Student</label>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Name or enrollment..." className="sar-filter-input" />
           </div>
           <div>
-            <label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>Min Attendance %</label>
-            <input type="number" min={0} max={100} value={minPct} onChange={e=>setMinPct(e.target.value)} placeholder="e.g. 0" style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:13}} />
+            <label className="sar-field-label">Min Attendance %</label>
+            <input type="number" min={0} max={100} value={minPct} onChange={e=>setMinPct(e.target.value)} placeholder="e.g. 0" className="sar-filter-input" />
           </div>
           <div>
-            <label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>Max Attendance %</label>
-            <input type="number" min={0} max={100} value={maxPct} onChange={e=>setMaxPct(e.target.value)} placeholder="e.g. 75" style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:13}} />
+            <label className="sar-field-label">Max Attendance %</label>
+            <input type="number" min={0} max={100} value={maxPct} onChange={e=>setMaxPct(e.target.value)} placeholder="e.g. 75" className="sar-filter-input" />
           </div>
           <div>
-            <label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>Min Absent Days</label>
-            <input type="number" min={0} value={minAbsent} onChange={e=>setMinAbsent(e.target.value)} placeholder="e.g. 3" style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:13}} />
+            <label className="sar-field-label">Min Absent Days</label>
+            <input type="number" min={0} value={minAbsent} onChange={e=>setMinAbsent(e.target.value)} placeholder="e.g. 3" className="sar-filter-input" />
           </div>
           <div>
-            <label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>Min Late Days</label>
-            <input type="number" min={0} value={minLate} onChange={e=>setMinLate(e.target.value)} placeholder="e.g. 2" style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:13}} />
+            <label className="sar-field-label">Min Late Days</label>
+            <input type="number" min={0} value={minLate} onChange={e=>setMinLate(e.target.value)} placeholder="e.g. 2" className="sar-filter-input" />
           </div>
           <div>
-            <label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>Min On Leave Days</label>
-            <input type="number" min={0} value={minLeave} onChange={e=>setMinLeave(e.target.value)} placeholder="e.g. 1" style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:13}} />
+            <label className="sar-field-label">Min On Leave Days</label>
+            <input type="number" min={0} value={minLeave} onChange={e=>setMinLeave(e.target.value)} placeholder="e.g. 1" className="sar-filter-input" />
           </div>
           <div>
-            <label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>Max On Leave Days</label>
-            <input type="number" min={0} value={maxLeave} onChange={e=>setMaxLeave(e.target.value)} placeholder="e.g. 5" style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:13}} />
+            <label className="sar-field-label">Max On Leave Days</label>
+            <input type="number" min={0} value={maxLeave} onChange={e=>setMaxLeave(e.target.value)} placeholder="e.g. 5" className="sar-filter-input" />
           </div>
           <div>
-            <label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>Sort By</label>
-            <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:13}}>
+            <label className="sar-field-label">Sort By</label>
+            <select value={sortBy} onChange={e=>setSortBy(e.target.value)} className="sar-filter-input">
               <option value="name">Student Name</option>
               <option value="class">Class</option>
               <option value="pct">Attendance %</option>
@@ -192,56 +194,56 @@ export default function StudentAttendanceReport() {
             </select>
           </div>
           <div>
-            <label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>Sort Direction</label>
-            <select value={sortDir} onChange={e=>setSortDir(e.target.value)} style={{width:"100%",padding:"8px 10px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:13}}>
+            <label className="sar-field-label">Sort Direction</label>
+            <select value={sortDir} onChange={e=>setSortDir(e.target.value)} className="sar-filter-input">
               <option value="asc">Ascending</option>
               <option value="desc">Descending</option>
             </select>
           </div>
         </div>
 
-        <div style={{display:"flex",gap:10,alignItems:"center"}}>
-          <button disabled={loading} onClick={()=>loadReport()} style={{padding:"10px 28px",background:"#0f4c35",color:"#fff",border:"none",borderRadius:8,fontSize:14,fontWeight:700,cursor:"pointer"}}>
+        <div className="sar-generate-row">
+          <button disabled={loading} onClick={()=>loadReport()} className="sar-generate-btn">
             {loading?"Generating...":"Generate Report"}
           </button>
-          {hasRun&&<span style={{fontSize:12,color:"#64748b"}}>{filtered.length} of {students.length} students match</span>}
+          {hasRun&&<span className="sar-generate-status">{filtered.length} of {students.length} students match</span>}
         </div>
       </div>
 
       {/* Summary */}
       {hasRun&&filtered.length>0&&(
-        <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:12,marginBottom:20}}>
+        <div className="sar-summary-grid">
           {[
             {l:"Total Students",  v:filtered.length,  c:"#2563eb"},
             {l:"Avg Attendance",  v:avgPct+"%",        c:Number(avgPct)>=75?"#166534":"#991b1b"},
             {l:"Below 75%",       v:lowAtt,            c:"#991b1b"},
             {l:"Perfect Attend.", v:perfect,           c:"#166534"},
-            {l:"Filtered From",   v:students.length,   c:"#64748b"},
+            {l:"Filtered From",   v:students.length,   c:"var(--text-secondary)"},
           ].map((s,i)=>(
-            <div key={i} style={{background:"#fff",borderRadius:10,padding:"14px",border:"1px solid #e2e8f0",textAlign:"center"}}>
-              <div style={{fontSize:22,fontWeight:800,color:s.c}}>{s.v}</div>
-              <div style={{fontSize:11,color:"#64748b",marginTop:3}}>{s.l}</div>
+            <div key={i} className="sar-summary-card">
+              <div className="sar-summary-value" style={{ "--val-color": s.c }}>{s.v}</div>
+              <div className="sar-summary-label">{s.l}</div>
             </div>
           ))}
         </div>
       )}
 
       {/* Empty States */}
-      {!loading&&!hasRun&&<div style={{background:"#fff",borderRadius:12,padding:"60px",textAlign:"center",color:"#94a3b8",border:"1px solid #e2e8f0"}}><div style={{fontSize:32,marginBottom:12}}>👨‍🎓</div><div style={{fontWeight:600,fontSize:15}}>Set conditions and click Generate Report</div></div>}
-      {loading&&<div style={{background:"#fff",borderRadius:12,padding:"40px",textAlign:"center",color:"#94a3b8",border:"1px solid #e2e8f0"}}>Generating report...</div>}
-      {!loading&&hasRun&&filtered.length===0&&<div style={{background:"#fff",borderRadius:12,padding:"40px",textAlign:"center",color:"#94a3b8",border:"1px solid #e2e8f0"}}>No students match your conditions.</div>}
+      {!loading&&!hasRun&&<div className="sar-state-card" style={{padding:"60px"}}><div className="sar-state-icon">👨‍🎓</div><div className="sar-state-text">Set conditions and click Generate Report</div></div>}
+      {loading&&<div className="sar-state-card" style={{padding:"40px"}}>Generating report...</div>}
+      {!loading&&hasRun&&filtered.length===0&&<div className="sar-state-card" style={{padding:"40px"}}>No students match your conditions.</div>}
 
       {/* Table */}
       {!loading&&hasRun&&filtered.length>0&&(
-        <div style={{background:"#fff",borderRadius:12,border:"1px solid #e2e8f0",overflow:"hidden"}}>
-          <div style={{padding:"14px 20px",borderBottom:"1px solid #f1f5f9",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <div style={{fontWeight:700,fontSize:15}}>{filtered.length} Students — {from} to {to}</div>
+        <div className="sar-table-wrap">
+          <div className="sar-table-header-row">
+            <div className="sar-table-header-title">{filtered.length} Students — {from} to {to}</div>
           </div>
-          <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+          <table className="sar-table">
             <thead>
-              <tr style={{background:"#f8fafc"}}>
+              <tr className="sar-th-row">
                 {["#","Student","Enrollment","Class","Present","Absent","Late","On Leave","Total Days","Attendance %"].map(h=>(
-                  <th key={h} style={{padding:"10px 14px",fontSize:11,fontWeight:700,color:"#94a3b8",textTransform:"uppercase",textAlign:"left",borderBottom:"1px solid #e2e8f0"}}>{h}</th>
+                  <th key={h} className="sar-th">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -249,23 +251,21 @@ export default function StudentAttendanceReport() {
               {filtered.map((s,i)=>{
                 const pct=s.pct||0;
                 return (
-                  <tr key={s.id} style={{borderBottom:"1px solid #f8fafc",background:pct<75?"#fff8f8":i%2===0?"#fff":"#fafafa"}}>
-                    <td style={{padding:"9px 14px",color:"#94a3b8"}}>{i+1}</td>
-                    <td style={{padding:"9px 14px",fontWeight:600,color:"#0f172a"}}>{s.first_name} {s.last_name}</td>
-                    <td style={{padding:"9px 14px",color:"#64748b",fontSize:12}}>{s.enrollment_no}</td>
-                    <td style={{padding:"9px 14px"}}>{s.class_name}{s.section?" ("+s.section+")":""}</td>
-                    <td style={{padding:"9px 14px",color:"#166534",fontWeight:600}}>{s.present||0}</td>
-                    <td style={{padding:"9px 14px",color:"#991b1b",fontWeight:600}}>{s.absent||0}</td>
-                    <td style={{padding:"9px 14px",color:"#854d0e",fontWeight:600}}>{s.late||0}</td>
-                    <td style={{padding:"9px 14px",color:"#1e40af",fontWeight:600}}>{s.on_leave||0}</td>
-                    <td style={{padding:"9px 14px",color:"#64748b"}}>{s.total_days||0}</td>
-                    <td style={{padding:"9px 14px"}}>
-                      <div style={{display:"flex",alignItems:"center",gap:8}}>
-                        <div style={{width:60,height:6,borderRadius:6,background:"#f1f5f9",overflow:"hidden"}}>
-                          <div style={{height:"100%",borderRadius:6,background:pct>=75?"#22c55e":pct>=50?"#f59e0b":"#ef4444",width:Math.min(pct,100)+"%"}} />
-                        </div>
-                        <span style={{fontWeight:700,color:pct>=75?"#166534":pct>=50?"#854d0e":"#991b1b"}}>{pct}%</span>
+                  <tr key={s.id} className="sar-tr" style={{ "--row-bg": pct<75?"var(--bg-danger-soft)":i%2===0?"var(--bg-card)":"var(--bg-hover)" }}>
+                    <td className="sar-td-index">{i+1}</td>
+                    <td className="sar-td-bold">{s.first_name} {s.last_name}</td>
+                    <td className="sar-td-enrollment">{s.enrollment_no}</td>
+                    <td className="sar-td">{s.class_name}{s.section?" ("+s.section+")":""}</td>
+                    <td className="sar-td-present">{s.present||0}</td>
+                    <td className="sar-td-absent">{s.absent||0}</td>
+                    <td className="sar-td-late">{s.late||0}</td>
+                    <td className="sar-td-leave">{s.on_leave||0}</td>
+                    <td className="sar-td-muted">{s.total_days||0}</td>
+                    <td className="sar-pct-cell">
+                      <div className="sar-pct-bar-track">
+                        <div className="sar-pct-bar-fill" style={{ "--fill-color": pct>=75?"#22c55e":pct>=50?"#f59e0b":"#ef4444", "--fill-width": Math.min(pct,100)+"%" }} />
                       </div>
+                      <span className="sar-pct-text" style={{ "--pct-color": pct>=75?"#166534":pct>=50?"#854d0e":"#991b1b" }}>{pct}%</span>
                     </td>
                   </tr>
                 );

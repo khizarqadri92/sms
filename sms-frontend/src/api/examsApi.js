@@ -37,6 +37,21 @@ export const examsApi = {
   // Delete
   deleteExam:      (id)         => client.delete("/exams/"+id),
   deleteSubject:   (examId, subjectId) => client.delete("/exams/"+examId+"/subjects/"+subjectId),
+  // Datesheet entry: edit by id (can change class/subject too) + live conflict check
+  updateEntry:     (examId, entryId, data) => client.put("/exams/"+examId+"/subjects/"+entryId, data),
+  checkEntry:      (examId, data)          => client.post("/exams/"+examId+"/datesheet/check", data),
+  // Rooms (per campus)
+  getRooms:        (params)     => client.get("/exams/rooms", { params }),
+  createRoom:      (data)       => client.post("/exams/rooms", data),
+  updateRoom:      (id, data)   => client.put("/exams/rooms/"+id, data),
+  deactivateRoom:  (id)         => client.delete("/exams/rooms/"+id),
+  // Shifts (per exam, per campus)
+  getShifts:       (examId)       => client.get("/exams/"+examId+"/shifts"),
+  saveShifts:      (examId, data) => client.put("/exams/"+examId+"/shifts", data),
+  // Auto-generate datesheet: preview (saves nothing), re-check edits, save as draft
+  generateDatesheet: (examId, data) => client.post("/exams/"+examId+"/datesheet/generate", data),
+  checkGeneratedSet: (examId, data) => client.post("/exams/"+examId+"/datesheet/check-set", data),
+  saveGenerated:     (examId, data) => client.post("/exams/"+examId+"/datesheet/save-generated", data),
   // Datesheet
   getSubjects:       (id)       => client.get("/exams/"+id+"/subjects"),
   getDatesheet:      (id)       => client.get("/exams/"+id+"/datesheet"),
@@ -55,4 +70,8 @@ export const examsApi = {
   // Results
   getResults:      (id)         => client.get("/exams/"+id+"/results"),
   downloadResultCard: (examId, studentId) => client.get("/exams/"+examId+"/result-card/"+studentId, {responseType:"blob"}),
+  downloadCertificate: (examId, studentId) => client.get("/exams/"+examId+"/certificate/"+studentId, {responseType:"blob"}),
+  // Year-end final result (Result Formula)
+  getFinalResults:     (examId, classId) => client.get("/exams/"+examId+"/final-results/"+classId),
+  computeFinalResults: (examId, data)    => client.post("/exams/"+examId+"/final-results/compute", data),
 };

@@ -16,7 +16,8 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from app.fastapi_auth import get_current_user_id, get_current_user_id_from_refresh
+from app.fastapi_auth import (get_current_user_id, get_current_user_id_from_refresh, get_current_user_id_from_2fa_pending,
+                              get_current_user_id_allow_pwd_change)
 from app.fastapi_db import get_db, get_cur as _get_cur
 
 router = APIRouter()
@@ -53,6 +54,22 @@ class VerifyPasswordIn(BaseModel):
     password: str
 
 
+class Verify2FALoginIn(BaseModel):
+    code: str
+
+
+class Confirm2FASetupIn(BaseModel):
+    code: str
+
+
+class Disable2FAIn(BaseModel):
+    password: str
+
+
+class FirstPasswordIn(BaseModel):
+    new_password: str
+
+
 @router.post("/login")
 def login(body: LoginIn):
     identifier = (body.identifier or body.email or "").strip()
@@ -82,10 +99,11 @@ def refresh(user_id: int = Depends(get_current_user_id_from_refresh)):
         from flask_jwt_extended import create_access_token
         from app.repositories.user_repository import UserRepository
         rbac = UserRepository().get_user_roles_and_permissions(user_id)
-        access_token = create_access_token(
-            identity=str(user_id),
-            additional_claims={"roles": rbac["roles"], "permissions": rbac["permissions"]}
-        )
+        from app.services.auth_service import AuthService
+        claims = {"roles": rbac["roles"], "permissions": rbac["permissions"]}
+        if AuthService().must_change_password(user_id):
+            claims["pwd_change"] = True                    # refreshing can't skip the required password change
+        access_token = create_access_token(identity=str(user_id), additional_claims=claims)
     return ok(data={"access_token": access_token})
 
 
@@ -119,6 +137,90 @@ def verify_password(body: VerifyPasswordIn, user_id: int = Depends(get_current_u
         fail("Incorrect password. " + str(result["attempts_remaining"]) + " attempt(s) remaining.", 400)
 
     return ok(message="Verified.")
+
+
+@router.post("/2fa/verify-login")
+def verify_2fa_login(body: Verify2FALoginIn, user_id: int = Depends(get_current_user_id_from_2fa_pending)):
+    with _flask_app().app_context():
+        from app.services.auth_service import AuthService
+        try:
+            result = AuthService().verify_2fa_login(user_id, body.code)
+        except ValueError as e:
+            fail(str(e), 401)
+    return ok(data=result, message="Login successful.")
+
+
+@router.get("/2fa/status")
+def get_2fa_status(user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+    cur = get_cur(db)
+    cur.execute("SELECT * FROM sp_get_totp_status(%s)", (user_id,))
+    row = cur.fetchone()
+    return ok(data={"totp_enabled": bool(row and row["totp_enabled"])})
+
+
+@router.post("/2fa/setup")
+def setup_2fa(user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+    import pyotp, qrcode, io, base64
+    cur = get_cur(db)
+    cur.execute("SELECT email FROM users WHERE id = %s", (user_id,))
+    row = cur.fetchone()
+    email = row["email"] if row else f"user{user_id}"
+
+    secret = pyotp.random_base32()
+    cur.execute("SELECT sp_set_totp_pending_secret(%s, %s)", (user_id, secret))
+    db.commit()
+
+    uri = pyotp.TOTP(secret).provisioning_uri(name=email, issuer_name="School Management System")
+    img = qrcode.make(uri)
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    qr_b64 = base64.b64encode(buf.getvalue()).decode()
+
+    return ok(data={"secret": secret, "qr_code": f"data:image/png;base64,{qr_b64}", "otpauth_uri": uri})
+
+
+@router.post("/2fa/confirm-setup")
+def confirm_2fa_setup(body: Confirm2FASetupIn, user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+    import pyotp
+    cur = get_cur(db)
+    cur.execute("SELECT * FROM sp_get_totp_status(%s)", (user_id,))
+    row = cur.fetchone()
+    if not row or not row["totp_pending_secret"]:
+        fail("No pending 2FA setup found. Please start setup again.", 400)
+
+    totp = pyotp.TOTP(row["totp_pending_secret"])
+    if not totp.verify(str(body.code).strip(), valid_window=1):
+        fail("Invalid or expired code. Please try again.", 400)
+
+    cur.execute("SELECT sp_enable_totp(%s)", (user_id,))
+    db.commit()
+    return ok(message="Two-factor authentication enabled.")
+
+
+@router.post("/2fa/disable")
+def disable_2fa(body: Disable2FAIn, user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+    import bcrypt
+    cur = get_cur(db)
+    cur.execute("SELECT * FROM sp_get_user_password_hash(%s::integer)", (user_id,))
+    row = cur.fetchone()
+    if not row or not bcrypt.checkpw(body.password.encode(), row["password_hash"].encode()):
+        fail("Incorrect password.", 400)
+
+    cur.execute("SELECT sp_disable_totp(%s)", (user_id,))
+    db.commit()
+    return ok(message="Two-factor authentication disabled.")
+
+
+@router.post("/first-password")
+def set_first_password(body: FirstPasswordIn, user_id: int = Depends(get_current_user_id_allow_pwd_change)):
+    """Replace a temporary password (new parent / student account). Returns fresh tokens."""
+    with _flask_app().app_context():
+        from app.services.auth_service import AuthService
+        try:
+            result = AuthService().set_first_password(user_id, body.new_password or "")
+        except ValueError as e:
+            fail(str(e), 400)
+    return ok(data=result, message="Password set. Welcome!")
 
 
 @router.get("/me")

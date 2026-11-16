@@ -9,6 +9,7 @@ Config from system_settings (category=attendance):
 """
 import psycopg2.extras
 from datetime import datetime as _dt
+from zoneinfo import ZoneInfo
 from app.db.connection import get_db
 from app.utils.processing_date import get_processing_datetime
 
@@ -38,15 +39,33 @@ def run_attendance_auto_close_scheduled(app, force=False):
                 target_hour, target_minute = [int(p) for p in target_time_str.split(":")]
             except ValueError:
                 target_hour, target_minute = 20, 0
+            cur.execute("SELECT value FROM system_settings WHERE key = \'timezone\'")
+            tz_row = cur.fetchone()
+            school_tz = tz_row["value"] if tz_row and tz_row["value"] else "UTC"
+            try:
+                now_local = now.astimezone(ZoneInfo(school_tz))
+            except Exception:
+                now_local = now
             target_total_minutes = target_hour * 60 + target_minute
-            now_total_minutes = now.hour * 60 + now.minute
+            now_total_minutes = now_local.hour * 60 + now_local.minute
             if now_total_minutes < target_total_minutes or now_total_minutes >= target_total_minutes + 15:
                 return {"ran": False, "reason": "Not within the configured time window yet."}
 
             if settings.get("attendance_auto_close_last_run") == today_str:
                 return {"ran": False, "reason": "Already ran today (" + today_str + ")."}
 
-        cur.execute("SELECT * FROM sp_auto_close_attendance_sessions()")
+        # Reuse the already-parsed target_hour/target_minute when force=False
+        # took that branch; when force=True (manual "Run Now"), neither gate
+        # branch has run yet, so parse them here too. Either way, sessions
+        # get closed at this configured time-of-day, not at whatever moment
+        # the sweep happens to execute.
+        if force:
+            target_time_str = settings.get("attendance_auto_close_time") or "20:00"
+            try:
+                target_hour, target_minute = [int(p) for p in target_time_str.split(":")]
+            except ValueError:
+                target_hour, target_minute = 20, 0
+        cur.execute("SELECT * FROM sp_auto_close_attendance_sessions(%s, %s)", (target_hour, target_minute))
         result = cur.fetchone()
         closed_count = result["closed_count"] if result else 0
 

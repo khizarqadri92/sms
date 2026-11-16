@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from "react";
 import hrApi from "../api/hrApi";
+import authApi from "../api/authApi";
 import { useAuth } from "../auth/AuthContext";
 import DatePicker from "../components/DatePicker";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
+import "./MyProfile.css";
 
-const TABS = ["personal","education","experience","documents","contacts"];
-const TAB_LABELS = { personal:"Personal Info", education:"Education", experience:"Experience", documents:"Documents", contacts:"Emergency Contacts" };
+const TABS = ["personal","education","experience","documents","contacts","security"];
+const TAB_LABELS = { personal:"Personal Info", education:"Education", experience:"Experience", documents:"Documents", contacts:"Emergency Contacts", security:"Security" };
 const DOC_TYPES = ["CV/Resume","Degree Certificate","Transcript","Experience Letter","CNIC Copy","Police Clearance","Medical Certificate","Other"];
 
 const EMPTY_EDU = {degree:"",institution:"",field_of_study:"",start_year:"",end_year:"",is_current:false,grade_type:"marks",total_marks:"",awarded_marks:"",total_cgpa:"",awarded_cgpa:""};
@@ -104,54 +106,54 @@ export default function MyProfile() {
 
   const inp = (label, key, form, setForm, type="text", opts=null) => (
     <div key={key}>
-      <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>{label}</label>
+      <label className="mp-field-label">{label}</label>
       {opts ? (
-        <select className="form-input" style={{width:"100%",fontSize:13}} value={form[key]} onChange={e=>setForm(p=>({...p,[key]:e.target.value}))}>
+        <select className="form-input mp-field-input" value={form[key]} onChange={e=>setForm(p=>({...p,[key]:e.target.value}))}>
           {opts.map(o=><option key={o.v} value={o.v}>{o.l}</option>)}
         </select>
       ) : type === "date" ? (
         <DatePicker style={{width:"100%",fontSize:13}} value={form[key]||""} onChange={val=>setForm(p=>({...p,[key]:val}))}/>
       ) : (
-        <input type={type} className="form-input" style={{width:"100%",fontSize:13}} value={form[key]||""} onChange={e=>setForm(p=>({...p,[key]:e.target.value}))}/>
+        <input type={type} className="form-input mp-field-input" value={form[key]||""} onChange={e=>setForm(p=>({...p,[key]:e.target.value}))}/>
       )}
     </div>
   );
 
   const infoBox = (label, value) => (
-    <div style={{background:"#f8fafc",padding:"10px 14px",borderRadius:8,border:"1px solid #e2e8f0"}}>
-      <div style={{fontSize:11,color:"#64748b",fontWeight:600,letterSpacing:"0.05em"}}>{label}</div>
-      <div style={{fontSize:14,color:"#0f172a",marginTop:3,fontWeight:500}}>{value||"—"}</div>
+    <div className="mp-info-box">
+      <div className="mp-info-label">{label}</div>
+      <div className="mp-info-value">{value||"—"}</div>
     </div>
   );
 
   const formBox = (title, children, onSave, onCancel, isEditing, saveLbl="Save") => (
-    <div style={{background:"#f8fafc",borderRadius:8,border:"1px solid #e2e8f0",padding:16,marginBottom:16}}>
-      <div style={{fontWeight:700,fontSize:13,marginBottom:10,color:"#334155"}}>{title}</div>
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>{children}</div>
-      <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+    <div className="mp-form-box">
+      <div className="mp-form-title">{title}</div>
+      <div className="mp-form-grid">{children}</div>
+      <div className="mp-btn-row">
         {isEditing && <button className="btn btn-ghost btn-sm" onClick={onCancel}>Cancel</button>}
-        <button className="btn btn-primary btn-sm" style={{color:"#fff"}} onClick={onSave}>{saveLbl}</button>
+        <button className="btn btn-primary btn-sm mp-btn-white" onClick={onSave}>{saveLbl}</button>
       </div>
     </div>
   );
 
-  if(loading) return <div style={{padding:60,textAlign:"center",color:"#64748b"}}>Loading profile...</div>;
+  if(loading) return <div className="mp-loading">Loading profile...</div>;
 
   return (
-    <div style={{margin:"0 auto",padding:24}}>
+    <div className="mp-page">
       {/* Header Card */}
-      <div style={{background:"#fff",borderRadius:12,border:"1px solid #e2e8f0",padding:24,marginBottom:20,display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-        <div style={{display:"flex",gap:16,alignItems:"center"}}>
-          <div style={{position:"relative",flexShrink:0}}>
+      <div className="mp-header-card">
+        <div className="mp-header-left">
+          <div className="mp-avatar-wrap">
             {photoUrl ?
-              <img src={"http://localhost:5000"+photoUrl} alt="Profile" style={{width:64,height:64,borderRadius:"50%",objectFit:"cover",border:"2px solid #e2e8f0"}}/>
-              : <div style={{width:64,height:64,borderRadius:"50%",background:"#2563eb",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,fontWeight:700}}>
+              <img src={"http://localhost:5000"+photoUrl} alt="Profile" className="mp-avatar-img"/>
+              : <div className="mp-avatar-fallback">
                   {(profile?.first_name||"?")[0]?.toUpperCase()}
                 </div>}
-            <label style={{position:"absolute",bottom:0,right:0,background:"#fff",border:"1px solid #e2e8f0",borderRadius:"50%",width:22,height:22,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:12,boxShadow:"0 1px 4px rgba(0,0,0,0.15)"}}
+            <label className="mp-photo-upload-btn"
               title="Change photo">
               {photoUploading?"⏳":"📷"}
-              <input type="file" accept="image/*" style={{display:"none"}} onChange={async e=>{
+              <input type="file" accept="image/*" className="mp-hidden-input" onChange={async e=>{
                 const f=e.target.files[0]; if(!f) return;
                 setPhotoUploading(true);
                 try{ const fd=new FormData(); fd.append("file",f);
@@ -163,66 +165,65 @@ export default function MyProfile() {
             </label>
           </div>
           <div>
-            <h1 style={{margin:0,fontSize:20,fontWeight:700,display:"flex",alignItems:"center",gap:8}}>
+            <h1 className="mp-name-heading">
               {profile?.first_name} {profile?.last_name}
               {hodInfo?.is_head && (
-                <span style={{fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:20,background:"#fef3c7",color:"#92400e",border:"1px solid #fde68a",whiteSpace:"nowrap"}}>
+                <span className="mp-hod-badge">
                   ⭐ HOD{hodInfo?.department_name?" · "+hodInfo.department_name:""}
                 </span>
               )}
             </h1>
-            <div style={{fontSize:13,color:"#64748b",marginTop:2}}>{profile?.designation_name||"—"} {profile?.department_name?"· "+profile.department_name:""}</div>
-            <div style={{fontSize:12,color:"#94a3b8",marginTop:2}}>{profile?.email}{profile?.employee_code?" · #"+profile.employee_code:""}</div>
+            <div className="mp-designation">{profile?.designation_name||"—"} {profile?.department_name?"· "+profile.department_name:""}</div>
+            <div className="mp-email-text">{profile?.email}{profile?.employee_code?" · #"+profile.employee_code:""}</div>
           </div>
         </div>
-        <div style={{textAlign:"right"}}>
-          <span style={{padding:"4px 12px",background:"#f0fdf4",color:"#166534",border:"1px solid #bbf7d0",borderRadius:10,fontSize:12,fontWeight:600}}>
+        <div className="mp-status-wrap">
+          <span className="mp-status-badge">
             {(profile?.status||"active").replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase())}
           </span>
-          <div style={{fontSize:11,color:"#94a3b8",marginTop:6}}>Joined: {profile?.joining_date?formatDate(profile.joining_date):"—"}</div>
+          <div className="mp-joined-text">Joined: {profile?.joining_date?formatDate(profile.joining_date):"—"}</div>
         </div>
       </div>
 
       {/* Tabs */}
-      <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",overflow:"hidden"}}>
-        <div style={{display:"flex",borderBottom:"1px solid #e2e8f0",overflowX:"auto"}}>
+      <div className="mp-tabs-container">
+        <div className="mp-tabs-row">
           {TABS.map(t=>(
             <button key={t} onClick={()=>{setTab(t);setEditEduId(null);setEditExpId(null);setEditing(false);}}
-              style={{padding:"12px 18px",border:"none",cursor:"pointer",fontSize:13,fontWeight:600,background:"transparent",whiteSpace:"nowrap",
-                borderBottom:tab===t?"2px solid #2563eb":"2px solid transparent",color:tab===t?"#2563eb":"#64748b"}}>
+              className="mp-tab-btn" style={{ "--tab-border": tab===t?"2px solid #2563eb":"2px solid transparent", "--tab-color": tab===t?"#2563eb":"var(--text-secondary)" }}>
               {TAB_LABELS[t]}
             </button>
           ))}
         </div>
 
-        <div style={{padding:20}}>
+        <div className="mp-tab-content">
           {/* PERSONAL */}
           {tab==="personal" && (
             editing ? (
               <div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16}}>
+                <div className="mp-grid">
                   {inp("First Name *","first_name",personalForm,setPersonalForm)}
                   {inp("Last Name *","last_name",personalForm,setPersonalForm)}
                   {inp("Gender","gender",personalForm,setPersonalForm,"text",[{v:"",l:"Select..."},{v:"male",l:"Male"},{v:"female",l:"Female"},{v:"other",l:"Other"}])}
                   {inp("Date of Birth","date_of_birth",personalForm,setPersonalForm,"date")}
                   {inp("CNIC","cnic",personalForm,setPersonalForm)}
                   {inp("Phone","phone",personalForm,setPersonalForm)}
-                  <div style={{gridColumn:"1/-1"}}>
-                    <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Address</label>
-                    <textarea className="form-input" rows={2} style={{width:"100%",fontSize:13}} value={personalForm.address} onChange={e=>setPersonalForm(p=>({...p,address:e.target.value}))}/>
+                  <div className="mp-full-field">
+                    <label className="mp-field-label">Address</label>
+                    <textarea className="form-input mp-textarea-full" rows={2} value={personalForm.address} onChange={e=>setPersonalForm(p=>({...p,address:e.target.value}))}/>
                   </div>
                 </div>
-                <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+                <div className="mp-btn-row-end">
                   <button className="btn btn-ghost btn-sm" onClick={()=>setEditing(false)}>Cancel</button>
-                  <button className="btn btn-primary btn-sm" style={{color:"#fff"}} disabled={saving} onClick={savePersonal}>{saving?"Saving...":"Save Changes"}</button>
+                  <button className="btn btn-primary btn-sm mp-btn-white" disabled={saving} onClick={savePersonal}>{saving?"Saving...":"Save Changes"}</button>
                 </div>
               </div>
             ) : (
               <div>
-                <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
+                <div className="mp-edit-row">
                   <button className="btn btn-ghost btn-sm" onClick={()=>setEditing(true)}>✏️ Edit Profile</button>
                 </div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
+                <div className="mp-info-grid">
                   {infoBox("First Name",profile?.first_name)}
                   {infoBox("Last Name",profile?.last_name)}
                   {infoBox("Gender",profile?.gender)}
@@ -233,7 +234,7 @@ export default function MyProfile() {
                   {infoBox("Employee Code",profile?.employee_code?"#"+profile.employee_code:"—")}
                   {infoBox("Employment Type",profile?.employment_type?.replace(/_/g," "))}
                   {infoBox("Joining Date",profile?.joining_date?formatDate(profile.joining_date):"")}
-                  {profile?.address&&<div style={{gridColumn:"1/-1"}}>{infoBox("Address",profile.address)}</div>}
+                  {profile?.address&&<div className="mp-full-field">{infoBox("Address",profile.address)}</div>}
                 </div>
               </div>
             )
@@ -250,11 +251,11 @@ export default function MyProfile() {
                   {inp("Field of Study","field_of_study",eduForm,setEduForm)}
                   {inp("Start Year","start_year",eduForm,setEduForm,"number")}
                   {inp("End Year","end_year",eduForm,setEduForm,"number")}
-                  <div style={{gridColumn:"1/-1"}}>
-                    <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:6}}>Grading Type</label>
-                    <div style={{display:"flex",gap:12}}>
+                  <div className="mp-full-field">
+                    <label className="mp-field-label">Grading Type</label>
+                    <div className="mp-radio-row">
                       {["marks","cgpa"].map(gt=>(
-                        <label key={gt} style={{fontSize:13,display:"flex",gap:6,alignItems:"center",cursor:"pointer"}}>
+                        <label key={gt} className="mp-radio-label">
                           <input type="radio" name="grade_type" value={gt} checked={eduForm.grade_type===gt}
                             onChange={e=>setEduForm(p=>({...p,grade_type:gt,total_marks:"",awarded_marks:"",total_cgpa:"",awarded_cgpa:""}))}/>
                           {gt==="marks"?"Marks":"CGPA"}
@@ -269,8 +270,8 @@ export default function MyProfile() {
                     {inp("Total CGPA","total_cgpa",eduForm,setEduForm,"number")}
                     {inp("Awarded CGPA","awarded_cgpa",eduForm,setEduForm,"number")}
                   </>)}
-                  <div style={{gridColumn:"1/-1"}}>
-                    <label style={{fontSize:13,display:"flex",gap:6,alignItems:"center",cursor:"pointer"}}>
+                  <div className="mp-full-field">
+                    <label className="mp-radio-label">
                       <input type="checkbox" checked={eduForm.is_current} onChange={e=>setEduForm(p=>({...p,is_current:e.target.checked}))}/>
                       Currently studying here
                     </label>
@@ -281,25 +282,25 @@ export default function MyProfile() {
                 !!editEduId, editEduId?"Update":"Add Education"
               )}
               {(!profile?.education||profile.education.length===0)?
-                <div style={{padding:30,textAlign:"center",color:"#94a3b8"}}>No education records yet.</div>:
+                <div className="mp-no-records">No education records yet.</div>:
                 profile.education.map(e=>(
-                  <div key={e.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:8,padding:"14px 16px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                    <div style={{flex:1}}>
-                      <div style={{fontWeight:700,fontSize:14}}>{e.degree}</div>
-                      <div style={{fontSize:13,color:"#475569",marginTop:2}}>{e.institution}</div>
-                      {e.field_of_study&&<div style={{fontSize:12,color:"#64748b"}}>{e.field_of_study}</div>}
-                      <div style={{fontSize:11,color:"#94a3b8",marginTop:4}}>
+                  <div key={e.id} className="mp-list-item">
+                    <div className="mp-list-item-content">
+                      <div className="mp-list-item-title">{e.degree}</div>
+                      <div className="mp-list-item-subtitle">{e.institution}</div>
+                      {e.field_of_study&&<div className="mp-list-item-desc-mt0">{e.field_of_study}</div>}
+                      <div className="mp-list-item-meta">
                         {e.start_year||"?"} — {e.is_current?"Present":e.end_year||"?"}
-                        {e.grade_type==="marks"&&e.total_marks&&<span style={{marginLeft:8}}>· {e.awarded_marks}/{e.total_marks} Marks</span>}
-                        {e.grade_type==="cgpa"&&e.total_cgpa&&<span style={{marginLeft:8}}>· {e.awarded_cgpa}/{e.total_cgpa} CGPA</span>}
+                        {e.grade_type==="marks"&&e.total_marks&&<span className="mp-list-item-meta-span">· {e.awarded_marks}/{e.total_marks} Marks</span>}
+                        {e.grade_type==="cgpa"&&e.total_cgpa&&<span className="mp-list-item-meta-span">· {e.awarded_cgpa}/{e.total_cgpa} CGPA</span>}
                       </div>
                     </div>
-                    <div style={{display:"flex",gap:4,flexShrink:0}}>
-                      <button className="btn btn-ghost btn-sm" style={{fontSize:12}}
+                    <div className="mp-list-item-actions">
+                      <button className="btn btn-ghost btn-sm mp-edit-btn"
                         onClick={()=>{ setEditEduId(e.id); setEduForm({degree:e.degree,institution:e.institution,field_of_study:e.field_of_study||"",start_year:e.start_year||"",end_year:e.end_year||"",is_current:e.is_current,grade_type:e.grade_type||"marks",total_marks:e.total_marks||"",awarded_marks:e.awarded_marks||"",total_cgpa:e.total_cgpa||"",awarded_cgpa:e.awarded_cgpa||""}); window.scrollTo(0,0); }}>
                         ✏️ Edit
                       </button>
-                      <button className="btn btn-ghost btn-sm" style={{color:"#dc2626",fontSize:12}}
+                      <button className="btn btn-ghost btn-sm mp-delete-btn"
                         onClick={async()=>{ await hrApi.deleteEducation(e.id); load(); }}>Remove</button>
                     </div>
                   </div>
@@ -317,13 +318,13 @@ export default function MyProfile() {
                   {inp("Designation/Title *","designation",expForm,setExpForm)}
                   {inp("From Date","from_date",expForm,setExpForm,"date")}
                   {inp("To Date","to_date",expForm,setExpForm,"date")}
-                  <div style={{gridColumn:"1/-1"}}>
-                    <label style={{fontSize:13,display:"flex",gap:6,alignItems:"center",cursor:"pointer",marginBottom:8}}>
+                  <div className="mp-full-field">
+                    <label className="mp-checkbox-label-mb8">
                       <input type="checkbox" checked={expForm.is_current} onChange={e=>setExpForm(p=>({...p,is_current:e.target.checked}))}/>
                       Currently working here
                     </label>
-                    <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Description / Responsibilities</label>
-                    <textarea className="form-input" rows={2} style={{width:"100%",fontSize:13}} value={expForm.description||""} onChange={e=>setExpForm(p=>({...p,description:e.target.value}))}/>
+                    <label className="mp-field-label">Description / Responsibilities</label>
+                    <textarea className="form-input mp-textarea-full" rows={2} value={expForm.description||""} onChange={e=>setExpForm(p=>({...p,description:e.target.value}))}/>
                   </div>
                 </>,
                 saveExp,
@@ -331,21 +332,21 @@ export default function MyProfile() {
                 !!editExpId, editExpId?"Update":"Add Experience"
               )}
               {(!profile?.experience||profile.experience.length===0)?
-                <div style={{padding:30,textAlign:"center",color:"#94a3b8"}}>No experience records yet.</div>:
+                <div className="mp-no-records">No experience records yet.</div>:
                 profile.experience.map(e=>(
-                  <div key={e.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:8,padding:"14px 16px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"flex-start"}}>
-                    <div style={{flex:1}}>
-                      <div style={{fontWeight:700,fontSize:14}}>{e.designation}</div>
-                      <div style={{fontSize:13,color:"#475569"}}>{e.company}</div>
-                      <div style={{fontSize:11,color:"#94a3b8",marginTop:4}}>{e.from_date?formatDate(e.from_date):"?"} — {e.is_current?"Present":(e.to_date?formatDate(e.to_date):"?")}</div>
-                      {e.description&&<div style={{fontSize:12,color:"#64748b",marginTop:4}}>{e.description}</div>}
+                  <div key={e.id} className="mp-list-item">
+                    <div className="mp-list-item-content">
+                      <div className="mp-list-item-title">{e.designation}</div>
+                      <div className="mp-list-item-subtitle-mt0">{e.company}</div>
+                      <div className="mp-list-item-meta">{e.from_date?formatDate(e.from_date):"?"} — {e.is_current?"Present":(e.to_date?formatDate(e.to_date):"?")}</div>
+                      {e.description&&<div className="mp-list-item-desc">{e.description}</div>}
                     </div>
-                    <div style={{display:"flex",gap:4,flexShrink:0}}>
-                      <button className="btn btn-ghost btn-sm" style={{fontSize:12}}
+                    <div className="mp-list-item-actions">
+                      <button className="btn btn-ghost btn-sm mp-edit-btn"
                         onClick={()=>{ setEditExpId(e.id); setExpForm({company:e.company,designation:e.designation,from_date:e.from_date||"",to_date:e.to_date||"",is_current:e.is_current,description:e.description||""}); window.scrollTo(0,0); }}>
                         ✏️ Edit
                       </button>
-                      <button className="btn btn-ghost btn-sm" style={{color:"#dc2626",fontSize:12}}
+                      <button className="btn btn-ghost btn-sm mp-delete-btn"
                         onClick={async()=>{ await hrApi.deleteExperience(e.id); load(); }}>Remove</button>
                     </div>
                   </div>
@@ -356,36 +357,36 @@ export default function MyProfile() {
           {/* DOCUMENTS */}
           {tab==="documents" && (
             <div>
-              <div style={{background:"#f8fafc",borderRadius:8,border:"1px solid #e2e8f0",padding:16,marginBottom:16}}>
-                <div style={{fontWeight:700,fontSize:13,marginBottom:10,color:"#334155"}}>UPLOAD DOCUMENT</div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+              <div className="mp-form-box">
+                <div className="mp-form-title">UPLOAD DOCUMENT</div>
+                <div className="mp-form-grid">
                   <div>
-                    <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Document Type</label>
-                    <select className="form-input" style={{width:"100%",fontSize:13}} value={docForm.doc_type} onChange={e=>setDocForm(p=>({...p,doc_type:e.target.value}))}>
+                    <label className="mp-field-label">Document Type</label>
+                    <select className="form-input mp-field-input" value={docForm.doc_type} onChange={e=>setDocForm(p=>({...p,doc_type:e.target.value}))}>
                       {DOC_TYPES.map(t=><option key={t} value={t}>{t}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Document Name *</label>
-                    <input className="form-input" style={{width:"100%",fontSize:13}} placeholder="e.g. BSc Degree Certificate" value={docForm.doc_name} onChange={e=>setDocForm(p=>({...p,doc_name:e.target.value}))}/>
+                    <label className="mp-field-label">Document Name *</label>
+                    <input className="form-input mp-field-input" placeholder="e.g. BSc Degree Certificate" value={docForm.doc_name} onChange={e=>setDocForm(p=>({...p,doc_name:e.target.value}))}/>
                   </div>
                 </div>
-                <div style={{display:"flex",gap:10,alignItems:"center"}}>
-                  <input type="file" style={{flex:1,fontSize:12}} onChange={e=>setDocForm(p=>({...p,file:e.target.files[0]}))}/>
-                  <button className="btn btn-primary btn-sm" style={{color:"#fff",whiteSpace:"nowrap"}} disabled={uploading} onClick={uploadDoc}>
+                <div className="mp-2fa-code-row">
+                  <input type="file" className="mp-doc-file-input" onChange={e=>setDocForm(p=>({...p,file:e.target.files[0]}))}/>
+                  <button className="btn btn-primary btn-sm mp-btn-white mp-btn-nowrap" disabled={uploading} onClick={uploadDoc}>
                     {uploading?"Uploading...":"Upload"}
                   </button>
                 </div>
               </div>
               {(!profile?.documents||profile.documents.length===0)?
-                <div style={{padding:30,textAlign:"center",color:"#94a3b8"}}>No documents uploaded.</div>:
+                <div className="mp-no-records">No documents uploaded.</div>:
                 profile.documents.map(doc=>(
-                  <div key={doc.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:8,padding:"12px 16px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div key={doc.id} className="mp-list-item-flat">
                     <div>
-                      <div style={{fontWeight:600,fontSize:13}}>📄 {doc.doc_name}</div>
-                      <div style={{fontSize:11,color:"#64748b"}}>{doc.doc_type} · {doc.uploaded_at}</div>
+                      <div className="mp-doc-name">📄 {doc.doc_name}</div>
+                      <div className="mp-doc-meta">{doc.doc_type} · {doc.uploaded_at}</div>
                     </div>
-                    <button className="btn btn-ghost btn-sm" style={{color:"#dc2626",fontSize:12}}
+                    <button className="btn btn-ghost btn-sm mp-delete-btn"
                       onClick={async()=>{ await hrApi.deleteMyDocument(doc.id); load(); }}>Remove</button>
                   </div>
                 ))}
@@ -395,39 +396,157 @@ export default function MyProfile() {
           {/* EMERGENCY CONTACTS */}
           {tab==="contacts" && (
             <div>
-              <div style={{background:"#f8fafc",borderRadius:8,border:"1px solid #e2e8f0",padding:16,marginBottom:16}}>
-                <div style={{fontWeight:700,fontSize:13,marginBottom:10,color:"#334155"}}>ADD EMERGENCY CONTACT</div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+              <div className="mp-form-box">
+                <div className="mp-form-title">ADD EMERGENCY CONTACT</div>
+                <div className="mp-form-grid">
                   {inp("Name *","name",ecForm,setEcForm)}
                   {inp("Relationship","relationship",ecForm,setEcForm)}
                   {inp("Phone *","phone",ecForm,setEcForm)}
                   {inp("Address","address",ecForm,setEcForm)}
                 </div>
-                <div style={{display:"flex",justifyContent:"flex-end"}}>
-                  <button className="btn btn-primary btn-sm" style={{color:"#fff"}} onClick={addEC}>Add Contact</button>
+                <div className="mp-edit-row-mb0">
+                  <button className="btn btn-primary btn-sm mp-btn-white" onClick={addEC}>Add Contact</button>
                 </div>
               </div>
               {(!profile?.emergency_contacts||profile.emergency_contacts.length===0)?
-                <div style={{padding:30,textAlign:"center",color:"#94a3b8"}}>No emergency contacts.</div>:
+                <div className="mp-no-records">No emergency contacts.</div>:
                 profile.emergency_contacts.map(ec=>(
-                  <div key={ec.id} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:8,padding:"12px 16px",marginBottom:8,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div key={ec.id} className="mp-list-item-flat">
                     <div>
-                      <div style={{fontWeight:600,fontSize:13}}>{ec.name}{ec.relationship&&<span style={{fontSize:11,color:"#64748b",marginLeft:6}}>({ec.relationship})</span>}</div>
-                      <div style={{fontSize:12,color:"#475569"}}>📞 {ec.phone}</div>
-                      {ec.address&&<div style={{fontSize:11,color:"#94a3b8"}}>{ec.address}</div>}
+                      <div className="mp-contact-name">{ec.name}{ec.relationship&&<span className="mp-contact-relationship">({ec.relationship})</span>}</div>
+                      <div className="mp-contact-phone">📞 {ec.phone}</div>
+                      {ec.address&&<div className="mp-contact-address">{ec.address}</div>}
                     </div>
-                    <button className="btn btn-ghost btn-sm" style={{color:"#dc2626",fontSize:12}}
+                    <button className="btn btn-ghost btn-sm mp-delete-btn"
                       onClick={async()=>{ await hrApi.deleteMyEmergencyContact(ec.id); load(); }}>Remove</button>
                   </div>
                 ))}
             </div>
           )}
+
+          {/* SECURITY */}
+          {tab==="security" && <TwoFactorSection showFlash={showFlash} />}
         </div>
       </div>
 
-      {flash&&<div style={{position:"fixed",bottom:20,right:20,zIndex:9999,padding:"10px 18px",borderRadius:8,
-        background:flash.type==="success"?"#dcfce7":"#fee2e2",color:flash.type==="success"?"#166534":"#dc2626",
-        boxShadow:"0 4px 12px rgba(0,0,0,0.15)",fontSize:14,fontWeight:600}}>{flash.msg}</div>}
+      {flash&&<div className="mp-flash-toast" style={{ "--flash-bg": flash.type==="success"?"var(--bg-success-soft)":"var(--bg-danger-soft)", "--flash-color": flash.type==="success"?"#166534":"#dc2626" }}>{flash.msg}</div>}
+    </div>
+  );
+}
+
+function TwoFactorSection({ showFlash }) {
+  const [status, setStatus]   = useState(null); // { totp_enabled }
+  const [loading, setLoading] = useState(true);
+  const [stage, setStage]     = useState("idle"); // idle | setup | confirm | disable
+  const [qr, setQr]           = useState(null);
+  const [secret, setSecret]   = useState("");
+  const [code, setCode]       = useState("");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy]       = useState(false);
+
+  const load = () => {
+    setLoading(true);
+    authApi.get2FAStatus().then(r => setStatus(r.data.data)).catch(() => {}).finally(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, []);
+
+  const startSetup = async () => {
+    setBusy(true);
+    try {
+      const r = await authApi.setup2FA();
+      setQr(r.data.data.qr_code);
+      setSecret(r.data.data.secret);
+      setCode("");
+      setStage("confirm");
+    } catch { showFlash("error", "Failed to start 2FA setup."); }
+    finally { setBusy(false); }
+  };
+
+  const confirmSetup = async () => {
+    if (code.length !== 6) return;
+    setBusy(true);
+    try {
+      await authApi.confirm2FASetup(code);
+      showFlash("success", "Two-factor authentication enabled.");
+      setStage("idle"); setQr(null); setSecret(""); setCode("");
+      load();
+    } catch (e) { showFlash("error", e.response?.data?.message || "Invalid or expired code."); }
+    finally { setBusy(false); }
+  };
+
+  const confirmDisable = async () => {
+    if (!password) return;
+    setBusy(true);
+    try {
+      await authApi.disable2FA(password);
+      showFlash("success", "Two-factor authentication disabled.");
+      setStage("idle"); setPassword("");
+      load();
+    } catch (e) { showFlash("error", e.response?.data?.message || "Incorrect password."); }
+    finally { setBusy(false); }
+  };
+
+  if (loading) return <div className="mp-no-records">Loading...</div>;
+
+  return (
+    <div>
+      <div className="mp-2fa-wrap">
+        <div className="mp-2fa-header-row">
+          <div>
+            <div className="mp-2fa-title">Two-Factor Authentication</div>
+            <div className="mp-2fa-desc">
+              Adds an extra verification step at login using a code from an authenticator app (e.g. Google Authenticator, Authy).
+            </div>
+          </div>
+          <span className="mp-2fa-status-badge" style={{ "--status-bg": status?.totp_enabled ? "var(--bg-success-soft)" : "var(--bg-hover)", "--status-color": status?.totp_enabled ? "#166534" : "var(--text-secondary)" }}>
+            {status?.totp_enabled ? "Enabled" : "Disabled"}
+          </span>
+        </div>
+
+        {stage === "idle" && (
+          <div className="mp-2fa-idle">
+            {status?.totp_enabled ? (
+              <button className="btn btn-danger btn-sm" onClick={() => setStage("disable")}>Disable Two-Factor Authentication</button>
+            ) : (
+              <button className="btn btn-primary btn-sm mp-btn-white" disabled={busy} onClick={startSetup}>
+                {busy ? "Starting..." : "Enable Two-Factor Authentication"}
+              </button>
+            )}
+          </div>
+        )}
+
+        {stage === "confirm" && (
+          <div className="mp-2fa-stage-box">
+            <div className="mp-2fa-step-label">1. Scan this QR code with your authenticator app</div>
+            {qr && <img src={qr} alt="2FA QR code" className="mp-2fa-qr-img" />}
+            <div className="mp-2fa-secret-text">
+              Can't scan? Enter this code manually: <code className="mp-2fa-secret-code">{secret}</code>
+            </div>
+            <div className="mp-2fa-step-label-mb8">2. Enter the 6-digit code from the app</div>
+            <div className="mp-2fa-code-row">
+              <input className="form-control mp-2fa-code-input" type="text" inputMode="numeric" maxLength={6}
+                value={code} onChange={e => setCode(e.target.value.replace(/\D/g,""))} placeholder="000000" autoFocus />
+              <button className="btn btn-primary btn-sm mp-btn-white" disabled={busy || code.length !== 6} onClick={confirmSetup}>
+                {busy ? "Verifying..." : "Verify & Enable"}
+              </button>
+              <button className="btn btn-ghost btn-sm" onClick={() => { setStage("idle"); setQr(null); setCode(""); }}>Cancel</button>
+            </div>
+          </div>
+        )}
+
+        {stage === "disable" && (
+          <div className="mp-2fa-stage-box">
+            <div className="mp-2fa-step-label-mb8">Enter your password to confirm</div>
+            <div className="mp-2fa-code-row">
+              <input className="form-control mp-2fa-password-input" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" autoFocus />
+              <button className="btn btn-danger btn-sm" disabled={busy || !password} onClick={confirmDisable}>
+                {busy ? "Disabling..." : "Disable"}
+              </button>
+              <button className="btn btn-ghost btn-sm" onClick={() => { setStage("idle"); setPassword(""); }}>Cancel</button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

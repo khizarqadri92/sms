@@ -6,6 +6,8 @@ import DisciplineDetailModal from "../components/DisciplineDetailModal";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
 import workQueueApi from "../api/workQueueApi";
 import { useAuth } from "../auth/AuthContext";
+import { useTheme } from "../auth/ThemeContext";
+import "./WorkQueue.css";
 
 const MODULE_ICONS = {
   leaves: "📅", procurement: "📦", finance: "💰",
@@ -44,6 +46,8 @@ export default function WorkQueue() {
   const { formatDate: fmtDate } = useRegionalSettings();
   const navigate = useNavigate();
   const { can } = useAuth();
+  const { colorMode } = useTheme();
+  const isDark = colorMode === "dark";
   const [items, setItems]             = useState([]);
   const [modules, setModules]         = useState([]);
   const [colorMap, setColorMap]       = useState({});
@@ -135,40 +139,40 @@ export default function WorkQueue() {
 
   return (
     <div>
-      <div className="page-header" style={{ marginBottom:20 }}>
+      <div className="page-header wq-page-header">
         <div>
           <h1 className="page-heading">Work Queue</h1>
-          <div style={{ fontSize:13, color:"var(--color-text-secondary)", marginTop:4 }}>All pending actions across the system</div>
+          <div className="wq-subtitle">All pending actions across the system</div>
         </div>
-        <div style={{ display:"flex", gap:10, alignItems:"center" }}>
+        <div className="wq-header-actions">
           {can("users.manage_roles") && (
             <button className="btn btn-ghost btn-sm" onClick={()=>setColorCfg(!showColorCfg)}>🎨 Color Config</button>
           )}
-          <label style={{ fontSize:12, color:"var(--color-text-secondary)", display:"flex", alignItems:"center", gap:6, cursor:"pointer" }}>
+          <label className="wq-autorefresh-label">
             <input type="checkbox" checked={autoRefresh} onChange={e=>setAutoRef(e.target.checked)} />Auto-refresh
           </label>
           <button className="btn btn-ghost btn-sm" onClick={load}>↻ Refresh</button>
         </div>
       </div>
 
-      {flash && <div className={`alert alert-${flash.type}`} style={{ marginBottom:16 }}>{flash.msg}</div>}
+      {flash && <div className={`alert alert-${flash.type} wq-mb16`}>{flash.msg}</div>}
 
       {/* Color Config Panel */}
       {showColorCfg && can("users.manage_roles") && (
-        <div className="section-card" style={{ marginBottom:20 }}>
+        <div className="section-card wq-mb20">
           <div className="section-card-header"><span className="section-card-title">Status Color Configuration</span></div>
-          <div style={{ padding:"4px 0" }}>
+          <div className="wq-cfg-list">
             {Object.entries(editColors).map(([key, cfg]) => (
-              <div key={key} style={{ display:"grid", gridTemplateColumns:"120px 1fr 40px 40px 40px 40px 80px", gap:8, alignItems:"center", padding:"8px 0", borderBottom:"1px solid #f1f5f9" }}>
-                <div style={{ fontSize:12, fontWeight:700 }}>{key}</div>
-                <input className="form-input" style={{ margin:0, fontSize:12 }} value={cfg.label||key}
+              <div key={key} className="wq-cfg-row">
+                <div className="wq-cfg-key">{key}</div>
+                <input className="form-input wq-cfg-label-input" value={cfg.label||key}
                   onChange={e=>setEditColors(prev=>({...prev,[key]:{...prev[key],label:e.target.value}}))} />
                 {["bg_color","border_color","badge_color","text_color"].map(field => (
-                  <input key={field} type="color" style={{ width:32, height:28, border:"none", borderRadius:4, cursor:"pointer", padding:1 }}
+                  <input key={field} type="color" className="wq-cfg-color-swatch"
                     value={cfg[field]||"#cccccc"}
                     onChange={e=>setEditColors(prev=>({...prev,[key]:{...prev[key],[field]:e.target.value}}))} />
                 ))}
-                <button className="btn btn-primary btn-sm" style={{ color:"#fff", fontSize:11 }}
+                <button className="btn btn-primary btn-sm wq-cfg-save-btn"
                   disabled={savingColor===key} onClick={()=>saveColor(key)}>
                   {savingColor===key?"...":"Save"}
                 </button>
@@ -180,11 +184,11 @@ export default function WorkQueue() {
 
       {/* Color Legend */}
       {Object.keys(colorMap).length > 0 && (
-        <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:16 }}>
+        <div className="wq-legend">
           {Object.entries(colorMap).slice(0,8).map(([key, c]) => (
-            <div key={key} style={{ display:"flex", alignItems:"center", gap:6, padding:"3px 10px", borderRadius:20, background:c.bg_color, border:`1px solid ${c.border_color}`, fontSize:11 }}>
-              <div style={{ width:8, height:8, borderRadius:"50%", background:c.badge_color }}/>
-              <span style={{ color:c.text_color, fontWeight:600 }}>{c.label}</span>
+            <div key={key} className="wq-legend-item" style={{ "--legend-bg": c.bg_color, "--legend-border": c.border_color }}>
+              <div className="wq-legend-dot" style={{ "--legend-dot": c.badge_color }}/>
+              <span className="wq-legend-text" style={{ "--legend-text": c.text_color }}>{c.label}</span>
             </div>
           ))}
         </div>
@@ -192,30 +196,30 @@ export default function WorkQueue() {
 
       {/* Summary Cards */}
       {!loading && (
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))", gap:12, marginBottom:20 }}>
+        <div className="wq-summary-grid">
           {[
             { label:"Pending",  value:pending,      color:"#2563eb" },
             { label:"Urgent",   value:urgent,        color:"#ef4444" },
             { label:"Overdue",  value:overdue,       color:"#dc2626" },
             { label:"Total",    value:items.length,  color:"#64748b" },
           ].map(s => (
-            <div key={s.label} style={{ background:"#fff", borderRadius:10, border:"1px solid #e2e8f0", borderTop:`3px solid ${s.color}`, padding:"12px 14px" }}>
-              <div style={{ fontSize:22, fontWeight:800, color:s.color }}>{s.value}</div>
-              <div style={{ fontSize:12, color:"#64748b", marginTop:3 }}>{s.label}</div>
+            <div key={s.label} className="wq-stat-card" style={{ "--stat-color": s.color }}>
+              <div className="wq-stat-value" style={{ "--stat-color": s.color }}>{s.value}</div>
+              <div className="wq-stat-label">{s.label}</div>
             </div>
           ))}
         </div>
       )}
 
       {/* Filters */}
-      <div className="section-card" style={{ marginBottom:16, padding:"12px 16px" }}>
-        <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
+      <div className="section-card wq-filter-bar">
+        <div className="wq-filter-row">
           {[{label:"Pending",value:"pending"},{label:"Completed",value:"completed"},{label:"All",value:""}].map(f => (
             <button key={f.value} className={`btn btn-sm ${activeStatus===f.value?"btn-primary":"btn-ghost"}`}
-              style={activeStatus===f.value?{color:"#fff"}:{}} onClick={()=>setStatus(f.value)}>{f.label}</button>
+              onClick={()=>setStatus(f.value)}>{f.label}</button>
           ))}
-          <div style={{ width:1, height:20, background:"#e2e8f0", margin:"0 4px" }}/>
-          <select className="form-input" style={{ width:160, margin:0, padding:"5px 10px", fontSize:13 }}
+          <div className="wq-divider"/>
+          <select className="form-input wq-module-select"
             value={activeModule} onChange={e=>setModule(e.target.value)}>
             <option value="">All Modules</option>
             {["leaves","procurement","finance","withdrawal","discipline","exams"].map(m => {
@@ -232,22 +236,22 @@ export default function WorkQueue() {
 
       {/* Table */}
       {loading ? (
-        <div className="section-card" style={{ textAlign:"center", padding:40, color:"var(--color-text-secondary)" }}>Loading...</div>
+        <div className="section-card wq-loading">Loading...</div>
       ) : items.length === 0 ? (
-        <div className="section-card" style={{ textAlign:"center", padding:56 }}>
-          <div style={{ fontSize:48, marginBottom:16 }}>✅</div>
-          <div style={{ fontWeight:700, fontSize:18, marginBottom:8 }}>
+        <div className="section-card wq-empty">
+          <div className="wq-empty-icon">✅</div>
+          <div className="wq-empty-title">
             {activeStatus==="pending" ? "You're all caught up!" : "No items found"}
           </div>
-          <div style={{ color:"var(--color-text-secondary)", fontSize:14 }}>
+          <div className="wq-empty-subtext">
             {activeStatus==="pending" ? "No pending actions require your attention." : "No items match the current filters."}
           </div>
         </div>
       ) : (
-        <div className="section-card" style={{ padding:0, overflow:"hidden" }}>
-          <div style={{ display:"grid", gridTemplateColumns:"2fr 1.2fr 0.8fr 1fr 1fr 1fr 1fr 70px", padding:"10px 16px", background:"var(--color-background-secondary)", borderBottom:"2px solid var(--color-border-primary)" }}>
+        <div className="section-card wq-table-container">
+          <div className="wq-table-header">
             {["Request","Submitter","Module","Status","Action Required","Assignee","Submitted","Priority"].map(h => (
-              <div key={h} style={{ fontSize:11, fontWeight:700, color:"var(--color-text-secondary)", textTransform:"uppercase", letterSpacing:".04em" }}>{h}</div>
+              <div key={h} className="wq-table-header-cell">{h}</div>
             ))}
           </div>
 
@@ -257,57 +261,51 @@ export default function WorkQueue() {
             return (
               <div key={item.id}
                 onClick={() => openItem(item)}
+                className="wq-table-row"
                 style={{
-                  display:"grid", gridTemplateColumns:"2fr 1.2fr 0.8fr 1fr 1fr 1fr 1fr 70px",
-                  padding:"11px 16px", cursor:"pointer",
-                  background: c.bg_color,
-                  borderBottom:`1px solid ${c.border_color}`,
-                  borderLeft:`4px solid ${c.badge_color}`,
-                  transition:"filter .12s",
+                  "--row-bg": isDark ? "var(--bg-card)" : c.bg_color,
+                  "--row-border": isDark ? "1px solid var(--border-color)" : `1px solid ${c.border_color}`,
+                  "--row-accent": c.badge_color,
                 }}
                 onMouseEnter={e => e.currentTarget.style.filter="brightness(0.96)"}
                 onMouseLeave={e => e.currentTarget.style.filter="none"}
               >
                 <div>
                   {ENTITY_TYPE_LABELS[item.entity_type] && (
-                    <div style={{ fontSize:10, fontWeight:700, color:"#2563eb", textTransform:"uppercase", letterSpacing:".03em", marginBottom:2 }}>
+                    <div className="wq-entity-type-label">
                       {ENTITY_TYPE_LABELS[item.entity_type]}
                     </div>
                   )}
-                  <div style={{ fontWeight:600, fontSize:13, color:"var(--color-text-primary)", marginBottom:2 }}>
+                  <div className="wq-item-title">
                     {item.title}
-                    {item.is_overdue && <span style={{ marginLeft:6, fontSize:10, background:"#fef2f2", color:"#991b1b", padding:"1px 6px", borderRadius:8, fontWeight:700 }}>OVERDUE</span>}
+                    {item.is_overdue && <span className="wq-overdue-badge">OVERDUE</span>}
                   </div>
-                  {item.description && <div style={{ fontSize:11, color:"var(--color-text-secondary)" }}>{item.description}</div>}
+                  {item.description && <div className="wq-item-desc">{item.description}</div>}
                 </div>
-                <div style={{ fontSize:12, display:"flex", alignItems:"center", color:"var(--color-text-primary)" }}>{item.submitter_name || item.created_by_name || "—"}</div>
-                <div style={{ display:"flex", alignItems:"center", gap:4 }}>
-                  <span style={{ fontSize:15 }}>{MODULE_ICONS[item.module] || "📋"}</span>
-                  <span style={{ fontSize:11, color:"var(--color-text-secondary)", textTransform:"capitalize" }}>{item.module}</span>
+                <div className="wq-submitter-cell">{item.submitter_name || item.created_by_name || "—"}</div>
+                <div className="wq-module-cell">
+                  <span className="wq-module-icon">{MODULE_ICONS[item.module] || "📋"}</span>
+                  <span className="wq-module-name">{item.module}</span>
                 </div>
-                <div style={{ display:"flex", alignItems:"center" }}>
-                  <span style={{ padding:"3px 10px", borderRadius:12, fontSize:11, fontWeight:700, background:c.badge_color, color:"#fff", textTransform:"capitalize" }}>
+                <div className="wq-cell-center">
+                  <span className="wq-status-badge" style={{ "--status-color": c.badge_color }}>
                     {c.label || statusKey}
                   </span>
                 </div>
-                <div style={{ display:"flex", alignItems:"center" }}>
-                  <span style={{ padding:"2px 8px", borderRadius:10, fontSize:11, fontWeight:600, background:"rgba(0,0,0,0.06)", color:"var(--color-text-primary)", textTransform:"capitalize" }}>
+                <div className="wq-cell-center">
+                  <span className="wq-action-badge">
                     {item.action_required}
                   </span>
                 </div>
-                <div style={{ fontSize:12, color:"var(--color-text-secondary)", display:"flex", alignItems:"center" }}>
+                <div className="wq-assignee-cell">
                   {item.action_required==="view" ? "🔔 Notification" : (item.assignee_display || (item.assigned_role ? item.assigned_role.replace(/_/g," ") : "—"))}
                 </div>
-                <div style={{ fontSize:11, color:"var(--color-text-secondary)", display:"flex", flexDirection:"column", justifyContent:"center" }}>
+                <div className="wq-date-cell">
                   <div>{formatDate(item.created_at, fmtDate)}</div>
-                  <div style={{ marginTop:2, color:"#94a3b8" }}>{timeAgo(item.created_at)}</div>
+                  <div className="wq-time-ago">{timeAgo(item.created_at)}</div>
                 </div>
-                <div style={{ display:"flex", alignItems:"center" }}>
-                  <span style={{
-                    padding:"2px 8px", borderRadius:10, fontSize:10, fontWeight:700, textTransform:"uppercase",
-                    background: item.priority==="urgent"?"#fef2f2":item.priority==="high"?"#fffbeb":"#f1f5f9",
-                    color: item.priority==="urgent"?"#991b1b":item.priority==="high"?"#92400e":"#64748b",
-                  }}>{item.priority}</span>
+                <div className="wq-cell-center">
+                  <span className={"wq-priority-badge " + (item.priority==="urgent"?"wq-priority-urgent":item.priority==="high"?"wq-priority-high":"wq-priority-normal")}>{item.priority}</span>
                 </div>
               </div>
             );
@@ -317,31 +315,31 @@ export default function WorkQueue() {
 
       {/* Detail Popup */}
       {selectedItem && (
-        <div style={{ position:"fixed", inset:0, zIndex:1010, background:"rgba(0,0,0,0.5)", display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}
+        <div className="wq-modal-overlay"
           onClick={() => setSelected(null)}>
-          <div style={{ background:"#fff", borderRadius:12, width:"100%", maxWidth:520, boxShadow:"0 20px 60px rgba(0,0,0,0.2)" }}
+          <div className="wq-modal-box"
             onClick={e => e.stopPropagation()}>
             {(() => {
               const c = getColor(selectedItem);
               return (
                 <>
-                  <div style={{ background:c.bg_color, borderRadius:"12px 12px 0 0", padding:"20px 24px", borderBottom:`2px solid ${c.border_color}` }}>
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+                  <div className="wq-modal-header" style={{ "--modal-header-bg": isDark ? "var(--bg-card)" : c.bg_color, "--modal-header-border": isDark ? "2px solid var(--border-color)" : `2px solid ${c.border_color}` }}>
+                    <div className="wq-modal-header-top">
                       <div>
-                        <div style={{ fontSize:24, marginBottom:6 }}>{MODULE_ICONS[selectedItem.module] || "📋"}</div>
-                        <div style={{ fontWeight:700, fontSize:17, color:"var(--color-text-primary)" }}>{selectedItem.title}</div>
-                        {selectedItem.description && selectedItem.status === "pending" && <div style={{ fontSize:13, color:"var(--color-text-secondary)", marginTop:4 }}>{selectedItem.description}</div>}
+                        <div className="wq-modal-icon">{MODULE_ICONS[selectedItem.module] || "📋"}</div>
+                        <div className="wq-modal-title">{selectedItem.title}</div>
+                        {selectedItem.description && selectedItem.status === "pending" && <div className="wq-modal-desc">{selectedItem.description}</div>}
                       </div>
-                      <button style={{ background:"none", border:"none", fontSize:22, cursor:"pointer", color:"var(--color-text-secondary)" }} onClick={()=>setSelected(null)}>×</button>
+                      <button className="wq-modal-close" onClick={()=>setSelected(null)}>×</button>
                     </div>
-                    <div style={{ marginTop:12 }}>
-                      <span style={{ padding:"4px 14px", borderRadius:20, fontSize:12, fontWeight:700, background:c.badge_color, color:"#fff" }}>
+                    <div className="wq-modal-badge-row">
+                      <span className="wq-modal-badge" style={{ "--status-color": c.badge_color }}>
                         {c.label || selectedItem.entity_status}
                       </span>
                     </div>
                   </div>
-                  <div style={{ padding:"20px 24px" }}>
-                    <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12, marginBottom:20 }}>
+                  <div className="wq-modal-body">
+                    <div className="wq-modal-info-grid">
                       {[
                         { label:"Module", value: selectedItem.module },
                         { label:"Action Required", value: selectedItem.action_required },
@@ -350,16 +348,16 @@ export default function WorkQueue() {
                         { label:"Date Submitted", value: formatDate(selectedItem.created_at, fmtDate) },
                         { label:"Priority", value: selectedItem.priority },
                       ].map(({label, value}) => (
-                        <div key={label} style={{ background:"#f8fafc", borderRadius:8, padding:"8px 12px" }}>
-                          <div style={{ fontSize:10, fontWeight:700, color:"var(--color-text-secondary)", textTransform:"uppercase", marginBottom:3 }}>{label}</div>
-                          <div style={{ fontSize:13, fontWeight:500, textTransform:"capitalize" }}>{value}</div>
+                        <div key={label} className="wq-modal-info-box">
+                          <div className="wq-modal-info-label">{label}</div>
+                          <div className="wq-modal-info-value">{value}</div>
                         </div>
                       ))}
                     </div>
-                    <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+                    <div className="wq-modal-footer">
                       <button className="btn btn-ghost" onClick={()=>setSelected(null)}>Close</button>
                       {selectedItem.status === "pending" && (
-                        <button className="btn btn-primary" style={{ color:"#fff" }}
+                        <button className="btn btn-primary"
                           onClick={() => { setSelected(null); navigate(selectedItem.link); }}>
                           Open Request →
                         </button>

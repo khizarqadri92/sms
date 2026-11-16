@@ -4,6 +4,7 @@ import usersApi from "../api/usersApi";
 import { useTheme, THEMES } from "../auth/ThemeContext";
 import { useProcessingToday } from "../hooks/useProcessingToday";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
+import "./Profile.css";
 
 const ROLE_COLORS = {
   superadmin:           { bg:"#fef2f2", color:"#dc2626", border:"#fecaca" },
@@ -67,41 +68,32 @@ export default function Profile() {
 
   return (
     <div>
-      <h1 className="page-heading" style={{ marginBottom:20 }}>My Profile</h1>
+      <h1 className="page-heading prof-page-heading">My Profile</h1>
 
       {toast.msg && (
-        <div className={"alert alert-" + toast.type} style={{ marginBottom:16 }}>
+        <div className={"alert alert-" + toast.type + " prof-toast"}>
           {toast.msg}
         </div>
       )}
 
       <div className="profile-layout">
         <div className="profile-card">
-          <div style={{ textAlign:"center", marginBottom:20 }}>
-            <div style={{
-              width:80, height:80, borderRadius:"50%",
-              background:"linear-gradient(135deg, " + (theme?.primary || "#2563eb") + ", " + (theme?.primaryDark || "#1d4ed8") + ")",
-              color:"#fff", fontSize:28, fontWeight:800,
-              display:"flex", alignItems:"center", justifyContent:"center",
-              margin:"0 auto 12px", boxShadow:"0 4px 12px rgba(37,99,235,0.25)"
-            }}>
+          <div className="prof-avatar-circle">
+            <div className="prof-avatar" style={{ "--avatar-gradient": "linear-gradient(135deg, " + (theme?.primary || "#2563eb") + ", " + (theme?.primaryDark || "#1d4ed8") + ")" }}>
               {initials}
             </div>
-            <div style={{ fontSize:18, fontWeight:800, color:"#0f172a" }}>
+            <div className="prof-name">
               {profile.first_name} {profile.last_name}
             </div>
-            <div style={{ fontSize:13, color:"#64748b", marginTop:2 }}>{profile.email}</div>
-            <div style={{ marginTop:10 }}>
-              <span style={{
-                fontSize:12, fontWeight:700, padding:"4px 12px", borderRadius:20,
-                background:roleStyle.bg, color:roleStyle.color, border:"1px solid " + roleStyle.border
-              }}>
+            <div className="prof-email-text">{profile.email}</div>
+            <div className="prof-role-wrap">
+              <span className="prof-role-badge" style={{ "--role-bg": roleStyle.bg, "--role-color": roleStyle.color, "--role-border": roleStyle.border }}>
                 {role.replace("_"," ")}
               </span>
             </div>
           </div>
 
-          <div style={{ borderTop:"1px solid #f1f5f9", paddingTop:16 }}>
+          <div className="prof-details-section">
             {[
               ["Email",      profile.email          || "N/A"],
               ["Phone",      profile.phone          || "N/A"],
@@ -117,21 +109,21 @@ export default function Profile() {
             ))}
 
             {role === "student" && (
-              <div style={{ marginTop:16, borderTop:"1px solid #f1f5f9", paddingTop:12 }}>
-                <div style={{ fontSize:12, fontWeight:700, color:"#64748b", textTransform:"uppercase", letterSpacing:"0.05em", marginBottom:10 }}>Parent / Guardian</div>
+              <div className="prof-parent-section">
+                <div className="prof-parent-label">Parent / Guardian</div>
                 {studentProfile?.parent_name ? (
-                  <div style={{ display:"flex", alignItems:"center", gap:10 }}>
-                    <div style={{ width:36, height:36, borderRadius:"50%", background:"linear-gradient(135deg,#7c3aed,#a78bfa)", color:"#fff", fontWeight:700, fontSize:13, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+                  <div className="prof-parent-row">
+                    <div className="prof-parent-avatar">
                       {studentProfile.parent_name[0].toUpperCase()}
                     </div>
                     <div>
-                      <div style={{ fontWeight:600, fontSize:13, color:"#0f172a" }}>{studentProfile.parent_name}</div>
-                      {studentProfile.parent_email && <div style={{ fontSize:11, color:"#64748b" }}>{studentProfile.parent_email}</div>}
-                      {studentProfile.parent_phone && <div style={{ fontSize:11, color:"#64748b" }}>{studentProfile.parent_phone}</div>}
+                      <div className="prof-parent-name">{studentProfile.parent_name}</div>
+                      {studentProfile.parent_email && <div className="prof-parent-contact">{studentProfile.parent_email}</div>}
+                      {studentProfile.parent_phone && <div className="prof-parent-contact">{studentProfile.parent_phone}</div>}
                     </div>
                   </div>
                 ) : (
-                  <div style={{ fontSize:12, color:"#94a3b8" }}>No parent linked to your account.</div>
+                  <div className="prof-no-parent">No parent linked to your account.</div>
                 )}
               </div>
             )}
@@ -207,7 +199,7 @@ function EditInfoTab({ profile, onSaved }) {
             />
           </div>
         </div>
-        <div style={{ display:"flex", justifyContent:"flex-end", marginTop:8 }}>
+        <div className="prof-btn-row">
           <button type="submit" className="btn btn-primary" disabled={saving}>
             {saving ? "Saving..." : "Save Changes"}
           </button>
@@ -315,7 +307,7 @@ function ChangePassTab({ onSaved, onLogout }) {
         </button>
       </div>
 
-      <div style={{ background:"#fffbeb", border:"1px solid #fde68a", borderRadius:8, padding:"10px 14px", marginBottom:16, fontSize:13, color:"#92400e" }}>
+      <div className="prof-warning-box">
         After changing your password you will be logged out and need to sign in again.
       </div>
 
@@ -324,20 +316,19 @@ function ChangePassTab({ onSaved, onLogout }) {
       <form onSubmit={handleSubmit}>
         <div className="form-group">
           <label className="form-label">Current Password *</label>
-          <div style={{ position:"relative" }}>
+          <div className="prof-input-wrap">
             <input
-              className="form-control"
+              className="form-control prof-pwd-input"
               type={showCur ? "text" : "password"}
               value={form.current_password}
               onChange={e => setForm({...form, current_password:e.target.value})}
               required
               placeholder="Enter your current password"
-              style={{ paddingRight:80 }}
             />
             <button
               type="button"
               onClick={() => setShowCur(!showCur)}
-              style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:"#94a3b8", fontSize:12, cursor:"pointer", fontWeight:600 }}
+              className="prof-show-hide-btn"
             >
               {showCur ? "Hide" : "Show"}
             </button>
@@ -346,35 +337,34 @@ function ChangePassTab({ onSaved, onLogout }) {
 
         <div className="form-group">
           <label className="form-label">New Password *</label>
-          <div style={{ position:"relative" }}>
+          <div className="prof-input-wrap">
             <input
-              className="form-control"
+              className="form-control prof-pwd-input"
               type={showNew ? "text" : "password"}
               value={form.new_password}
               onChange={e => setForm({...form, new_password:e.target.value})}
               required
               placeholder="Minimum 6 characters"
-              style={{ paddingRight:80 }}
             />
             <button
               type="button"
               onClick={() => setShowNew(!showNew)}
-              style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:"#94a3b8", fontSize:12, cursor:"pointer", fontWeight:600 }}
+              className="prof-show-hide-btn"
             >
               {showNew ? "Hide" : "Show"}
             </button>
           </div>
 
           {form.new_password && (
-            <div style={{ marginTop:8 }}>
-              <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:4 }}>
-                <span style={{ fontSize:11, color:"#64748b" }}>Password strength</span>
-                <span style={{ fontSize:11, fontWeight:700, color:strength.color }}>{strength.label}</span>
+            <div className="prof-strength-wrap">
+              <div className="prof-strength-header">
+                <span className="prof-strength-text">Password strength</span>
+                <span className="prof-strength-value" style={{ "--strength-color": strength.color }}>{strength.label}</span>
               </div>
-              <div style={{ height:5, background:"#e2e8f0", borderRadius:3, overflow:"hidden" }}>
-                <div style={{ height:"100%", width:strength.pct + "%", background:strength.color, borderRadius:3, transition:"width 0.3s, background 0.3s" }} />
+              <div className="prof-strength-track">
+                <div className="prof-strength-fill" style={{ "--fill-pct": strength.pct + "%", "--fill-color": strength.color }} />
               </div>
-              <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginTop:8 }}>
+              <div className="prof-reqs-wrap">
                 {[
                   ["6+ characters",   form.new_password.length >= 6],
                   ["10+ characters",  form.new_password.length >= 10],
@@ -382,7 +372,7 @@ function ChangePassTab({ onSaved, onLogout }) {
                   ["Number",          /[0-9]/.test(form.new_password)],
                   ["Symbol",          /[^A-Za-z0-9]/.test(form.new_password)],
                 ].map(([label, met]) => (
-                  <span key={label} style={{ fontSize:11, padding:"2px 8px", borderRadius:20, fontWeight:600, background: met ? "#f0fdf4" : "#f8fafc", color: met ? "#16a34a" : "#94a3b8", border: "1px solid " + (met ? "#bbf7d0" : "#e2e8f0") }}>
+                  <span key={label} className="prof-req-chip" style={{ "--chip-bg": met ? "var(--bg-success-soft)" : "var(--bg-hover)", "--chip-color": met ? "#16a34a" : "var(--text-muted)", "--chip-border": met ? "var(--border-success-soft)" : "var(--border-color)" }}>
                     {met ? "✓ " : ""}{label}
                   </span>
                 ))}
@@ -392,7 +382,7 @@ function ChangePassTab({ onSaved, onLogout }) {
                 <button
                   type="button"
                   onClick={handleCopy}
-                  style={{ marginTop:8, fontSize:12, color:"#2563eb", background:"none", border:"none", cursor:"pointer", fontWeight:600, padding:0 }}
+                  className="prof-copy-btn"
                 >
                   {copied ? "Copied!" : "Copy password"}
                 </button>
@@ -403,32 +393,29 @@ function ChangePassTab({ onSaved, onLogout }) {
 
         <div className="form-group">
           <label className="form-label">Confirm New Password *</label>
-          <div style={{ position:"relative" }}>
+          <div className="prof-input-wrap">
             <input
-              className="form-control"
+              className="form-control prof-confirm-input"
               type={showCon ? "text" : "password"}
               value={form.confirm_password}
               onChange={e => setForm({...form, confirm_password:e.target.value})}
               required
               placeholder="Repeat new password"
-              style={{
-                paddingRight:80,
-                borderColor: matches ? "#22c55e" : mismatch ? "#ef4444" : undefined
-              }}
+              style={{ "--confirm-border": matches ? "#22c55e" : mismatch ? "#ef4444" : undefined }}
             />
             <button
               type="button"
               onClick={() => setShowCon(!showCon)}
-              style={{ position:"absolute", right:10, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", color:"#94a3b8", fontSize:12, cursor:"pointer", fontWeight:600 }}
+              className="prof-show-hide-btn"
             >
               {showCon ? "Hide" : "Show"}
             </button>
           </div>
-          {matches  && <div style={{ fontSize:12, color:"#16a34a", marginTop:4, fontWeight:600 }}>Passwords match</div>}
-          {mismatch && <div style={{ fontSize:12, color:"#ef4444", marginTop:4, fontWeight:600 }}>Passwords do not match</div>}
+          {matches  && <div className="prof-match-text">Passwords match</div>}
+          {mismatch && <div className="prof-mismatch-text">Passwords do not match</div>}
         </div>
 
-        <div style={{ display:"flex", justifyContent:"flex-end", marginTop:8 }}>
+        <div className="prof-btn-row">
           <button
             type="submit"
             className="btn btn-primary"
@@ -446,7 +433,7 @@ function ActivityTab({ profile }) {
   const { formatDateTime } = useRegionalSettings();
   return (
     <div>
-      <div className="section-card" style={{ marginBottom:16 }}>
+      <div className="section-card prof-section-mb16">
         <div className="section-card-header">
           <span className="section-card-title">Account Activity</span>
         </div>
@@ -474,8 +461,8 @@ function ActivityTab({ profile }) {
           "Log out when using a shared computer.",
           "Contact admin if you suspect unauthorized access.",
         ].map((tip, i) => (
-          <div key={i} style={{ display:"flex", gap:10, padding:"8px 0", borderBottom:"1px solid #f1f5f9", fontSize:13, color:"#475569" }}>
-            <span style={{ color:"#2563eb", fontWeight:700, flexShrink:0 }}>{i+1}.</span>
+          <div key={i} className="prof-tip-row">
+            <span className="prof-tip-num">{i+1}.</span>
             <span>{tip}</span>
           </div>
         ))}
@@ -499,16 +486,16 @@ function ThemeTab({ themeKey, setTheme }) {
         <span className="section-card-title">Color Theme</span>
         {saved && <span className="badge badge-success">Theme applied</span>}
       </div>
-      <p style={{ fontSize:13, color:"#64748b", marginBottom:20 }}>
+      <p className="prof-theme-desc">
         Choose your preferred accent color. It applies instantly across the entire app and is saved in your browser.
       </p>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(200px,1fr))", gap:12 }}>
+      <div className="prof-theme-grid">
         {Object.entries(THEMES).map(([key, theme]) => (
           <div
             key={key}
             onClick={() => handleSelect(key)}
             style={{
-              border: themeKey === key ? "2.5px solid " + theme.primary : "1.5px solid #e2e8f0",
+              border: themeKey === key ? "2.5px solid " + theme.primary : "1.5px solid var(--border-color)",
               borderRadius:10, overflow:"hidden", cursor:"pointer",
               boxShadow: themeKey === key ? "0 0 0 3px " + theme.primaryLight : "none",
               transition:"all 0.15s"
@@ -612,15 +599,15 @@ function MyFeesTab({ userId, roles }) {
     <div>
       {success && <div className="alert alert-success">{success}</div>}
 
-      <div className="stats-grid" style={{ marginBottom:16 }}>
+      <div className="stats-grid prof-section-mb16">
         {[
           { label:"Total Billed",  value:"Rs. " + Number(summary.total_billed || 0).toLocaleString(), color:"#2563eb" },
           { label:"Total Paid",    value:"Rs. " + Number(summary.total_paid   || 0).toLocaleString(), color:"#16a34a" },
           { label:"Balance Due",   value:"Rs. " + Number(summary.total_due    || 0).toLocaleString(), color: summary.total_due > 0 ? "#dc2626" : "#16a34a" },
           { label:"Invoices",      value: summary.total_invoices || 0, color:"#0891b2" },
         ].map(s => (
-          <div key={s.label} className="stat-card" style={{ padding:"14px 16px" }}>
-            <div className="stat-card-value" style={{ fontSize:18, color:s.color }}>{s.value}</div>
+          <div key={s.label} className="stat-card prof-stat-card">
+            <div className="stat-card-value prof-stat-value" style={{ "--stat-color": s.color }}>{s.value}</div>
             <div className="stat-card-label">{s.label}</div>
           </div>
         ))}
@@ -650,18 +637,18 @@ function MyFeesTab({ userId, roles }) {
                     <td><strong>{inv.structure_name || "Invoice"}</strong></td>
                     <td>Rs. {Number(inv.amount).toLocaleString()}</td>
                     <td><strong>Rs. {Number(inv.net_amount).toLocaleString()}</strong></td>
-                    <td style={{ color:"#16a34a" }}>Rs. {Number(inv.paid_amount || 0).toLocaleString()}</td>
-                    <td style={{ fontSize:12, color: inv.due_date && new Date(inv.due_date) < new Date(processingToday) && inv.status !== "paid" ? "#dc2626" : "#64748b" }}>
+                    <td className="prof-paid-cell">Rs. {Number(inv.paid_amount || 0).toLocaleString()}</td>
+                    <td style={{ fontSize:12, color: inv.due_date && new Date(inv.due_date) < new Date(processingToday) && inv.status !== "paid" ? "#dc2626" : "var(--text-secondary)" }}>
                       {inv.due_date ? formatDate(inv.due_date) : "N/A"}
                     </td>
-                    <td><span className={statusBadge(inv.status)} style={{ textTransform:"capitalize" }}>{inv.status}</span></td>
+                    <td><span className={statusBadge(inv.status) + " prof-status-capitalize"}>{inv.status}</span></td>
                     <td>
                       {inv.status !== "paid" && balance > 0 && (
                         <button className="btn btn-primary btn-xs" onClick={() => setShowPayment({ ...inv, paid_amount: inv.paid_amount || 0 })}>
                           Pay
                         </button>
                       )}
-                      {inv.status === "paid" && <span style={{ fontSize:11, color:"#16a34a", fontWeight:600 }}>Paid</span>}
+                      {inv.status === "paid" && <span className="prof-paid-text">Paid</span>}
                     </td>
                   </tr>
                 );
@@ -707,14 +694,14 @@ function PayFeeForm({ invoice, onPaid, onClose }) {
 
   return (
     <form onSubmit={handleSubmit}>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:16 }}>
-        <div style={{ background:"#f8fafc", borderRadius:8, padding:"10px 12px", textAlign:"center" }}>
-          <div style={{ fontSize:11, color:"#64748b" }}>Total</div>
-          <div style={{ fontSize:15, fontWeight:700 }}>Rs. {Number(invoice.net_amount).toLocaleString()}</div>
+      <div className="prof-fee-summary-grid">
+        <div className="prof-fee-total-box">
+          <div className="prof-fee-summary-label">Total</div>
+          <div className="prof-fee-summary-value">Rs. {Number(invoice.net_amount).toLocaleString()}</div>
         </div>
-        <div style={{ background:"#fef2f2", borderRadius:8, padding:"10px 12px", textAlign:"center" }}>
-          <div style={{ fontSize:11, color:"#64748b" }}>Balance</div>
-          <div style={{ fontSize:15, fontWeight:700, color:"#dc2626" }}>Rs. {Number(balance).toLocaleString()}</div>
+        <div className="prof-fee-balance-box">
+          <div className="prof-fee-summary-label">Balance</div>
+          <div className="prof-fee-balance-value">Rs. {Number(balance).toLocaleString()}</div>
         </div>
       </div>
       {error && <div className="alert alert-error">{error}</div>}
@@ -735,7 +722,7 @@ function PayFeeForm({ invoice, onPaid, onClose }) {
         <label className="form-label">Reference No.</label>
         <input className="form-control" value={form.reference} onChange={e => setForm({...form, reference:e.target.value})} placeholder="Optional" />
       </div>
-      <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:8 }}>
+      <div className="prof-btn-row-gap">
         <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
         <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Processing..." : "Pay Now"}</button>
       </div>
@@ -843,33 +830,33 @@ function SignatureTab() {
         {saved && <span className="badge badge-success">Saved</span>}
       </div>
 
-      <p style={{ fontSize:13, color:"#64748b", marginBottom:16 }}>
+      <p className="prof-sig-desc">
         Draw your signature below. It will appear on payment receipts you verify.
       </p>
 
       {error && <div className="alert alert-error">{error}</div>}
 
       {existing && (
-        <div style={{ marginBottom:16 }}>
-          <div style={{ fontSize:12, fontWeight:600, color:"#64748b", marginBottom:8 }}>Current Saved Signature:</div>
-          <div style={{ border:"1px solid #e2e8f0", borderRadius:8, padding:8, background:"#f8fafc", display:"inline-block" }}>
-            <img src={existing} alt="Signature" style={{ height:60, display:"block" }} />
+        <div className="prof-sig-existing-wrap">
+          <div className="prof-sig-label">Current Saved Signature:</div>
+          <div className="prof-sig-box">
+            <img src={existing} alt="Signature" className="prof-sig-img" />
           </div>
-          <button className="btn btn-danger btn-sm" style={{ marginLeft:12 }} onClick={handleDelete}>
+          <button className="btn btn-danger btn-sm prof-sig-delete-btn" onClick={handleDelete}>
             Delete Signature
           </button>
         </div>
       )}
 
-      <div style={{ marginBottom:12 }}>
-        <div style={{ fontSize:12, fontWeight:600, color:"#64748b", marginBottom:8 }}>
+      <div className="prof-canvas-wrap">
+        <div className="prof-sig-label">
           {existing ? "Draw New Signature:" : "Draw Your Signature:"}
         </div>
         <canvas
           ref={canvasRef}
           width={500}
           height={150}
-          style={{ border:"2px solid #e2e8f0", borderRadius:8, cursor:"crosshair", touchAction:"none", width:"100%", maxWidth:500, display:"block", background:"#fff" }}
+          className="prof-sig-canvas"
           onMouseDown={startDraw}
           onMouseMove={draw}
           onMouseUp={stopDraw}
@@ -878,10 +865,10 @@ function SignatureTab() {
           onTouchMove={draw}
           onTouchEnd={stopDraw}
         />
-        <div style={{ fontSize:11, color:"#94a3b8", marginTop:4 }}>Draw using mouse or touchscreen</div>
+        <div className="prof-canvas-hint">Draw using mouse or touchscreen</div>
       </div>
 
-      <div style={{ display:"flex", gap:10 }}>
+      <div className="prof-sig-btn-row">
         <button className="btn btn-secondary" onClick={clearCanvas}>Clear</button>
         <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
           {saving ? "Saving..." : "Save Signature"}

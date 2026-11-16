@@ -1,0 +1,169 @@
+.it-page {
+  padding: 24px;
+  background: var(--bg-page);
+  min-height: 100vh;
+}
+
+.it-header {
+  margin-bottom: 20px;
+}
+
+.it-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-heading);
+  margin-bottom: 4px;
+}
+
+.it-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.it-filter-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.it-dept-select {
+  width: 200px;
+  font-size: 13px;
+}
+
+.it-search-input {
+  font-size: 13px;
+  width: 240px;
+}
+
+.it-searching-text {
+  font-size: 12px;
+  color: var(--text-muted);
+  align-self: center;
+}
+
+.it-table-wrap {
+  background: var(--bg-card);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.it-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.it-th-row {
+  background: var(--bg-hover);
+}
+
+.it-th {
+  padding: 10px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.it-tr {
+  border-bottom: 1px solid var(--border-color);
+  cursor: pointer;
+}
+
+.it-tr:hover {
+  background: var(--bg-hover);
+}
+
+.it-tr-static {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.it-td-name {
+  padding: 10px 14px;
+  font-weight: 600;
+}
+
+.it-td-code {
+  padding: 10px 14px;
+  color: var(--text-secondary);
+}
+
+.it-td {
+  padding: 10px 14px;
+}
+
+.it-td-bold {
+  padding: 10px 14px;
+  font-weight: 600;
+}
+
+.it-td-bolder {
+  padding: 10px 14px;
+  font-weight: 700;
+}
+
+.it-view-btn {
+  font-size: 11px;
+}
+
+.it-empty-td {
+  padding: 30px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.it-detail-card {
+  background: var(--bg-card);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.it-detail-header {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.it-detail-name {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.it-detail-subtext {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.it-detail-body {
+  padding: 20px;
+}
+
+.it-loading-text {
+  padding: 40px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.it-summary-table-wrap {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.it-tfoot-row {
+  background: var(--bg-hover);
+  border-top: 2px solid var(--border-color);
+}
+
+.it-tfoot-td {
+  padding: 10px 14px;
+  font-weight: 700;
+}

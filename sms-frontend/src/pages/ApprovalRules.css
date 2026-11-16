@@ -1,0 +1,145 @@
+.ar-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.ar-modal-box {
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 24px;
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow: auto;
+}
+
+.ar-modal-title {
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+.ar-modal-subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+}
+
+.ar-mb12 {
+  margin-bottom: 12px;
+}
+
+.ar-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.ar-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.ar-steps-label {
+  margin-top: 8px;
+  margin-bottom: 8px;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.ar-steps-box {
+  background: var(--bg-hover);
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 12px;
+}
+
+.ar-no-steps {
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 8px 4px;
+}
+
+.ar-step-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px;
+  border-bottom: var(--row-border, none);
+}
+
+.ar-step-num {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  width: 20px;
+}
+
+.ar-step-name {
+  flex: 1;
+  font-size: 13px;
+}
+
+.ar-add-step-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.ar-btn-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.ar-page-header {
+  margin-bottom: 16px;
+}
+
+.ar-readonly-alert {
+  background: var(--bg-warning-soft);
+  border: 1px solid var(--border-warning-soft);
+  color: var(--text-warning-soft);
+  margin-bottom: 16px;
+}
+
+.ar-intro-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.ar-mb16 {
+  margin-bottom: 16px;
+}
+
+.ar-condition-cell {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.ar-chain-cell {
+  font-size: 12px;
+}
+
+.ar-no-steps-warning {
+  color: #dc2626;
+}
+
+.ar-actions-cell {
+  display: flex;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+
+.ar-view-only {
+  font-size: 11px;
+  color: var(--text-muted);
+}

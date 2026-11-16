@@ -1,0 +1,27 @@
+.pr-page-header {
+  margin-bottom: 16px;
+}
+
+.pr-intro-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.pr-mb16 {
+  margin-bottom: 16px;
+}
+
+.pr-filter-row {
+  display: flex;
+  gap: 8px;
+}
+
+.pr-capitalize {
+  text-transform: capitalize;
+}
+
+.pr-progress-cell {
+  font-size: 12px;
+  color: var(--text-secondary);
+}

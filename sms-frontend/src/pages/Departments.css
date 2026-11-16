@@ -1,0 +1,66 @@
+.dep-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.dep-modal-box {
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 24px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.dep-modal-title {
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 16px;
+}
+
+.dep-mb12 {
+  margin-bottom: 12px;
+}
+
+.dep-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.dep-btn-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.dep-page-header {
+  margin-bottom: 16px;
+}
+
+.dep-readonly-alert {
+  background: var(--bg-warning-soft);
+  border: 1px solid var(--border-warning-soft);
+  color: var(--text-warning-soft);
+  margin-bottom: 16px;
+}
+
+.dep-mb16 {
+  margin-bottom: 16px;
+}
+
+.dep-not-assigned {
+  color: var(--text-muted);
+}
+
+.dep-actions-cell {
+  display: flex;
+  gap: 6px;
+  flex-wrap: nowrap;
+}

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import providentFundApi from "../api/providentFundApi";
 import hrApi from "../api/hrApi";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
+import "./ProvidentFund.css";
 
 export default function ProvidentFund() {
   const { formatCurrency, formatDate } = useRegionalSettings();
@@ -47,51 +48,49 @@ export default function ProvidentFund() {
   };
 
   return (
-    <div style={{ padding: 24, background: "#f1f5f9", minHeight: "100vh" }}>
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 22, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>Provident Fund</div>
-        <div style={{ fontSize: 13, color: "#64748b" }}>Look up an employee to see their PF rate and contribution history</div>
+    <div className="pf-page">
+      <div className="pf-header">
+        <div className="pf-title">Provident Fund</div>
+        <div className="pf-subtitle">Look up an employee to see their PF rate and contribution history</div>
       </div>
 
-      <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
-        <select className="form-input" style={{ width: 200, fontSize: 13 }} value={departmentId} onChange={(e) => setDepartmentId(e.target.value)}>
+      <div className="pf-filter-row">
+        <select className="form-input pf-dept-select" value={departmentId} onChange={(e) => setDepartmentId(e.target.value)}>
           <option value="">All Departments</option>
           {departments.map((d) => (<option key={d.id} value={d.id}>{d.name}</option>))}
         </select>
-        <input type="text" className="form-input" style={{ fontSize: 13, width: 240 }} placeholder="Search by name or employee code..."
+        <input type="text" className="form-input pf-search-input" placeholder="Search by name or employee code..."
           value={query} onChange={(e) => setQuery(e.target.value)} />
-        {searching && <div style={{ fontSize: 12, color: "#94a3b8", alignSelf: "center" }}>Searching...</div>}
+        {searching && <div className="pf-searching-text">Searching...</div>}
       </div>
 
       {!selected && (
-        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", overflow: "hidden" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+        <div className="pf-table-wrap">
+          <table className="pf-table">
             <thead>
-              <tr style={{ background: "#f8fafc" }}>
+              <tr className="pf-th-row">
                 {["Employee", "Code", "Department", "Designation", "Employee Deduction", "Employer Contribution", "Total Balance", ""].map((h) => (
-                  <th key={h} style={{ padding: "10px 14px", fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", textAlign: "left", borderBottom: "1px solid #e2e8f0" }}>{h}</th>
+                  <th key={h} className="pf-th">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {results.map((r) => (
-                <tr key={r.staff_id} style={{ borderBottom: "1px solid #f8fafc", cursor: "pointer" }} onClick={() => selectEmployee(r)}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-                  <td style={{ padding: "10px 14px", fontWeight: 600 }}>{r.staff_name}</td>
-                  <td style={{ padding: "10px 14px", color: "#64748b" }}>{r.employee_code || "-"}</td>
-                  <td style={{ padding: "10px 14px" }}>{r.department_name || "-"}</td>
-                  <td style={{ padding: "10px 14px" }}>{r.designation_name || "-"}</td>
-                  <td style={{ padding: "10px 14px" }}>{formatCurrency(r.employee_total_deduction)}</td>
-                  <td style={{ padding: "10px 14px" }}>{formatCurrency(r.employer_total_contribution)}</td>
-                  <td style={{ padding: "10px 14px", fontWeight: 600 }}>{formatCurrency(r.total_balance)}</td>
-                  <td style={{ padding: "10px 14px" }}>
-                    <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={(e) => { e.stopPropagation(); selectEmployee(r); }}>View</button>
+                <tr key={r.staff_id} className="pf-tr" onClick={() => selectEmployee(r)}>
+                  <td className="pf-td-name">{r.staff_name}</td>
+                  <td className="pf-td-code">{r.employee_code || "-"}</td>
+                  <td className="pf-td">{r.department_name || "-"}</td>
+                  <td className="pf-td">{r.designation_name || "-"}</td>
+                  <td className="pf-td">{formatCurrency(r.employee_total_deduction)}</td>
+                  <td className="pf-td">{formatCurrency(r.employer_total_contribution)}</td>
+                  <td className="pf-td-bold">{formatCurrency(r.total_balance)}</td>
+                  <td className="pf-td">
+                    <button className="btn btn-ghost btn-sm pf-view-btn" onClick={(e) => { e.stopPropagation(); selectEmployee(r); }}>View</button>
                   </td>
                 </tr>
               ))}
               {results.length === 0 && !searching && (
-                <tr><td colSpan={8} style={{ padding: 30, textAlign: "center", color: "#94a3b8" }}>No employees found.</td></tr>
+                <tr><td colSpan={8} className="pf-empty-td">No employees found.</td></tr>
               )}
             </tbody>
           </table>
@@ -99,61 +98,61 @@ export default function ProvidentFund() {
       )}
 
       {selected && (
-        <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", overflow: "hidden" }}>
-          <div style={{ padding: "14px 20px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div className="pf-detail-card">
+          <div className="pf-detail-header">
             <div>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>{selected.staff_name}</div>
-              <div style={{ fontSize: 12, color: "#64748b" }}>{selected.department_name || "-"} &middot; {selected.designation_name || "-"} &middot; {selected.employee_code || "-"}</div>
+              <div className="pf-detail-name">{selected.staff_name}</div>
+              <div className="pf-detail-subtext">{selected.department_name || "-"} &middot; {selected.designation_name || "-"} &middot; {selected.employee_code || "-"}</div>
             </div>
             <button className="btn btn-ghost btn-sm" onClick={() => { setSelected(null); setDetail(null); }}>Back to results</button>
           </div>
 
-          <div style={{ padding: 20 }}>
+          <div className="pf-detail-body">
             {loadingDetail ? (
-              <div style={{ padding: 40, textAlign: "center", color: "#94a3b8" }}>Loading deduction history...</div>
+              <div className="pf-loading-text">Loading deduction history...</div>
             ) : detail ? (
               <>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 10, marginBottom: 20, padding: 12, background: "#f8fafc", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: "#166534" }}>{detail.rate?.employee_contribution_pct}%</div>
-                    <div style={{ fontSize: 11, color: "#64748b" }}>Employee Rate ({labelForSource(detail.rate?.rate_source)})</div>
+                <div className="pf-rate-grid">
+                  <div className="pf-rate-box">
+                    <div className="pf-rate-value-green">{detail.rate?.employee_contribution_pct}%</div>
+                    <div className="pf-rate-label">Employee Rate ({labelForSource(detail.rate?.rate_source)})</div>
                   </div>
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: "#0369a1" }}>{detail.rate?.employer_contribution_pct}%</div>
-                    <div style={{ fontSize: 11, color: "#64748b" }}>Employer Rate</div>
+                  <div className="pf-rate-box">
+                    <div className="pf-rate-value-blue">{detail.rate?.employer_contribution_pct}%</div>
+                    <div className="pf-rate-label">Employer Rate</div>
                   </div>
                 </div>
 
-                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>Monthly Provident Fund Summary</div>
-                <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, overflow: "hidden" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <div className="pf-section-title">Monthly Provident Fund Summary</div>
+                <div className="pf-summary-table-wrap">
+                  <table className="pf-table">
                     <thead>
-                      <tr style={{ background: "#f8fafc" }}>
+                      <tr className="pf-th-row">
                         {["Month", "Employee PF", "Employer PF", "Total"].map((h) => (
-                          <th key={h} style={{ padding: "10px 14px", fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", textAlign: "left", borderBottom: "1px solid #e2e8f0" }}>{h}</th>
+                          <th key={h} className="pf-th">{h}</th>
                         ))}
                       </tr>
                     </thead>
                     <tbody>
                       {groupByMonth(detail.transactions).map((m) => (
-                        <tr key={m.month} style={{ borderBottom: "1px solid #f8fafc" }}>
-                          <td style={{ padding: "10px 14px", fontWeight: 600 }}>{formatMonthLabel(m.month)}</td>
-                          <td style={{ padding: "10px 14px" }}>{formatCurrency(m.employeeAmount)}</td>
-                          <td style={{ padding: "10px 14px" }}>{formatCurrency(m.employerAmount)}</td>
-                          <td style={{ padding: "10px 14px", fontWeight: 700 }}>{formatCurrency(m.employeeAmount + m.employerAmount)}</td>
+                        <tr key={m.month} className="pf-tr-static">
+                          <td className="pf-td-name">{formatMonthLabel(m.month)}</td>
+                          <td className="pf-td">{formatCurrency(m.employeeAmount)}</td>
+                          <td className="pf-td">{formatCurrency(m.employerAmount)}</td>
+                          <td className="pf-td-bolder">{formatCurrency(m.employeeAmount + m.employerAmount)}</td>
                         </tr>
                       ))}
                       {detail.transactions.length === 0 && (
-                        <tr><td colSpan={4} style={{ padding: 30, textAlign: "center", color: "#94a3b8" }}>No PF deductions recorded yet.</td></tr>
+                        <tr><td colSpan={4} className="pf-empty-td">No PF deductions recorded yet.</td></tr>
                       )}
                     </tbody>
                     {detail.transactions.length > 0 && (
                       <tfoot>
-                        <tr style={{ background: "#f8fafc", borderTop: "2px solid #e2e8f0" }}>
-                          <td style={{ padding: "10px 14px", fontWeight: 700 }}>Total</td>
-                          <td style={{ padding: "10px 14px", fontWeight: 700 }}>{formatCurrency(pfTotals(detail.transactions).employeeTotal)}</td>
-                          <td style={{ padding: "10px 14px", fontWeight: 700 }}>{formatCurrency(pfTotals(detail.transactions).employerTotal)}</td>
-                          <td style={{ padding: "10px 14px", fontWeight: 700 }}>{formatCurrency(pfTotals(detail.transactions).grandTotal)}</td>
+                        <tr className="pf-tfoot-row">
+                          <td className="pf-tfoot-td">Total</td>
+                          <td className="pf-tfoot-td">{formatCurrency(pfTotals(detail.transactions).employeeTotal)}</td>
+                          <td className="pf-tfoot-td">{formatCurrency(pfTotals(detail.transactions).employerTotal)}</td>
+                          <td className="pf-tfoot-td">{formatCurrency(pfTotals(detail.transactions).grandTotal)}</td>
                         </tr>
                       </tfoot>
                     )}

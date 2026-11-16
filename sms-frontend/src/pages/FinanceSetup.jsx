@@ -3,6 +3,7 @@ import financeApi from "../api/financeApi";
 import discountsApi from "../api/discountsApi";
 import academicsApi from "../api/academicsApi";
 import { setForceGlobalScope } from "../api/client";
+import "./FinanceSetup.css";
 
 // This page is superadmin-only and always operates on the shared/global
 // (campus_id = NULL) rows, regardless of whatever campus is currently
@@ -23,23 +24,15 @@ const TABS = [
   { key: "charges", label: "One-Time Charges" },
 ];
 
-const th = { textAlign: "left", padding: "8px 10px", fontSize: 12, fontWeight: 700, color: "#475569", borderBottom: "1px solid #e2e8f0" };
-const td = { padding: "8px 10px", fontSize: 13, borderBottom: "1px solid #f1f5f9" };
-const btnPrimary = { background: "var(--theme-primary, #2563eb)", color: "#fff", border: "none", borderRadius: 6, padding: "8px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer" };
-const btnSecondary = { background: "#f1f5f9", color: "#334155", border: "1px solid #e2e8f0", borderRadius: 6, padding: "7px 12px", fontSize: 13, fontWeight: 600, cursor: "pointer" };
-const btnDanger = { background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca", borderRadius: 6, padding: "5px 10px", fontSize: 12, fontWeight: 600, cursor: "pointer" };
-const inputStyle = { fontSize: 13, padding: "7px 9px", border: "1px solid #d1d5db", borderRadius: 6, width: "100%" };
-const label = { fontSize: 12, fontWeight: 600, color: "#475569", display: "block", marginBottom: 4 };
-const card = { background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, padding: 16, marginBottom: 16 };
-const sectionTitle = { fontSize: 15, fontWeight: 700, marginBottom: 12, color: "#0f172a" };
+
 
 function Field({ children }) {
-  return <div style={{ marginBottom: 10 }}>{children}</div>;
+  return <div className="fs-field-wrap">{children}</div>;
 }
 
 function Banner() {
   return (
-    <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: "10px 14px", fontSize: 13, color: "#92400e", marginBottom: 16 }}>
+    <div className="fs-banner">
       Superadmin Global Setup — everything on this page is saved without a campus assignment. It is used by any campus whose Setting Governance mode is "Global" for that item, and as the fallback default for campuses in "Per-Campus" mode that haven't set their own override.
     </div>
   );
@@ -56,22 +49,23 @@ export default function FinanceSetup() {
   }, []);
 
   return (
-    <div style={{ padding: 20 }}>
-      <h2 style={{ marginBottom: 4 }}>Finance Setup</h2>
+    <div className="fs-page">
+      <h2 className="fs-page-title">Finance Setup</h2>
       <Banner />
       {flash && (
-        <div style={{ marginBottom: 12, padding: "8px 14px", borderRadius: 6, fontSize: 13, fontWeight: 600,
-          background: flash.type === "error" ? "#fef2f2" : "#f0fdf4", color: flash.type === "error" ? "#dc2626" : "#15803d" }}>
+        <div className="fs-flash" style={{
+          "--flash-bg": flash.type === "error" ? "var(--bg-danger-soft)" : "var(--bg-success-soft)", "--flash-color": flash.type === "error" ? "var(--text-danger-soft)" : "var(--text-success-soft)"
+        }}>
           {flash.msg}
         </div>
       )}
-      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16, borderBottom: "1px solid #e2e8f0", paddingBottom: 8 }}>
+      <div className="fs-tab-row">
         {TABS.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)}
+            className="fs-tab-btn"
             style={{
-              padding: "7px 14px", fontSize: 13, fontWeight: 600, borderRadius: 6, border: "none", cursor: "pointer",
-              background: tab === t.key ? "var(--theme-primary, #2563eb)" : "#f1f5f9",
-              color: tab === t.key ? "#fff" : "#475569",
+              "--tab-bg": tab === t.key ? "var(--theme-primary, #2563eb)" : "var(--bg-hover)",
+              "--tab-color": tab === t.key ? "#fff" : "var(--text-secondary)",
             }}>
             {t.label}
           </button>
@@ -119,30 +113,30 @@ function CategoriesTab({ showFlash }) {
 
   return (
     <div>
-      <div style={card}>
-        <div style={sectionTitle}>Add Fee Category</div>
-        <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
-          <div style={{ flex: "1 1 200px" }}>
-            <div style={label}>Name *</div>
-            <input style={inputStyle} value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
+      <div className="fs-card">
+        <div className="fs-section-title">Add Fee Category</div>
+        <div className="fs-form-row">
+          <div className="fs-flex-200">
+            <div className="fs-label">Name *</div>
+            <input className="fs-input" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
           </div>
-          <div style={{ flex: "2 1 300px" }}>
-            <div style={label}>Description</div>
-            <input style={inputStyle} value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} />
+          <div className="fs-flex-300">
+            <div className="fs-label">Description</div>
+            <input className="fs-input" value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} />
           </div>
-          <button style={btnPrimary} disabled={saving} onClick={submit}>{saving ? "Saving..." : "Add"}</button>
+          <button className="fs-btn-primary" disabled={saving} onClick={submit}>{saving ? "Saving..." : "Add"}</button>
         </div>
       </div>
-      <div style={card}>
-        <div style={sectionTitle}>Fee Categories</div>
+      <div className="fs-card">
+        <div className="fs-section-title">Fee Categories</div>
         {loading ? <div>Loading...</div> : (
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead><tr><th style={th}>Name</th><th style={th}>Description</th></tr></thead>
+          <table className="fs-full-table">
+            <thead><tr><th className="fs-th">Name</th><th className="fs-th">Description</th></tr></thead>
             <tbody>
               {rows.map(r => (
-                <tr key={r.id}><td style={td}>{r.name}</td><td style={td}>{r.description || "—"}</td></tr>
+                <tr key={r.id}><td className="fs-td">{r.name}</td><td className="fs-td">{r.description || "—"}</td></tr>
               ))}
-              {rows.length === 0 && <tr><td style={td} colSpan={2}>No fee categories yet.</td></tr>}
+              {rows.length === 0 && <tr><td className="fs-td" colSpan={2}>No fee categories yet.</td></tr>}
             </tbody>
           </table>
         )}
@@ -189,39 +183,39 @@ function FeeTypesTab({ showFlash }) {
 
   return (
     <div>
-      <div style={card}>
-        <div style={sectionTitle}>{editingId ? "Edit Fee Type" : "Add Fee Type"}</div>
-        <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
-          <div style={{ flex: "1 1 200px" }}>
-            <div style={label}>Name *</div>
-            <input style={inputStyle} value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
+      <div className="fs-card">
+        <div className="fs-section-title">{editingId ? "Edit Fee Type" : "Add Fee Type"}</div>
+        <div className="fs-form-row">
+          <div className="fs-flex-200">
+            <div className="fs-label">Name *</div>
+            <input className="fs-input" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
           </div>
-          <div style={{ flex: "2 1 300px" }}>
-            <div style={label}>Description</div>
-            <input style={inputStyle} value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} />
+          <div className="fs-flex-300">
+            <div className="fs-label">Description</div>
+            <input className="fs-input" value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} />
           </div>
-          <button style={btnPrimary} disabled={saving} onClick={submit}>{saving ? "Saving..." : editingId ? "Save" : "Add"}</button>
-          {editingId && <button style={btnSecondary} onClick={() => { setEditingId(null); setForm({ name: "", description: "" }); }}>Cancel</button>}
+          <button className="fs-btn-primary" disabled={saving} onClick={submit}>{saving ? "Saving..." : editingId ? "Save" : "Add"}</button>
+          {editingId && <button className="fs-btn-secondary" onClick={() => { setEditingId(null); setForm({ name: "", description: "" }); }}>Cancel</button>}
         </div>
       </div>
-      <div style={card}>
-        <div style={sectionTitle}>Fee Types</div>
+      <div className="fs-card">
+        <div className="fs-section-title">Fee Types</div>
         {loading ? <div>Loading...</div> : (
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead><tr><th style={th}>Name</th><th style={th}>Description</th><th style={th}>Active</th><th style={th}></th></tr></thead>
+          <table className="fs-full-table">
+            <thead><tr><th className="fs-th">Name</th><th className="fs-th">Description</th><th className="fs-th">Active</th><th className="fs-th"></th></tr></thead>
             <tbody>
               {rows.map(r => (
                 <tr key={r.id}>
-                  <td style={td}>{r.name}</td>
-                  <td style={td}>{r.description || "—"}</td>
-                  <td style={td}>{r.is_active ? "Yes" : "No"}</td>
-                  <td style={td}>
-                    <button style={btnSecondary} onClick={() => { setEditingId(r.id); setForm({ name: r.name, description: r.description || "" }); }}>Edit</button>{" "}
-                    <button style={btnDanger} onClick={() => remove(r.id)}>Delete</button>
+                  <td className="fs-td">{r.name}</td>
+                  <td className="fs-td">{r.description || "—"}</td>
+                  <td className="fs-td">{r.is_active ? "Yes" : "No"}</td>
+                  <td className="fs-td">
+                    <button className="fs-btn-secondary" onClick={() => { setEditingId(r.id); setForm({ name: r.name, description: r.description || "" }); }}>Edit</button>{" "}
+                    <button className="fs-btn-danger" onClick={() => remove(r.id)}>Delete</button>
                   </td>
                 </tr>
               ))}
-              {rows.length === 0 && <tr><td style={td} colSpan={4}>No fee types yet.</td></tr>}
+              {rows.length === 0 && <tr><td className="fs-td" colSpan={4}>No fee types yet.</td></tr>}
             </tbody>
           </table>
         )}
@@ -297,65 +291,65 @@ function StructuresTab({ showFlash }) {
 
   return (
     <div>
-      <div style={card}>
-        <div style={sectionTitle}>{editingId ? "Edit Fee Structure" : "Add Fee Structure"}</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
-          <Field><div style={label}>Name *</div><input style={inputStyle} value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} /></Field>
-          <Field><div style={label}>Amount *</div><input type="number" style={inputStyle} value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} /></Field>
-          <Field><div style={label}>Frequency</div>
-            <select style={inputStyle} value={form.frequency} onChange={e => setForm(p => ({ ...p, frequency: e.target.value }))}>
+      <div className="fs-card">
+        <div className="fs-section-title">{editingId ? "Edit Fee Structure" : "Add Fee Structure"}</div>
+        <div className="fs-grid-180">
+          <Field><div className="fs-label">Name *</div><input className="fs-input" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} /></Field>
+          <Field><div className="fs-label">Amount *</div><input type="number" className="fs-input" value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} /></Field>
+          <Field><div className="fs-label">Frequency</div>
+            <select className="fs-input" value={form.frequency} onChange={e => setForm(p => ({ ...p, frequency: e.target.value }))}>
               <option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="annual">Annual</option><option value="one_time">One-Time</option>
             </select>
           </Field>
-          <Field><div style={label}>Fee Category</div>
-            <select style={inputStyle} value={form.fee_category_id} onChange={e => setForm(p => ({ ...p, fee_category_id: e.target.value }))}>
+          <Field><div className="fs-label">Fee Category</div>
+            <select className="fs-input" value={form.fee_category_id} onChange={e => setForm(p => ({ ...p, fee_category_id: e.target.value }))}>
               <option value="">— None —</option>{categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </Field>
-          <Field><div style={label}>Class (optional)</div>
-            <select style={inputStyle} value={form.class_id} onChange={e => setForm(p => ({ ...p, class_id: e.target.value }))}>
+          <Field><div className="fs-label">Class (optional)</div>
+            <select className="fs-input" value={form.class_id} onChange={e => setForm(p => ({ ...p, class_id: e.target.value }))}>
               <option value="">— Whole School —</option>{classes.map(c => <option key={c.id} value={c.id}>{c.name}{c.section ? ` (${c.section})` : ""}</option>)}
             </select>
           </Field>
-          <Field><div style={label}>Academic Year</div>
-            <select style={inputStyle} value={form.academic_year_id} onChange={e => setForm(p => ({ ...p, academic_year_id: e.target.value }))}>
+          <Field><div className="fs-label">Academic Year</div>
+            <select className="fs-input" value={form.academic_year_id} onChange={e => setForm(p => ({ ...p, academic_year_id: e.target.value }))}>
               <option value="">— None —</option>{years.map(y => <option key={y.id} value={y.id}>{y.name}</option>)}
             </select>
           </Field>
-          <Field><div style={label}>Late Fee Type</div>
-            <select style={inputStyle} value={form.late_fee_type} onChange={e => setForm(p => ({ ...p, late_fee_type: e.target.value }))}>
+          <Field><div className="fs-label">Late Fee Type</div>
+            <select className="fs-input" value={form.late_fee_type} onChange={e => setForm(p => ({ ...p, late_fee_type: e.target.value }))}>
               <option value="none">None</option><option value="fixed">Fixed</option><option value="percentage">Percentage</option>
             </select>
           </Field>
-          <Field><div style={label}>Late Fee Amount</div><input type="number" style={inputStyle} value={form.late_fee_amount} onChange={e => setForm(p => ({ ...p, late_fee_amount: e.target.value }))} /></Field>
-          <Field><div style={label}>Due Day</div><input type="number" style={inputStyle} value={form.due_day} onChange={e => setForm(p => ({ ...p, due_day: e.target.value }))} /></Field>
-          <Field><div style={label}>Description</div><input style={inputStyle} value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} /></Field>
+          <Field><div className="fs-label">Late Fee Amount</div><input type="number" className="fs-input" value={form.late_fee_amount} onChange={e => setForm(p => ({ ...p, late_fee_amount: e.target.value }))} /></Field>
+          <Field><div className="fs-label">Due Day</div><input type="number" className="fs-input" value={form.due_day} onChange={e => setForm(p => ({ ...p, due_day: e.target.value }))} /></Field>
+          <Field><div className="fs-label">Description</div><input className="fs-input" value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} /></Field>
         </div>
-        <div style={{ marginTop: 12 }}>
-          <button style={btnPrimary} disabled={saving} onClick={submit}>{saving ? "Saving..." : editingId ? "Save" : "Add"}</button>{" "}
-          {editingId && <button style={btnSecondary} onClick={() => { setEditingId(null); setForm(emptyStructure); }}>Cancel</button>}
+        <div className="fs-mt12">
+          <button className="fs-btn-primary" disabled={saving} onClick={submit}>{saving ? "Saving..." : editingId ? "Save" : "Add"}</button>{" "}
+          {editingId && <button className="fs-btn-secondary" onClick={() => { setEditingId(null); setForm(emptyStructure); }}>Cancel</button>}
         </div>
       </div>
-      <div style={card}>
-        <div style={sectionTitle}>Fee Structures</div>
+      <div className="fs-card">
+        <div className="fs-section-title">Fee Structures</div>
         {loading ? <div>Loading...</div> : (
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead><tr><th style={th}>Name</th><th style={th}>Amount</th><th style={th}>Frequency</th><th style={th}>Category</th><th style={th}>Class</th><th style={th}></th></tr></thead>
+          <table className="fs-full-table">
+            <thead><tr><th className="fs-th">Name</th><th className="fs-th">Amount</th><th className="fs-th">Frequency</th><th className="fs-th">Category</th><th className="fs-th">Class</th><th className="fs-th"></th></tr></thead>
             <tbody>
               {rows.map(r => (
                 <tr key={r.id}>
-                  <td style={td}>{r.name}</td>
-                  <td style={td}>{r.amount}</td>
-                  <td style={td}>{r.frequency}</td>
-                  <td style={td}>{r.category_name || "—"}</td>
-                  <td style={td}>{r.class_name || "Whole School"}</td>
-                  <td style={td}>
-                    <button style={btnSecondary} onClick={() => openEdit(r)}>Edit</button>{" "}
-                    <button style={btnDanger} onClick={() => remove(r.id)}>Deactivate</button>
+                  <td className="fs-td">{r.name}</td>
+                  <td className="fs-td">{r.amount}</td>
+                  <td className="fs-td">{r.frequency}</td>
+                  <td className="fs-td">{r.category_name || "—"}</td>
+                  <td className="fs-td">{r.class_name || "Whole School"}</td>
+                  <td className="fs-td">
+                    <button className="fs-btn-secondary" onClick={() => openEdit(r)}>Edit</button>{" "}
+                    <button className="fs-btn-danger" onClick={() => remove(r.id)}>Deactivate</button>
                   </td>
                 </tr>
               ))}
-              {rows.length === 0 && <tr><td style={td} colSpan={6}>No fee structures yet.</td></tr>}
+              {rows.length === 0 && <tr><td className="fs-td" colSpan={6}>No fee structures yet.</td></tr>}
             </tbody>
           </table>
         )}
@@ -407,46 +401,46 @@ function ClassFeesTab({ showFlash }) {
 
   return (
     <div>
-      <div style={card}>
-        <div style={sectionTitle}>Add Class Fee</div>
-        <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
-          <div style={{ flex: "1 1 160px" }}><div style={label}>Class *</div>
-            <select style={inputStyle} value={form.class_id} onChange={e => setForm(p => ({ ...p, class_id: e.target.value }))}>
+      <div className="fs-card">
+        <div className="fs-section-title">Add Class Fee</div>
+        <div className="fs-form-row">
+          <div className="fs-flex-160"><div className="fs-label">Class *</div>
+            <select className="fs-input" value={form.class_id} onChange={e => setForm(p => ({ ...p, class_id: e.target.value }))}>
               <option value="">— Select —</option>{classes.map(c => <option key={c.id} value={c.id}>{c.name}{c.section ? ` (${c.section})` : ""}</option>)}
             </select>
           </div>
-          <div style={{ flex: "1 1 160px" }}><div style={label}>Fee Type *</div>
-            <select style={inputStyle} value={form.fee_type_id} onChange={e => setForm(p => ({ ...p, fee_type_id: e.target.value }))}>
+          <div className="fs-flex-160"><div className="fs-label">Fee Type *</div>
+            <select className="fs-input" value={form.fee_type_id} onChange={e => setForm(p => ({ ...p, fee_type_id: e.target.value }))}>
               <option value="">— Select —</option>{feeTypes.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
             </select>
           </div>
-          <div style={{ flex: "1 1 160px" }}><div style={label}>Academic Year *</div>
-            <select style={inputStyle} value={form.academic_year_id} onChange={e => setForm(p => ({ ...p, academic_year_id: e.target.value }))}>
+          <div className="fs-flex-160"><div className="fs-label">Academic Year *</div>
+            <select className="fs-input" value={form.academic_year_id} onChange={e => setForm(p => ({ ...p, academic_year_id: e.target.value }))}>
               <option value="">— Select —</option>{years.map(y => <option key={y.id} value={y.id}>{y.name}</option>)}
             </select>
           </div>
-          <div style={{ flex: "1 1 120px" }}><div style={label}>Amount</div>
-            <input type="number" style={inputStyle} value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} />
+          <div className="fs-flex-120"><div className="fs-label">Amount</div>
+            <input type="number" className="fs-input" value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} />
           </div>
-          <button style={btnPrimary} disabled={saving} onClick={submit}>{saving ? "Saving..." : "Add"}</button>
+          <button className="fs-btn-primary" disabled={saving} onClick={submit}>{saving ? "Saving..." : "Add"}</button>
         </div>
       </div>
-      <div style={card}>
-        <div style={sectionTitle}>Class Fees</div>
+      <div className="fs-card">
+        <div className="fs-section-title">Class Fees</div>
         {loading ? <div>Loading...</div> : (
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead><tr><th style={th}>Class</th><th style={th}>Fee Type</th><th style={th}>Year</th><th style={th}>Amount</th><th style={th}></th></tr></thead>
+          <table className="fs-full-table">
+            <thead><tr><th className="fs-th">Class</th><th className="fs-th">Fee Type</th><th className="fs-th">Year</th><th className="fs-th">Amount</th><th className="fs-th"></th></tr></thead>
             <tbody>
               {rows.map(r => (
                 <tr key={r.id}>
-                  <td style={td}>{r.class_name}{r.class_section ? ` (${r.class_section})` : ""}</td>
-                  <td style={td}>{r.fee_type_name}</td>
-                  <td style={td}>{r.year_name}</td>
-                  <td style={td}>{r.amount}</td>
-                  <td style={td}><button style={btnDanger} onClick={() => remove(r.id)}>Delete</button></td>
+                  <td className="fs-td">{r.class_name}{r.class_section ? ` (${r.class_section})` : ""}</td>
+                  <td className="fs-td">{r.fee_type_name}</td>
+                  <td className="fs-td">{r.year_name}</td>
+                  <td className="fs-td">{r.amount}</td>
+                  <td className="fs-td"><button className="fs-btn-danger" onClick={() => remove(r.id)}>Delete</button></td>
                 </tr>
               ))}
-              {rows.length === 0 && <tr><td style={td} colSpan={5}>No class fees yet.</td></tr>}
+              {rows.length === 0 && <tr><td className="fs-td" colSpan={5}>No class fees yet.</td></tr>}
             </tbody>
           </table>
         )}
@@ -500,48 +494,48 @@ function ClassFeeConfigTab({ showFlash }) {
 
   return (
     <div>
-      <div style={card}>
-        <div style={sectionTitle}>Add / Update Class Fee Config</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 12 }}>
-          <Field><div style={label}>Class *</div>
-            <select style={inputStyle} value={form.class_id} onChange={e => setForm(p => ({ ...p, class_id: e.target.value }))}>
+      <div className="fs-card">
+        <div className="fs-section-title">Add / Update Class Fee Config</div>
+        <div className="fs-grid-160">
+          <Field><div className="fs-label">Class *</div>
+            <select className="fs-input" value={form.class_id} onChange={e => setForm(p => ({ ...p, class_id: e.target.value }))}>
               <option value="">— Select —</option>{classes.map(c => <option key={c.id} value={c.id}>{c.name}{c.section ? ` (${c.section})` : ""}</option>)}
             </select>
           </Field>
-          <Field><div style={label}>Academic Year *</div>
-            <select style={inputStyle} value={form.academic_year_id} onChange={e => setForm(p => ({ ...p, academic_year_id: e.target.value }))}>
+          <Field><div className="fs-label">Academic Year *</div>
+            <select className="fs-input" value={form.academic_year_id} onChange={e => setForm(p => ({ ...p, academic_year_id: e.target.value }))}>
               <option value="">— Select —</option>{years.map(y => <option key={y.id} value={y.id}>{y.name}</option>)}
             </select>
           </Field>
-          <Field><div style={label}>Tuition Fee</div><input type="number" style={inputStyle} value={form.tuition_fee} onChange={e => setForm(p => ({ ...p, tuition_fee: e.target.value }))} /></Field>
-          <Field><div style={label}>Due Day</div><input type="number" style={inputStyle} value={form.due_day} onChange={e => setForm(p => ({ ...p, due_day: e.target.value }))} /></Field>
-          <Field><div style={label}>Late Fee Type</div>
-            <select style={inputStyle} value={form.late_fee_type} onChange={e => setForm(p => ({ ...p, late_fee_type: e.target.value }))}>
+          <Field><div className="fs-label">Tuition Fee</div><input type="number" className="fs-input" value={form.tuition_fee} onChange={e => setForm(p => ({ ...p, tuition_fee: e.target.value }))} /></Field>
+          <Field><div className="fs-label">Due Day</div><input type="number" className="fs-input" value={form.due_day} onChange={e => setForm(p => ({ ...p, due_day: e.target.value }))} /></Field>
+          <Field><div className="fs-label">Late Fee Type</div>
+            <select className="fs-input" value={form.late_fee_type} onChange={e => setForm(p => ({ ...p, late_fee_type: e.target.value }))}>
               <option value="none">None</option><option value="fixed">Fixed</option><option value="percentage">Percentage</option><option value="per_day">Per Day</option>
             </select>
           </Field>
-          <Field><div style={label}>Late Fee Amount</div><input type="number" style={inputStyle} value={form.late_fee_amount} onChange={e => setForm(p => ({ ...p, late_fee_amount: e.target.value }))} /></Field>
+          <Field><div className="fs-label">Late Fee Amount</div><input type="number" className="fs-input" value={form.late_fee_amount} onChange={e => setForm(p => ({ ...p, late_fee_amount: e.target.value }))} /></Field>
         </div>
-        <div style={{ marginTop: 12 }}>
-          <button style={btnPrimary} disabled={saving} onClick={submit}>{saving ? "Saving..." : "Save"}</button>
+        <div className="fs-mt12">
+          <button className="fs-btn-primary" disabled={saving} onClick={submit}>{saving ? "Saving..." : "Save"}</button>
         </div>
       </div>
-      <div style={card}>
-        <div style={sectionTitle}>Class Fee Configs</div>
+      <div className="fs-card">
+        <div className="fs-section-title">Class Fee Configs</div>
         {loading ? <div>Loading...</div> : (
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead><tr><th style={th}>Class</th><th style={th}>Year</th><th style={th}>Tuition Fee</th><th style={th}>Due Day</th><th style={th}></th></tr></thead>
+          <table className="fs-full-table">
+            <thead><tr><th className="fs-th">Class</th><th className="fs-th">Year</th><th className="fs-th">Tuition Fee</th><th className="fs-th">Due Day</th><th className="fs-th"></th></tr></thead>
             <tbody>
               {rows.map(r => (
                 <tr key={r.id}>
-                  <td style={td}>{r.class_name}</td>
-                  <td style={td}>{r.year_name}</td>
-                  <td style={td}>{r.tuition_fee}</td>
-                  <td style={td}>{r.due_day ?? "—"}</td>
-                  <td style={td}><button style={btnDanger} onClick={() => remove(r.id)}>Delete</button></td>
+                  <td className="fs-td">{r.class_name}</td>
+                  <td className="fs-td">{r.year_name}</td>
+                  <td className="fs-td">{r.tuition_fee}</td>
+                  <td className="fs-td">{r.due_day ?? "—"}</td>
+                  <td className="fs-td"><button className="fs-btn-danger" onClick={() => remove(r.id)}>Delete</button></td>
                 </tr>
               ))}
-              {rows.length === 0 && <tr><td style={td} colSpan={5}>No class fee configs yet.</td></tr>}
+              {rows.length === 0 && <tr><td className="fs-td" colSpan={5}>No class fee configs yet.</td></tr>}
             </tbody>
           </table>
         )}
@@ -589,39 +583,39 @@ function DiscountTypesTab({ showFlash }) {
 
   return (
     <div>
-      <div style={card}>
-        <div style={sectionTitle}>{editingId ? "Edit Discount Type" : "Add Discount Type"}</div>
-        <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
-          <div style={{ flex: "1 1 160px" }}><div style={label}>Name *</div><input style={inputStyle} value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} /></div>
-          <div style={{ flex: "1 1 140px" }}><div style={label}>Type</div>
-            <select style={inputStyle} value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value }))}>
+      <div className="fs-card">
+        <div className="fs-section-title">{editingId ? "Edit Discount Type" : "Add Discount Type"}</div>
+        <div className="fs-form-row">
+          <div className="fs-flex-160"><div className="fs-label">Name *</div><input className="fs-input" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} /></div>
+          <div className="fs-flex-140"><div className="fs-label">Type</div>
+            <select className="fs-input" value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value }))}>
               <option value="percentage">Percentage</option><option value="fixed">Fixed</option>
             </select>
           </div>
-          <div style={{ flex: "1 1 120px" }}><div style={label}>Value</div><input type="number" style={inputStyle} value={form.value} onChange={e => setForm(p => ({ ...p, value: e.target.value }))} /></div>
-          <div style={{ flex: "2 1 240px" }}><div style={label}>Description</div><input style={inputStyle} value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} /></div>
-          <button style={btnPrimary} disabled={saving} onClick={submit}>{saving ? "Saving..." : editingId ? "Save" : "Add"}</button>
-          {editingId && <button style={btnSecondary} onClick={() => { setEditingId(null); setForm({ name: "", description: "", type: "percentage", value: "" }); }}>Cancel</button>}
+          <div className="fs-flex-120"><div className="fs-label">Value</div><input type="number" className="fs-input" value={form.value} onChange={e => setForm(p => ({ ...p, value: e.target.value }))} /></div>
+          <div className="fs-flex-240"><div className="fs-label">Description</div><input className="fs-input" value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} /></div>
+          <button className="fs-btn-primary" disabled={saving} onClick={submit}>{saving ? "Saving..." : editingId ? "Save" : "Add"}</button>
+          {editingId && <button className="fs-btn-secondary" onClick={() => { setEditingId(null); setForm({ name: "", description: "", type: "percentage", value: "" }); }}>Cancel</button>}
         </div>
       </div>
-      <div style={card}>
-        <div style={sectionTitle}>Discount Types</div>
+      <div className="fs-card">
+        <div className="fs-section-title">Discount Types</div>
         {loading ? <div>Loading...</div> : (
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead><tr><th style={th}>Name</th><th style={th}>Type</th><th style={th}>Value</th><th style={th}></th></tr></thead>
+          <table className="fs-full-table">
+            <thead><tr><th className="fs-th">Name</th><th className="fs-th">Type</th><th className="fs-th">Value</th><th className="fs-th"></th></tr></thead>
             <tbody>
               {rows.map(r => (
                 <tr key={r.id}>
-                  <td style={td}>{r.name}</td>
-                  <td style={td}>{r.type}</td>
-                  <td style={td}>{r.value}</td>
-                  <td style={td}>
-                    <button style={btnSecondary} onClick={() => { setEditingId(r.id); setForm({ name: r.name, description: r.description || "", type: r.type, value: r.value }); }}>Edit</button>{" "}
-                    <button style={btnDanger} onClick={() => remove(r.id)}>Deactivate</button>
+                  <td className="fs-td">{r.name}</td>
+                  <td className="fs-td">{r.type}</td>
+                  <td className="fs-td">{r.value}</td>
+                  <td className="fs-td">
+                    <button className="fs-btn-secondary" onClick={() => { setEditingId(r.id); setForm({ name: r.name, description: r.description || "", type: r.type, value: r.value }); }}>Edit</button>{" "}
+                    <button className="fs-btn-danger" onClick={() => remove(r.id)}>Deactivate</button>
                   </td>
                 </tr>
               ))}
-              {rows.length === 0 && <tr><td style={td} colSpan={4}>No discount types yet.</td></tr>}
+              {rows.length === 0 && <tr><td className="fs-td" colSpan={4}>No discount types yet.</td></tr>}
             </tbody>
           </table>
         )}
@@ -668,23 +662,23 @@ function DiscountConfigTab({ showFlash }) {
     } finally { setSaving(false); }
   };
 
-  if (loading) return <div style={card}>Loading...</div>;
+  if (loading) return <div className="fs-card">Loading...</div>;
 
   return (
-    <div style={card}>
-      <div style={sectionTitle}>Discount Apply Rules</div>
+    <div className="fs-card">
+      <div className="fs-section-title">Discount Apply Rules</div>
       <Field>
-        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+        <label className="fs-checkbox-label">
           <input type="checkbox" checked={onAll} onChange={e => setOnAll(e.target.checked)} />
           Apply discounts to all fee types
         </label>
       </Field>
       {!onAll && (
         <Field>
-          <div style={label}>Fee types eligible for discounts</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          <div className="fs-label">Fee types eligible for discounts</div>
+          <div className="fs-chip-row">
             {feeTypes.map(ft => (
-              <label key={ft.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 6, padding: "6px 10px", cursor: "pointer" }}>
+              <label key={ft.id} className="fs-chip-label">
                 <input type="checkbox" checked={selectedFeeTypeIds.includes(String(ft.id))} onChange={() => toggleFeeType(String(ft.id))} />
                 {ft.name}
               </label>
@@ -693,14 +687,14 @@ function DiscountConfigTab({ showFlash }) {
         </Field>
       )}
       <Field>
-        <div style={label}>Sibling Rank Method</div>
-        <select style={{ ...inputStyle, maxWidth: 260 }} value={siblingRankMethod} onChange={e => setSiblingRankMethod(e.target.value)}>
+        <div className="fs-label">Sibling Rank Method</div>
+        <select className="fs-input fs-select-wide" value={siblingRankMethod} onChange={e => setSiblingRankMethod(e.target.value)}>
           <option value="class">By Class (oldest first)</option>
           <option value="registration_no">By Registration Number</option>
           <option value="dob">By Date of Birth</option>
         </select>
       </Field>
-      <button style={btnPrimary} disabled={saving} onClick={submit}>{saving ? "Saving..." : "Save"}</button>
+      <button className="fs-btn-primary" disabled={saving} onClick={submit}>{saving ? "Saving..." : "Save"}</button>
     </div>
   );
 }
@@ -765,36 +759,36 @@ function ChargesTab({ showFlash }) {
 
   return (
     <div>
-      <div style={card}>
-        <div style={sectionTitle}>Add One-Time Charge</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
-          <Field><div style={label}>Name *</div><input style={inputStyle} value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} /></Field>
-          <Field><div style={label}>Amount *</div><input type="number" style={inputStyle} value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} /></Field>
-          <Field><div style={label}>Charge Type *</div>
-            <select style={inputStyle} value={form.charge_type_id} onChange={e => setForm(p => ({ ...p, charge_type_id: e.target.value }))}>
+      <div className="fs-card">
+        <div className="fs-section-title">Add One-Time Charge</div>
+        <div className="fs-grid-180">
+          <Field><div className="fs-label">Name *</div><input className="fs-input" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} /></Field>
+          <Field><div className="fs-label">Amount *</div><input type="number" className="fs-input" value={form.amount} onChange={e => setForm(p => ({ ...p, amount: e.target.value }))} /></Field>
+          <Field><div className="fs-label">Charge Type *</div>
+            <select className="fs-input" value={form.charge_type_id} onChange={e => setForm(p => ({ ...p, charge_type_id: e.target.value }))}>
               <option value="">— Select —</option>{chargeTypes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </Field>
-          <Field><div style={label}>Apply Month</div><input type="number" min="1" max="12" style={inputStyle} value={form.apply_month} onChange={e => setForm(p => ({ ...p, apply_month: e.target.value }))} /></Field>
-          <Field><div style={label}>Apply Year</div><input type="number" style={inputStyle} value={form.apply_year} onChange={e => setForm(p => ({ ...p, apply_year: e.target.value }))} /></Field>
-          <Field><div style={label}>Academic Year</div>
-            <select style={inputStyle} value={form.academic_year_id} onChange={e => setForm(p => ({ ...p, academic_year_id: e.target.value }))}>
+          <Field><div className="fs-label">Apply Month</div><input type="number" min="1" max="12" className="fs-input" value={form.apply_month} onChange={e => setForm(p => ({ ...p, apply_month: e.target.value }))} /></Field>
+          <Field><div className="fs-label">Apply Year</div><input type="number" className="fs-input" value={form.apply_year} onChange={e => setForm(p => ({ ...p, apply_year: e.target.value }))} /></Field>
+          <Field><div className="fs-label">Academic Year</div>
+            <select className="fs-input" value={form.academic_year_id} onChange={e => setForm(p => ({ ...p, academic_year_id: e.target.value }))}>
               <option value="">— None —</option>{years.map(y => <option key={y.id} value={y.id}>{y.name}</option>)}
             </select>
           </Field>
-          <Field><div style={label}>Applies To</div>
-            <select style={inputStyle} value={form.target_type} onChange={e => setForm(p => ({ ...p, target_type: e.target.value, class_ids: [] }))}>
+          <Field><div className="fs-label">Applies To</div>
+            <select className="fs-input" value={form.target_type} onChange={e => setForm(p => ({ ...p, target_type: e.target.value, class_ids: [] }))}>
               <option value="whole_school">Whole School</option><option value="classes">Specific Classes</option>
             </select>
           </Field>
-          <Field><div style={label}>Description</div><input style={inputStyle} value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} /></Field>
+          <Field><div className="fs-label">Description</div><input className="fs-input" value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} /></Field>
         </div>
         {form.target_type === "classes" && (
-          <div style={{ marginTop: 10 }}>
-            <div style={label}>Classes</div>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          <div className="fs-mt10">
+            <div className="fs-label">Classes</div>
+            <div className="fs-chip-row">
               {classes.map(c => (
-                <label key={c.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 6, padding: "6px 10px", cursor: "pointer" }}>
+                <label key={c.id} className="fs-chip-label">
                   <input type="checkbox" checked={form.class_ids.includes(c.id)} onChange={() => toggleClass(c.id)} />
                   {c.name}{c.section ? ` (${c.section})` : ""}
                 </label>
@@ -802,26 +796,26 @@ function ChargesTab({ showFlash }) {
             </div>
           </div>
         )}
-        <div style={{ marginTop: 12 }}>
-          <button style={btnPrimary} disabled={saving} onClick={submit}>{saving ? "Saving..." : "Add"}</button>
+        <div className="fs-mt12">
+          <button className="fs-btn-primary" disabled={saving} onClick={submit}>{saving ? "Saving..." : "Add"}</button>
         </div>
       </div>
-      <div style={card}>
-        <div style={sectionTitle}>One-Time Charges</div>
+      <div className="fs-card">
+        <div className="fs-section-title">One-Time Charges</div>
         {loading ? <div>Loading...</div> : (
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead><tr><th style={th}>Name</th><th style={th}>Amount</th><th style={th}>Applies To</th><th style={th}>Active</th><th style={th}></th></tr></thead>
+          <table className="fs-full-table">
+            <thead><tr><th className="fs-th">Name</th><th className="fs-th">Amount</th><th className="fs-th">Applies To</th><th className="fs-th">Active</th><th className="fs-th"></th></tr></thead>
             <tbody>
               {rows.map(r => (
                 <tr key={r.id}>
-                  <td style={td}>{r.name}</td>
-                  <td style={td}>{r.amount}</td>
-                  <td style={td}>{r.target_type === "whole_school" ? "Whole School" : (r.class_labels || []).join(", ") || r.target_type}</td>
-                  <td style={td}>{r.is_active ? "Yes" : "No"}</td>
-                  <td style={td}><button style={btnDanger} onClick={() => remove(r.id)}>Delete</button></td>
+                  <td className="fs-td">{r.name}</td>
+                  <td className="fs-td">{r.amount}</td>
+                  <td className="fs-td">{r.target_type === "whole_school" ? "Whole School" : (r.class_labels || []).join(", ") || r.target_type}</td>
+                  <td className="fs-td">{r.is_active ? "Yes" : "No"}</td>
+                  <td className="fs-td"><button className="fs-btn-danger" onClick={() => remove(r.id)}>Delete</button></td>
                 </tr>
               ))}
-              {rows.length === 0 && <tr><td style={td} colSpan={5}>No one-time charges yet.</td></tr>}
+              {rows.length === 0 && <tr><td className="fs-td" colSpan={5}>No one-time charges yet.</td></tr>}
             </tbody>
           </table>
         )}

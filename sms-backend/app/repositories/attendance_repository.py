@@ -23,23 +23,27 @@ class AttendanceRepository(BaseRepository):
         updated = 0
 
         try:
-            from app.utils.notify import send_notification
+            from app.utils.notify import send_notification, render_templated_notification
             cur2 = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
             absent_recs = [r for r in records if r.get("status") == "absent"]
             for rec in absent_recs:
                 cur2.execute(
-                    "SELECT s.user_id, s.parent_id, s.first_name, s.last_name, c.name AS cn, c.section AS sec "
+                    "SELECT s.user_id, s.parent_id, s.first_name, s.last_name, s.campus_id, c.name AS cn, c.section AS sec "
                     "FROM students s JOIN classes c ON c.id=%s WHERE s.id=%s",
                     (class_id, rec["student_id"])
                 )
                 stu = cur2.fetchone()
                 if stu:
                     cls = stu["cn"] + ((" ("+stu["sec"]+")") if stu["sec"] else "")
-                    msg = f"{stu['first_name']} {stu['last_name']} is ABSENT on {date} in {cls}."
+                    stu_name = f"{stu['first_name']} {stu['last_name']}"
+                    default_msg = f"{stu_name} is ABSENT on {date} in {cls}."
+                    tags = {"student_name": stu_name, "date": date, "class_name": cls}
                     if stu["user_id"]:
-                        send_notification(stu["user_id"], "Attendance: Absent", msg, "warning")
+                        t, b = render_templated_notification("attendance_absent_student", tags, "Attendance: Absent", default_msg, campus_id=stu["campus_id"])
+                        send_notification(stu["user_id"], t, b, "warning")
                     if stu["parent_id"]:
-                        send_notification(stu["parent_id"], "Child Absent Today", msg, "warning")
+                        t, b = render_templated_notification("attendance_absent_parent", tags, "Child Absent Today", default_msg, campus_id=stu["campus_id"])
+                        send_notification(stu["parent_id"], t, b, "warning")
         except Exception:
             pass
 

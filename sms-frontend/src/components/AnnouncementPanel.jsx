@@ -1,10 +1,12 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { useTheme } from "../auth/ThemeContext";
 import announcementsApi from "../api/announcementsApi";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
 import { useProcessingToday } from "../hooks/useProcessingToday";
 import DatePicker from "./DatePicker";
+import "./AnnouncementPanel.css";
 
 function darkenColor(hex, amount=40) {
   try {
@@ -26,7 +28,7 @@ const getCfg = (a) => a.ann_type==="system" ? PCFG.system : (PCFG[a.priority]||P
 
 export default function AnnouncementPanel({ canManage }) {
   const { formatDate } = useRegionalSettings();
-  const { theme }                   = useTheme();
+  const { theme, colorMode }        = useTheme();
   const [anns,       setAnns]       = useState([]);
   const [loading,    setLoading]    = useState(true);
   const [tab,        setTab]        = useState("all");
@@ -36,7 +38,8 @@ export default function AnnouncementPanel({ canManage }) {
   const rafRef                      = useRef(null);
   const posRef                      = useRef(0);
   const pausedRef                   = useRef(false);
-  const navBg = theme?.primary ? darkenColor(theme.primary, 50) : "#1e3a5f";
+  const navBg = theme?.primary ? darkenColor(theme.primary, colorMode === "dark" ? 195 : 50) : "#1e3a5f";
+  const navigate = useNavigate();
 
   const load = () => {
     announcementsApi.list().then(r=>{setAnns(r.data.data||[]);setLoading(false);}).catch(()=>setLoading(false));
@@ -62,11 +65,13 @@ export default function AnnouncementPanel({ canManage }) {
   },[anns, tab]);
 
   const handleClick = async (a) => {
-    setSelAnn(a);
     if(!a.is_read){
-      await announcementsApi.markRead(a.id);
+      announcementsApi.markRead(a.id).catch(()=>{});
       setAnns(prev=>prev.map(x=>x.id===a.id?{...x,is_read:true}:x));
     }
+    // a post that links somewhere (e.g. the admission announcement) opens that page
+    if(a.link){ navigate(a.link); return; }
+    setSelAnn(a);
   };
 
   const filtered = anns.filter(a=>{
@@ -77,42 +82,37 @@ export default function AnnouncementPanel({ canManage }) {
   const unread = anns.filter(a=>!a.is_read).length;
 
   return (
-    <div style={{ display:"flex", flexDirection:"column", height:"100%", background:"#fff",
-      border:"1px solid #e2e8f0", borderRadius:12, overflow:"hidden" }}>
+    <div className="ann-panel-container">
 
       {/* Header */}
-      <div style={{ background:navBg, padding:"10px 14px 0", flexShrink:0 }}>
-        <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
-          <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+      <div className="ann-panel-header" style={{ background: navBg }}>
+        <div className="ann-panel-header-row">
+          <div className="ann-panel-header-left">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>
             </svg>
-            <span style={{ fontSize:12, fontWeight:600, color:"#fff" }}>News & Announcements</span>
+            <span className="ann-panel-title">News & Announcements</span>
             {unread>0 && (
-              <span style={{ fontSize:10, background:"#ef4444", color:"#fff", borderRadius:20,
-                padding:"1px 7px", fontWeight:600 }}>{unread}</span>
+              <span className="ann-panel-unread-badge">{unread}</span>
             )}
           </div>
           {canManage && (
-            <button onClick={()=>setShowCreate(true)}
-              style={{ fontSize:11, background:"rgba(255,255,255,0.15)", border:"1px solid rgba(255,255,255,0.25)",
-                borderRadius:6, padding:"3px 10px", cursor:"pointer", color:"#fff", fontWeight:500 }}>
+            <button onClick={()=>setShowCreate(true)} className="ann-panel-add-btn">
               + Add
             </button>
           )}
         </div>
         {/* Tabs */}
-        <div style={{ display:"flex", gap:0 }}>
+        <div className="ann-panel-tabs">
           {[["all","All"],["unread","Unread"],["system","System"]].map(([val,label])=>(
-            <button key={val} onClick={()=>setTab(val)}
-              style={{ fontSize:10, fontWeight:500, padding:"5px 12px", border:"none", cursor:"pointer",
-                background:"transparent", color: tab===val?"#fff":"rgba(255,255,255,0.5)",
+            <button key={val} onClick={()=>setTab(val)} className="ann-panel-tab"
+              style={{
+                color: tab===val?"#fff":"rgba(255,255,255,0.5)",
                 borderBottom: tab===val?"2px solid #60a5fa":"2px solid transparent",
-                marginBottom:-1 }}>
+              }}>
               {label}
               {val==="unread" && unread>0 && (
-                <span style={{ marginLeft:4, fontSize:9, background:"rgba(255,255,255,0.25)",
-                  borderRadius:10, padding:"0 5px" }}>{unread}</span>
+                <span className="ann-panel-tab-badge">{unread}</span>
               )}
             </button>
           ))}
@@ -123,11 +123,11 @@ export default function AnnouncementPanel({ canManage }) {
       <div ref={listRef}
         onMouseEnter={()=>{ pausedRef.current=true; }}
         onMouseLeave={()=>{ pausedRef.current=false; }}
-        style={{ flex:1, overflowY:"hidden" }}>
+        className="ann-panel-list">
         {loading ? (
-          <div style={{ padding:"24px", textAlign:"center", color:"#94a3b8", fontSize:12 }}>Loading...</div>
+          <div className="ann-panel-empty">Loading...</div>
         ) : filtered.length===0 ? (
-          <div style={{ padding:"24px", textAlign:"center", color:"#94a3b8", fontSize:12 }}>
+          <div className="ann-panel-empty">
             {tab==="unread"?"All caught up! No unread announcements.":"No announcements yet."}
           </div>
         ) : (
@@ -136,22 +136,19 @@ export default function AnnouncementPanel({ canManage }) {
             ...filtered.map((a,i) => {
               const cfg = getCfg(a);
               return (
-                <div key={si+"-"+i} onClick={()=>handleClick(a)}
-                  style={{ display:"flex", gap:10, padding:"10px 14px",
-                    borderBottom:"1px solid #f1f5f9", cursor:"pointer",
-                    background: !a.is_read ? cfg.light+"80" : "#fff" }}
-                  onMouseEnter={e=>e.currentTarget.style.background=cfg.light}
-                  onMouseLeave={e=>e.currentTarget.style.background=!a.is_read?cfg.light+"80":"#fff"}>
+                <div key={si+"-"+i} onClick={()=>handleClick(a)} className="ann-item"
+                  style={{ background: !a.is_read ? (colorMode === "dark" ? cfg.color+"26" : cfg.light+"80") : "var(--bg-card)" }}
+                  onMouseEnter={e=>e.currentTarget.style.background = colorMode === "dark" ? cfg.color+"40" : cfg.light}
+                  onMouseLeave={e=>e.currentTarget.style.background = !a.is_read ? (colorMode === "dark" ? cfg.color+"26" : cfg.light+"80") : "var(--bg-card)"}>
                   {/* Colored dot */}
-                  <div style={{ display:"flex", flexDirection:"column", alignItems:"center", paddingTop:4, flexShrink:0 }}>
-                    <div style={{ width:8, height:8, borderRadius:"50%", background:cfg.color, flexShrink:0 }} />
-                    <div style={{ width:1, flex:1, background:"#e2e8f0", marginTop:4 }} />
+                  <div className="ann-item-dot-col">
+                    <div className="ann-item-dot" style={{ background: cfg.color }} />
+                    <div className="ann-item-dot-line" />
                   </div>
                   {/* Content */}
-                  <div style={{ flex:1, minWidth:0, paddingBottom:2 }}>
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", gap:6 }}>
-                      <div style={{ fontSize:12, fontWeight: a.is_read?400:600, color:"#1e3a5f",
-                        overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", flex:1 }}>
+                  <div className="ann-item-content">
+                    <div className="ann-item-title-row">
+                      <div className="ann-item-title" style={{ fontWeight: a.is_read?400:600 }}>
                         {a.title}
                       </div>
                       <span style={{ fontSize:10, padding:"1px 7px", borderRadius:20, flexShrink:0,
@@ -159,30 +156,29 @@ export default function AnnouncementPanel({ canManage }) {
                         {a.ann_type==="system"?"System":cfg.label}
                       </span>
                     </div>
-                    <div style={{ fontSize:11, color:"#64748b", marginTop:2,
-                      overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                    <div className="ann-item-body">
                       {a.body}
                     </div>
-                    <div style={{ fontSize:10, color:"#94a3b8", marginTop:4, display:"flex", gap:6, alignItems:"center" }}>
+                    <div className="ann-item-meta">
                       <span>{formatDate(a.created_at)}</span>
                       {a.creator_name && a.ann_type!=="system" && <><span>·</span><span>{a.creator_name}</span></>}
                       {!a.is_read && (
-                        <span style={{ marginLeft:"auto", fontSize:9, color:"#2563eb", fontWeight:600 }}>● NEW</span>
+                        <span className="ann-item-new-badge">● NEW</span>
                       )}
+                      {a.link && <span style={{ color:"var(--theme-primary, #2563eb)", fontWeight:600 }}>{a.link_label || "Open"} →</span>}
                     </div>
                   </div>
                 </div>
               );
             }),
             /* Spacer between sets - one item height gap */
-            <div key={"spacer-"+si} style={{ height:60, display:"flex", alignItems:"center",
-              justifyContent:"center", borderBottom:"1px solid #f1f5f9" }}>
-              <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-                <div style={{ width:40, height:1, background:"#e2e8f0" }} />
-                <span style={{ fontSize:10, color:"#cbd5e1", fontWeight:500, letterSpacing:"0.08em" }}>
+            <div key={"spacer-"+si} className="ann-spacer">
+              <div className="ann-spacer-inner">
+                <div className="ann-spacer-line" />
+                <span className="ann-spacer-label">
                   latest news
                 </span>
-                <div style={{ width:40, height:1, background:"#e2e8f0" }} />
+                <div className="ann-spacer-line" />
               </div>
             </div>
           ])
@@ -202,49 +198,42 @@ function AnnDetailModal({ ann, canManage, onClose, onDeleted }) {
   const { formatDate } = useRegionalSettings();
   const cfg = getCfg(ann);
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.45)", display:"flex",
-      alignItems:"center", justifyContent:"center", zIndex:1000, padding:20 }}>
-      <div style={{ background:"#fff", borderRadius:16, width:"100%", maxWidth:520, overflow:"hidden" }}>
-        <div style={{ height:4, background:cfg.color }} />
-        <div style={{ padding:"18px 22px", borderBottom:"1px solid #f1f5f9",
-          display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
-          <div style={{ flex:1 }}>
-            <div style={{ display:"flex", gap:8, alignItems:"center", marginBottom:8 }}>
+    <div className="ann-modal-overlay">
+      <div className="ann-modal">
+        <div className="ann-modal-stripe" style={{ background: cfg.color }} />
+        <div className="ann-modal-header">
+          <div className="ann-modal-header-info">
+            <div className="ann-modal-badges-row">
               <span style={{ fontSize:11, padding:"2px 10px", borderRadius:20,
                 background:cfg.light, color:cfg.color, fontWeight:600, border:"1px solid "+cfg.color+"30" }}>
                 {ann.ann_type==="system"?"⚙ System":cfg.label}
               </span>
               {ann.target_role!=="all" && (
-                <span style={{ fontSize:11, padding:"2px 8px", borderRadius:20,
-                  background:"#f1f5f9", color:"#475569" }}>→ {ann.target_role}</span>
+                <span className="ann-modal-audience-badge">→ {ann.target_role}</span>
               )}
             </div>
-            <div style={{ fontWeight:700, fontSize:16, color:"#1e3a5f" }}>{ann.title}</div>
-            <div style={{ fontSize:11, color:"#94a3b8", marginTop:4 }}>
+            <div className="ann-modal-title">{ann.title}</div>
+            <div className="ann-modal-meta">
               {formatDate(ann.created_at)}
               {ann.creator_name && ann.ann_type!=="system" && " · "+ann.creator_name}
             </div>
           </div>
-          <button onClick={onClose} style={{ background:"#f8fafc", border:"1px solid #e2e8f0",
-            borderRadius:8, width:32, height:32, cursor:"pointer", fontSize:18, color:"#64748b", flexShrink:0 }}>×</button>
+          <button onClick={onClose} className="ann-modal-close-btn">×</button>
         </div>
-        <div style={{ padding:"16px 22px", maxHeight:300, overflowY:"auto" }}>
-          <div style={{ fontSize:14, color:"#374151", lineHeight:1.8, whiteSpace:"pre-wrap" }}>{ann.body}</div>
+        <div className="ann-modal-body">
+          <div className="ann-modal-body-text">{ann.body}</div>
           {ann.attachment && (
-            <div style={{ marginTop:14, padding:"10px 14px", background:"#f8fafc",
-              border:"1px solid #e2e8f0", borderRadius:8 }}>
-              <a href={ann.attachment} target="_blank" rel="noreferrer"
-                style={{ fontSize:13, color:"#2563eb", fontWeight:600, textDecoration:"none" }}>
+            <div className="ann-modal-attachment">
+              <a href={ann.attachment} target="_blank" rel="noreferrer" className="ann-modal-attachment-link">
                 📎 View Attachment
               </a>
             </div>
           )}
         </div>
         {canManage && ann.ann_type!=="system" && (
-          <div style={{ padding:"12px 22px", borderTop:"1px solid #f1f5f9", display:"flex", justifyContent:"flex-end" }}>
+          <div className="ann-modal-footer">
             <button onClick={async()=>{ if(window.confirm("Delete?")){ await announcementsApi.remove(ann.id); onDeleted(); }}}
-              style={{ padding:"7px 16px", fontSize:12, fontWeight:600, background:"#fef2f2",
-                border:"1px solid #fecaca", borderRadius:8, cursor:"pointer", color:"#dc2626" }}>
+              className="ann-modal-delete-btn">
               🗑 Delete
             </button>
           </div>
@@ -282,47 +271,38 @@ function CreateAnnModal({ onClose, onCreated }) {
     } catch(e){ setErr(e.response?.data?.message||"Failed."); setSaving(false); }
   };
 
-  const inputStyle = { width:"100%", padding:"8px 12px", fontSize:13, border:"1px solid #e2e8f0",
-    borderRadius:8, outline:"none", fontFamily:"inherit", color:"#1e3a5f", boxSizing:"border-box",
-    background:"#fff" };
-  const labelStyle = { display:"block", fontSize:12, fontWeight:600, color:"#64748b", marginBottom:6 };
-
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.45)", display:"flex",
-      alignItems:"center", justifyContent:"center", zIndex:1001, padding:20 }}>
-      <div style={{ background:"#fff", borderRadius:16, width:"100%", maxWidth:520 }}>
-        <div style={{ padding:"18px 22px", borderBottom:"1px solid #f1f5f9",
-          display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <div style={{ fontWeight:700, fontSize:15, color:"#1e3a5f" }}>New Announcement</div>
-          <button onClick={onClose} style={{ background:"#f8fafc", border:"1px solid #e2e8f0",
-            borderRadius:8, width:32, height:32, cursor:"pointer", fontSize:18, color:"#64748b" }}>×</button>
+    <div className="ann-modal-overlay ann-modal-overlay-create">
+      <div className="ann-modal">
+        <div className="ann-modal-header ann-modal-header-center">
+          <div className="ann-modal-title-sm">New Announcement</div>
+          <button onClick={onClose} className="ann-modal-close-btn">×</button>
         </div>
-        <div style={{ padding:"18px 22px", display:"flex", flexDirection:"column", gap:14 }}>
-          {err && <div style={{ background:"#fef2f2", border:"1px solid #fecaca", borderRadius:8,
-            padding:"10px 12px", fontSize:13, color:"#dc2626" }}>{err}</div>}
+        <div className="ann-create-body">
+          {err && <div className="ann-create-error">{err}</div>}
           <div>
-            <label style={labelStyle}>Title *</label>
-            <input style={inputStyle} value={form.title} onChange={e=>setForm({...form,title:e.target.value})}
+            <label className="ann-create-label">Title *</label>
+            <input className="ann-create-input" value={form.title} onChange={e=>setForm({...form,title:e.target.value})}
               placeholder="Announcement title..." />
           </div>
           <div>
-            <label style={labelStyle}>Message *</label>
-            <textarea style={{...inputStyle, resize:"vertical", minHeight:90, lineHeight:1.6}}
+            <label className="ann-create-label">Message *</label>
+            <textarea className="ann-create-input ann-create-textarea"
               value={form.body} onChange={e=>setForm({...form,body:e.target.value})}
               placeholder="Write your announcement..." />
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+          <div className="ann-create-grid-2">
             <div>
-              <label style={labelStyle}>Priority</label>
-              <select style={inputStyle} value={form.priority} onChange={e=>setForm({...form,priority:e.target.value})}>
+              <label className="ann-create-label">Priority</label>
+              <select className="ann-create-input" value={form.priority} onChange={e=>setForm({...form,priority:e.target.value})}>
                 <option value="normal">🔵 Normal</option>
                 <option value="important">🟡 Important</option>
                 <option value="urgent">🔴 Urgent</option>
               </select>
             </div>
             <div>
-              <label style={labelStyle}>Audience</label>
-              <select style={inputStyle} value={form.target_role} onChange={e=>setForm({...form,target_role:e.target.value})}>
+              <label className="ann-create-label">Audience</label>
+              <select className="ann-create-input" value={form.target_role} onChange={e=>setForm({...form,target_role:e.target.value})}>
                 <option value="all">All Users</option>
                 <option value="teacher">Teachers</option>
                 <option value="student">Students</option>
@@ -331,30 +311,28 @@ function CreateAnnModal({ onClose, onCreated }) {
               </select>
             </div>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+          <div className="ann-create-grid-2">
             <div>
-              <label style={labelStyle}>Class <span style={{ fontWeight:400, color:"#94a3b8" }}>(optional)</span></label>
-              <select style={inputStyle} value={form.target_class} onChange={e=>setForm({...form,target_class:e.target.value})}>
+              <label className="ann-create-label">Class <span className="ann-create-label-optional">(optional)</span></label>
+              <select className="ann-create-input" value={form.target_class} onChange={e=>setForm({...form,target_class:e.target.value})}>
                 <option value="">All Classes</option>
                 {classes.map(c=><option key={c.id} value={c.id}>{c.name}{c.section?" ("+c.section+")":""}</option>)}
               </select>
             </div>
             <div>
-              <label style={labelStyle}>Expires <span style={{ fontWeight:400, color:"#94a3b8" }}>(optional)</span></label>
-              <DatePicker style={inputStyle} value={form.end_date}
+              <label className="ann-create-label">Expires <span className="ann-create-label-optional">(optional)</span></label>
+              <DatePicker value={form.end_date}
                 onChange={val=>setForm({...form,end_date:val})} />
             </div>
           </div>
         </div>
-        <div style={{ padding:"14px 22px", borderTop:"1px solid #f1f5f9", display:"flex", justifyContent:"flex-end", gap:10 }}>
-          <button onClick={onClose} style={{ padding:"8px 18px", fontSize:13, background:"#f8fafc",
-            border:"1px solid #e2e8f0", borderRadius:8, cursor:"pointer", color:"#64748b", fontWeight:500 }}>
+        <div className="ann-modal-footer ann-modal-footer-gap">
+          <button onClick={onClose} className="ann-create-cancel-btn">
             Cancel
           </button>
           <button onClick={handleSave} disabled={saving}
-            style={{ padding:"8px 20px", fontSize:13, fontWeight:600, background:"#1e3a5f",
-              color:"#fff", border:"none", borderRadius:8, cursor:saving?"not-allowed":"pointer",
-              opacity:saving?0.7:1 }}>
+            className="ann-create-publish-btn"
+            style={{ cursor:saving?"not-allowed":"pointer", opacity:saving?0.7:1 }}>
             {saving ? "Publishing..." : "Publish"}
           </button>
         </div>

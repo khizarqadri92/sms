@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import libraryApi from "../api/libraryApi";
 import { useGovernanceMode } from "../hooks/useGovernanceMode";
+import "./LibrarySettings.css";
 
 const ROLE_LABELS = {
   student: "Student",
@@ -47,19 +48,19 @@ function RuleRow({ rule, onSaved, canManage }) {
     <tr>
       <td><strong>{ROLE_LABELS[rule.member_type] || rule.member_type}</strong></td>
       <td>
-        <input className="form-control" type="number" min="1" style={{ width: 90 }} disabled={!canManage}
+        <input className="form-control lib-input-90" type="number" min="1" disabled={!canManage}
           value={form.max_books} onChange={e => update("max_books", e.target.value)} />
       </td>
       <td>
-        <input className="form-control" type="number" min="1" style={{ width: 90 }} disabled={!canManage}
+        <input className="form-control lib-input-90" type="number" min="1" disabled={!canManage}
           value={form.borrow_days} onChange={e => update("borrow_days", e.target.value)} />
       </td>
       <td>
-        <input className="form-control" type="number" min="0" style={{ width: 90 }} disabled={!canManage}
+        <input className="form-control lib-input-90" type="number" min="0" disabled={!canManage}
           value={form.renewal_limit} onChange={e => update("renewal_limit", e.target.value)} />
       </td>
       <td>
-        <input className="form-control" type="number" min="0" step="0.01" style={{ width: 100 }} disabled={!canManage}
+        <input className="form-control lib-input-100" type="number" min="0" step="0.01" disabled={!canManage}
           value={form.fine_per_day} onChange={e => update("fine_per_day", e.target.value)} />
       </td>
       <td>
@@ -94,22 +95,22 @@ export default function LibrarySettings() {
 
   return (
     <div>
-      <div className="page-header" style={{ marginBottom: 16 }}>
+      <div className="page-header lib-settings-mb16">
         <h1 className="page-heading">Library Settings</h1>
       </div>
 
       {isGlobalLocked && (
-        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+        <div className="alert alert-warning lib-settings-mb16">
           Library Membership Rules are managed centrally by the superadmin. This is read-only here.
         </div>
       )}
-      {success && <div className="alert alert-success" style={{ marginBottom: 16 }}>{success}</div>}
+      {success && <div className="alert alert-success lib-settings-mb16">{success}</div>}
 
       <div className="section-card">
         <div className="section-card-header">
           <span className="section-card-title">Borrowing Rules by Role</span>
         </div>
-        <div style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>
+        <div className="lib-settings-desc">
           Configure how many books each type of member can hold at once, how many days they get before a book is due, how many times they can renew, and the daily fine for overdue books.
         </div>
 

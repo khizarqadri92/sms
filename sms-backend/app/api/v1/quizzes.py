@@ -96,16 +96,25 @@ def create_quiz(body: QuizCreateIn, user_id: int = Depends(require_permission("q
     db.commit()
 
     try:
-        from app.utils.notify import send_to_class
+        from app.utils.notify import send_to_class, render_templated_notification
+        import main as _main
         cur.execute("SELECT * FROM sp_get_subject_class_names(%s, %s)", (body.subject_id, body.class_id))
         row2 = cur.fetchone()
         sname = row2["subject_name"] if row2 else "a subject"
         cname = (row2["class_name"] + ((" (" + row2["section"] + ")") if row2 and row2["section"] else "")) if row2 else ""
-        send_to_class(
-            int(body.class_id), title="New Quiz Available",
-            body="New quiz '" + body.title + "' for " + sname + " in " + cname + ". Due: " + body.due_date + ".",
-            ntype="info", notify_students=True, notify_parents=True, notify_teachers=False
-        )
+        cur.execute("SELECT campus_id FROM classes WHERE id=%s", (body.class_id,))
+        _cls_campus_row = cur.fetchone()
+        _cls_campus_id = _cls_campus_row["campus_id"] if _cls_campus_row else None
+        with _main.flask_app.app_context():
+            _t, _b = render_templated_notification("new_quiz",
+                {"quiz_title": body.title, "subject_name": sname, "class_name": cname, "due_date": body.due_date},
+                "New Quiz Available", "New quiz '" + body.title + "' for " + sname + " in " + cname + ". Due: " + body.due_date + ".",
+                campus_id=_cls_campus_id)
+            send_to_class(
+                int(body.class_id), title=_t,
+                body=_b,
+                ntype="info", notify_students=True, notify_parents=True, notify_teachers=False
+            )
     except Exception:
         pass
 
@@ -236,15 +245,25 @@ def submit_quiz(id: int, body: SubmitQuizIn, user_id: int = Depends(require_perm
     db.commit()
 
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
+        import main as _main
         cur.execute("SELECT * FROM sp_get_teacher_for_quiz_notify(%s, %s)", (student_id, id))
         row2 = cur.fetchone()
         if row2:
-            send_notification(
-                row2["teacher_user_id"], "Quiz Submitted",
-                row2["first_name"] + " " + row2["last_name"] + " submitted '" + quiz["title"] + "'. Score: " + str(marks_obtained) + "/" + str(total) + ".",
-                "info"
-            )
+            _sname = row2["first_name"] + " " + row2["last_name"]
+            cur.execute("SELECT campus_id FROM students WHERE id=%s", (student_id,))
+            _stu_campus_row = cur.fetchone()
+            _stu_campus_id = _stu_campus_row["campus_id"] if _stu_campus_row else None
+            with _main.flask_app.app_context():
+                _t, _b = render_templated_notification("quiz_submitted",
+                    {"student_name": _sname, "quiz_title": quiz["title"], "marks_obtained": marks_obtained, "total": total},
+                    "Quiz Submitted", _sname + " submitted '" + quiz["title"] + "'. Score: " + str(marks_obtained) + "/" + str(total) + ".",
+                    campus_id=_stu_campus_id)
+                send_notification(
+                    row2["teacher_user_id"], _t,
+                    _b,
+                    "info"
+                )
     except Exception:
         pass
 

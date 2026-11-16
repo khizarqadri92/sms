@@ -5,6 +5,7 @@ import { printReport, exportToCSV, exportToPDF } from "../utils/reportExport";
 import DatePicker from "../components/DatePicker";
 import { useProcessingToday } from "../hooks/useProcessingToday";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
+import "./EmployeeAttendance.css";
 
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
@@ -118,98 +119,97 @@ export default function EmployeeAttendance() {
   const exportRows = reportType === "monthly" ? directory : filteredDaily;
 
   return (
-    <div style={{ margin: "0 auto", padding: 24 }}>
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 22, fontWeight: 800, color: "#0f172a" }}>Attendance Report</div>
-        <div style={{ fontSize: 13, color: "#64748b" }}>Monthly or daily attendance, filterable by department and employee</div>
+    <div className="ea-page">
+      <div className="ea-header">
+        <div className="ea-title">Attendance Report</div>
+        <div className="ea-subtitle">Monthly or daily attendance, filterable by department and employee</div>
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+      <div className="ea-type-toggle-row">
         {[["monthly", "Monthly Report"], ["daily", "Daily Report"]].map(([val, label]) => (
           <button key={val} onClick={() => setReportType(val)}
-            className={reportType === val ? "btn btn-primary btn-sm" : "btn btn-ghost btn-sm"}
-            style={reportType === val ? { color: "#fff" } : {}}>
+            className={reportType === val ? "btn btn-primary btn-sm ea-toggle-active" : "btn btn-ghost btn-sm"}>
             {label}
           </button>
         ))}
       </div>
 
-      <div className="no-print" style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginBottom: 12 }}>
+      <div className="no-print ea-export-row">
         <button className="btn btn-ghost btn-sm" onClick={printReport}>Print</button>
         <button className="btn btn-ghost btn-sm" onClick={()=>exportToCSV(exportColumns, exportRows, "Employee_Attendance")}>Export CSV</button>
         <button className="btn btn-ghost btn-sm" onClick={()=>exportToPDF("Employee Attendance", exportColumns, exportRows, "Employee_Attendance")}>Export PDF</button>
       </div>
 
-      <div className="no-print" style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", alignItems: "flex-end" }}>
+      <div className="no-print ea-filter-row">
         <div>
-          <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Department</label>
-          <select className="form-input" style={{ fontSize: 13, width: 180 }} value={deptFilter} onChange={e => setDeptFilter(e.target.value)}>
+          <label className="ea-field-label">Department</label>
+          <select className="form-input ea-dept-select" value={deptFilter} onChange={e => setDeptFilter(e.target.value)}>
             <option value="">All Departments</option>
             {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
         </div>
         <div>
-          <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Employee (name or code)</label>
-          <input className="form-input" style={{ fontSize: 13, width: 200 }} placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} />
+          <label className="ea-field-label">Employee (name or code)</label>
+          <input className="form-input ea-search-input" placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
         {reportType === "monthly" ? (
           <>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Month</label>
-              <select className="form-input" style={{ fontSize: 13, width: 150 }} value={month} onChange={e => setMonth(Number(e.target.value))}>
+              <label className="ea-field-label">Month</label>
+              <select className="form-input ea-month-select" value={month} onChange={e => setMonth(Number(e.target.value))}>
                 {MONTH_NAMES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
               </select>
             </div>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Year</label>
-              <input type="number" className="form-input" style={{ fontSize: 13, width: 100 }} value={year} onChange={e => setYear(Number(e.target.value))} />
+              <label className="ea-field-label">Year</label>
+              <input type="number" className="form-input ea-year-input" value={year} onChange={e => setYear(Number(e.target.value))} />
             </div>
           </>
         ) : (
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Date</label>
+            <label className="ea-field-label">Date</label>
             <DatePicker style={{ fontSize: 13 }} value={date} max={processingToday} onChange={val => setDate(val)} />
           </div>
         )}
       </div>
 
       {loading ? (
-        <div style={{ padding: 40, textAlign: "center", color: "#94a3b8" }}>Loading...</div>
+        <div className="ea-loading-text">Loading...</div>
       ) : reportType === "monthly" ? (
-        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, overflow: "hidden" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <div className="ea-table-wrap">
+          <table className="ea-table">
             <thead>
-              <tr style={{ background: "#f8fafc" }}>
+              <tr className="ea-th-row">
                 {["Employee", "Code", "Department", "Designation", ""].map(h => (
-                  <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "#64748b", borderBottom: "1px solid #e2e8f0" }}>{h}</th>
+                  <th key={h} className="ea-th">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {directory.map(s => (
-                <tr key={s.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                  <td style={{ padding: "10px 14px", fontWeight: 600, fontSize: 13 }}>{s.first_name} {s.last_name}</td>
-                  <td style={{ padding: "10px 14px", fontSize: 12, color: "#64748b" }}>{s.employee_code || "-"}</td>
-                  <td style={{ padding: "10px 14px", fontSize: 12, color: "#64748b" }}>{s.department_name || "-"}</td>
-                  <td style={{ padding: "10px 14px", fontSize: 12, color: "#64748b" }}>{s.designation_name || "-"}</td>
-                  <td style={{ padding: "10px 14px" }}>
-                    <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => openMonthlyDetail(s)}>View Month</button>
+                <tr key={s.id} className="ea-tr">
+                  <td className="ea-td-bold">{s.first_name} {s.last_name}</td>
+                  <td className="ea-td-muted">{s.employee_code || "-"}</td>
+                  <td className="ea-td-muted">{s.department_name || "-"}</td>
+                  <td className="ea-td-muted">{s.designation_name || "-"}</td>
+                  <td className="ea-td">
+                    <button className="btn btn-ghost btn-sm ea-view-btn" onClick={() => openMonthlyDetail(s)}>View Month</button>
                   </td>
                 </tr>
               ))}
               {directory.length === 0 && (
-                <tr><td colSpan={5} style={{ padding: 30, textAlign: "center", color: "#94a3b8", fontSize: 13 }}>No employees found.</td></tr>
+                <tr><td colSpan={5} className="ea-empty-row">No employees found.</td></tr>
               )}
             </tbody>
           </table>
         </div>
       ) : (
-        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, overflow: "hidden" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <div className="ea-table-wrap">
+          <table className="ea-table">
             <thead>
-              <tr style={{ background: "#f8fafc" }}>
+              <tr className="ea-th-row">
                 {["Employee", "Department", "Status", "Hours"].map(h => (
-                  <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "#64748b", borderBottom: "1px solid #e2e8f0" }}>{h}</th>
+                  <th key={h} className="ea-th">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -217,23 +217,23 @@ export default function EmployeeAttendance() {
               {filteredDaily.map(s => {
                 const colors = STATUS_COLORS[s.status] || STATUS_COLORS.pending;
                 return (
-                  <tr key={s.staff_id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                    <td style={{ padding: "10px 14px", fontWeight: 600, fontSize: 13 }}>{s.first_name} {s.last_name}</td>
-                    <td style={{ padding: "10px 14px", fontSize: 12, color: "#64748b" }}>{s.department_name || "-"}</td>
-                    <td style={{ padding: "10px 14px" }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 10, background: colors.bg, color: colors.color }}>
+                  <tr key={s.staff_id} className="ea-tr">
+                    <td className="ea-td-bold">{s.first_name} {s.last_name}</td>
+                    <td className="ea-td-muted">{s.department_name || "-"}</td>
+                    <td className="ea-td">
+                      <span className="ea-status-badge" style={{ "--badge-bg": colors.bg, "--badge-color": colors.color }}>
                         {STATUS_LABELS[s.status] || s.status}
                       </span>
                       {s.is_late && (
-                        <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: "#fef2f2", color: "#dc2626" }}>Late</span>
+                        <span className="ea-late-badge">Late</span>
                       )}
                     </td>
-                    <td style={{ padding: "10px 14px", fontSize: 12, color: "#475569" }}>{Number(s.total_hours || 0).toFixed(1)}</td>
+                    <td className="ea-hours-td">{Number(s.total_hours || 0).toFixed(1)}</td>
                   </tr>
                 );
               })}
               {filteredDaily.length === 0 && (
-                <tr><td colSpan={4} style={{ padding: 30, textAlign: "center", color: "#94a3b8", fontSize: 13 }}>No data found.</td></tr>
+                <tr><td colSpan={4} className="ea-empty-row">No data found.</td></tr>
               )}
             </tbody>
           </table>
@@ -241,36 +241,35 @@ export default function EmployeeAttendance() {
       )}
 
       {selectedStaff && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 9000, background: "rgba(15,23,42,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
+        <div className="ea-modal-overlay"
           onClick={() => setSelectedStaff(null)}>
-          <div style={{ background: "#fff", borderRadius: 12, width: "100%", maxWidth: 560, maxHeight: "85vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}
+          <div className="ea-modal-box"
             onClick={e => e.stopPropagation()}>
-            <div style={{ padding: "14px 20px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>{selectedStaff.first_name} {selectedStaff.last_name} - {MONTH_NAMES[month - 1]} {year}</div>
+            <div className="ea-modal-header">
+              <div className="ea-modal-title">{selectedStaff.first_name} {selectedStaff.last_name} - {MONTH_NAMES[month - 1]} {year}</div>
               <button className="btn btn-ghost btn-sm" onClick={() => setSelectedStaff(null)}>Close</button>
             </div>
-            <div style={{ padding: 20 }}>
+            <div className="ea-modal-body">
               {detailLoading ? (
-                <div style={{ padding: 30, textAlign: "center", color: "#94a3b8" }}>Loading...</div>
+                <div className="ea-modal-loading">Loading...</div>
               ) : (
                 <>
-                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
+                  <div className="ea-summary-row">
                     {Object.entries(summary).map(([status, count]) => (
-                      <div key={status} style={{
-                        fontSize: 12, fontWeight: 700, padding: "4px 10px", borderRadius: 10,
-                        background: (STATUS_COLORS[status] || STATUS_COLORS.pending).bg,
-                        color: (STATUS_COLORS[status] || STATUS_COLORS.pending).color,
+                      <div key={status} className="ea-summary-chip" style={{
+                        "--chip-bg": (STATUS_COLORS[status] || STATUS_COLORS.pending).bg,
+                        "--chip-color": (STATUS_COLORS[status] || STATUS_COLORS.pending).color,
                       }}>
                         {STATUS_LABELS[status] || status}: {count}
                       </div>
                     ))}
                   </div>
-                  <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, overflow: "hidden" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <div className="ea-detail-table-wrap">
+                    <table className="ea-table">
                       <thead>
-                        <tr style={{ background: "#f8fafc" }}>
+                        <tr className="ea-th-row">
                           {["Date", "Status", "Sessions"].map(h => (
-                            <th key={h} style={{ padding: "8px 10px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase" }}>{h}</th>
+                            <th key={h} className="ea-detail-th">{h}</th>
                           ))}
                         </tr>
                       </thead>
@@ -278,15 +277,15 @@ export default function EmployeeAttendance() {
                         {monthlyDetail.map(d => {
                           const colors = STATUS_COLORS[d.status] || STATUS_COLORS.pending;
                           return (
-                            <tr key={d.status_date} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                              <td style={{ padding: "6px 10px", fontSize: 12 }}>{(() => { const dd = new Date(d.status_date + "T00:00:00"); return `${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][dd.getDay()]}, ${formatDate(dd)}`; })()}</td>
-                              <td style={{ padding: "6px 10px" }}>
-                                <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 8, background: colors.bg, color: colors.color }}>
+                            <tr key={d.status_date} className="ea-tr">
+                              <td className="ea-detail-td">{(() => { const dd = new Date(d.status_date + "T00:00:00"); return `${["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][dd.getDay()]}, ${formatDate(dd)}`; })()}</td>
+                              <td className="ea-detail-td">
+                                <span className="ea-detail-status-badge" style={{ "--badge-bg": colors.bg, "--badge-color": colors.color }}>
                                   {STATUS_LABELS[d.status] || d.status}
                                 </span>
-                                {d.is_late && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: "#dc2626" }}>Late</span>}
+                                {d.is_late && <span className="ea-detail-late-text">Late</span>}
                               </td>
-                              <td style={{ padding: "6px 10px", fontSize: 12, color: "#64748b" }}>{d.session_count}</td>
+                              <td className="ea-detail-sessions-td">{d.session_count}</td>
                             </tr>
                           );
                         })}

@@ -50,15 +50,21 @@ class EventTypeIn(BaseModel):
 def list_events(
     month: Optional[int] = Query(None), year: Optional[int] = Query(None),
     user_id: int = Depends(require_permission("calendar.view")), db=Depends(get_db),
+    campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
     y = year or get_processing_date(db).year
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_list_calendar_events(%s, %s)", (y, month))
     rows = [dict(r) for r in cur.fetchall()]
+
+    cur.execute("SELECT * FROM sp_list_announcements_for_calendar(%s, %s, %s)", (y, month, campus_id))
+    rows += [dict(r) for r in cur.fetchall()]
+
     for r in rows:
         r["event_date"] = str(r["event_date"])
         r["end_date"] = str(r["end_date"]) if r.get("end_date") else None
         r["created_at"] = str(r["created_at"])
+    rows.sort(key=lambda r: r["event_date"])
     return ok(data=rows)
 
 
@@ -75,12 +81,14 @@ def create_event(body: EventIn, user_id: int = Depends(require_permission("calen
 
     if body.is_holiday:
         try:
-            from app.utils.notify import send_bulk
+            from app.utils.notify import send_bulk, render_templated_notification
             import main as _main
             cur.execute("SELECT * FROM sp_get_all_active_user_ids()")
             all_users = [r["id"] for r in cur.fetchall()]
             with _main.flask_app.app_context():
-                send_bulk(all_users, title="Holiday Announced", body=body.title + " on " + body.event_date + ".", ntype="info")
+                tags = {"holiday_title": body.title, "event_date": body.event_date}
+                t, b = render_templated_notification("holiday_announced", tags, "Holiday Announced", body.title + " on " + body.event_date + ".")
+                send_bulk(all_users, title=t, body=b, ntype="info")
         except Exception as e:
             print("[calendar notify]", e)
 

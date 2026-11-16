@@ -147,8 +147,17 @@ def activate_academic_year(id: int, user_id: int = Depends(require_permission("a
 # ── Classes ─────────────────────────
 
 @router.get("/classes")
-def list_classes(user_id: int = Depends(require_permission("classes.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("classes"))):
+def list_classes(query_campus_id: Optional[int] = Query(None), user_id: int = Depends(require_permission("classes.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("classes"))):
     cur = get_cur(db)
+    if query_campus_id is not None:
+        # Lets a superadmin explicitly ask for one campus's classes (e.g. when
+        # picking a target class for an announcement scoped to that campus)
+        # without needing the campus-switcher header. Regular users cannot
+        # override their own campus_id this way.
+        cur.execute("SELECT campus_id FROM users WHERE id=%s", (user_id,))
+        _urow = cur.fetchone()
+        if _urow and _urow["campus_id"] is None:
+            campus_id = query_campus_id
     cur.execute("SELECT * FROM sp_list_classes(%s)", (campus_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 

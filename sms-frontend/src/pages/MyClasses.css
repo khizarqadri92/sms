@@ -1,0 +1,209 @@
+/* =====================================================================
+   My Classes (teacher): My Classes, Class Overview, Timetable
+   Neutral colours come from the app's shared variables; the coloured
+   tints (indigo / green / red / purple) are local tokens with a
+   dark-mode set below.
+   ===================================================================== */
+
+.mc-page {
+  --mc-surface:      var(--color-background-primary, #ffffff);
+  --mc-surface-alt:  var(--color-background-secondary, #f8fafc);
+  --mc-row-alt:      var(--color-background-secondary, #fafbfc);
+  --mc-ink:          var(--color-text-primary, #0f172a);
+  --mc-ink-soft:     var(--color-text-secondary, #64748b);
+  --mc-ink-faint:    var(--color-text-tertiary, #94a3b8);
+  --mc-line:         var(--color-border-secondary, #e2e8f0);
+  --mc-line-soft:    var(--color-border-tertiary, #f1f5f9);
+  --mc-shadow:       0 2px 8px rgba(0, 0, 0, 0.06);
+  --mc-modal-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+  --mc-backdrop:     rgba(0, 0, 0, 0.45);
+
+  --mc-chip-bg:      #f1f5f9;
+  --mc-chip-ink:     #475569;
+
+  --mc-indigo:       #4f46e5;
+  --mc-indigo-soft:  #c7d2fe;
+  --mc-indigo-bg:    #ede9fe;
+  --mc-indigo-btn:   #f5f3ff;
+  --mc-indigo-line:  #e0e7ff;
+
+  --mc-green-ink:    #166534;
+  --mc-green-text:   #16a34a;
+  --mc-green-bg:     #f0fdf4;
+  --mc-green-line:   #dcfce7;
+
+  --mc-red-ink:      #b91c1c;
+  --mc-red-bg:       #fee2e2;
+
+  --mc-slot-bg:      #ede9fe;
+  --mc-slot-edge:    #7c3aed;
+  --mc-slot-title:   #5b21b6;
+  --mc-slot-time:    #7c3aed;
+  --mc-empty-dash:   #cbd5e1;
+}
+
+/* ---------- dark mode ---------- */
+html[data-color-mode="dark"] .mc-page {
+  --mc-surface:      var(--color-background-primary, #1e293b);
+  --mc-surface-alt:  var(--color-background-secondary, #0f172a);
+  --mc-row-alt:      rgba(255, 255, 255, 0.03);
+  --mc-ink:          var(--color-text-primary, #e2e8f0);
+  --mc-ink-soft:     var(--color-text-secondary, #94a3b8);
+  --mc-ink-faint:    var(--color-text-tertiary, #64748b);
+  --mc-line:         var(--color-border-secondary, #334155);
+  --mc-line-soft:    var(--color-border-tertiary, #273449);
+  --mc-shadow:       0 2px 8px rgba(0, 0, 0, 0.35);
+  --mc-modal-shadow: 0 20px 60px rgba(0, 0, 0, 0.55);
+  --mc-backdrop:     rgba(0, 0, 0, 0.65);
+
+  --mc-chip-bg:      rgba(148, 163, 184, 0.16);
+  --mc-chip-ink:     #cbd5e1;
+
+  --mc-indigo:       #a5b4fc;
+  --mc-indigo-soft:  #4338ca;
+  --mc-indigo-bg:    rgba(129, 140, 248, 0.18);
+  --mc-indigo-btn:   rgba(129, 140, 248, 0.14);
+  --mc-indigo-line:  rgba(129, 140, 248, 0.35);
+
+  --mc-green-ink:    #86efac;
+  --mc-green-text:   #4ade80;
+  --mc-green-bg:     rgba(34, 197, 94, 0.12);
+  --mc-green-line:   rgba(34, 197, 94, 0.32);
+
+  --mc-red-ink:      #fca5a5;
+  --mc-red-bg:       rgba(239, 68, 68, 0.18);
+
+  --mc-slot-bg:      rgba(139, 92, 246, 0.18);
+  --mc-slot-edge:    #a78bfa;
+  --mc-slot-title:   #ddd6fe;
+  --mc-slot-time:    #c4b5fd;
+  --mc-empty-dash:   #475569;
+}
+
+/* ---------- page header ---------- */
+.mc-teacher-line { font-size: 14px; color: var(--mc-ink-soft); margin-top: 4px; }
+.mc-error { margin-bottom: 16px; }
+
+/* ---------- section labels / empty text ---------- */
+.mc-block { margin-bottom: 24px; }
+.mc-label {
+  font-size: 12px; font-weight: 700; color: var(--mc-ink-soft);
+  text-transform: uppercase; letter-spacing: .07em; margin-bottom: 14px;
+}
+.mc-label--sm { font-size: 11px; margin-bottom: 12px; }
+.mc-empty-card { padding: 32px 0; text-align: center; color: var(--mc-ink-soft); font-size: 14px; }
+.mc-empty-line { padding: 24px 0; text-align: center; color: var(--mc-ink-soft); font-size: 14px; }
+.mc-muted { color: var(--mc-ink-soft); font-size: 14px; }
+
+/* ---------- class cards (My Classes + Class Overview) ---------- */
+.mc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+
+.mc-card {
+  background: var(--mc-surface); color: var(--mc-ink);
+  border-radius: 12px; border: 1px solid var(--mc-line);
+  border-left: 4px solid var(--mc-indigo-soft);
+  box-shadow: var(--mc-shadow);
+}
+.mc-card--primary { border-left-color: var(--mc-indigo); }
+.mc-card--pad { padding: 16px 20px; }
+.mc-card-body { padding: 16px 20px; }
+
+.mc-card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+.mc-card-top--tight { margin-bottom: 10px; }
+
+.mc-class-name { font-weight: 700; font-size: 17px; color: var(--mc-ink); }
+.mc-class-section { font-weight: 400; color: var(--mc-ink-soft); font-size: 14px; margin-left: 6px; }
+.mc-class-meta { font-size: 13px; color: var(--mc-ink-soft); margin-top: 3px; }
+
+.mc-type-chip {
+  margin-left: 8px; background: var(--mc-chip-bg); color: var(--mc-chip-ink);
+  padding: 1px 8px; border-radius: 10px; font-size: 11px;
+}
+.mc-role-pill {
+  background: var(--mc-indigo-bg); color: var(--mc-indigo);
+  font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; white-space: nowrap;
+}
+.mc-role-pill--lg { padding: 4px 12px; }
+
+.mc-teaching { font-size: 12px; color: var(--mc-green-text); font-weight: 500; margin-top: 6px; }
+
+/* card buttons */
+.mc-actions { display: flex; gap: 8px; }
+.mc-btn {
+  flex: 1; padding: 7px 0; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer;
+  border: 1px solid var(--mc-line); background: var(--mc-surface-alt); color: var(--mc-chip-ink);
+  transition: filter .15s ease;
+}
+.mc-btn:hover { filter: brightness(0.97); }
+html[data-color-mode="dark"] .mc-btn:hover { filter: brightness(1.15); }
+.mc-btn--indigo { border-color: var(--mc-indigo-line); background: var(--mc-indigo-btn); color: var(--mc-indigo); }
+.mc-btn--green  { border-color: var(--mc-green-line);  background: var(--mc-green-bg);   color: var(--mc-green-ink); }
+.mc-btn--wide   { flex: 0 0 auto; padding: 8px 18px; font-size: 14px; }
+
+/* ---------- My Subjects ---------- */
+.mc-subjects { display: flex; flex-wrap: wrap; gap: 10px; padding-top: 4px; }
+.mc-subject {
+  background: var(--mc-surface-alt); border: 1px solid var(--mc-line); color: var(--mc-ink);
+  border-radius: 8px; padding: 8px 16px; font-size: 14px; font-weight: 500;
+}
+.mc-subject-code { font-size: 12px; color: var(--mc-ink-soft); margin-left: 6px; }
+
+/* ---------- class detail modal ---------- */
+.mc-overlay {
+  position: fixed; inset: 0; z-index: 1000; background: var(--mc-backdrop);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.mc-modal {
+  background: var(--mc-surface); color: var(--mc-ink); border-radius: 12px;
+  width: 100%; max-width: 580px; max-height: 90vh; overflow-y: auto;
+  box-shadow: var(--mc-modal-shadow); display: flex; flex-direction: column;
+  border: 1px solid var(--mc-line);
+}
+.mc-modal-head {
+  padding: 16px 24px; border-bottom: 1px solid var(--mc-line);
+  display: flex; justify-content: space-between; align-items: center;
+  background: var(--mc-surface-alt); border-radius: 12px 12px 0 0; flex-shrink: 0;
+}
+.mc-modal-sub { font-size: 13px; color: var(--mc-ink-soft); margin-top: 2px; }
+.mc-modal-body { padding: 20px 24px; flex: 1; }
+.mc-modal-section { margin-bottom: 20px; }
+.mc-modal-section--top { margin-top: 24px; }
+.mc-modal-foot {
+  padding: 14px 24px; border-top: 1px solid var(--mc-line);
+  display: flex; gap: 10px; justify-content: flex-end;
+  background: var(--mc-surface-alt); border-radius: 0 0 12px 12px; flex-shrink: 0;
+}
+
+.mc-info-row { display: flex; gap: 16px; padding: 9px 0; border-bottom: 1px solid var(--mc-line-soft); font-size: 14px; }
+.mc-info-key { min-width: 140px; font-weight: 500; color: var(--mc-ink-soft); flex-shrink: 0; }
+.mc-info-val { color: var(--mc-ink); }
+
+/* small tables inside the modal */
+.mc-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.mc-table thead tr { background: var(--mc-surface-alt); border-bottom: 1px solid var(--mc-line); }
+.mc-table th { padding: 8px 12px; text-align: left; font-size: 12px; font-weight: 600; color: var(--mc-ink-faint); }
+.mc-table td { padding: 10px 12px; color: var(--mc-ink); }
+.mc-table tbody tr { border-bottom: 1px solid var(--mc-line-soft); background: var(--mc-surface); }
+.mc-table tbody tr:nth-child(even) { background: var(--mc-row-alt); }
+.mc-td-strong { font-weight: 500; }
+.mc-td-bold   { font-weight: 600; }
+.mc-td-soft   { color: var(--mc-chip-ink) !important; }
+
+.mc-tag { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; }
+.mc-tag--indigo { background: var(--mc-indigo-bg); color: var(--mc-indigo); }
+.mc-tag--gray   { background: var(--mc-chip-bg); color: var(--mc-chip-ink); font-weight: 500; }
+.mc-tag--red    { background: var(--mc-red-bg); color: var(--mc-red-ink); }
+
+/* ---------- weekly timetable ---------- */
+.mc-tt-card { padding: 0; overflow: auto; }
+.mc-tt-head { padding: 16px 20px; }
+.mc-tt-table { min-width: 700px; }
+.mc-tt-cell { vertical-align: top; }
+.mc-tt-none { color: var(--mc-empty-dash); }
+.mc-slot {
+  background: var(--mc-slot-bg); border-left: 2px solid var(--mc-slot-edge);
+  border-radius: 3px; padding: 3px 6px; margin-bottom: 4px;
+}
+.mc-slot-subject { font-weight: 600; font-size: 11px; color: var(--mc-slot-title); }
+.mc-slot-time    { font-size: 10px; color: var(--mc-slot-time); }
+.mc-slot-room    { font-size: 9px; color: var(--mc-ink-faint); }

@@ -1,0 +1,243 @@
+.hrs-page {
+  padding: 24px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.hrs-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 20px;
+  color: var(--text-heading);
+}
+
+.hrs-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.hrs-card {
+  background: var(--bg-card);
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+  margin-bottom: 20px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.hrs-card-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border-color);
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text-heading);
+}
+
+.hrs-card-body {
+  padding: 16px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.hrs-locked-alert {
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: var(--bg-warning-soft);
+  border: 1px solid var(--border-warning-soft);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--text-warning-soft);
+}
+
+.hrs-add-panel {
+  margin-bottom: 12px;
+  padding: 12px;
+  background: var(--bg-hover);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.hrs-add-panel-title {
+  font-weight: 600;
+  font-size: 12px;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.hrs-add-grid-3col {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) minmax(0,1fr) auto;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.hrs-field-label {
+  font-size: 11px;
+  font-weight: 600;
+  margin-bottom: 3px;
+}
+
+.hrs-add-btn {
+  color: #fff;
+  white-space: nowrap;
+  height: 36px;
+}
+
+.hrs-help-text {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+.hrs-list-scroll {
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.hrs-parent-row {
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-hover);
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.hrs-parent-role-count {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.hrs-child-row {
+  padding: 6px 10px 6px 24px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  font-size: 12px;
+  font-weight: 500;
+  margin-top: 2px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.hrs-child-role-count {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.hrs-empty-text {
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 12px;
+  text-align: center;
+}
+
+.hrs-add-row-flex {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.hrs-mapping-select {
+  flex: 1;
+  font-size: 12px;
+  min-width: 0;
+}
+
+.hrs-list-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  margin-bottom: 4px;
+  background: var(--bg-hover);
+}
+
+.hrs-list-item-text {
+  font-size: 13px;
+}
+
+.hrs-remove-btn {
+  color: #dc2626;
+  font-size: 11px;
+}
+
+.hrs-desig-input {
+  flex: 1;
+  font-size: 12px;
+  min-width: 0;
+}
+
+.hrs-desig-dept-select {
+  font-size: 12px;
+  width: 140px;
+}
+
+.hrs-msg-box {
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--msg-bg);
+  color: var(--msg-color);
+}
+
+.hrs-list-item-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.hrs-list-item-subtext {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.hrs-role-item {
+  padding: 7px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  margin-bottom: 4px;
+  background: var(--bg-hover);
+  font-size: 13px;
+}
+
+.hrs-flash-toast {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 9999;
+  padding: 10px 18px;
+  border-radius: 8px;
+  background: var(--flash-bg);
+  color: var(--flash-color);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.hrs-fs13 {
+  font-size: 13px;
+}
+
+.hrs-mb8 {
+  margin-bottom: 8px;
+}
+
+.hrs-list-scroll-flex {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}

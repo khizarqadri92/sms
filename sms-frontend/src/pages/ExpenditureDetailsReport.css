@@ -1,0 +1,159 @@
+.edr-page {
+  padding: 24px;
+  background: var(--bg-page);
+  min-height: 100vh;
+}
+
+.edr-header {
+  margin-bottom: 20px;
+}
+
+.edr-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-heading);
+  margin-bottom: 4px;
+}
+
+.edr-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.edr-actions-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.edr-filter-card {
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid var(--border-color);
+  margin-bottom: 16px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.edr-field-label {
+  font-size: 11px;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.edr-dept-select {
+  font-size: 13px;
+  width: 180px;
+}
+
+.edr-type-select {
+  font-size: 13px;
+  width: 180px;
+}
+
+.edr-month-select {
+  font-size: 13px;
+  width: 140px;
+}
+
+.edr-year-input {
+  font-size: 13px;
+  width: 100px;
+}
+
+.edr-apply-btn {
+  color: #fff;
+}
+
+.edr-table-card {
+  background: var(--bg-card);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.edr-table-header-row {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.edr-record-count {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.edr-total-text {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.edr-loading-text {
+  padding: 40px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.edr-table-scroll {
+  overflow-x: auto;
+}
+
+.edr-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.edr-th-row {
+  background: var(--bg-hover);
+}
+
+.edr-th {
+  padding: 10px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.edr-tr {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.edr-td-name {
+  padding: 10px 14px;
+  font-weight: 600;
+}
+
+.edr-td {
+  padding: 10px 14px;
+}
+
+.edr-td-muted {
+  padding: 10px 14px;
+  color: var(--text-secondary);
+}
+
+.edr-td-bold {
+  padding: 10px 14px;
+  font-weight: 700;
+}
+
+.edr-status-badge {
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--badge-bg);
+  color: var(--badge-color);
+  padding: 2px 8px;
+  border-radius: 10px;
+  text-transform: capitalize;
+}

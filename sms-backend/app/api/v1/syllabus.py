@@ -16,6 +16,7 @@ from pydantic import BaseModel
 from app.fastapi_auth import get_current_user_id, get_jwt_claims
 from app.fastapi_permissions import require_permission
 from app.fastapi_db import get_db, get_cur as _get_cur
+from app.fastapi_campus import get_current_campus_id
 
 router = APIRouter()
 
@@ -33,6 +34,14 @@ def fail(message: str, status_code: int = 400, details=None):
 
 def ok(data=None, message="Success"):
     return {"status": "success", "message": message, "data": data}
+
+
+def _active_year(cur, campus_id):
+    """The current session for a campus (a campus's own year first, then a school-wide one)."""
+    cur.execute("""SELECT id FROM academic_years WHERE is_active AND (campus_id = %s OR campus_id IS NULL)
+                   ORDER BY campus_id NULLS LAST LIMIT 1""", (campus_id,))
+    r = cur.fetchone()
+    return r["id"] if r else None
 
 
 class SyllabusCreateIn(BaseModel):
@@ -69,7 +78,7 @@ def list_syllabus(
     class_id: Optional[int] = Query(None), subject_id: Optional[int] = Query(None),
     academic_year_id: Optional[int] = Query(None), student_id: Optional[int] = Query(None),
     user_id: int = Depends(require_permission("syllabus.view")), db=Depends(get_db),
-    claims: dict = Depends(get_jwt_claims),
+    claims: dict = Depends(get_jwt_claims), campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
     roles = claims.get("roles", [])
     perms = claims.get("permissions", [])
@@ -77,6 +86,15 @@ def list_syllabus(
     has_manage = "syllabus.manage" in perms
 
     cur = get_cur(db)
+    if academic_year_id is None:
+        # only this session's syllabus and progress; past sessions stay as history
+        if not campus_id and student_id:
+            cur.execute("SELECT campus_id FROM students WHERE id=%s", (student_id,))
+            _s = cur.fetchone(); campus_id = _s["campus_id"] if _s else None
+        if not campus_id and class_id:
+            cur.execute("SELECT campus_id FROM classes WHERE id=%s", (class_id,))
+            _c = cur.fetchone(); campus_id = _c["campus_id"] if _c else None
+        academic_year_id = _active_year(cur, campus_id)
     cur.execute(
         "SELECT * FROM sp_list_syllabus(%s, %s, %s, %s, %s, %s, %s)",
         (user_id, role, has_manage, class_id, subject_id, academic_year_id, student_id)
@@ -112,11 +130,12 @@ def get_syllabus(sid: int, user_id: int = Depends(require_permission("syllabus.v
 @router.post("/")
 def create_syllabus(body: SyllabusCreateIn, user_id: int = Depends(require_permission("syllabus.manage")), db=Depends(get_db)):
     cur = get_cur(db)
-    cur.execute("SELECT sp_get_active_academic_year() AS yid")
-    yr = cur.fetchone()
-    if not yr or not yr["yid"]:
+    cur.execute("SELECT campus_id FROM classes WHERE id=%s", (body.class_id,))
+    _cls = cur.fetchone()
+    if not _cls: fail("Class not found", 404)
+    year_id = body.academic_year_id or _active_year(cur, _cls["campus_id"])
+    if not year_id:
         fail("No active academic year", 400)
-    year_id = body.academic_year_id or yr["yid"]
 
     cur.execute("SELECT sp_check_syllabus_exists(%s, %s, %s) AS exists", (body.class_id, body.subject_id, year_id))
     if cur.fetchone()["exists"]:
@@ -229,16 +248,26 @@ def mark_topic(
     counts = cur.fetchone()
     if counts and counts["total"] > 0 and counts["total"] == counts["covered"] and action == "cover":
         try:
-            from app.utils.notify import send_notification
+            from app.utils.notify import send_notification, render_templated_notification
+            import main as _main
             cur.execute("SELECT * FROM sp_get_syllabus_notify_info(%s)", (sid,))
             sy = cur.fetchone()
+            cur.execute("SELECT c.campus_id FROM syllabus syl JOIN classes c ON c.id=syl.class_id WHERE syl.id=%s", (sid,))
+            _syl_campus_row = cur.fetchone()
+            _syl_campus_id = _syl_campus_row["campus_id"] if _syl_campus_row else None
             cur.execute("SELECT * FROM sp_get_principals_admins()")
-            for row in cur.fetchall():
-                send_notification(
-                    row["id"], title="Syllabus Completed",
-                    body=sy["subject_name"] + " syllabus for " + sy["class_name"] + " is 100% complete.",
-                    ntype="info"
-                )
+            principal_rows = cur.fetchall()
+            with _main.flask_app.app_context():
+                _t, _b = render_templated_notification("syllabus_completed",
+                    {"subject_name": sy["subject_name"], "class_name": sy["class_name"]},
+                    "Syllabus Completed", sy["subject_name"] + " syllabus for " + sy["class_name"] + " is 100% complete.",
+                    campus_id=_syl_campus_id)
+                for row in principal_rows:
+                    send_notification(
+                        row["id"], title=_t,
+                        body=_b,
+                        ntype="info"
+                    )
         except Exception as e:
             print("[syllabus notify]", e)
 
@@ -279,10 +308,12 @@ def delete_attachment(sid: int, tid: int, aid: int, user_id: int = Depends(requi
     row = cur.fetchone()
     if not row:
         fail("Attachment not found", 404)
-    try:
-        os.remove(os.path.join(UPLOAD_DIR, row["url"]))
-    except Exception:
-        pass
+    cur.execute("SELECT COUNT(*) AS n FROM syllabus_attachments WHERE url=%s AND id<>%s", (row["url"], aid))
+    if cur.fetchone()["n"] == 0:                 # last copy (sessions share files) -> remove from disk
+        try:
+            os.remove(os.path.join(UPLOAD_DIR, row["url"]))
+        except Exception:
+            pass
     cur.execute("SELECT sp_delete_syllabus_attachment(%s)", (aid,))
     db.commit()
     return ok(message="Attachment deleted.")

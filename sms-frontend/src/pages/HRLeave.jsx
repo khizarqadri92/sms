@@ -5,6 +5,7 @@ import { useAuth } from "../auth/AuthContext";
 import { useGovernanceMode } from "../hooks/useGovernanceMode";
 import { useProcessingToday } from "../hooks/useProcessingToday";
 import DatePicker from "../components/DatePicker";
+import "./HRLeave.css";
 
 const TABS = ["types","policies","validation_rules","balances","requests"];
 const TAB_LABELS = {types:"Leave Types", policies:"Leave Policies", validation_rules:"Leave Rules", balances:"Leave Balances", requests:"Leave Requests"};
@@ -223,15 +224,15 @@ export default function HRLeave({ visibleTabs } = {}) {
   const ss = (s) => STATUS_COLORS[s]||STATUS_COLORS.cancelled;
 
   return (
-    <div style={{padding:20,margin:"0 auto"}}>
-      <h2 style={{margin:"0 0 16px",fontSize:20,fontWeight:700}}>Staff Leave Management</h2>
+    <div className="hrl-page">
+      <h2 className="hrl-title">Staff Leave Management</h2>
 
       {/* Tabs */}
-      <div style={{display:"flex",gap:0,borderBottom:"1px solid #e2e8f0",marginBottom:20}}>
+      <div className="hrl-tab-row">
         {TABS_SHOWN.map(t=>(
           <button key={t} onClick={()=>setTab(t)}
-            style={{padding:"10px 18px",border:"none",cursor:"pointer",fontSize:13,fontWeight:600,background:"transparent",
-              borderBottom:tab===t?"2px solid #2563eb":"2px solid transparent",color:tab===t?"#2563eb":"#64748b"}}>
+            className="hrl-tab-btn"
+            style={{ "--tab-border": tab===t?"#2563eb":"transparent", "--tab-color": tab===t?"#2563eb":"var(--text-secondary)" }}>
             {TAB_LABELS[t]}
           </button>
         ))}
@@ -241,54 +242,54 @@ export default function HRLeave({ visibleTabs } = {}) {
       {tab==="types" && (
         <div>
         {typesLocked && (
-          <div style={{marginBottom:12,padding:"8px 12px",background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,fontSize:12,color:"#92400e"}}>
+          <div className="hrl-locked-alert">
             Leave Types are managed centrally by the superadmin.
           </div>
         )}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1.5fr",gap:20,alignItems:"start"}}>
+        <div className="hrl-two-col-grid">
           {canManageTypes && (
-          <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",padding:16}}>
-            <div style={{fontWeight:700,fontSize:14,marginBottom:12}}>{editLtId?"Edit Leave Type":"Add Leave Type"}</div>
-            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <div className="hrl-form-card">
+            <div className="hrl-form-card-title">{editLtId?"Edit Leave Type":"Add Leave Type"}</div>
+            <div className="hrl-form-column">
               <div>
-                <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Name *</label>
-                <input className="form-input" style={{width:"100%",fontSize:13}} value={ltForm.name} onChange={e=>setLtForm(p=>({...p,name:e.target.value}))} placeholder="e.g. Annual Leave"/>
+                <label className="hrl-field-label">Name *</label>
+                <input className="form-input hrl-full-input" value={ltForm.name} onChange={e=>setLtForm(p=>({...p,name:e.target.value}))} placeholder="e.g. Annual Leave"/>
               </div>
               <div>
-                <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Max Days/Year</label>
-                <input type="number" className="form-input" style={{width:"100%",fontSize:13}} value={ltForm.max_days_per_year} onChange={e=>setLtForm(p=>({...p,max_days_per_year:e.target.value}))} placeholder="Leave blank for unlimited"/>
+                <label className="hrl-field-label">Max Days/Year</label>
+                <input type="number" className="form-input hrl-full-input" value={ltForm.max_days_per_year} onChange={e=>setLtForm(p=>({...p,max_days_per_year:e.target.value}))} placeholder="Leave blank for unlimited"/>
               </div>
-              <label style={{display:"flex",gap:8,alignItems:"center",fontSize:13,cursor:"pointer"}}>
+              <label className="hrl-checkbox-row">
                 <input type="checkbox" checked={ltForm.is_active} onChange={e=>setLtForm(p=>({...p,is_active:e.target.checked}))}/>
                 Active
               </label>
-              <label style={{display:"flex",gap:8,alignItems:"center",fontSize:13,cursor:"pointer"}}>
+              <label className="hrl-checkbox-row">
                 <input type="checkbox" checked={ltForm.is_encashable} onChange={e=>setLtForm(p=>({...p,is_encashable:e.target.checked}))}/>
                 Encashable at Resignation
               </label>
-              <div style={{display:"flex",gap:8}}>
+              <div className="hrl-btn-row">
                 {editLtId&&<button className="btn btn-ghost btn-sm" onClick={()=>{setEditLtId(null);setLtForm({name:"",max_days_per_year:"",is_active:true,is_encashable:false});}}>Cancel</button>}
-                <button className="btn btn-primary btn-sm" style={{color:"#fff"}} onClick={saveLt}>{editLtId?"Update":"Add"} Leave Type</button>
+                <button className="btn btn-primary btn-sm hrl-save-btn" onClick={saveLt}>{editLtId?"Update":"Add"} Leave Type</button>
               </div>
             </div>
           </div>
           )}
-          <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",overflow:"hidden"}}>
-            <div style={{padding:"12px 16px",borderBottom:"1px solid #e2e8f0",fontWeight:700,fontSize:14}}>Leave Types ({leaveTypes.length})</div>
+          <div className="hrl-list-card">
+            <div className="hrl-list-card-header">Leave Types ({leaveTypes.length})</div>
             {leaveTypes.map(lt=>(
-              <div key={lt.id} style={{padding:"12px 16px",borderBottom:"1px solid #f1f5f9",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div key={lt.id} className="hrl-list-item">
                 <div>
-                  <div style={{fontWeight:600,fontSize:13}}>{lt.name}</div>
-                  <div style={{fontSize:11,color:"#64748b",marginTop:2}}>
+                  <div className="hrl-list-item-name">{lt.name}</div>
+                  <div className="hrl-list-item-subtext">
                     {lt.max_days_per_year?`Max ${lt.max_days_per_year} days/year`:"No day limit"}
-                    <span style={{marginLeft:8,padding:"1px 6px",borderRadius:6,background:lt.is_active?"#f0fdf4":"#f1f5f9",color:lt.is_active?"#166534":"#475569",fontSize:10,fontWeight:700}}>{lt.is_active?"Active":"Inactive"}</span>
-                    {lt.is_encashable&&<span style={{marginLeft:6,padding:"1px 6px",borderRadius:6,background:"#f0fdf4",color:"#166534",fontSize:10,fontWeight:700}}>Encashable</span>}
+                    <span className="hrl-tag-badge" style={{ "--tag-bg": lt.is_active?"var(--bg-success-soft)":"var(--bg-hover)", "--tag-color": lt.is_active?"#166534":"var(--text-secondary)" }}>{lt.is_active?"Active":"Inactive"}</span>
+                    {lt.is_encashable&&<span className="hrl-tag-badge-ml6" style={{ "--tag-bg": "var(--bg-success-soft)", "--tag-color": "#166534" }}>Encashable</span>}
                   </div>
-                  <div style={{fontSize:11,color:"#94a3b8"}}>{lt.policy_count} policies configured</div>
+                  <div className="hrl-list-item-muted">{lt.policy_count} policies configured</div>
                 </div>
-                {canManageTypes&&<div style={{display:"flex",gap:4}}>
-                  <button className="btn btn-ghost btn-sm" style={{fontSize:11}} onClick={()=>{setEditLtId(lt.id);setLtForm({name:lt.name,max_days_per_year:lt.max_days_per_year||"",is_active:lt.is_active,is_encashable:lt.is_encashable||false});}}>Edit</button>
-                  <button className="btn btn-ghost btn-sm" style={{color:"#dc2626",fontSize:11}} onClick={async()=>{await hrApi.deleteLeaveType(lt.id);loadTypes();}}>Deactivate</button>
+                {canManageTypes&&<div className="hrl-actions-cell">
+                  <button className="btn btn-ghost btn-sm hrl-action-btn" onClick={()=>{setEditLtId(lt.id);setLtForm({name:lt.name,max_days_per_year:lt.max_days_per_year||"",is_active:lt.is_active,is_encashable:lt.is_encashable||false});}}>Edit</button>
+                  <button className="btn btn-ghost btn-sm hrl-remove-btn" onClick={async()=>{await hrApi.deleteLeaveType(lt.id);loadTypes();}}>Deactivate</button>
                 </div>}
               </div>
             ))}
@@ -301,65 +302,64 @@ export default function HRLeave({ visibleTabs } = {}) {
       {tab==="policies" && (
         <div>
         {policiesLocked && (
-          <div style={{marginBottom:12,padding:"8px 12px",background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,fontSize:12,color:"#92400e"}}>
+          <div className="hrl-locked-alert">
             Leave Policies are managed centrally by the superadmin.
           </div>
         )}
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1.5fr",gap:20,alignItems:"start"}}>
+        <div className="hrl-two-col-grid">
           {canManagePolicies && (
-          <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",padding:16}}>
-            <div style={{fontWeight:700,fontSize:14,marginBottom:12}}>Add Leave Policy</div>
-            <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <div className="hrl-form-card">
+            <div className="hrl-form-card-title">Add Leave Policy</div>
+            <div className="hrl-form-column">
               <div>
-                <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Leave Type *</label>
-                <select className="form-input" style={{width:"100%",fontSize:13}} value={polForm.leave_type_id} onChange={e=>setPolForm(p=>({...p,leave_type_id:e.target.value}))}>
+                <label className="hrl-field-label">Leave Type *</label>
+                <select className="form-input hrl-full-input" value={polForm.leave_type_id} onChange={e=>setPolForm(p=>({...p,leave_type_id:e.target.value}))}>
                   <option value="">Select...</option>
                   {leaveTypes.map(lt=><option key={lt.id} value={lt.id}>{lt.name}</option>)}
                 </select>
               </div>
               <div>
-                <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Applies To</label>
-                <select className="form-input" style={{width:"100%",fontSize:13}} value={polForm.applies_to} onChange={e=>setPolForm(p=>({...p,applies_to:e.target.value,role_id:"",department_id:""}))}>
+                <label className="hrl-field-label">Applies To</label>
+                <select className="form-input hrl-full-input" value={polForm.applies_to} onChange={e=>setPolForm(p=>({...p,applies_to:e.target.value,role_id:"",department_id:""}))}>
                   <option value="role">Specific Role</option>
                   <option value="department">Specific Department</option>
                   <option value="all">All Staff</option>
                 </select>
               </div>
               {polForm.applies_to==="role"&&<div>
-                <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Role</label>
-                <select className="form-input" style={{width:"100%",fontSize:13}} value={polForm.role_id} onChange={e=>setPolForm(p=>({...p,role_id:e.target.value}))}>
+                <label className="hrl-field-label">Role</label>
+                <select className="form-input hrl-full-input" value={polForm.role_id} onChange={e=>setPolForm(p=>({...p,role_id:e.target.value}))}>
                   <option value="">Select role...</option>
                   {allRoles.filter(r=>!["student","parent"].includes(r.name)).map(r=><option key={r.id} value={r.id}>{rl(r.name)}</option>)}
                 </select>
               </div>}
               {polForm.applies_to==="department"&&<div>
-                <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Department</label>
-                <select className="form-input" style={{width:"100%",fontSize:13}} value={polForm.department_id} onChange={e=>setPolForm(p=>({...p,department_id:e.target.value}))}>
+                <label className="hrl-field-label">Department</label>
+                <select className="form-input hrl-full-input" value={polForm.department_id} onChange={e=>setPolForm(p=>({...p,department_id:e.target.value}))}>
                   <option value="">Select department...</option>
                   {depts.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
                 </select>
               </div>}
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+              <div className="hrl-grid-2col">
                 <div>
-                  <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Days/Year *</label>
-                  <input type="number" className="form-input" style={{width:"100%",fontSize:13}} value={polForm.days_per_year} onChange={e=>setPolForm(p=>({...p,days_per_year:e.target.value}))} placeholder="e.g. 21"/>
+                  <label className="hrl-field-label">Days/Year *</label>
+                  <input type="number" className="form-input hrl-full-input" value={polForm.days_per_year} onChange={e=>setPolForm(p=>({...p,days_per_year:e.target.value}))} placeholder="e.g. 21"/>
                 </div>
                 <div>
-                  <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Carry Forward</label>
-                  <input type="number" className="form-input" style={{width:"100%",fontSize:13}} value={polForm.carry_forward} onChange={e=>setPolForm(p=>({...p,carry_forward:e.target.value}))} placeholder="0"/>
+                  <label className="hrl-field-label">Carry Forward</label>
+                  <input type="number" className="form-input hrl-full-input" value={polForm.carry_forward} onChange={e=>setPolForm(p=>({...p,carry_forward:e.target.value}))} placeholder="0"/>
                 </div>
               </div>
-              <label style={{display:"flex",gap:8,alignItems:"center",fontSize:13,cursor:"pointer"}}>
+              <label className="hrl-checkbox-row">
                 <input type="checkbox" checked={polForm.is_paid} onChange={e=>setPolForm(p=>({...p,is_paid:e.target.checked}))}/>
                 Paid Leave
               </label>
               <div>
-                <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:6}}>Applicable Gender</label>
-                <div style={{display:"flex",gap:12}}>
+                <label className="hrl-field-label-mb6">Applicable Gender</label>
+                <div className="hrl-gender-radio-row">
                   {[["all","All Staff"],["male","Male Only"],["female","Female Only"]].map(([val,lbl])=>(
-                    <label key={val} style={{display:"flex",gap:6,alignItems:"center",fontSize:13,cursor:"pointer",
-                      padding:"6px 12px",borderRadius:8,border:"1px solid "+(polForm.gender===val?"#2563eb":"#e2e8f0"),
-                      background:polForm.gender===val?"#eff6ff":"#f8fafc",color:polForm.gender===val?"#2563eb":"#475569",fontWeight:600}}>
+                    <label key={val} className="hrl-gender-radio-label"
+                      style={{ "--radio-border": polForm.gender===val?"#2563eb":"var(--border-color)", "--radio-bg": polForm.gender===val?"var(--bg-info-soft)":"var(--bg-hover)", "--radio-color": polForm.gender===val?"#2563eb":"var(--text-secondary)" }}>
                       <input type="radio" name="policy_gender" value={val} checked={polForm.gender===val}
                         onChange={()=>setPolForm(p=>({...p,gender:val}))} style={{accentColor:"#2563eb"}}/>
                       {lbl}
@@ -367,35 +367,34 @@ export default function HRLeave({ visibleTabs } = {}) {
                   ))}
                 </div>
               </div>
-              <button className="btn btn-primary btn-sm" style={{color:"#fff"}} onClick={savePolicy}>Save Policy</button>
+              <button className="btn btn-primary btn-sm hrl-save-btn" onClick={savePolicy}>Save Policy</button>
             </div>
           </div>
           )}
-          <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",overflow:"hidden"}}>
-            <div style={{padding:"12px 16px",borderBottom:"1px solid #e2e8f0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <div style={{fontWeight:700,fontSize:14}}>Configured Policies</div>
-              <select className="form-input" style={{fontSize:12,width:180}} value={selLtForPolicy} onChange={e=>setSelLtForPolicy(e.target.value)}>
+          <div className="hrl-list-card">
+            <div className="hrl-list-card-header-row">
+              <div className="hrl-form-card-title" style={{marginBottom:0}}>Configured Policies</div>
+              <select className="form-input hrl-filter-select-sm" value={selLtForPolicy} onChange={e=>setSelLtForPolicy(e.target.value)}>
                 <option value="">All Leave Types</option>
                 {leaveTypes.map(lt=><option key={lt.id} value={lt.id}>{lt.name}</option>)}
               </select>
             </div>
-            {policies.length===0?<div style={{padding:30,textAlign:"center",color:"#94a3b8",fontSize:13}}>No policies configured.</div>:
+            {policies.length===0?<div className="hrl-empty-state">No policies configured.</div>:
             policies.map(p=>(
-              <div key={p.id} style={{padding:"10px 16px",borderBottom:"1px solid #f1f5f9",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div key={p.id} className="hrl-list-item-tight">
                 <div>
-                  <div style={{fontWeight:600,fontSize:13}}>{p.leave_type_name}</div>
-                  <div style={{fontSize:11,color:"#64748b"}}>
+                  <div className="hrl-list-item-name">{p.leave_type_name}</div>
+                  <div className="hrl-list-item-subtext">
                     {p.role_name?rl(p.role_name):p.department_name?"Dept: "+p.department_name:"All Staff"}
                     {" · "}{p.days_per_year} days/year
                     {p.carry_forward>0&&` · Carry: ${p.carry_forward}`}
-                    <span style={{marginLeft:6,color:p.is_paid?"#166534":"#64748b"}}>{p.is_paid?"(Paid)":"(Unpaid)"}</span>
-                    {p.gender&&p.gender!=="all"&&<span style={{marginLeft:6,padding:"1px 6px",borderRadius:6,fontSize:10,fontWeight:700,
-                      background:p.gender==="male"?"#eff6ff":"#fdf2f8",color:p.gender==="male"?"#1d4ed8":"#9d174d"}}>
+                    <span style={{marginLeft:6,color:p.is_paid?"#166534":"var(--text-secondary)"}}>{p.is_paid?"(Paid)":"(Unpaid)"}</span>
+                    {p.gender&&p.gender!=="all"&&<span className="hrl-tag-badge-ml6" style={{ "--tag-bg": p.gender==="male"?"var(--bg-info-soft)":"#fdf2f8", "--tag-color": p.gender==="male"?"#1d4ed8":"#9d174d" }}>
                       {p.gender==="male"?"♂ Male Only":"♀ Female Only"}
                     </span>}
                   </div>
                 </div>
-                {canManagePolicies&&<button className="btn btn-ghost btn-sm" style={{color:"#dc2626",fontSize:11}} onClick={async()=>{await hrApi.deleteLeavePolicy(p.id);loadPolicies();}}>Remove</button>}
+                {canManagePolicies&&<button className="btn btn-ghost btn-sm hrl-remove-btn" onClick={async()=>{await hrApi.deleteLeavePolicy(p.id);loadPolicies();}}>Remove</button>}
               </div>
             ))}
           </div>
@@ -406,85 +405,85 @@ export default function HRLeave({ visibleTabs } = {}) {
       {/* LEAVE RULES (extensible validation engine) */}
       {tab==="validation_rules" && (
         <div>
-          <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",padding:16,marginBottom:20}}>
-            <div style={{fontWeight:700,fontSize:14,marginBottom:12}}>Policy Settings</div>
+          <div className="hrl-settings-card">
+            <div className="hrl-form-card-title">Policy Settings</div>
             {policySettingsLocked && (
-              <div style={{marginBottom:10,padding:"8px 12px",background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,fontSize:12,color:"#92400e"}}>
+              <div className="hrl-locked-alert-mb10">
                 Policy Settings are managed centrally by the superadmin.
               </div>
             )}
-            <div style={{fontSize:11,color:"#64748b",marginBottom:10}}>
+            <div className="hrl-help-text">
               Probation is calculated from each employee's joining date. Notice period starts the day a resignation is accepted (status set to Resigned).
             </div>
-            <div style={{display:"flex",gap:12,alignItems:"flex-end",flexWrap:"wrap"}}>
+            <div className="hrl-inline-row">
               <div>
-                <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Probation Duration (days)</label>
-                <input type="number" className="form-input" style={{width:160,fontSize:13}} value={policySettings.probation_duration_days}
+                <label className="hrl-field-label">Probation Duration (days)</label>
+                <input type="number" className="form-input hrl-input-160" value={policySettings.probation_duration_days}
                   onChange={e=>setPolicySettings(p=>({...p,probation_duration_days:e.target.value}))}/>
               </div>
               <div>
-                <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Notice Period Duration (days)</label>
-                <input type="number" className="form-input" style={{width:160,fontSize:13}} value={policySettings.notice_period_duration_days}
+                <label className="hrl-field-label">Notice Period Duration (days)</label>
+                <input type="number" className="form-input hrl-input-160" value={policySettings.notice_period_duration_days}
                   onChange={e=>setPolicySettings(p=>({...p,notice_period_duration_days:e.target.value}))}/>
               </div>
-              {canManagePolicySettings&&<button className="btn btn-primary btn-sm" style={{color:"#fff"}} onClick={savePolicySettings}>Save</button>}
+              {canManagePolicySettings&&<button className="btn btn-primary btn-sm hrl-save-btn" onClick={savePolicySettings}>Save</button>}
             </div>
           </div>
 
-          <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",padding:16,marginBottom:20}}>
-            <div style={{fontWeight:700,fontSize:14,marginBottom:12}}>Certificate Types</div>
+          <div className="hrl-settings-card">
+            <div className="hrl-form-card-title">Certificate Types</div>
             {certTypesLocked && (
-              <div style={{marginBottom:10,padding:"8px 12px",background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,fontSize:12,color:"#92400e"}}>
+              <div className="hrl-locked-alert-mb10">
                 Certificate Types are managed centrally by the superadmin.
               </div>
             )}
             {canManageCertTypes&&(
-              <div style={{display:"flex",gap:8,marginBottom:12}}>
-                <input className="form-input" placeholder="e.g. Medical Certificate" style={{flex:1,fontSize:13}}
+              <div className="hrl-cert-add-row">
+                <input className="form-input hrl-cert-input" placeholder="e.g. Medical Certificate"
                   value={certTypeForm.name} onChange={e=>setCertTypeForm(p=>({...p,name:e.target.value}))}/>
-                <input className="form-input" placeholder="Description (optional)" style={{flex:1,fontSize:13}}
+                <input className="form-input hrl-cert-input" placeholder="Description (optional)"
                   value={certTypeForm.description} onChange={e=>setCertTypeForm(p=>({...p,description:e.target.value}))}/>
-                <button className="btn btn-primary btn-sm" style={{color:"#fff",whiteSpace:"nowrap"}} onClick={saveCertType}>+ Add</button>
+                <button className="btn btn-primary btn-sm hrl-save-btn" style={{whiteSpace:"nowrap"}} onClick={saveCertType}>+ Add</button>
               </div>
             )}
-            <div style={{display:"flex",flexWrap:"wrap",gap:8}}>
-              {certTypes.length===0?<div style={{fontSize:12,color:"#94a3b8"}}>No certificate types yet.</div>:
+            <div className="hrl-chips-row">
+              {certTypes.length===0?<div className="hrl-list-item-muted" style={{fontSize:12}}>No certificate types yet.</div>:
               certTypes.map(ct=>(
-                <div key={ct.id} style={{display:"flex",alignItems:"center",gap:6,padding:"6px 10px",borderRadius:20,background:"#f8fafc",border:"1px solid #e2e8f0",fontSize:12,fontWeight:600}}>
+                <div key={ct.id} className="hrl-chip">
                   {ct.name}
-                  {canManageCertTypes&&<button className="btn btn-ghost btn-sm" style={{color:"#dc2626",fontSize:10,padding:"0 2px"}}
+                  {canManageCertTypes&&<button className="btn btn-ghost btn-sm hrl-chip-remove-btn"
                     onClick={async()=>{await hrApi.deleteCertificateType(ct.id);loadCertTypes();}}>✕</button>}
                 </div>
               ))}
             </div>
           </div>
 
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1.5fr",gap:20,alignItems:"start"}}>
+          <div className="hrl-two-col-grid">
             {rulesLocked && (
-              <div style={{gridColumn:"1 / -1",padding:"8px 12px",background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,fontSize:12,color:"#92400e"}}>
+              <div className="hrl-locked-alert-full">
                 Leave Validation Rules are managed centrally by the superadmin.
               </div>
             )}
             {canManageRules && (
-            <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",padding:16}}>
-              <div style={{fontWeight:700,fontSize:14,marginBottom:12}}>Add Leave Rule</div>
-              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+            <div className="hrl-form-card">
+              <div className="hrl-form-card-title">Add Leave Rule</div>
+              <div className="hrl-form-column">
                 <div>
-                  <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Rule Name *</label>
-                  <input className="form-input" style={{width:"100%",fontSize:13}} placeholder="e.g. Sick leave needs medical cert"
+                  <label className="hrl-field-label">Rule Name *</label>
+                  <input className="form-input hrl-full-input" placeholder="e.g. Sick leave needs medical cert"
                     value={vRuleForm.name} onChange={e=>setVRuleForm(p=>({...p,name:e.target.value}))}/>
                 </div>
                 <div>
-                  <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Applies To Leave Type</label>
-                  <select className="form-input" style={{width:"100%",fontSize:13}} value={vRuleForm.leave_type_id}
+                  <label className="hrl-field-label">Applies To Leave Type</label>
+                  <select className="form-input hrl-full-input" value={vRuleForm.leave_type_id}
                     onChange={e=>setVRuleForm(p=>({...p,leave_type_id:e.target.value}))}>
                     <option value="">All Leave Types</option>
                     {leaveTypes.map(lt=><option key={lt.id} value={lt.id}>{lt.name}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Rule Type *</label>
-                  <select className="form-input" style={{width:"100%",fontSize:13}} value={vRuleForm.rule_type}
+                  <label className="hrl-field-label">Rule Type *</label>
+                  <select className="form-input hrl-full-input" value={vRuleForm.rule_type}
                     onChange={e=>setVRuleForm(p=>({...p,rule_type:e.target.value}))}>
                     <option value="certificate_required">Certificate Required</option>
                     <option value="cannot_combine_with">Cannot Combine With Another Leave Type</option>
@@ -500,16 +499,16 @@ export default function HRLeave({ visibleTabs } = {}) {
                 {vRuleForm.rule_type==="certificate_required" && (
                   <>
                     <div>
-                      <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Certificate Type *</label>
-                      <select className="form-input" style={{width:"100%",fontSize:13}} value={vRuleForm.certificate_type_id}
+                      <label className="hrl-field-label">Certificate Type *</label>
+                      <select className="form-input hrl-full-input" value={vRuleForm.certificate_type_id}
                         onChange={e=>setVRuleForm(p=>({...p,certificate_type_id:e.target.value}))}>
                         <option value="">Select...</option>
                         {certTypes.map(ct=><option key={ct.id} value={ct.id}>{ct.name}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Required When Leave Is At Least (days)</label>
-                      <input type="number" className="form-input" style={{width:"100%",fontSize:13}} value={vRuleForm.min_days}
+                      <label className="hrl-field-label">Required When Leave Is At Least (days)</label>
+                      <input type="number" className="form-input hrl-full-input" value={vRuleForm.min_days}
                         onChange={e=>setVRuleForm(p=>({...p,min_days:e.target.value}))} placeholder="e.g. 3"/>
                     </div>
                   </>
@@ -518,10 +517,10 @@ export default function HRLeave({ visibleTabs } = {}) {
                 {vRuleForm.rule_type==="cannot_combine_with" && (
                   <>
                     <div>
-                      <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Excluded Leave Type(s) *</label>
-                      <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:140,overflowY:"auto",border:"1px solid #e2e8f0",borderRadius:8,padding:8}}>
+                      <label className="hrl-field-label">Excluded Leave Type(s) *</label>
+                      <div className="hrl-checkbox-list-box">
                         {leaveTypes.map(lt=>(
-                          <label key={lt.id} style={{display:"flex",gap:8,alignItems:"center",fontSize:12,cursor:"pointer"}}>
+                          <label key={lt.id} className="hrl-checkbox-list-item">
                             <input type="checkbox" checked={vRuleForm.excluded_leave_type_ids.includes(lt.id)}
                               onChange={e=>setVRuleForm(p=>({...p,excluded_leave_type_ids: e.target.checked
                                 ? [...p.excluded_leave_type_ids, lt.id]
@@ -532,44 +531,44 @@ export default function HRLeave({ visibleTabs } = {}) {
                       </div>
                     </div>
                     <div>
-                      <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Custom Error Message (optional)</label>
-                      <input className="form-input" style={{width:"100%",fontSize:13}} placeholder="Shown to staff if they violate this rule"
+                      <label className="hrl-field-label">Custom Error Message (optional)</label>
+                      <input className="form-input hrl-full-input" placeholder="Shown to staff if they violate this rule"
                         value={vRuleForm.message} onChange={e=>setVRuleForm(p=>({...p,message:e.target.value}))}/>
                     </div>
                   </>
                 )}
 
                 {(vRuleForm.rule_type==="leave_balance"||vRuleForm.rule_type==="leave_overlap") && (
-                  <div style={{fontSize:12,color:"#64748b",padding:"8px",background:"#f8fafc",border:"1px solid #e2e8f0",borderRadius:6}}>
+                  <div className="hrl-info-box">
                     No extra configuration needed for this rule - it applies as-is once saved.
                   </div>
                 )}
 
                 {vRuleForm.rule_type==="advance_notice" && (
                   <div>
-                    <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Minimum Notice (days) *</label>
-                    <input type="number" className="form-input" style={{width:"100%",fontSize:13}} value={vRuleForm.min_days_notice}
+                    <label className="hrl-field-label">Minimum Notice (days) *</label>
+                    <input type="number" className="form-input hrl-full-input" value={vRuleForm.min_days_notice}
                       onChange={e=>setVRuleForm(p=>({...p,min_days_notice:e.target.value}))} placeholder="e.g. 3"/>
                   </div>
                 )}
 
                 {vRuleForm.rule_type==="max_consecutive_days" && (
                   <div>
-                    <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Maximum Consecutive Days *</label>
-                    <input type="number" className="form-input" style={{width:"100%",fontSize:13}} value={vRuleForm.max_days}
+                    <label className="hrl-field-label">Maximum Consecutive Days *</label>
+                    <input type="number" className="form-input hrl-full-input" value={vRuleForm.max_days}
                       onChange={e=>setVRuleForm(p=>({...p,max_days:e.target.value}))} placeholder="e.g. 10"/>
                   </div>
                 )}
 
                 {vRuleForm.rule_type==="blackout_dates" && (
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+                  <div className="hrl-grid-2col">
                     <div>
-                      <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Blackout From *</label>
+                      <label className="hrl-field-label">Blackout From *</label>
                       <DatePicker style={{width:"100%",fontSize:13}} value={vRuleForm.blackout_from}
                         onChange={val=>setVRuleForm(p=>({...p,blackout_from:val}))}/>
                     </div>
                     <div>
-                      <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Blackout To *</label>
+                      <label className="hrl-field-label">Blackout To *</label>
                       <DatePicker style={{width:"100%",fontSize:13}} value={vRuleForm.blackout_to}
                         onChange={val=>setVRuleForm(p=>({...p,blackout_to:val}))}/>
                     </div>
@@ -579,17 +578,17 @@ export default function HRLeave({ visibleTabs } = {}) {
                 {vRuleForm.rule_type==="employment_status_restriction" && (
                   <>
                     <div>
-                      <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Restrict During *</label>
-                      <select className="form-input" style={{width:"100%",fontSize:13}} value={vRuleForm.employment_status}
+                      <label className="hrl-field-label">Restrict During *</label>
+                      <select className="form-input hrl-full-input" value={vRuleForm.employment_status}
                         onChange={e=>setVRuleForm(p=>({...p,employment_status:e.target.value}))}>
                         <option value="probation">Probation Period</option>
                         <option value="notice_period">Notice Period</option>
                       </select>
-                      <div style={{fontSize:11,color:"#94a3b8",marginTop:4}}>Remember to pick the specific Leave Type above under "Applies To" - this quota is per leave type.</div>
+                      <div className="hrl-help-text-mt4">Remember to pick the specific Leave Type above under "Applies To" - this quota is per leave type.</div>
                     </div>
                     <div>
-                      <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Days Allowed During This Period *</label>
-                      <input type="number" min="0" className="form-input" style={{width:"100%",fontSize:13}} value={vRuleForm.max_days_allowed}
+                      <label className="hrl-field-label">Days Allowed During This Period *</label>
+                      <input type="number" min="0" className="form-input hrl-full-input" value={vRuleForm.max_days_allowed}
                         onChange={e=>setVRuleForm(p=>({...p,max_days_allowed:e.target.value}))} placeholder="e.g. 0 (fully blocked) or 2"/>
                     </div>
                   </>
@@ -597,25 +596,25 @@ export default function HRLeave({ visibleTabs } = {}) {
 
                 {(vRuleForm.rule_type==="leave_overlap"||vRuleForm.rule_type==="advance_notice"||vRuleForm.rule_type==="max_consecutive_days"||vRuleForm.rule_type==="blackout_dates"||vRuleForm.rule_type==="leave_balance"||vRuleForm.rule_type==="employment_status_restriction") && (
                   <div>
-                    <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Custom Error Message (optional)</label>
-                    <input className="form-input" style={{width:"100%",fontSize:13}} placeholder="Shown to staff if they violate this rule"
+                    <label className="hrl-field-label">Custom Error Message (optional)</label>
+                    <input className="form-input hrl-full-input" placeholder="Shown to staff if they violate this rule"
                       value={vRuleForm.message} onChange={e=>setVRuleForm(p=>({...p,message:e.target.value}))}/>
                   </div>
                 )}
 
-                <button className="btn btn-primary btn-sm" style={{color:"#fff"}} onClick={saveValidationRule}>Save Rule</button>
+                <button className="btn btn-primary btn-sm hrl-save-btn" onClick={saveValidationRule}>Save Rule</button>
               </div>
             </div>
             )}
 
-            <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",overflow:"hidden"}}>
-              <div style={{padding:"12px 16px",borderBottom:"1px solid #e2e8f0",fontWeight:700,fontSize:14}}>Configured Rules ({validationRules.length})</div>
-              {validationRules.length===0?<div style={{padding:30,textAlign:"center",color:"#94a3b8",fontSize:13}}>No leave rules configured yet.</div>:
+            <div className="hrl-list-card">
+              <div className="hrl-list-card-header">Configured Rules ({validationRules.length})</div>
+              {validationRules.length===0?<div className="hrl-empty-state">No leave rules configured yet.</div>:
               validationRules.map(r=>(
-                <div key={r.id} style={{padding:"12px 16px",borderBottom:"1px solid #f1f5f9",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:8}}>
+                <div key={r.id} className="hrl-list-item-start">
                   <div>
-                    <div style={{fontWeight:600,fontSize:13}}>{r.name}</div>
-                    <div style={{fontSize:11,color:"#64748b",marginTop:2}}>
+                    <div className="hrl-list-item-name">{r.name}</div>
+                    <div className="hrl-list-item-subtext">
                       {r.leave_type_name?r.leave_type_name:"All leave types"}
                       {" · "}
                       {({
@@ -630,7 +629,7 @@ export default function HRLeave({ visibleTabs } = {}) {
                       })[r.rule_type] || r.rule_type}
                     </div>
                   </div>
-                  {canManageRules&&<button className="btn btn-ghost btn-sm" style={{color:"#dc2626",fontSize:11,flexShrink:0}}
+                  {canManageRules&&<button className="btn btn-ghost btn-sm hrl-remove-btn-shrink"
                     onClick={async()=>{await hrApi.deleteValidationRule(r.id);loadValidationRules();}}>Remove</button>}
                 </div>
               ))}
@@ -642,45 +641,45 @@ export default function HRLeave({ visibleTabs } = {}) {
       {/* LEAVE BALANCES */}
       {tab==="balances" && (
         <div>
-          <div style={{display:"flex",gap:10,marginBottom:16,alignItems:"center",flexWrap:"wrap"}}>
-            <div style={{display:"flex",gap:8,alignItems:"center"}}>
-              <label style={{fontSize:12,fontWeight:600}}>Year:</label>
-              <input type="number" className="form-input" style={{width:100,fontSize:13}} value={balYear} onChange={e=>setBalYear(Number(e.target.value))}/>
+          <div className="hrl-controls-row">
+            <div className="hrl-year-field">
+              <label className="hrl-field-label" style={{marginBottom:0}}>Year:</label>
+              <input type="number" className="form-input hrl-year-input" value={balYear} onChange={e=>setBalYear(Number(e.target.value))}/>
             </div>
-            {canEdit&&<button className="btn btn-primary btn-sm" style={{color:"#fff"}} onClick={initBalances}>Initialize Balances for {balYear}</button>}
-            <div style={{fontSize:12,color:"#64748b"}}>Initializes missing balance records based on leave policies.</div>
+            {canEdit&&<button className="btn btn-primary btn-sm hrl-save-btn" onClick={initBalances}>Initialize Balances for {balYear}</button>}
+            <div className="hrl-controls-desc">Initializes missing balance records based on leave policies.</div>
           </div>
-          {loading?<div style={{padding:40,textAlign:"center",color:"#64748b"}}>Loading...</div>:
-          <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",overflow:"hidden"}}>
-            <table style={{width:"100%",borderCollapse:"collapse"}}>
+          {loading?<div className="hrl-loading-text">Loading...</div>:
+          <div className="hrl-table-wrap">
+            <table className="hrl-table">
               <thead>
-                <tr style={{background:"#f8fafc"}}>
+                <tr className="hrl-th-row">
                   {["Staff","Role","Leave Type","Total","Used","Carried","Remaining",""].map(h=>(
-                    <th key={h} style={{padding:"10px 12px",textAlign:"left",fontSize:11,fontWeight:700,color:"#64748b",borderBottom:"1px solid #e2e8f0"}}>{h}</th>
+                    <th key={h} className="hrl-th">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {balances.length===0?<tr><td colSpan={8} style={{padding:30,textAlign:"center",color:"#94a3b8",fontSize:13}}>No balances. Click Initialize to create.</td></tr>:
+                {balances.length===0?<tr><td colSpan={8} className="hrl-empty-state">No balances. Click Initialize to create.</td></tr>:
                 balances.map(b=>(
-                  <tr key={b.id} style={{borderBottom:"1px solid #f1f5f9"}}>
-                    <td style={{padding:"9px 12px",fontSize:13,fontWeight:500}}>{b.staff_name}</td>
-                    <td style={{padding:"9px 12px",fontSize:12,color:"#64748b"}}>{rl(b.role_name)}</td>
-                    <td style={{padding:"9px 12px",fontSize:12}}>{b.leave_type_name}</td>
-                    <td style={{padding:"9px 12px",fontSize:13,textAlign:"center"}}>
+                  <tr key={b.id} className="hrl-tr">
+                    <td className="hrl-td" style={{fontWeight:500}}>{b.staff_name}</td>
+                    <td className="hrl-td-muted">{rl(b.role_name)}</td>
+                    <td className="hrl-td-sm">{b.leave_type_name}</td>
+                    <td className="hrl-td-center">
                       {editBalId===b.id?
-                        <input type="number" className="form-input" style={{width:60,fontSize:12,padding:"2px 6px"}} value={editBalDays} onChange={e=>setEditBalDays(e.target.value)}/>:
+                        <input type="number" className="form-input hrl-edit-input-sm" value={editBalDays} onChange={e=>setEditBalDays(e.target.value)}/>:
                         b.total_days}
                     </td>
-                    <td style={{padding:"9px 12px",fontSize:13,textAlign:"center",color:"#dc2626"}}>{b.used_days}</td>
-                    <td style={{padding:"9px 12px",fontSize:13,textAlign:"center",color:"#7c3aed"}}>{b.carried_days}</td>
-                    <td style={{padding:"9px 12px",fontSize:13,textAlign:"center"}}>
-                      <span style={{fontWeight:700,color:b.remaining_days>0?"#166534":"#dc2626"}}>{b.remaining_days}</span>
+                    <td className="hrl-td-red">{b.used_days}</td>
+                    <td className="hrl-td-purple">{b.carried_days}</td>
+                    <td className="hrl-td-center">
+                      <span className="hrl-remaining-value" style={{ "--rem-color": b.remaining_days>0?"#166534":"#dc2626" }}>{b.remaining_days}</span>
                     </td>
-                    <td style={{padding:"9px 12px"}}>
+                    <td className="hrl-td">
                       {canEdit&&(editBalId===b.id?
-                        <div style={{display:"flex",gap:4}}>
-                          <button className="btn btn-primary btn-sm" style={{color:"#fff",fontSize:11}} onClick={adjustBalance}>Save</button>
+                        <div className="hrl-inline-actions">
+                          <button className="btn btn-primary btn-sm hrl-save-btn" style={{fontSize:11}} onClick={adjustBalance}>Save</button>
                           <button className="btn btn-ghost btn-sm" style={{fontSize:11}} onClick={()=>setEditBalId(null)}>Cancel</button>
                         </div>:
                         <button className="btn btn-ghost btn-sm" style={{fontSize:11}} onClick={()=>{setEditBalId(b.id);setEditBalDays(b.total_days);}}>Adjust</button>
@@ -697,54 +696,54 @@ export default function HRLeave({ visibleTabs } = {}) {
       {/* LEAVE REQUESTS */}
       {tab==="requests" && (
         <div>
-          <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap"}}>
+          <div className="hrl-filter-btn-row">
             {["","pending","approved","rejected"].map(s=>(
               <button key={s} onClick={()=>setReqFilter(s)}
-                style={{padding:"6px 14px",borderRadius:8,border:"1px solid "+(reqFilter===s?"#2563eb":"#e2e8f0"),background:reqFilter===s?"#2563eb":"#f8fafc",color:reqFilter===s?"#fff":"#475569",fontSize:12,fontWeight:600,cursor:"pointer"}}>
+                className="hrl-filter-btn"
+                style={{ "--btn-border": reqFilter===s?"#2563eb":"var(--border-color)", "--btn-bg": reqFilter===s?"#2563eb":"var(--bg-hover)", "--btn-color": reqFilter===s?"#fff":"var(--text-secondary)" }}>
                 {s?s.charAt(0).toUpperCase()+s.slice(1):"All"}
               </button>
             ))}
           </div>
-          <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",overflow:"hidden"}}>
-            {requests.length===0?<div style={{padding:40,textAlign:"center",color:"#94a3b8"}}>No leave requests found.</div>:
-            <table style={{width:"100%",borderCollapse:"collapse"}}>
+          <div className="hrl-table-wrap">
+            {requests.length===0?<div className="hrl-loading-text">No leave requests found.</div>:
+            <table className="hrl-table">
               <thead>
-                <tr style={{background:"#f8fafc"}}>
+                <tr className="hrl-th-row">
                   {["Staff","Role","Leave Type","From","To","Days","Reason","Applied","Status","Action"].map(h=>(
-                    <th key={h} style={{padding:"10px 12px",textAlign:"left",fontSize:11,fontWeight:700,color:"#64748b",borderBottom:"1px solid #e2e8f0",whiteSpace:"nowrap"}}>{h}</th>
+                    <th key={h} className="hrl-th-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {requests.map(r=>(
-                  <tr key={r.id} style={{borderBottom:"1px solid #f1f5f9"}}>
-                    <td style={{padding:"10px 12px",fontWeight:600,fontSize:13,whiteSpace:"nowrap"}}>{r.staff_name}</td>
-                    <td style={{padding:"10px 12px",fontSize:12,color:"#64748b",whiteSpace:"nowrap"}}>{rl(r.role_name)}</td>
-                    <td style={{padding:"10px 12px",fontSize:12,whiteSpace:"nowrap"}}>{r.leave_type_name}</td>
-                    <td style={{padding:"10px 12px",fontSize:12,whiteSpace:"nowrap"}}>{r.from_date}</td>
-                    <td style={{padding:"10px 12px",fontSize:12,whiteSpace:"nowrap"}}>{r.to_date}</td>
-                    <td style={{padding:"10px 12px",fontSize:13,textAlign:"center",fontWeight:700}}>{r.total_days}</td>
-                    <td style={{padding:"10px 12px",fontSize:12,color:"#64748b",maxWidth:160}}>
-                      <div style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}} title={r.reason}>{r.reason}</div>
-                      {r.review_note&&<div style={{fontSize:10,color:"#7c3aed",marginTop:2}}>📝 {r.review_note}</div>}
+                  <tr key={r.id} className="hrl-tr">
+                    <td className="hrl-td-nowrap">{r.staff_name}</td>
+                    <td className="hrl-td-muted-nowrap">{rl(r.role_name)}</td>
+                    <td className="hrl-td-sm-nowrap">{r.leave_type_name}</td>
+                    <td className="hrl-td-sm-nowrap">{r.from_date}</td>
+                    <td className="hrl-td-sm-nowrap">{r.to_date}</td>
+                    <td className="hrl-td-center-bold">{r.total_days}</td>
+                    <td className="hrl-td-reason">
+                      <div className="hrl-reason-truncate" title={r.reason}>{r.reason}</div>
+                      {r.review_note&&<div className="hrl-review-note-text">📝 {r.review_note}</div>}
                     </td>
-                    <td style={{padding:"10px 12px",fontSize:11,color:"#94a3b8",whiteSpace:"nowrap"}}>{r.applied_at?.slice(0,10)}</td>
-                    <td style={{padding:"10px 12px"}}>
-                      <span style={{padding:"3px 10px",borderRadius:10,fontSize:11,fontWeight:700,whiteSpace:"nowrap",
-                        background:ss(r.status).bg,color:ss(r.status).color,border:"1px solid "+ss(r.status).border}}>
+                    <td className="hrl-td-applied">{r.applied_at?.slice(0,10)}</td>
+                    <td className="hrl-td">
+                      <span className="hrl-status-badge" style={{ "--status-bg": ss(r.status).bg, "--status-color": ss(r.status).color, "--status-border": ss(r.status).border }}>
                         {r.status}
                       </span>
                     </td>
-                    <td style={{padding:"10px 12px",minWidth:160}}>
+                    <td className="hrl-td-minwidth">
                       {canApprove && r.status==="pending" && (
                         reviewId===r.id ? (
-                          <div style={{display:"flex",flexDirection:"column",gap:4}}>
-                            <textarea className="form-input" placeholder="Review note (optional)" rows={2} style={{fontSize:11,width:150}}
+                          <div className="hrl-review-column">
+                            <textarea className="form-input hrl-review-textarea" placeholder="Review note (optional)" rows={2}
                               value={reviewNote} onChange={e=>setReviewNote(e.target.value)}/>
-                            <div style={{display:"flex",gap:4}}>
-                              <button className="btn btn-primary btn-sm" style={{color:"#fff",fontSize:10}} onClick={()=>reviewRequest(r.id,"approved")}>Approve</button>
-                              <button className="btn btn-ghost btn-sm" style={{color:"#dc2626",fontSize:10}} onClick={()=>reviewRequest(r.id,"rejected")}>Reject</button>
-                              <button className="btn btn-ghost btn-sm" style={{fontSize:10}} onClick={()=>setReviewId(null)}>✕</button>
+                            <div className="hrl-review-actions-row">
+                              <button className="btn btn-primary btn-sm hrl-approve-btn" onClick={()=>reviewRequest(r.id,"approved")}>Approve</button>
+                              <button className="btn btn-ghost btn-sm hrl-reject-btn" onClick={()=>reviewRequest(r.id,"rejected")}>Reject</button>
+                              <button className="btn btn-ghost btn-sm hrl-close-btn" onClick={()=>setReviewId(null)}>✕</button>
                             </div>
                           </div>
                         ) : (
@@ -760,9 +759,9 @@ export default function HRLeave({ visibleTabs } = {}) {
         </div>
       )}
 
-      {flash&&<div style={{position:"fixed",bottom:20,right:20,zIndex:9999,padding:"10px 18px",borderRadius:8,
-        background:flash.type==="success"?"#dcfce7":"#fee2e2",color:flash.type==="success"?"#166534":"#dc2626",
-        boxShadow:"0 4px 12px rgba(0,0,0,0.15)",fontSize:14,fontWeight:600}}>{flash.msg}</div>}
+      {flash&&<div className="hrl-flash-toast" style={{
+        "--flash-bg": flash.type==="success"?"#dcfce7":"#fee2e2", "--flash-color": flash.type==="success"?"#166534":"#dc2626"
+        }}>{flash.msg}</div>}
     </div>
   );
 }

@@ -1,0 +1,287 @@
+.pst-loading {
+  padding: 60px;
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.pst-page {
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.pst-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.pst-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-heading);
+}
+
+.pst-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.pst-add-btn {
+  color: #fff;
+}
+
+.pst-readonly-alert {
+  margin: 0 20px 16px;
+  padding: 8px 12px;
+  background: var(--bg-warning-soft);
+  border: 1px solid var(--border-warning-soft);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--text-warning-soft);
+}
+
+.pst-flash {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--flash-bg);
+  color: var(--flash-color);
+}
+
+.pst-filter-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.pst-filter-btn-active {
+  color: #fff;
+}
+
+.pst-table-wrap {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.pst-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.pst-th-row {
+  background: var(--bg-hover);
+}
+
+.pst-th {
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.pst-tr {
+  border-bottom: 1px solid var(--border-color);
+  opacity: var(--row-opacity);
+}
+
+.pst-td-name {
+  padding: 10px 14px;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.pst-basic-tag {
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--bg-info-soft);
+  color: #1d4ed8;
+}
+
+.pst-income-tax-tag {
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--bg-danger-soft);
+  color: #dc2626;
+}
+
+.pst-td-type {
+  padding: 10px 14px;
+}
+
+.pst-type-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 10px;
+  background: var(--badge-bg);
+  color: var(--badge-color);
+}
+
+.pst-td-calc {
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.pst-td-permanent {
+  padding: 10px 14px;
+  font-size: 12px;
+}
+
+.pst-permanent-yes {
+  color: #166534;
+  font-weight: 600;
+}
+
+.pst-permanent-no {
+  color: var(--text-muted);
+}
+
+.pst-td-taxable {
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.pst-td-status {
+  padding: 10px 14px;
+  font-size: 12px;
+}
+
+.pst-status-active {
+  color: #166534;
+}
+
+.pst-status-inactive {
+  color: #dc2626;
+}
+
+.pst-actions-cell {
+  padding: 10px 14px;
+  display: flex;
+  gap: 6px;
+}
+
+.pst-edit-btn {
+  font-size: 11px;
+}
+
+.pst-deactivate-btn {
+  font-size: 11px;
+  color: #dc2626;
+}
+
+.pst-empty-td {
+  padding: 30px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.pst-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: rgba(15,23,42,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.pst-modal-box {
+  background: var(--bg-card);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 460px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+}
+
+.pst-modal-header {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.pst-modal-title {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.pst-modal-body {
+  padding: 20px;
+}
+
+.pst-error-box {
+  margin-bottom: 14px;
+  padding: 10px 14px;
+  background: var(--bg-danger-soft);
+  border: 1px solid var(--border-danger-soft);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-danger-soft);
+  font-weight: 600;
+}
+
+.pst-form-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pst-field-label {
+  font-size: 12px;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.pst-full-input {
+  width: 100%;
+  font-size: 13px;
+}
+
+.pst-grid-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.pst-checkbox-label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.pst-help-text {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.pst-btn-row {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.pst-save-btn {
+  color: #fff;
+}

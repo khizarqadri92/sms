@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import procurementApi from "../api/procurementApi";
 import RequisitionDetailModal from "../components/RequisitionDetailModal";
 import { useAutoOpenById } from "../hooks/useAutoOpenById";
+import "./PendingApprovals.css";
 
 export default function PendingApprovals() {
   const [pending, setPending] = useState([]);
@@ -29,12 +30,12 @@ export default function PendingApprovals() {
 
   return (
     <div>
-      <div className="page-header" style={{ marginBottom: 16 }}>
+      <div className="page-header pending-approvals-header">
         <h1 className="page-heading">Pending My Approval</h1>
       </div>
 
-      {success && <div className="alert alert-success" style={{ marginBottom: 16 }}>{success}</div>}
-      {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
+      {success && <div className="alert alert-success pending-approvals-alert">{success}</div>}
+      {error && <div className="alert alert-error pending-approvals-alert">{error}</div>}
 
       {loading ? (
         <div className="loading-state">Loading...</div>
@@ -60,9 +61,9 @@ export default function PendingApprovals() {
                   <td><strong>{pr.pr_number}</strong></td>
                   <td>{pr.requested_by_name}</td>
                   <td>{pr.department_name || "-"}</td>
-                  <td style={{ textTransform: "capitalize" }}>{pr.priority}{pr.is_emergency && " (Emergency)"}</td>
+                  <td className="pending-approvals-priority">{pr.priority}{pr.is_emergency && " (Emergency)"}</td>
                   <td>Rs. {Number(pr.total_estimated_amount).toLocaleString()}</td>
-                  <td style={{ fontSize: 12, color: "#64748b" }}>Step {pr.current_step_order} of {pr.total_steps}</td>
+                  <td className="pending-approvals-step">Step {pr.current_step_order} of {pr.total_steps}</td>
                   <td>
                     <button className="btn btn-primary btn-xs" onClick={() => setViewId(pr.id)}>Review</button>
                   </td>

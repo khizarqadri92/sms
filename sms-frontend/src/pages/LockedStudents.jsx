@@ -4,6 +4,7 @@ import academicsApi from "../api/academicsApi";
 import DatePicker from "../components/DatePicker";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
 import { useAuth } from "../auth/AuthContext";
+import "./LockedStudents.css";
 
 
 
@@ -61,20 +62,20 @@ export default function LockedStudents() {
         <h1 className="page-heading">Locked Students (Unpaid Fees)</h1>
       </div>
 
-      <div className="section-card" style={{ marginBottom:16 }}>
-        <div style={{ display:"flex", gap:10, alignItems:"flex-end", flexWrap:"wrap" }}>
-          <div className="form-group" style={{ flex:1, minWidth:200, marginBottom:0 }}>
+      <div className="section-card ls-filter-card">
+        <div className="ls-filter-row">
+          <div className="form-group ls-filter-field">
             <label className="form-label">Student</label>
             <input className="form-control" placeholder="Name or enrollment no." value={filters.student} onChange={e => setFilters({...filters, student:e.target.value})} onKeyDown={e => e.key === "Enter" && applyFilters()} />
           </div>
           <button className="btn btn-primary" onClick={applyFilters}>Filter</button>
-          <button className="btn btn-ghost" onClick={() => setAdvancedOpen(!advancedOpen)} style={{ color:"#2563eb", fontSize:13 }}>
+          <button className="btn btn-ghost ls-advanced-toggle" onClick={() => setAdvancedOpen(!advancedOpen)}>
             {advancedOpen ? "Hide Advanced Search \u25b4" : "Advanced Search \u25be"}
           </button>
         </div>
 
         {advancedOpen && (
-          <div style={{ marginTop:16, paddingTop:16, borderTop:"1px solid #e2e8f0" }}>
+          <div className="ls-advanced-panel">
             <div className="form-grid">
               <div className="form-group">
                 <label className="form-label">Class</label>
@@ -94,7 +95,7 @@ export default function LockedStudents() {
                 <DatePicker value={filters.to_date} onChange={val => setFilters({...filters, to_date:val})} />
               </div>
             </div>
-            <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
+            <div className="ls-advanced-footer">
               <button className="btn btn-secondary" onClick={clearFilters}>Clear</button>
               <button className="btn btn-primary" onClick={applyFilters}>Apply Filters</button>
             </div>
@@ -128,7 +129,7 @@ export default function LockedStudents() {
                 <tbody>
                   {rows.map(r => (
                     <tr key={r.user_id}>
-                      <td style={{ fontWeight: 600 }}>{r.first_name} {r.last_name}</td>
+                      <td className="ls-td-bold">{r.first_name} {r.last_name}</td>
                       <td>{r.enrollment_no}</td>
                       <td>{r.class_name ? r.class_name + (r.class_section ? " (" + r.class_section + ")" : "") : "-"}</td>
                       <td>{r.invoice_no || "-"}</td>

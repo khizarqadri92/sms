@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import teachersApi from "../api/teachersApi";
 import DatePicker from "../components/DatePicker";
+import "./Teachers.css";
 
 export default function Teachers() {
   const { can } = useAuth();
@@ -91,13 +92,12 @@ export default function Teachers() {
 
       {error && <div className="alert alert-error">{error}</div>}
 
-      <div style={{ display:"flex", gap:10, marginBottom:16, flexWrap:"wrap" }}>
+      <div className="t-filter-row">
         <input
-          className="search-input"
+          className="search-input t-search-input"
           placeholder="Search by name or employee no..."
           value={search}
           onChange={e => { setSearch(e.target.value); setPage(1); }}
-          style={{ flex:1, minWidth:200 }}
         />
         <select className="filter-select" value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}>
           <option value="">All statuses</option>
@@ -107,7 +107,7 @@ export default function Teachers() {
       </div>
 
       {showCreate && (
-        <div className="section-card" style={{ marginBottom:16 }}>
+        <div className="section-card t-create-card">
           <div className="section-card-header">
             <span className="section-card-title">Add New Teacher</span>
             <button className="btn btn-ghost btn-sm" onClick={() => setShowCreate(false)}>Cancel</button>
@@ -156,7 +156,7 @@ export default function Teachers() {
                 <input className="form-control" value={form.password} onChange={e => setForm({...form, password:e.target.value})} required />
               </div>
             </div>
-            <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+            <div className="t-form-actions">
               <button type="button" className="btn btn-secondary" onClick={() => setShowCreate(false)}>Cancel</button>
               <button type="submit" className="btn btn-primary" disabled={creating}>{creating ? "Creating..." : "Create Teacher"}</button>
             </div>
@@ -189,16 +189,16 @@ export default function Teachers() {
                   <td><span className="badge badge-gray">{t.employee_no || "N/A"}</span></td>
                   <td>
                     <strong>{t.first_name} {t.last_name}</strong>
-                    <div style={{ fontSize:12, color:"#64748b" }}>{t.email}</div>
+                    <div className="t-email-text">{t.email}</div>
                   </td>
-                  <td style={{ fontSize:12, color:"#64748b" }}>{t.specialization || <span style={{ color:"#94a3b8" }}>—</span>}</td>
-                  <td style={{ fontSize:12 }}>{t.qualification || <span style={{ color:"#94a3b8" }}>—</span>}</td>
+                  <td className="t-td-muted">{t.specialization || <span className="t-dash-muted">—</span>}</td>
+                  <td className="t-td-plain">{t.qualification || <span className="t-dash-muted">—</span>}</td>
                   <td><span className="badge badge-gray">{t.subject_count || 0} subjects</span></td>
                   <td><span className="badge badge-gray">{t.class_count  || 0} classes</span></td>
                   <td>
                     <span className={`badge ${t.status === "active" ? "badge-success" : "badge-danger"}`}>{t.status}</span>
                   </td>
-                  <td style={{ display:"flex", gap:5 }}>
+                  <td className="t-actions-cell">
                     <button className="btn btn-ghost btn-xs" onClick={() => navigate(`/teachers/${t.id}`)}>View →</button>
                     {can("teachers.delete") && (
                       t.status === "active" ? (
@@ -218,7 +218,7 @@ export default function Teachers() {
       {totalPages > 1 && (
         <div className="pagination">
           <button className="btn btn-ghost btn-sm" disabled={page === 1} onClick={() => setPage(page-1)}>← Prev</button>
-          <span style={{ fontSize:13, color:"#64748b" }}>Page {page} of {totalPages}</span>
+          <span className="t-pagination-text">Page {page} of {totalPages}</span>
           <button className="btn btn-ghost btn-sm" disabled={page === totalPages} onClick={() => setPage(page+1)}>Next →</button>
         </div>
       )}

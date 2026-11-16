@@ -8,6 +8,7 @@ their native FastAPI routers are registered here BEFORE the Flask mount, so
 Starlette matches them first and only unmigrated paths ever reach Flask.
 
 Run with:  python -m uvicorn main:app --reload --port 5000
+Background jobs (run once, separately):  python scheduler_service.py
 """
 
 from fastapi import FastAPI
@@ -95,13 +96,18 @@ from app.api.v1.report_permissions import router as report_permissions_router
 from app.api.v1.request_permissions import router as request_permissions_router
 from app.api.v1.processing_date import router as processing_date_router
 from app.api.v1.resignation import router as resignation_router
+from app.api.v1.notification_templates import router as notification_templates_router
 from app.api.v1.discounts import router as discounts_router
 from app.api.v1.finance import router as finance_router
 from app.api.v1.exams import router as exams_router
+from app.api.v1.promotions import router as promotions_router
 from app.api.v1.dashboard import router as dashboard_router
+from app.api.v1.dashboards import router as dashboards_router
 from app.api.v1.work_queue import router as work_queue_router
 from app.api.v1.workflow import router as workflow_router
 from app.api.v1.campuses import router as campuses_router
+from app.api.v1.admissions import router as admissions_router
+from app.api.v1.admissions_portal import router as admission_portal_router
 
 app.include_router(procurement_router, prefix="/api/v1/procurement")
 app.include_router(library_router, prefix="/api/v1/library")
@@ -136,20 +142,24 @@ app.include_router(report_permissions_router, prefix="/api/v1/admin")
 app.include_router(request_permissions_router, prefix="/api/v1/admin")
 app.include_router(processing_date_router, prefix="/api/v1/system")
 
-@app.on_event("startup")
-def _start_processing_date_scheduler():
-    from app.utils.processing_date_scheduler import start_scheduler
-    start_scheduler()
+# The processing-date scheduler (midnight advance + resignation deactivation)
+# used to start here in every worker. It now runs only in the dedicated
+# background process: python scheduler_service.py
 app.include_router(resignation_router, prefix="/api/v1/resignation")
+app.include_router(notification_templates_router, prefix="/api/v1/notification-templates")
 os.makedirs("uploads", exist_ok=True)
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 app.include_router(discounts_router, prefix="/api/v1/discounts")
 app.include_router(finance_router, prefix="/api/v1/finance")
 app.include_router(exams_router, prefix="/api/v1/exams")
+app.include_router(promotions_router, prefix="/api/v1/promotions")
 app.include_router(dashboard_router, prefix="/api/v1/dashboard")
+app.include_router(dashboards_router, prefix="/api/v1/dashboards")
 app.include_router(work_queue_router, prefix="/api/v1/work-queue")
 app.include_router(workflow_router, prefix="/api/v1/workflow")
 app.include_router(campuses_router, prefix="/api/v1/campuses")
+app.include_router(admissions_router, prefix="/api/v1/admissions")
+app.include_router(admission_portal_router, prefix="/api/v1/admission-portal")
 
 
 # Fallback: anything not yet natively handled by FastAPI falls through to Flask.

@@ -1,0 +1,70 @@
+.lib-inv-mb16 { margin-bottom: 16px; }
+.lib-inv-mb12 { margin-bottom: 12px; }
+
+.lib-inv-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.lib-inv-modal {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-radius: 12px;
+  padding: 24px;
+  width: 100%;
+  max-width: 380px;
+}
+
+.lib-inv-modal-title    { font-weight: 700; font-size: 16px; margin-bottom: 4px; }
+.lib-inv-modal-subtitle { font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; }
+.lib-inv-modal-footer   { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+
+.lib-inv-audit-card { margin-bottom: 16px; }
+.lib-inv-audit-meta { font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; }
+
+.lib-inv-progress-wrap   { margin-bottom: 16px; }
+.lib-inv-progress-header { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
+.lib-inv-progress-track  { height: 8px; background: var(--border-color); border-radius: 4px; overflow: hidden; }
+.lib-inv-progress-fill   { height: 100%; background: #16a34a; transition: width .3s; }
+
+.lib-inv-scan-form { display: flex; gap: 8px; margin-bottom: 16px; }
+
+.lib-inv-items-list { max-height: 200px; overflow: auto; margin-bottom: 16px; }
+.lib-inv-empty-hint { font-size: 13px; color: var(--text-muted); }
+
+.lib-inv-item-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 13px;
+}
+.lib-inv-item-time { color: var(--text-muted); font-size: 11px; }
+
+.lib-inv-audit-actions { display: flex; justify-content: flex-end; }
+
+.lib-inv-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.lib-inv-summary-card {
+  background: var(--bg-card);
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  border-top: 3px solid var(--stat-color, var(--theme-primary));
+  padding: 14px 16px;
+}
+
+.lib-inv-summary-value { font-size: 22px; font-weight: 800; color: var(--stat-color, var(--text-heading)); }
+.lib-inv-summary-label { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+
+.lib-inv-shelf { font-size: 12px; color: var(--text-secondary); }

@@ -1,0 +1,451 @@
+.lsu-locked-alert {
+  background: var(--bg-warning-soft);
+  border: 1px solid #fde68a;
+  color: #92400e;
+  margin-bottom: 16px;
+}
+
+.lsu-toast {
+  margin-bottom: 16px;
+}
+
+.lsu-empty-text {
+  padding: 40px 0;
+  text-align: center;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+.lsu-types-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.lsu-type-card {
+  background: var(--bg-card);
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  border-left: 4px solid var(--accent-color);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  overflow: hidden;
+}
+
+.lsu-type-header {
+  padding: 14px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.lsu-type-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.lsu-type-name {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text-heading);
+}
+
+.lsu-status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--pill-bg);
+  color: var(--pill-color);
+}
+
+.lsu-meta-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+.lsu-type-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.lsu-edit-btn {
+  padding: 5px 14px;
+  border-radius: 7px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--text-heading);
+}
+
+.lsu-delete-btn {
+  padding: 5px 14px;
+  border-radius: 7px;
+  border: 1px solid #fecaca;
+  background: var(--bg-danger-soft);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  color: #dc2626;
+}
+
+.lsu-rules-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.lsu-th-row {
+  background: var(--bg-hover);
+}
+
+.lsu-th {
+  padding: 8px 14px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.lsu-th-wide {
+  padding: 8px 18px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  width: 140px;
+}
+
+.lsu-rule-row {
+  border-top: 1px solid var(--border-color);
+  background: var(--row-bg);
+}
+
+.lsu-td-range {
+  padding: 11px 18px;
+}
+
+.lsu-range-content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.lsu-range-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--dot-color);
+}
+
+.lsu-range-text {
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.lsu-td-recommender {
+  padding: 11px 14px;
+  color: var(--rec-color);
+  font-style: var(--rec-style);
+}
+
+.lsu-td-approver {
+  padding: 11px 14px;
+  font-weight: 500;
+  color: var(--text-heading);
+}
+
+.lsu-td-cert {
+  padding: 11px 14px;
+}
+
+.lsu-cert-required {
+  display: inline-flex;
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--bg-info-soft);
+  color: #1e40af;
+}
+
+.lsu-cert-not-required {
+  display: inline-flex;
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+.lsu-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0,0,0,0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.lsu-modal-box {
+  background: var(--bg-card);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 680px;
+  max-height: 92vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.18);
+  display: flex;
+  flex-direction: column;
+}
+
+.lsu-modal-header {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg-hover);
+  border-radius: 12px 12px 0 0;
+  flex-shrink: 0;
+}
+
+.lsu-modal-title {
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--text-heading);
+}
+
+.lsu-modal-subtitle {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.lsu-modal-close-btn {
+  background: none;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  color: var(--text-muted);
+  line-height: 1;
+  padding: 2px 8px;
+}
+
+.lsu-modal-body {
+  padding: 20px 24px;
+  flex: 1;
+}
+
+.lsu-form-err {
+  margin-bottom: 14px;
+}
+
+.lsu-basic-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.lsu-rules-section {
+  border-top: 1px solid var(--border-color);
+  padding-top: 16px;
+  margin-bottom: 16px;
+}
+
+.lsu-rules-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 10px;
+}
+
+.lsu-rules-section-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-heading);
+}
+
+.lsu-rules-section-sub {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.lsu-col-headers {
+  display: grid;
+  grid-template-columns: 60px 60px 1fr 1fr 130px auto;
+  gap: 8px;
+  margin-bottom: 4px;
+  padding: 0 10px;
+}
+
+.lsu-col-header {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.lsu-rules-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.lsu-rule-card {
+  background: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 10px;
+}
+
+.lsu-rule-grid {
+  display: grid;
+  grid-template-columns: 60px 60px 1fr 1fr 130px auto;
+  gap: 8px;
+  align-items: center;
+}
+
+.lsu-rule-input {
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  font-size: 13px;
+  background: var(--input-bg, var(--bg-input));
+  width: 100%;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.lsu-rule-select {
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  font-size: 12px;
+  background: var(--bg-input);
+  width: 100%;
+  box-sizing: border-box;
+  color: var(--text-primary);
+}
+
+.lsu-cert-select {
+  padding: 6px 8px;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  font-size: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--cert-bg);
+  color: var(--cert-color);
+  font-weight: var(--cert-weight);
+}
+
+.lsu-rule-delete-wrap {
+  display: flex;
+  justify-content: center;
+}
+
+.lsu-rule-delete-btn {
+  background: none;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 4px;
+}
+
+.lsu-cert-label-wrap {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border-color);
+}
+
+.lsu-cert-label-input {
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #bfdbfe;
+  font-size: 12px;
+  background: var(--bg-info-soft);
+  box-sizing: border-box;
+  color: #1e40af;
+}
+
+.lsu-add-rule-btn {
+  margin-top: 8px;
+  width: 100%;
+  padding: 8px;
+  border: 1px dashed var(--border-color);
+  border-radius: 8px;
+  background: none;
+  cursor: pointer;
+  font-size: 13px;
+  color: #2563eb;
+  font-weight: 500;
+}
+
+.lsu-notify-section {
+  border-top: 1px solid var(--border-color);
+  padding-top: 14px;
+}
+
+.lsu-notify-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-heading);
+  margin-bottom: 8px;
+}
+
+.lsu-modal-footer {
+  padding: 14px 24px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  background: var(--bg-hover);
+  border-radius: 0 0 12px 12px;
+  flex-shrink: 0;
+}
+
+.lsu-seg-wrap {
+  display: flex;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.lsu-seg-btn {
+  flex: 1;
+  padding: 8px 0;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  background: var(--seg-bg);
+  color: var(--seg-color);
+  font-weight: var(--seg-weight);
+}

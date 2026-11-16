@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import libraryApi from "../api/libraryApi";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
+import "./LibraryMembers.css";
 
 function EnrollModal({ onClose, onSaved }) {
   const [memberType, setMemberType] = useState("student");
@@ -34,15 +35,15 @@ function EnrollModal({ onClose, onSaved }) {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
-      <div style={{ background: "#fff", borderRadius: 12, padding: 24, width: "100%", maxWidth: 560, maxHeight: "85vh", display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <span style={{ fontWeight: 700, fontSize: 16 }}>Enroll New Member</span>
+    <div className="lib-mem-modal-overlay" onClick={onClose}>
+      <div className="lib-mem-modal" onClick={e => e.stopPropagation()}>
+        <div className="lib-mem-modal-header">
+          <span className="lib-mem-modal-title">Enroll New Member</span>
           <button className="btn btn-ghost btn-sm" onClick={onClose}>Close</button>
         </div>
 
-        <div style={{ display: "flex", gap: 10, marginBottom: 12 }}>
-          <select className="form-control" style={{ maxWidth: 150 }} value={memberType} onChange={e => { setMemberType(e.target.value); setQuery(""); }}>
+        <div className="lib-mem-search-row">
+          <select className="form-control lib-mem-type-select" value={memberType} onChange={e => { setMemberType(e.target.value); setQuery(""); }}>
             <option value="student">Student</option>
             <option value="teacher">Teacher</option>
             <option value="staff">Staff</option>
@@ -51,9 +52,9 @@ function EnrollModal({ onClose, onSaved }) {
           <button className="btn btn-primary" onClick={runSearch}>Search</button>
         </div>
 
-        {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}
+        {error && <div className="alert alert-error lib-mem-mb12">{error}</div>}
 
-        <div style={{ overflow: "auto", flex: 1 }}>
+        <div className="lib-mem-results">
           {searching ? (
             <div className="loading-state">Searching...</div>
           ) : results.length === 0 ? (
@@ -71,7 +72,7 @@ function EnrollModal({ onClose, onSaved }) {
                 {results.map(u => (
                   <tr key={u.user_id}>
                     <td>{u.display_name}</td>
-                    <td style={{ fontSize: 12, color: "#64748b" }}>{u.identifier}</td>
+                    <td className="lib-mem-date">{u.identifier}</td>
                     <td>
                       {u.already_member ? (
                         <span className="badge badge-gray">Already a member</span>
@@ -127,21 +128,21 @@ export default function LibraryMembers() {
 
   return (
     <div>
-      <div className="page-header" style={{ marginBottom: 16 }}>
+      <div className="page-header lib-mem-mb16">
         <h1 className="page-heading">Library Members</h1>
         <button className="btn btn-primary" onClick={() => setShowEnroll(true)}>+ Enroll Member</button>
       </div>
 
-      {success && <div className="alert alert-success" style={{ marginBottom: 16 }}>{success}</div>}
-      {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
+      {success && <div className="alert alert-success lib-mem-mb16">{success}</div>}
+      {error && <div className="alert alert-error lib-mem-mb16">{error}</div>}
 
-      <div className="section-card" style={{ marginBottom: 16 }}>
-        <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap" }}>
-          <div className="form-group" style={{ flex: 1, minWidth: 200, marginBottom: 0 }}>
+      <div className="section-card lib-mem-filters-card">
+        <div className="lib-mem-filter-row">
+          <div className="form-group lib-mem-filter-search-group">
             <label className="form-label">Search</label>
             <input className="form-control" placeholder="Name or library card no." value={filters.search} onChange={e => setFilters({ ...filters, search: e.target.value })} onKeyDown={e => e.key === "Enter" && applyFilters()} />
           </div>
-          <div className="form-group" style={{ minWidth: 160, marginBottom: 0 }}>
+          <div className="form-group lib-mem-filter-type-group">
             <label className="form-label">Member Type</label>
             <select className="form-control" value={filters.member_type} onChange={e => setFilters({ ...filters, member_type: e.target.value })}>
               <option value="">All Types</option>
@@ -179,21 +180,21 @@ export default function LibraryMembers() {
                 <tr key={m.member_id}>
                   <td>
                     <strong>{m.first_name} {m.last_name}</strong>
-                    <div style={{ fontSize: 11, color: "#94a3b8" }}>{m.email}</div>
+                    <div className="lib-mem-muted lib-mem-card-info">{m.email}</div>
                   </td>
                   <td>{m.library_card_no}</td>
-                  <td><span className="badge badge-primary" style={{ textTransform: "capitalize" }}>{(m.display_role || m.member_type).replace(/_/g, " ")}</span></td>
-                  <td><span className={"badge " + (m.status === "active" ? "badge-success" : "badge-gray")} style={{ textTransform: "capitalize" }}>{m.status}</span></td>
+                  <td><span className="badge badge-primary lib-mem-capitalize">{(m.display_role || m.member_type).replace(/_/g, " ")}</span></td>
+                  <td><span className={"badge lib-mem-capitalize " + (m.status === "active" ? "badge-success" : "badge-gray")}>{m.status}</span></td>
                   <td>{m.books_currently_issued}</td>
                   <td>{m.max_books}</td>
                   <td>
                     {Number(m.pending_fine) > 0 ? (
-                      <span style={{ color: "#dc2626", fontWeight: 600 }}>Rs. {Number(m.pending_fine).toLocaleString()}</span>
+                      <span className="lib-mem-fine-due">Rs. {Number(m.pending_fine).toLocaleString()}</span>
                     ) : (
-                      <span style={{ color: "#16a34a" }}>Rs. 0</span>
+                      <span className="lib-mem-fine-clear">Rs. 0</span>
                     )}
                   </td>
-                  <td style={{ fontSize: 12, color: "#64748b" }}>{formatDate(m.joined_date)}</td>
+                  <td className="lib-mem-date">{formatDate(m.joined_date)}</td>
                 </tr>
               ))}
             </tbody>

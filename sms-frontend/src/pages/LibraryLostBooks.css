@@ -1,0 +1,61 @@
+.lib-lost-mb16 { margin-bottom: 16px; }
+.lib-lost-mb12 { margin-bottom: 12px; }
+
+.lib-lost-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.lib-lost-modal {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-radius: 12px;
+  padding: 24px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.lib-lost-modal-title {
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+.lib-lost-modal-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.lib-lost-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.lib-lost-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.lib-lost-muted { color: var(--text-muted); }
+.lib-lost-date  { font-size: 12px; color: var(--text-secondary); }
+
+.lib-lost-fine-pending {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.lib-lost-fine-paid {
+  color: #16a34a;
+  font-weight: 600;
+}

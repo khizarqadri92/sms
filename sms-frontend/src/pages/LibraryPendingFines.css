@@ -1,0 +1,46 @@
+.lib-pf-mb16 { margin-bottom: 16px; }
+.lib-pf-mb12 { margin-bottom: 12px; }
+
+.lib-pf-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.lib-pf-modal {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-radius: 12px;
+  padding: 24px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.lib-pf-modal-title    { font-weight: 700; font-size: 16px; margin-bottom: 4px; }
+.lib-pf-modal-subtitle { font-size: 13px; color: var(--text-secondary); margin-bottom: 16px; }
+.lib-pf-modal-footer   { display: flex; justify-content: flex-end; gap: 10px;; flex-wrap: wrap; }
+
+.lib-pf-search-card { margin-bottom: 16px; }
+.lib-pf-search-row  { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+.lib-pf-search-group { flex: 1; min-width: 220px; margin-bottom: 0; }
+.lib-pf-total { margin-left: auto; font-size: 13px; color: var(--text-secondary); align-self: center; }
+
+.lib-pf-muted { color: var(--text-muted); }
+.lib-pf-date  { font-size: 12px; color: var(--text-secondary); }
+
+.lib-pf-amount {
+  color: #dc2626;
+}
+
+.lib-pf-card-info {
+  font-size: 11px;
+}
+
+.lib-pf-capitalize {
+  text-transform: capitalize;
+}

@@ -1,0 +1,142 @@
+.sm-class-select {
+  max-width: 200px;
+}
+
+.sm-select-180 {
+  max-width: 180px;
+}
+
+.sm-list-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sm-upload-grid {
+  display: grid;
+  grid-template-columns: 340px 1fr;
+  gap: 16px;
+}
+
+.sm-success-msg {
+  color: #16a34a;
+  font-size: 12px;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.sm-form-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sm-help-text {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.sm-grid-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill,minmax(280px,1fr));
+  gap: 12px;
+}
+
+.sm-parent-select-row {
+  display: flex;
+  gap: 10px;
+}
+
+.sm-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: var(--card-flex-dir, row);
+  gap: 12px;
+  align-items: var(--card-align, center);
+}
+
+.sm-card-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: var(--icon-bg);
+  color: var(--icon-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.sm-card-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.sm-card-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-heading);
+  margin-bottom: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sm-card-meta {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 2px;
+}
+
+.sm-card-desc {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sm-card-tags-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.sm-ext-tag {
+  font-size: 10px;
+  padding: 2px 8px;
+  background: var(--tag-bg);
+  color: var(--tag-color);
+  border-radius: 20px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.sm-meta-text {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.sm-card-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.sm-download-btn {
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
+.sm-delete-btn {
+  font-size: 12px;
+  padding: 4px 10px;
+  color: #dc2626;
+}

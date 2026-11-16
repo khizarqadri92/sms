@@ -1,0 +1,63 @@
+.lib-dash-subtitle {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-top: 4px;
+}
+
+.lib-dash-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.lib-dash-stat-card {
+  background: var(--bg-card);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  border-top: 3px solid var(--stat-color, var(--theme-primary));
+  padding: 18px 20px;
+  box-shadow: var(--shadow-card);
+}
+
+.lib-dash-stat-icon {
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+
+.lib-dash-stat-value {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--stat-color, var(--text-heading));
+}
+
+.lib-dash-stat-label {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-top: 4px;
+}
+
+.lib-dash-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+}
+
+.lib-dash-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border-secondary);
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.lib-dash-error-alert {
+  margin-bottom: 16px;
+}

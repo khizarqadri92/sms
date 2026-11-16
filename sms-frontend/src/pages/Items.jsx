@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import procurementApi from "../api/procurementApi";
 import { useGovernanceMode } from "../hooks/useGovernanceMode";
+import "./Items.css";
 
 function QuickAddCategoryModal({ categories, onClose, onSaved }) {
   const [name, setName] = useState("");
@@ -23,10 +24,10 @@ function QuickAddCategoryModal({ categories, onClose, onSaved }) {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1100, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
-      <div style={{ background: "#fff", borderRadius: 12, padding: 24, width: "100%", maxWidth: 360 }} onClick={e => e.stopPropagation()}>
-        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>Add Item Category</div>
-        {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}
+    <div className="itm-modal-overlay" style={{ "--z": 1100 }} onClick={onClose}>
+      <div className="itm-modal-box-sm" onClick={e => e.stopPropagation()}>
+        <div className="itm-modal-title">Add Item Category</div>
+        {error && <div className="alert alert-error itm-mb12">{error}</div>}
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label className="form-label">Name *</label>
@@ -39,7 +40,7 @@ function QuickAddCategoryModal({ categories, onClose, onSaved }) {
               {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
+          <div className="itm-btn-row">
             <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Saving..." : "Add"}</button>
           </div>
@@ -87,19 +88,19 @@ function ItemFormModal({ item, categories, vendors, onClose, onSaved, onQuickAdd
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
-      <div style={{ background: "#fff", borderRadius: 12, padding: 24, width: "100%", maxWidth: 480, maxHeight: "88vh", overflow: "auto" }} onClick={e => e.stopPropagation()}>
-        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>{item ? "Edit Item" : "Add Item"}</div>
-        {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}
+    <div className="itm-modal-overlay" onClick={onClose}>
+      <div className="itm-modal-box-lg" onClick={e => e.stopPropagation()}>
+        <div className="itm-modal-title">{item ? "Edit Item" : "Add Item"}</div>
+        {error && <div className="alert alert-error itm-mb12">{error}</div>}
         <form onSubmit={handleSubmit}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div className="itm-form-grid">
             {!item && (
-              <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+              <div className="form-group itm-full-field">
                 <label className="form-label">Item Code</label>
                 <input className="form-control" value={form.item_code} onChange={e => setForm({ ...form, item_code: e.target.value })} placeholder="Leave blank to auto-generate" />
               </div>
             )}
-            <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+            <div className="form-group itm-full-field">
               <label className="form-label">Item Name *</label>
               <input className="form-control" value={form.item_name} onChange={e => setForm({ ...form, item_name: e.target.value })} autoFocus />
             </div>
@@ -109,7 +110,7 @@ function ItemFormModal({ item, categories, vendors, onClose, onSaved, onQuickAdd
             </div>
             <div className="form-group">
               <label className="form-label">Category</label>
-              <div style={{ display: "flex", gap: 6 }}>
+              <div className="itm-cat-row">
                 <select className="form-control" value={form.category_id} onChange={e => setForm({ ...form, category_id: e.target.value })}>
                   <option value="">None</option>
                   {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -125,7 +126,7 @@ function ItemFormModal({ item, categories, vendors, onClose, onSaved, onQuickAdd
               <label className="form-label">Max Stock</label>
               <input className="form-control" type="number" min="0" value={form.max_stock} onChange={e => setForm({ ...form, max_stock: e.target.value })} placeholder="Optional" />
             </div>
-            <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+            <div className="form-group itm-full-field">
               <label className="form-label">Preferred Vendor</label>
               <select className="form-control" value={form.preferred_vendor_id} onChange={e => setForm({ ...form, preferred_vendor_id: e.target.value })}>
                 <option value="">None</option>
@@ -133,7 +134,7 @@ function ItemFormModal({ item, categories, vendors, onClose, onSaved, onQuickAdd
               </select>
             </div>
           </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 16 }}>
+          <div className="itm-btn-row-mt16">
             <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Saving..." : item ? "Update" : "Add"}</button>
           </div>
@@ -201,21 +202,21 @@ export default function Items() {
 
   return (
     <div>
-      <div className="page-header" style={{ marginBottom: 16 }}>
+      <div className="page-header itm-page-header">
         <h1 className="page-heading">Item Master</h1>
         {!isGlobalLocked && <button className="btn btn-primary" onClick={() => { setEditItem(null); setShowForm(true); }}>+ Add Item</button>}
       </div>
 
       {isGlobalLocked && (
-        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+        <div className="alert itm-readonly-alert">
           Items are managed centrally by the superadmin. This list is read-only here.
         </div>
       )}
-      {success && <div className="alert alert-success" style={{ marginBottom: 16 }}>{success}</div>}
-      {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
+      {success && <div className="alert alert-success itm-mb16">{success}</div>}
+      {error && <div className="alert alert-error itm-mb16">{error}</div>}
 
-      <div className="section-card" style={{ marginBottom: 16 }}>
-        <div style={{ display: "flex", gap: 10 }}>
+      <div className="section-card itm-mb16">
+        <div className="itm-search-row">
           <input className="form-control" placeholder="Search by item name or code" value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => e.key === "Enter" && fetchItems()} />
           <button className="btn btn-secondary" onClick={() => fetchItems()}>Search</button>
         </div>
@@ -243,21 +244,21 @@ export default function Items() {
             <tbody>
               {items.map(i => (
                 <tr key={i.id}>
-                  <td><code style={{ background: "#f1f5f9", padding: "2px 7px", borderRadius: 5, fontSize: 12 }}>{i.item_code}</code></td>
+                  <td><code className="itm-code-badge">{i.item_code}</code></td>
                   <td><strong>{i.item_name}</strong></td>
-                  <td>{i.category_name || <span style={{ color: "#94a3b8" }}>-</span>}</td>
+                  <td>{i.category_name || <span className="itm-none-text">-</span>}</td>
                   <td>{i.unit}</td>
                   <td>
-                    <span style={{ color: isLowStock(i) ? "#dc2626" : "#0f172a", fontWeight: isLowStock(i) ? 700 : 400 }}>
+                    <span className="itm-stock-value" style={{ "--stock-color": isLowStock(i) ? "#dc2626" : "var(--text-heading)", "--stock-weight": isLowStock(i) ? 700 : 400 }}>
                       {i.current_stock}
                     </span>
-                    <span style={{ fontSize: 11, color: "#94a3b8" }}> / min {i.min_stock}{i.max_stock ? ", max " + i.max_stock : ""}</span>
-                    {isLowStock(i) && <div style={{ fontSize: 10, color: "#dc2626", fontWeight: 600 }}>Low Stock</div>}
+                    <span className="itm-stock-subtext"> / min {i.min_stock}{i.max_stock ? ", max " + i.max_stock : ""}</span>
+                    {isLowStock(i) && <div className="itm-low-stock-tag">Low Stock</div>}
                   </td>
-                  <td>{i.preferred_vendor_name || <span style={{ color: "#94a3b8" }}>-</span>}</td>
+                  <td>{i.preferred_vendor_name || <span className="itm-none-text">-</span>}</td>
                   <td><span className={"badge " + (i.is_active ? "badge-success" : "badge-gray")}>{i.is_active ? "Active" : "Inactive"}</span></td>
                   {!isGlobalLocked && (
-                    <td style={{ display: "flex", gap: 6, flexWrap: "nowrap" }}>
+                    <td className="itm-actions-cell">
                       <button className="btn btn-ghost btn-xs" onClick={() => { setEditItem(i); setShowForm(true); }}>Edit</button>
                       <button className={"btn btn-xs " + (i.is_active ? "btn-danger" : "btn-secondary")} onClick={() => handleToggleActive(i)}>
                         {i.is_active ? "Deactivate" : "Reactivate"}

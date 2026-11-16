@@ -6,16 +6,19 @@ import { useAuth } from "../auth/AuthContext";
 import { useProcessingToday } from "../hooks/useProcessingToday";
 import DatePicker from "../components/DatePicker";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
+import "./StudentViews.css";
 
+// Colours for each status: .sv-wst--<status> in StudentViews.css (light + dark)
 const STATUS_STYLES = {
-  pending:           { bg:"#fef9c3", color:"#854d0e",  label:"Pending"           },
-  under_review:      { bg:"#dbeafe", color:"#1e40af",  label:"Under Review"      },
-  clearance:         { bg:"#ede9fe", color:"#5b21b6",  label:"Clearance"         },
-  coordinator_final: { bg:"#fef9c3", color:"#854d0e",  label:"Final Processing"  },
-  approved:          { bg:"#dcfce7", color:"#166534",  label:"Approved"          },
-  rejected:          { bg:"#fee2e2", color:"#991b1b",  label:"Rejected"          },
-  withdrawn:         { bg:"#f1f5f9", color:"#475569",  label:"Withdrawn"         },
+  pending:           { label:"Pending"           },
+  under_review:      { label:"Under Review"      },
+  clearance:         { label:"Clearance"         },
+  coordinator_final: { label:"Final Processing"  },
+  approved:          { label:"Approved"          },
+  rejected:          { label:"Rejected"          },
+  withdrawn:         { label:"Withdrawn"         },
 };
+const wst = (status) => "sv-wst--" + status;
 const DEPT_LABELS = { finance:"Finance", library:"Library", admin:"Admin", hr:"HR", transport:"Transport" };
 
 const today = () => new Date().toISOString().split("T")[0];
@@ -94,11 +97,11 @@ export default function WithdrawalHistory() {
   };
 
   const STATUS_BADGE_INLINE = {
-    present:  { bg:"#f0fdf4", color:"#166534", label:"Present"  },
-    absent:   { bg:"#fef2f2", color:"#991b1b", label:"Absent"   },
-    late:     { bg:"#fffbeb", color:"#92400e", label:"Late"      },
-    excused:  { bg:"#eff6ff", color:"#1e40af", label:"Excused"  },
-    on_leave: { bg:"#f0f9ff", color:"#0369a1", label:"On Leave" },
+    present:  { label:"Present"  },
+    absent:   { label:"Absent"   },
+    late:     { label:"Late"     },
+    excused:  { label:"Excused"  },
+    on_leave: { label:"On Leave" },
   };
 
   if (loading) return <div className="loading-state">Loading...</div>;
@@ -109,31 +112,26 @@ export default function WithdrawalHistory() {
         <h1 className="page-heading">Withdrawal History</h1>
       </div>
 
-      <div style={{display:"grid",gridTemplateColumns:detail?"340px 1fr":"1fr",gap:20,alignItems:"start"}}>
+      <div className={"sv-wd-layout" + (detail ? " sv-wd-layout--split" : "")}>
 
         {/* List */}
-        <div style={{background:"#fff",border:"1.5px solid #cbd5e1",borderRadius:12,padding:"16px",boxShadow:"0 2px 8px rgba(0,0,0,0.07)"}}>
+        <div className="sv-wd-list">
           {list.length===0 ? (
-            <div style={{textAlign:"center",padding:"40px 0",color:"var(--color-text-secondary)",fontSize:14}}>No withdrawal requests found.</div>
+            <div className="sv-wd-empty">No withdrawal requests found.</div>
           ) : list.map(w => {
-            const s = STATUS_STYLES[w.status]||{bg:"#f1f5f9",color:"#475569",label:w.status};
+            const s = STATUS_STYLES[w.status]||{label:w.status};
             const active = detail?.id===w.id;
             return (
-              <div key={w.id} onClick={()=>loadDetail(w)} style={{
-                background:"#fff",border:"1.5px solid "+(active?"#2563eb":"#e2e8f0"),
-                borderLeft:"4px solid "+(active?"#2563eb":s.color),
-                borderRadius:10,padding:"14px 16px",cursor:"pointer",marginBottom:8,
-                boxShadow:active?"0 2px 8px rgba(37,99,235,0.12)":"0 1px 3px rgba(0,0,0,0.05)",
-              }}>
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:5}}>
+              <div key={w.id} onClick={()=>loadDetail(w)} className={"sv-wd-item " + wst(w.status) + (active ? " sv-wd-item--on" : "")}>
+                <div className="sv-wd-item-top">
                   <div>
-                    <div style={{fontWeight:600,fontSize:14,color:"var(--color-text-primary)"}}>{w.student_name}</div>
-                    <div style={{fontSize:12,color:"var(--color-text-secondary)",marginTop:2}}>{w.enrollment_no} &middot; {w.class_name}{w.section?" ("+w.section+")":""}</div>
+                    <div className="sv-wd-name">{w.student_name}</div>
+                    <div className="sv-wd-meta">{w.enrollment_no} &middot; {w.class_name}{w.section?" ("+w.section+")":""}</div>
                   </div>
-                  <span style={{background:s.bg,color:s.color,padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:600}}>{s.label}</span>
+                  <span className={"sv-wd-pill " + wst(w.status)}>{s.label}</span>
                 </div>
-                <div style={{fontSize:12,color:"var(--color-text-secondary)"}}>{w.reason?.slice(0,60)}{w.reason?.length>60?"...":""}</div>
-                <div style={{fontSize:11,color:"#94a3b8",marginTop:4}}>Applied: {fmtDate(w.requested_at)}</div>
+                <div className="sv-wd-reason">{w.reason?.slice(0,60)}{w.reason?.length>60?"...":""}</div>
+                <div className="sv-wd-date">Applied: {fmtDate(w.requested_at)}</div>
               </div>
             );
           })}
@@ -141,19 +139,19 @@ export default function WithdrawalHistory() {
 
         {/* Detail */}
         {detail && (
-          <div style={{display:"flex",flexDirection:"column",gap:16}}>
+          <div className="sv-wd-detail">
 
             {/* Header */}
-            <div className="section-card" style={{padding:0,overflow:"hidden"}}>
-              <div style={{padding:"16px 20px",borderBottom:"1px solid var(--color-border-tertiary)",display:"flex",justifyContent:"space-between",alignItems:"center",background:"var(--color-background-secondary)"}}>
+            <div className="section-card sv-wd-card">
+              <div className="sv-wd-head">
                 <div>
-                  <div style={{fontWeight:700,fontSize:17}}>{detail.student_name}</div>
-                  <div style={{fontSize:13,color:"var(--color-text-secondary)",marginTop:2}}>{detail.enrollment_no} &middot; {detail.class_name}{detail.section?" ("+detail.section+")":""}</div>
-                  <div style={{marginTop:6}}>
-                    <span style={{background:STATUS_STYLES[detail.status]?.bg||"#f1f5f9",color:STATUS_STYLES[detail.status]?.color||"#475569",padding:"3px 10px",borderRadius:20,fontSize:11,fontWeight:600}}>{STATUS_STYLES[detail.status]?.label||detail.status}</span>
+                  <div className="sv-wd-head-name">{detail.student_name}</div>
+                  <div className="sv-wd-head-meta">{detail.enrollment_no} &middot; {detail.class_name}{detail.section?" ("+detail.section+")":""}</div>
+                  <div className="sv-wd-head-pill">
+                    <span className={"sv-wd-pill " + wst(detail.status)}>{STATUS_STYLES[detail.status]?.label||detail.status}</span>
                   </div>
                 </div>
-                <div style={{display:"flex",gap:8}}>
+                <div className="sv-wd-btns">
                   {(detail.status==="approved"||detail.status==="withdrawn") && (
                     <button className="btn btn-primary" disabled={tcLoading} onClick={()=>loadTC(detail.id)}>
                       {tcLoading?"Loading...":"View TC"}
@@ -164,33 +162,30 @@ export default function WithdrawalHistory() {
               </div>
 
               {/* Tabs */}
-              <div style={{display:"flex",borderBottom:"1px solid var(--color-border-tertiary)",background:"var(--color-background-secondary)"}}>
+              <div className="sv-wd-tabs">
                 {[
                   {key:"overview",    label:"Overview"},
                   {key:"attendance",  label:"Attendance"},
                   {key:"grades",      label:"Grades"},
                   {key:"fees",        label:"Fees"},
                 ].map(tab=>(
-                  <button key={tab.key} onClick={()=>tab.key===activeTab?null:loadTabData(tab.key,detail.student_id)} style={{
-                    padding:"10px 18px",border:"none",borderBottom:"2px solid "+(activeTab===tab.key?"#2563eb":"transparent"),
-                    background:"transparent",color:activeTab===tab.key?"#2563eb":"var(--color-text-secondary)",
-                    fontWeight:activeTab===tab.key?600:400,fontSize:13,cursor:"pointer",
-                  }}>{tab.label}</button>
+                  <button key={tab.key} onClick={()=>tab.key===activeTab?null:loadTabData(tab.key,detail.student_id)}
+                    className={"sv-wd-tab" + (activeTab===tab.key ? " sv-wd-tab--on" : "")}>{tab.label}</button>
                 ))}
               </div>
 
-              <div style={{padding:"20px"}}>
+              <div className="sv-wd-body">
                 {tabLoading ? <div className="loading-state">Loading...</div> : (
 
                   /* Overview Tab */
                   activeTab==="overview" ? (
                     <div>
-                      <div style={{marginBottom:16}}>
-                        <div style={{fontSize:11,fontWeight:700,color:"var(--color-text-secondary)",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>Reason</div>
-                        <div style={{background:"var(--color-background-secondary)",borderRadius:8,padding:"10px 14px",fontSize:14}}>{detail.reason}</div>
+                      <div className="sv-wd-sec">
+                        <div className="sv-wd-label">Reason</div>
+                        <div className="sv-wd-reasonbox">{detail.reason}</div>
                       </div>
-                      <div style={{marginBottom:16}}>
-                        <div style={{fontSize:11,fontWeight:700,color:"var(--color-text-secondary)",textTransform:"uppercase",letterSpacing:".06em",marginBottom:10}}>Progress</div>
+                      <div className="sv-wd-sec">
+                        <div className="sv-wd-label sv-wd-label--10">Progress</div>
                         {[
                           {label:"Application Submitted", done:true,                    at:detail.requested_at},
                           {label:"Coordinator Reviewed",  done:!!detail.coordinator_at, at:detail.coordinator_at, note:detail.coordinator_note},
@@ -198,22 +193,22 @@ export default function WithdrawalHistory() {
                           {label:"Principal Approved",    done:!!detail.principal_at,   at:detail.principal_at,   note:detail.principal_note},
                           {label:"Withdrawal Completed",  done:detail.status==="withdrawn", at:null},
                         ].map((step,i)=>(
-                          <div key={i} style={{display:"flex",gap:12,marginBottom:8,opacity:step.done?1:0.4}}>
-                            <div style={{width:22,height:22,borderRadius:"50%",flexShrink:0,background:step.done?"#22c55e":"#f1f5f9",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:step.done?"#fff":"#94a3b8"}}>{step.done?"✓":i+1}</div>
+                          <div key={i} className={"sv-wd-step" + (step.done ? " sv-wd-step--done" : "")}>
+                            <div className="sv-wd-step-dot">{step.done?"✓":i+1}</div>
                             <div>
-                              <div style={{fontSize:13,fontWeight:600,color:step.done?"var(--color-text-primary)":"var(--color-text-secondary)"}}>{step.label}</div>
-                              {step.at&&<div style={{fontSize:11,color:"var(--color-text-secondary)"}}>{fmtDate(step.at)}</div>}
-                              {step.note&&<div style={{fontSize:12,fontStyle:"italic",color:"var(--color-text-secondary)"}}>"{step.note}"</div>}
+                              <div className="sv-wd-step-label">{step.label}</div>
+                              {step.at&&<div className="sv-wd-step-at">{fmtDate(step.at)}</div>}
+                              {step.note&&<div className="sv-wd-step-note">"{step.note}"</div>}
                             </div>
                           </div>
                         ))}
                       </div>
                       {detail.clearances?.length>0&&(
-                        <div style={{marginBottom:16}}>
-                          <div style={{fontSize:11,fontWeight:700,color:"var(--color-text-secondary)",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>Department Clearances</div>
-                          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+                        <div className="sv-wd-sec">
+                          <div className="sv-wd-label">Department Clearances</div>
+                          <div className="sv-wd-clears">
                             {detail.clearances.map(c=>(
-                              <div key={c.department} style={{padding:"6px 12px",borderRadius:8,fontSize:12,fontWeight:600,background:c.status==="cleared"?"#f0fdf4":"#fef2f2",color:c.status==="cleared"?"#166534":"#991b1b",border:"1px solid "+(c.status==="cleared"?"#bbf7d0":"#fecaca")}}>
+                              <div key={c.department} className={"sv-wd-clear" + (c.status==="cleared" ? " sv-wd-clear--ok" : "")}>
                                 {DEPT_LABELS[c.department]||c.department}: {c.status==="cleared"?"Cleared":"Pending"}
                               </div>
                             ))}
@@ -222,16 +217,16 @@ export default function WithdrawalHistory() {
                       )}
                       {conductData&&(
                         <div>
-                          <div style={{fontSize:11,fontWeight:700,color:"var(--color-text-secondary)",textTransform:"uppercase",letterSpacing:".06em",marginBottom:8}}>Teacher Conduct Report</div>
-                          <div style={{border:"1px solid #bbf7d0",borderRadius:8,padding:"12px 14px",background:"#f0fdf4"}}>
-                            <div style={{fontWeight:600,fontSize:12,color:"#166534",marginBottom:8}}>By {conductData.teacher_name}</div>
-                            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px 16px",fontSize:13}}>
+                          <div className="sv-wd-label">Teacher Conduct Report</div>
+                          <div className="sv-wd-conduct">
+                            <div className="sv-wd-conduct-by">By {conductData.teacher_name}</div>
+                            <div className="sv-wd-conduct-grid">
                               {[["Behaviour",conductData.behaviour],["Discipline",conductData.discipline],["Academic",conductData.academic_performance],["Attendance",conductData.attendance_regularity]].map(([l,v])=>(
-                                <div key={l}><span style={{color:"#64748b"}}>{l}:</span> <strong>{v}</strong></div>
+                                <div key={l}><span className="sv-wd-conduct-key">{l}:</span> <strong>{v}</strong></div>
                               ))}
                             </div>
-                            {conductData.remarks&&<div style={{marginTop:6,fontSize:12,fontStyle:"italic"}}>"{conductData.remarks}"</div>}
-                            <div style={{marginTop:4,fontSize:12}}>Re-admission recommended: <strong>{conductData.recommended_readmission?"Yes":"No"}</strong></div>
+                            {conductData.remarks&&<div className="sv-wd-conduct-rem">"{conductData.remarks}"</div>}
+                            <div className="sv-wd-conduct-re">Re-admission recommended: <strong>{conductData.recommended_readmission?"Yes":"No"}</strong></div>
                           </div>
                         </div>
                       )}
@@ -241,36 +236,36 @@ export default function WithdrawalHistory() {
                   /* Attendance Tab */
                   : activeTab==="attendance" ? (
                     <div>
-                      <div style={{display:"flex",gap:12,marginBottom:16,flexWrap:"wrap",alignItems:"flex-end"}}>
-                        <div className="form-group" style={{marginBottom:0}}>
+                      <div className="sv-wd-filters">
+                        <div className="form-group">
                           <label className="form-label">From</label>
                           <DatePicker style={{width:150}} value={attFrom} onChange={val=>setAttFrom(val)} />
                         </div>
-                        <div className="form-group" style={{marginBottom:0}}>
+                        <div className="form-group">
                           <label className="form-label">To</label>
                           <DatePicker style={{width:150}} value={attTo} onChange={val=>setAttTo(val)} />
                         </div>
                         <button className="btn btn-primary btn-sm" onClick={()=>loadTabData("attendance",detail.student_id)}>Load</button>
                       </div>
                       {attSummary&&(
-                        <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:10,marginBottom:16}}>
-                          {[["Present",attSummary.present_days||0,"#22c55e"],["Absent",attSummary.absent_days||0,"#ef4444"],["Late",attSummary.late_days||0,"#f59e0b"],["On Leave",attSummary.on_leave_days||0,"#0891b2"],["Att %",(attSummary.attendance_pct||0)+"%","#2563eb"]].map(([l,v,c])=>(
-                            <div key={l} style={{background:"#fff",border:"1px solid #e2e8f0",borderTop:"3px solid "+c,borderRadius:8,padding:"10px",textAlign:"center"}}>
-                              <div style={{fontSize:18,fontWeight:800,color:c}}>{v}</div>
-                              <div style={{fontSize:11,color:"#64748b",marginTop:3}}>{l}</div>
+                        <div className="sv-tiles sv-tiles--5">
+                          {[["Present",attSummary.present_days||0,"green"],["Absent",attSummary.absent_days||0,"red"],["Late",attSummary.late_days||0,"amber"],["On Leave",attSummary.on_leave_days||0,"cyan"],["Att %",(attSummary.attendance_pct||0)+"%","blue"]].map(([l,v,c])=>(
+                            <div key={l} className={"sv-tile sv-tone-" + c}>
+                              <div className="sv-tile-val">{v}</div>
+                              <div className="sv-tile-label sv-tile-label--gap">{l}</div>
                             </div>
                           ))}
                         </div>
                       )}
-                      {attData.length===0?<div style={{textAlign:"center",padding:"24px",color:"var(--color-text-secondary)"}}>No records.</div>:(
-                        <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
-                          <thead><tr style={{background:"var(--color-background-secondary)"}}>{["Date","Day","Status","Remarks"].map(h=><th key={h} style={{padding:"8px 12px",textAlign:"left",fontSize:11,fontWeight:700,color:"var(--color-text-secondary)"}}>{h}</th>)}</tr></thead>
-                          <tbody>{attData.map((r,i)=>{const st=STATUS_BADGE_INLINE[r.status]||{bg:"#f1f5f9",color:"#475569",label:r.status};return(
-                            <tr key={i} style={{borderBottom:"1px solid var(--color-border-tertiary)"}}>
-                              <td style={{padding:"8px 12px"}}>{fmtDate(r.date)}</td>
-                              <td style={{padding:"8px 12px",color:"var(--color-text-secondary)"}}>{r.date?new Date(r.date).toLocaleDateString("en",{weekday:"short"}):"-"}</td>
-                              <td style={{padding:"8px 12px"}}><span style={{background:st.bg,color:st.color,padding:"2px 8px",borderRadius:12,fontSize:11,fontWeight:600}}>{st.label}</span></td>
-                              <td style={{padding:"8px 12px",color:"var(--color-text-secondary)"}}>{r.remarks||"-"}</td>
+                      {attData.length===0?<div className="sv-wd-none">No records.</div>:(
+                        <table className="sv-rec sv-rec--13">
+                          <thead><tr>{["Date","Day","Status","Remarks"].map(h=><th key={h}>{h}</th>)}</tr></thead>
+                          <tbody>{attData.map((r,i)=>{const st=STATUS_BADGE_INLINE[r.status]||{label:r.status};return(
+                            <tr key={i}>
+                              <td>{fmtDate(r.date)}</td>
+                              <td className="sv-rec-soft">{r.date?new Date(r.date).toLocaleDateString("en",{weekday:"short"}):"-"}</td>
+                              <td><span className={"sv-att sv-att--" + r.status}>{st.label}</span></td>
+                              <td className="sv-rec-soft">{r.remarks||"-"}</td>
                             </tr>
                           );})}
                           </tbody>
@@ -282,16 +277,16 @@ export default function WithdrawalHistory() {
                   /* Grades Tab */
                   : activeTab==="grades" ? (
                     <div>
-                      {gradesData.length===0?<div style={{textAlign:"center",padding:"24px",color:"var(--color-text-secondary)"}}>No grades found.</div>:(
-                        <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
-                          <thead><tr style={{background:"var(--color-background-secondary)"}}>{["Subject","Exam","Marks","Grade","Date"].map(h=><th key={h} style={{padding:"8px 12px",textAlign:"left",fontSize:11,fontWeight:700,color:"var(--color-text-secondary)"}}>{h}</th>)}</tr></thead>
+                      {gradesData.length===0?<div className="sv-wd-none">No grades found.</div>:(
+                        <table className="sv-rec sv-rec--13">
+                          <thead><tr>{["Subject","Exam","Marks","Grade","Date"].map(h=><th key={h}>{h}</th>)}</tr></thead>
                           <tbody>{gradesData.map((g,i)=>(
-                            <tr key={i} style={{borderBottom:"1px solid var(--color-border-tertiary)"}}>
-                              <td style={{padding:"8px 12px",fontWeight:500}}>{g.subject_name||"-"}</td>
-                              <td style={{padding:"8px 12px",color:"var(--color-text-secondary)"}}>{g.exam_name||"-"}</td>
-                              <td style={{padding:"8px 12px"}}>{g.marks_obtained||0}/{g.total_marks||0}</td>
-                              <td style={{padding:"8px 12px"}}><span style={{fontWeight:700,color:"#2563eb"}}>{g.grade||"-"}</span></td>
-                              <td style={{padding:"8px 12px",color:"var(--color-text-secondary)"}}>{fmtDate(g.exam_date)}</td>
+                            <tr key={i}>
+                              <td className="sv-rec-strong">{g.subject_name||"-"}</td>
+                              <td className="sv-rec-soft">{g.exam_name||"-"}</td>
+                              <td>{g.marks_obtained||0}/{g.total_marks||0}</td>
+                              <td><span className="sv-wd-grade">{g.grade||"-"}</span></td>
+                              <td className="sv-rec-soft">{fmtDate(g.exam_date)}</td>
                             </tr>
                           ))}</tbody>
                         </table>
@@ -302,13 +297,13 @@ export default function WithdrawalHistory() {
                   /* Fees Tab */
                   : activeTab==="fees" ? (
                     <div>
-                      {!feesData?<div style={{textAlign:"center",padding:"24px",color:"var(--color-text-secondary)"}}>No fee data found.</div>:(
+                      {!feesData?<div className="sv-wd-none">No fee data found.</div>:(
                         <div>
-                          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:16}}>
-                            {[["Total Billed","Rs."+Number(feesData.total_billed||0).toLocaleString(),"#2563eb"],["Paid","Rs."+Number(feesData.total_paid||0).toLocaleString(),"#166534"],["Outstanding","Rs."+Number(feesData.total_due||0).toLocaleString(),"#991b1b"],["Overdue",feesData.overdue_count||0,"#dc2626"]].map(([l,v,c])=>(
-                              <div key={l} style={{background:"#fff",border:"1px solid #e2e8f0",borderTop:"3px solid "+c,borderRadius:8,padding:"12px",textAlign:"center"}}>
-                                <div style={{fontSize:18,fontWeight:800,color:c}}>{v}</div>
-                                <div style={{fontSize:11,color:"#64748b",marginTop:3}}>{l}</div>
+                          <div className="sv-tiles sv-tiles--gap12">
+                            {[["Total Billed","Rs."+Number(feesData.total_billed||0).toLocaleString(),"blue"],["Paid","Rs."+Number(feesData.total_paid||0).toLocaleString(),"dgreen"],["Outstanding","Rs."+Number(feesData.total_due||0).toLocaleString(),"dred"],["Overdue",feesData.overdue_count||0,"red"]].map(([l,v,c])=>(
+                              <div key={l} className={"sv-tile sv-tone-" + c}>
+                                <div className="sv-tile-val">{v}</div>
+                                <div className="sv-tile-label sv-tile-label--gap">{l}</div>
                               </div>
                             ))}
                           </div>
@@ -325,17 +320,18 @@ export default function WithdrawalHistory() {
 
       {/* TC Modal */}
       {showTc&&tc&&(
-        <div style={{position:"fixed",inset:0,zIndex:1000,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
-          <div style={{background:"#fff",borderRadius:12,width:"100%",maxWidth:700,maxHeight:"90vh",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px rgba(0,0,0,0.2)",overflow:"hidden"}}>
-            <div style={{padding:"16px 24px",borderBottom:"1px solid #e2e8f0",background:"#f8fafc",display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}}>
-              <div style={{fontWeight:700,fontSize:16}}>Transfer Certificate</div>
-              <div style={{display:"flex",gap:10}}>
+        <div className="sv-overlay sv-tc-overlay">
+          <div className="sv-modal sv-tc-box">
+            <div className="sv-modal-head sv-tc-head">
+              <div className="sv-tc-title">Transfer Certificate</div>
+              <div className="sv-wd-btns">
                 <button className="btn btn-primary" onClick={printTC}>Print TC</button>
                 <button className="btn btn-secondary" onClick={()=>setShowTc(false)}>Close</button>
               </div>
             </div>
-            <div style={{flex:1,overflowY:"auto",padding:"24px"}}>
-              <div id="tc-print" style={{fontFamily:"Arial,sans-serif",maxWidth:680,margin:"0 auto"}}>
+            <div className="sv-tc-scroll">
+              {/* The certificate keeps its inline styles: Print copies this HTML into a window with no app CSS */}
+              <div id="tc-print" className="sv-paper">
                 <div style={{borderTop:"4px solid #0F6E56"}} />
                 <div style={{padding:"20px 28px 14px",borderBottom:"1px solid #e2e8f0",display:"flex",alignItems:"center",gap:16}}>
                   {tc.school_logo?<img src={tc.school_logo} alt="logo" style={{width:60,height:60,objectFit:"contain",borderRadius:8,flexShrink:0}} />:<div style={{width:60,height:60,borderRadius:8,background:"#f1f5f9",display:"flex",alignItems:"center",justifyContent:"center",fontSize:28,flexShrink:0}}>&#127979;</div>}

@@ -4,13 +4,10 @@ import { useAuth } from "../auth/AuthContext";
 import { useProcessingToday } from "../hooks/useProcessingToday";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
 import DatePicker from "../components/DatePicker";
+import "./StudentViews.css";
 
-const STATUS_COLORS = {
-  pending:     { bg: "#fef9c3", color: "#854d0e" },
-  recommended: { bg: "#dbeafe", color: "#1e40af" },
-  approved:    { bg: "#dcfce7", color: "#166534" },
-  rejected:    { bg: "#fee2e2", color: "#991b1b" },
-};
+// Status pill colours: .sv-status--<status> in StudentViews.css (light + dark)
+const statusClass = (s) => "sv-status" + (s ? " sv-status--" + s : "");
 
 
 
@@ -151,28 +148,22 @@ export default function Leaves() {
       </div>
 
       {toast && (
-        <div className={toastType === "error" ? "alert alert-error" : "alert alert-success"} style={{ marginBottom: 16 }}>
+        <div className={(toastType === "error" ? "alert alert-error" : "alert alert-success") + " sv-gap16"}>
           {toast}
         </div>
       )}
 
       {/* Child selector for parent */}
       {isParent && children.length > 1 && (
-        <div className="section-card" style={{ marginBottom: 16, padding: "14px 20px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <span style={{ fontWeight: 500, fontSize: 14, color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>Viewing leaves for:</span>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <div className="section-card sv-childbar">
+          <div className="sv-childbar-row">
+            <span className="sv-childbar-label">Viewing leaves for:</span>
+            <div className="sv-chips">
               {children.map(child => (
-                <button key={child.id} onClick={() => setSelectedChild(child)} style={{
-                  padding: "6px 16px", borderRadius: 20, border: "1px solid",
-                  borderColor: selectedChild?.id === child.id ? "#2563eb" : "var(--color-border-secondary)",
-                  background: selectedChild?.id === child.id ? "#eff6ff" : "var(--color-background-primary)",
-                  color: selectedChild?.id === child.id ? "#1d4ed8" : "var(--color-text-primary)",
-                  fontWeight: selectedChild?.id === child.id ? 600 : 400,
-                  fontSize: 13, cursor: "pointer",
-                }}>
+                <button key={child.id} onClick={() => setSelectedChild(child)}
+                  className={"sv-chip" + (selectedChild?.id === child.id ? " sv-chip--on" : "")}>
                   {child.name}
-                  <span style={{ fontSize: 11, marginLeft: 6, opacity: .7 }}>{child.class_name}{child.class_section ? " (" + child.class_section + ")" : ""}</span>
+                  <span className="sv-chip-class">{child.class_name}{child.class_section ? " (" + child.class_section + ")" : ""}</span>
                 </button>
               ))}
             </div>
@@ -182,20 +173,15 @@ export default function Leaves() {
 
       {/* Single child info bar */}
       {isParent && children.length === 1 && selectedChild && (
-        <div style={{ marginBottom: 16, padding: "10px 16px", background: "#eff6ff", borderRadius: 8, border: "1px solid #bfdbfe", fontSize: 13, color: "#1e40af" }}>
+        <div className="sv-info sv-info--bar">
           Showing leaves for <strong>{selectedChild.name}</strong> - {selectedChild.class_name}{selectedChild.class_section ? " (" + selectedChild.class_section + ")" : ""}
         </div>
       )}
 
       {/* Tab bar */}
-      <div style={{ display: "flex", gap: 0, marginBottom: 20, borderBottom: "1px solid var(--color-border-tertiary)" }}>
+      <div className="sv-tabs">
         {[{ key: "requests", label: "My Requests" }, { key: "balance", label: "Leave Balance" }].map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)} style={{
-            padding: "10px 20px", border: "none", background: "none", cursor: "pointer",
-            fontWeight: tab === t.key ? 600 : 400, fontSize: 14,
-            borderBottom: tab === t.key ? "2px solid #2563eb" : "2px solid transparent",
-            color: tab === t.key ? "#2563eb" : "var(--color-text-secondary)",
-          }}>{t.label}</button>
+          <button key={t.key} onClick={() => setTab(t.key)} className={"sv-tab" + (tab === t.key ? " sv-tab--on" : "")}>{t.label}</button>
         ))}
       </div>
 
@@ -207,36 +193,31 @@ export default function Leaves() {
             <span className="badge badge-gray">{leaves.length} total</span>
           </div>
           {leaves.length === 0 ? (
-            <div style={{ padding: "40px 0", textAlign: "center", color: "var(--color-text-secondary)", fontSize: 14 }}>
+            <div className="sv-empty">
               No leave requests yet. Click "+ Apply Leave" to submit one.
             </div>
           ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+            <table className="sv-table">
               <thead>
-                <tr style={{ background: "var(--color-background-tertiary)", borderBottom: "2px solid var(--color-border-tertiary)" }}>
+                <tr>
                   {["Leave Type","From","To","Days","Reason","Applied On","Status",""].map(h => (
-                    <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>{h}</th>
+                    <th key={h}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {leaves.map((lr, i) => (
-                  <tr key={lr.id} style={{ borderBottom: "1px solid var(--color-border-tertiary)", background: i % 2 === 0 ? "transparent" : "var(--color-background-tertiary)" }}>
-                    <td style={{ padding: "12px 14px", fontWeight: 600 }}>{lr.leave_type}</td>
-                    <td style={{ padding: "12px 14px", color: "var(--color-text-secondary)" }}>{fmtDate(lr.from_date)}</td>
-                    <td style={{ padding: "12px 14px", color: "var(--color-text-secondary)" }}>{fmtDate(lr.to_date)}</td>
-                    <td style={{ padding: "12px 14px" }}>{lr.total_days}</td>
-                    <td style={{ padding: "12px 14px", color: "var(--color-text-secondary)", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{lr.reason}</td>
-                    <td style={{ padding: "12px 14px", color: "var(--color-text-secondary)", whiteSpace: "nowrap" }}>{formatDate(lr.applied_at)}</td>
-                    <td style={{ padding: "12px 14px" }}>
-                      <span style={{
-                        display: "inline-block", padding: "3px 12px", borderRadius: 20,
-                        fontSize: 12, fontWeight: 600, textTransform: "capitalize",
-                        background: STATUS_COLORS[lr.status]?.bg,
-                        color: STATUS_COLORS[lr.status]?.color,
-                      }}>{lr.status}</span>
+                  <tr key={lr.id}>
+                    <td className="sv-td-strong">{lr.leave_type}</td>
+                    <td className="sv-td-soft">{fmtDate(lr.from_date)}</td>
+                    <td className="sv-td-soft">{fmtDate(lr.to_date)}</td>
+                    <td>{lr.total_days}</td>
+                    <td className="sv-td-soft sv-td-reason">{lr.reason}</td>
+                    <td className="sv-td-soft sv-td-nowrap">{formatDate(lr.applied_at)}</td>
+                    <td>
+                      <span className={statusClass(lr.status)}>{lr.status}</span>
                     </td>
-                    <td style={{ padding: "12px 14px" }}>
+                    <td>
                       <button className="btn btn-ghost btn-sm" onClick={() => setDetail(lr)}>View</button>
                     </td>
                   </tr>
@@ -249,38 +230,35 @@ export default function Leaves() {
 
       {/* Balance Tab */}
       {tab === "balance" && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 16 }}>
+        <div className="sv-bal-grid">
           {balance.length === 0 ? (
-            <div className="section-card" style={{ gridColumn: "1/-1", padding: "40px 0", textAlign: "center", color: "var(--color-text-secondary)", fontSize: 14 }}>
+            <div className="section-card sv-bal-empty">
               No leave balance information available.
             </div>
           ) : balance.map(b => (
-            <div key={b.leave_type_id} className="section-card" style={{ padding: 20 }}>
-              <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 12 }}>{b.leave_type}</div>
+            <div key={b.leave_type_id} className="section-card sv-bal-card">
+              <div className="sv-bal-name">{b.leave_type}</div>
               {b.max_days == null ? (
                 <div>
-                  <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginBottom: 6 }}>Unlimited leave</div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-                    <span style={{ color: "var(--color-text-secondary)" }}>Days used</span>
-                    <span style={{ fontWeight: 600 }}>{b.days_used}</span>
+                  <div className="sv-bal-note">Unlimited leave</div>
+                  <div className="sv-bal-row">
+                    <span className="sv-soft">Days used</span>
+                    <span className="sv-bal-val">{b.days_used}</span>
                   </div>
                 </div>
               ) : (
                 <div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 8 }}>
-                    <span style={{ color: "var(--color-text-secondary)" }}>Used</span>
-                    <span style={{ fontWeight: 600 }}>{b.days_used} / {b.max_days} days</span>
+                  <div className="sv-bal-row sv-bal-row--mb">
+                    <span className="sv-soft">Used</span>
+                    <span className="sv-bal-val">{b.days_used} / {b.max_days} days</span>
                   </div>
-                  <div style={{ height: 8, background: "var(--color-border-tertiary)", borderRadius: 4, overflow: "hidden", marginBottom: 8 }}>
-                    <div style={{
-                      height: "100%", borderRadius: 4,
-                      width: Math.min(100, Math.round((b.days_used / b.max_days) * 100)) + "%",
-                      background: b.days_remaining === 0 ? "#ef4444" : b.days_remaining <= 2 ? "#f59e0b" : "#2563eb",
-                    }} />
+                  <div className="sv-bar">
+                    <div className={"sv-bar-fill" + (b.days_remaining === 0 ? " sv-bar-fill--empty" : b.days_remaining <= 2 ? " sv-bar-fill--low" : "")}
+                      style={{ width: Math.min(100, Math.round((b.days_used / b.max_days) * 100)) + "%" }} />
                   </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                    <span style={{ color: "var(--color-text-secondary)" }}>Remaining</span>
-                    <span style={{ fontWeight: 600, color: b.days_remaining === 0 ? "#ef4444" : b.days_remaining <= 2 ? "#f59e0b" : "#166534" }}>
+                  <div className="sv-bal-row sv-bal-row--sm">
+                    <span className="sv-soft">Remaining</span>
+                    <span className={"sv-bal-val " + (b.days_remaining === 0 ? "sv-left-empty" : b.days_remaining <= 2 ? "sv-left-low" : "sv-left-ok")}>
                       {b.days_remaining} day{b.days_remaining !== 1 ? "s" : ""}
                     </span>
                   </div>
@@ -293,22 +271,22 @@ export default function Leaves() {
 
       {/* Apply Modal */}
       {showForm && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <div style={{ background: "#ffffff", borderRadius: 12, width: "100%", maxWidth: 560, maxHeight: "92vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.18)", display: "flex", flexDirection: "column" }}>
-            <div style={{ padding: "16px 24px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f8fafc", borderRadius: "12px 12px 0 0", flexShrink: 0 }}>
+        <div className="sv-overlay">
+          <div className="sv-modal sv-modal--wide">
+            <div className="sv-modal-head">
               <div>
-                <div style={{ fontWeight: 600, fontSize: 16, color: "#0f172a" }}>Apply for Leave</div>
-                <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                <div className="sv-modal-title">Apply for Leave</div>
+                <div className="sv-modal-sub">
                   {isParent && selectedChild ? "Applying for: " + selectedChild.name : "Fill in the details to submit your leave request"}
                 </div>
               </div>
-              <button onClick={() => setShowForm(false)} style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "#94a3b8", lineHeight: 1, padding: "2px 8px" }}>X</button>
+              <button onClick={() => setShowForm(false)} className="sv-modal-x">X</button>
             </div>
 
-            <div style={{ padding: "20px 24px", flex: 1 }}>
+            <div className="sv-modal-body">
               {/* Child selector inside modal for parent with multiple children */}
               {isParent && children.length > 1 && (
-                <div className="form-group" style={{ marginBottom: 14 }}>
+                <div className="form-group sv-mb14">
                   <label className="form-label">Applying for *</label>
                   <select className="form-control" value={selectedChild?.id || ""}
                     onChange={e => setSelectedChild(children.find(c => c.id === parseInt(e.target.value)))}>
@@ -319,7 +297,7 @@ export default function Leaves() {
                 </div>
               )}
 
-              <div className="form-group" style={{ marginBottom: 14 }}>
+              <div className="form-group sv-mb14">
                 <label className="form-label">Leave Type *</label>
                 <select className="form-control" value={form.leave_type_id}
                   onChange={e => setForm(f => ({ ...f, leave_type_id: e.target.value, certificate: null }))}>
@@ -332,7 +310,7 @@ export default function Leaves() {
                 </select>
               </div>
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 14 }}>
+              <div className="sv-two">
                 <div className="form-group">
                   <label className="form-label">From Date *</label>
                   <DatePicker value={form.from_date} min={today}
@@ -347,17 +325,17 @@ export default function Leaves() {
               </div>
 
               {certRule?.certificate_required && (
-                <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 8, padding: "10px 14px", marginBottom: 14, fontSize: 13, color: "#1e40af" }}>
+                <div className="sv-info sv-info--note">
                   Certificate required: {certRule.certificate_label || "Please upload a supporting document"}
                 </div>
               )}
 
-              <div className="form-group" style={{ marginBottom: 14 }}>
+              <div className="form-group sv-mb14">
                 <label className="form-label">Reason *</label>
-                <textarea className="form-control" value={form.reason}
+                <textarea value={form.reason}
                   onChange={e => setForm(f => ({ ...f, reason: e.target.value }))}
                   placeholder="Briefly describe your reason for leave..."
-                  style={{ minHeight: 90, resize: "vertical" }} />
+                  className="form-control sv-textarea" />
               </div>
 
               {certRule?.certificate_required && (
@@ -365,15 +343,15 @@ export default function Leaves() {
                   <label className="form-label">Upload Certificate (PDF / JPG / PNG) *</label>
                   <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png"
                     onChange={e => setForm(f => ({ ...f, certificate: e.target.files[0] }))}
-                    style={{ fontSize: 13, marginTop: 4 }} />
+                    className="sv-file" />
                   {form.certificate && (
-                    <div style={{ fontSize: 12, color: "#166534", marginTop: 4 }}>Selected: {form.certificate.name}</div>
+                    <div className="sv-picked">Selected: {form.certificate.name}</div>
                   )}
                 </div>
               )}
             </div>
 
-            <div style={{ padding: "14px 24px", borderTop: "1px solid #e2e8f0", display: "flex", justifyContent: "flex-end", gap: 10, background: "#f8fafc", borderRadius: "0 0 12px 12px", flexShrink: 0 }}>
+            <div className="sv-modal-foot">
               <button className="btn btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
               <button className="btn btn-primary" onClick={submit} disabled={loading}>
                 {loading ? "Submitting..." : "Submit Request"}
@@ -385,22 +363,17 @@ export default function Leaves() {
 
       {/* Detail Modal */}
       {detail && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <div style={{ background: "#ffffff", borderRadius: 12, width: "100%", maxWidth: 520, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.18)", display: "flex", flexDirection: "column" }}>
-            <div style={{ padding: "16px 24px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f8fafc", borderRadius: "12px 12px 0 0", flexShrink: 0 }}>
+        <div className="sv-overlay">
+          <div className="sv-modal">
+            <div className="sv-modal-head">
               <div>
-                <div style={{ fontWeight: 600, fontSize: 16, color: "#0f172a" }}>Leave Request #{detail.id}</div>
-                <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>{detail.leave_type}</div>
+                <div className="sv-modal-title">Leave Request #{detail.id}</div>
+                <div className="sv-modal-sub">{detail.leave_type}</div>
               </div>
-              <span style={{
-                display: "inline-block", padding: "4px 14px", borderRadius: 20,
-                fontSize: 12, fontWeight: 600, textTransform: "capitalize",
-                background: STATUS_COLORS[detail.status]?.bg,
-                color: STATUS_COLORS[detail.status]?.color,
-              }}>{detail.status}</span>
+              <span className={statusClass(detail.status) + " sv-status--lg"}>{detail.status}</span>
             </div>
 
-            <div style={{ padding: "20px 24px", flex: 1 }}>
+            <div className="sv-modal-body">
               {[
                 { label: "Leave Type",  value: detail.leave_type },
                 { label: "From",        value: fmtDate(detail.from_date) },
@@ -413,26 +386,26 @@ export default function Leaves() {
                 detail.approver_note    && { label: "Approver Note",  value: detail.approver_note },
                 detail.rejection_reason && { label: "Rejection",      value: detail.rejection_reason },
               ].filter(Boolean).map((row, i) => (
-                <div key={i} style={{ display: "flex", gap: 16, padding: "10px 0", borderBottom: "1px solid #f1f5f9", fontSize: 14 }}>
-                  <span style={{ minWidth: 140, fontWeight: 500, color: "#64748b", flexShrink: 0 }}>{row.label}</span>
-                  <span style={{ color: "#0f172a" }}>{row.value}</span>
+                <div key={i} className="sv-row">
+                  <span className="sv-row-key">{row.label}</span>
+                  <span className="sv-row-val">{row.value}</span>
                 </div>
               ))}
               {detail.certificate_url && (
-                <div style={{ marginTop: 16 }}>
+                <div className="sv-cert">
                   <button onClick={async () => {
                     const r = await fetch(leavesApi.getCertUrl(detail.id), { headers: { Authorization: "Bearer " + sessionStorage.getItem("access_token") } });
                     const blob = await r.blob();
                     const url = URL.createObjectURL(blob);
                     window.open(url, "_blank");
-                  }} style={{ color: "#2563eb", fontSize: 14, fontWeight: 500, background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline" }}>
+                  }} className="sv-cert-btn">
                     View Certificate
                   </button>
                 </div>
               )}
             </div>
 
-            <div style={{ padding: "14px 24px", borderTop: "1px solid #e2e8f0", display: "flex", justifyContent: "flex-end", background: "#f8fafc", borderRadius: "0 0 12px 12px", flexShrink: 0 }}>
+            <div className="sv-modal-foot">
               <button className="btn btn-primary" onClick={() => setDetail(null)}>Close</button>
             </div>
           </div>

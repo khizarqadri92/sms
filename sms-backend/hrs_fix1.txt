@@ -1,0 +1,10 @@
+<button className="btn btn-primary btn-sm hrs-add-btn"
+                    onClick={async()=>{
+                      if(!deptForm.name.trim()||!deptForm.parent_id){showFlash("error","Select parent and enter name.");return;}
+                      try{
+                        await hrApi.createDepartment({name:deptForm.name,parent_id:Number(deptForm.parent_id),is_parent:false});
+                        setDeptForm({name:"",parent_id:null});
+                        loadAll(); showFlash("success","Sub-department added.");
+                      }catch(e){showFlash("error",e.response?.data?.detail?.message||"Failed.");}
+                    }}>+ Add</button>
+                

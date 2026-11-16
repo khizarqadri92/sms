@@ -127,19 +127,29 @@ def enroll_student(body: StudentEnrollIn, user_id: int = Depends(require_permiss
             fail(str(e), 400)
 
         try:
-            from app.utils.notify import send_notification
-            if result.get("user_id"):
-                send_notification(
-                    result["user_id"], "Welcome to School!",
-                    "Your enrollment is confirmed. Enrollment No: " + str(result.get("enrollment_no", "")) + ".",
-                    "success"
-                )
-            if result.get("parent_id"):
-                send_notification(
-                    result["parent_id"], "Child Enrolled",
-                    str(result.get("first_name", "")) + " " + str(result.get("last_name", "")) + " has been enrolled. Enrollment No: " + str(result.get("enrollment_no", "")) + ".",
-                    "success"
-                )
+            from app.utils.notify import send_notification, render_templated_notification
+            import main as _main
+            _enroll_no = str(result.get("enrollment_no", ""))
+            _sname = str(result.get("first_name", "")) + " " + str(result.get("last_name", ""))
+            with _main.flask_app.app_context():
+                if result.get("user_id"):
+                    _t, _b = render_templated_notification("student_enrolled_student", {"enrollment_no": _enroll_no},
+                        "Welcome to School!", "Your enrollment is confirmed. Enrollment No: " + _enroll_no + ".",
+                        campus_id=campus_id)
+                    send_notification(
+                        result["user_id"], _t,
+                        _b,
+                        "success"
+                    )
+                if result.get("parent_id"):
+                    _t, _b = render_templated_notification("student_enrolled_parent", {"student_name": _sname, "enrollment_no": _enroll_no},
+                        "Child Enrolled", _sname + " has been enrolled. Enrollment No: " + _enroll_no + ".",
+                        campus_id=campus_id)
+                    send_notification(
+                        result["parent_id"], _t,
+                        _b,
+                        "success"
+                    )
         except Exception:
             pass
 
@@ -466,3 +476,107 @@ def link_parent(id: int, body: LinkParentIn, user_id: int = Depends(require_perm
         """, (id,))
         data = dict(cur.fetchone())
     return ok(data=data, message="Parent updated successfully.")
+
+
+
+# =============================================================================
+# Family & other details (same as the admission form) - used by Edit Info
+# =============================================================================
+from typing import List as _List
+
+
+class StudentDetailsIn(BaseModel):
+    b_form_no: Optional[str] = None
+    religion: Optional[str] = None
+    sect: Optional[str] = None
+    nationality: Optional[str] = None
+    previous_school: Optional[str] = None
+    previous_class: Optional[str] = None
+    father_name: Optional[str] = None
+    father_cnic: Optional[str] = None
+    father_occupation: Optional[str] = None
+    father_phone: Optional[str] = None
+    father_email: Optional[str] = None
+    mother_name: Optional[str] = None
+    mother_cnic: Optional[str] = None
+    mother_occupation: Optional[str] = None
+    mother_phone: Optional[str] = None
+    mother_email: Optional[str] = None
+    primary_guardian: Optional[str] = "father"
+    guardian_name: Optional[str] = None
+    guardian_cnic: Optional[str] = None
+    guardian_occupation: Optional[str] = None
+    guardian_phone: Optional[str] = None
+    guardian_email: Optional[str] = None
+    guardian_relationship: Optional[str] = None
+    guardian_relationship_other: Optional[str] = None
+    living_with: Optional[str] = None
+    has_disability: bool = False
+    disability_types: _List[str] = []
+    disability_details: Optional[str] = None
+    transport_mode: Optional[str] = "self"
+    pickup_address: Optional[str] = None
+
+
+@router.get("/{id}/details")
+def get_student_details(id: int, user_id: int = Depends(require_permission("students.view")), db=Depends(get_db),
+                        campus_id: Optional[int] = Depends(get_current_campus_id)):
+    from app.api.v1.admissions import STUDENT_DETAIL_FIELDS
+    _check_student_campus(db, id, campus_id)
+    cur = get_cur(db)
+    cur.execute(f"SELECT {', '.join(STUDENT_DETAIL_FIELDS)} FROM students WHERE id=%s", (id,))
+    r = cur.fetchone()
+    if not r: fail("Student not found.", 404)
+    d = dict(r)
+    d["disability_types"] = list(d.get("disability_types") or [])
+    return ok(data=d)
+
+
+@router.put("/{id}/details")
+def save_student_details(id: int, body: StudentDetailsIn, user_id: int = Depends(require_permission("students.edit")), db=Depends(get_db),
+                         campus_id: Optional[int] = Depends(get_current_campus_id)):
+    """Same rules as the admission form (CNIC 13 digits, mobile numbers, guardian, disability, transport)."""
+    import re as _re
+    from app.api.v1.admissions import (STUDENT_DETAIL_FIELDS, RELATIONSHIPS, DISABILITY_TYPES, normalize_phone, _cnic_ok,
+                                       _cnic_digits, _email_ok)
+    _check_student_campus(db, id, campus_id)
+    v = {k: (x.strip() if isinstance(x, str) else x) for k, x in body.dict().items()}
+    for k in list(v):
+        if v[k] == "": v[k] = None
+    for k in ("b_form_no", "father_cnic", "mother_cnic", "guardian_cnic"):
+        if v.get(k):
+            if not _cnic_ok(v[k]): fail(("The B-Form number" if k == "b_form_no" else "The " + k.split("_")[0] + "'s CNIC") + " should have 13 digits.", 400)
+            v[k] = _cnic_digits(v[k])
+    for who in ("father", "mother", "guardian"):
+        if v.get(f"{who}_phone"):
+            p_ = normalize_phone(v[f"{who}_phone"])
+            if not p_: fail(f"The {who}'s phone should be a mobile number like 0300 1234567.", 400)
+            v[f"{who}_phone"] = p_
+        if v.get(f"{who}_email") and not _email_ok(v[f"{who}_email"]): fail(f"The {who}'s email address isn't valid.", 400)
+    pg = v.get("primary_guardian") or "father"
+    if pg not in ("father", "mother", "other"): fail("Choose the primary guardian.", 400)
+    v["primary_guardian"] = pg
+    if pg == "other":
+        if not v.get("guardian_name") or not v.get("guardian_phone"): fail("Enter the guardian's name and mobile number.", 400)
+        if v.get("guardian_relationship") not in RELATIONSHIPS: fail("Choose the guardian's relationship with the student.", 400)
+        if v["guardian_relationship"] == "other" and not v.get("guardian_relationship_other"): fail("Describe the guardian's relationship.", 400)
+    else:
+        for k in ("guardian_name", "guardian_cnic", "guardian_occupation", "guardian_phone", "guardian_email", "guardian_relationship",
+                  "guardian_relationship_other"):
+            v[k] = None
+    if v.get("living_with") not in (None, "father", "mother", "both", "guardian"): fail("Choose who the student lives with.", 400)
+    if v.get("living_with") == "guardian" and pg != "other": fail("'Lives with the guardian' is for when the primary guardian is Other.", 400)
+    types = [t for t in (v.get("disability_types") or []) if t]
+    if v.get("has_disability"):
+        if any(t not in DISABILITY_TYPES for t in types): fail("Choose the type of disability from the list.", 400)
+        v["disability_types"] = sorted(set(types))
+    else:
+        v["has_disability"], v["disability_types"], v["disability_details"] = False, [], None
+    if v.get("transport_mode") not in (None, "self", "school_van"): fail("Choose school van or self pick and drop.", 400)
+    if v.get("transport_mode") == "school_van" and not v.get("pickup_address"): fail("Enter the pick-up address for the school van.", 400)
+    if v.get("transport_mode") != "school_van": v["pickup_address"] = None
+    cur = get_cur(db)
+    cur.execute(f"UPDATE students SET {', '.join(k + '=%s' for k in STUDENT_DETAIL_FIELDS)} WHERE id=%s",
+                [v.get(k) if k != "disability_types" else (v.get(k) or []) for k in STUDENT_DETAIL_FIELDS] + [id])
+    db.commit()
+    return ok(message="Family and other details saved.")

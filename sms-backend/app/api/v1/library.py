@@ -786,13 +786,21 @@ def return_book(transaction_id: int, body: ReturnBookIn, user_id: int = Depends(
             fulfill = cur.fetchone()
             if fulfill and fulfill["reservation_id"]:
                 db.commit()
-                from app.utils.notify import send_notification
+                from app.utils.notify import send_notification, render_templated_notification
+                import main as _main
                 cur.execute("SELECT user_id FROM library_members WHERE id = %s", (fulfill["member_id"],))
                 mrow = cur.fetchone()
                 if mrow:
-                    send_notification(
-                        mrow["user_id"], "Reserved Book Available",
-                        "'" + book_row["title"] + "' is now available for pickup. Please collect it soon.",
+                    cur.execute("SELECT campus_id FROM users WHERE id=%s", (mrow["user_id"],))
+                    _mem_campus_row = cur.fetchone()
+                    _mem_campus_id = _mem_campus_row["campus_id"] if _mem_campus_row else None
+                    with _main.flask_app.app_context():
+                        _t, _b = render_templated_notification("library_book_available", {"book_title": book_row["title"]},
+                            "Reserved Book Available", "'" + book_row["title"] + "' is now available for pickup. Please collect it soon.",
+                            campus_id=_mem_campus_id)
+                        send_notification(
+                            mrow["user_id"], _t,
+                            _b,
                         "info"
                     )
     except Exception:

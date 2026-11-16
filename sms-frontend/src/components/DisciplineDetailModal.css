@@ -1,0 +1,721 @@
+.ddm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: rgba(15,23,42,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.ddm-box {
+  background: var(--bg-card);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 700px;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  overflow: hidden;
+}
+
+.ddm-header {
+  padding: 12px 20px;
+  background: var(--bg-warning-soft);
+  border-bottom: 1px solid var(--border-warning-soft);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.ddm-header-label {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.ddm-header-step {
+  font-size: 13px;
+  color: var(--text-warning-soft);
+  font-weight: 600;
+}
+
+.ddm-header-role {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-left: 8px;
+}
+
+.ddm-header-status {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.ddm-content {
+  padding: 20px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.ddm-flash {
+  padding: 8px 14px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  background: var(--flash-bg);
+  color: var(--flash-color);
+}
+
+.ddm-loading {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-secondary);
+}
+
+.ddm-case-info {
+  margin-bottom: 16px;
+}
+
+.ddm-student-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-heading);
+}
+
+.ddm-student-meta {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.ddm-badge-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.ddm-violation-badge {
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+.ddm-severity-badge {
+  padding: 3px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--severity-color);
+}
+
+.ddm-incident-date {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.ddm-desc-box {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  background: var(--bg-hover);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.ddm-label {
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+  letter-spacing: 0.05em;
+}
+
+.ddm-evidence-box {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  background: var(--bg-hover);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.ddm-evidence-label {
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  letter-spacing: 0.05em;
+}
+
+.ddm-evidence-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.ddm-evidence-link {
+  color: #2563eb;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.ddm-evidence-uploader {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.ddm-upload-wrap {
+  margin-bottom: 16px;
+}
+
+.ddm-upload-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.ddm-file-input {
+  font-size: 12px;
+  flex: 1;
+}
+
+.ddm-upload-btn {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.ddm-committee-box {
+  margin-bottom: 16px;
+  padding: 10px 14px;
+  background: var(--bg-success-soft);
+  border-radius: 8px;
+  border: 1px solid var(--border-success-soft);
+}
+
+.ddm-committee-label {
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--text-success-soft);
+  margin-bottom: 6px;
+  letter-spacing: 0.05em;
+}
+
+.ddm-committee-body {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.ddm-hearing-date {
+  margin-left: 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.ddm-committee-members {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.ddm-section {
+  margin-bottom: 16px;
+}
+
+.ddm-section-label {
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--text-secondary);
+  letter-spacing: 0.05em;
+  margin-bottom: 12px;
+}
+
+.ddm-timeline-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 10px;
+  opacity: var(--row-opacity, 1);
+}
+
+.ddm-timeline-dot-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.ddm-timeline-dot {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--dot-bg);
+  color: var(--dot-color);
+}
+
+.ddm-timeline-connector {
+  width: 2px;
+  flex: 1;
+  min-height: 16px;
+  background: var(--connector-bg);
+}
+
+.ddm-timeline-content {
+  padding-bottom: 10px;
+}
+
+.ddm-timeline-label {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-heading);
+}
+
+.ddm-current-tag {
+  margin-left: 8px;
+  font-size: 11px;
+  color: #f97316;
+  font-weight: 700;
+}
+
+.ddm-timeline-by {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.ddm-timeline-at {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.ddm-timeline-note {
+  font-style: italic;
+  margin-left: 6px;
+}
+
+.ddm-remarks-box {
+  padding: 16px 20px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  background: var(--box-bg);
+  border: 1px solid var(--box-border);
+}
+
+.ddm-remarks-title {
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 10px;
+  color: var(--title-color);
+}
+
+.ddm-remarks-completed {
+  font-size: 13px;
+  color: var(--text-success-soft);
+}
+
+.ddm-field-wrap {
+  margin-bottom: 10px;
+}
+
+.ddm-field-label {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.ddm-textarea-full {
+  width: 100%;
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+
+.ddm-select-full {
+  width: 100%;
+  font-size: 13px;
+}
+
+.ddm-error-text {
+  color: #dc2626;
+  font-size: 12px;
+  margin-bottom: 8px;
+}
+
+.ddm-btn-row-end {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.ddm-btn-row-end-single {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.ddm-btn-white {
+  color: #fff;
+}
+
+.ddm-summary-box {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  background: var(--bg-warning-soft);
+  border-radius: 8px;
+  border: 1px solid var(--border-warning-soft);
+}
+
+.ddm-summary-title {
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 12px;
+  color: var(--text-heading);
+}
+
+.ddm-summary-title-sm {
+  font-weight: 700;
+  font-size: 11px;
+  color: var(--text-warning-soft);
+  margin-bottom: 10px;
+  letter-spacing: 0.05em;
+}
+
+.ddm-head-card {
+  margin-bottom: 10px;
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border-radius: 6px;
+  border: 1px solid var(--border-warning-soft);
+}
+
+.ddm-head-card-final {
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: var(--bg-warning-soft);
+  border: 2px solid var(--border-warning-soft);
+}
+
+.ddm-head-card-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ddm-head-name {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.ddm-head-name-mb {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-heading);
+  margin-bottom: 4px;
+}
+
+.ddm-head-tag {
+  font-size: 11px;
+  color: #f97316;
+  font-weight: 700;
+}
+
+.ddm-head-status {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--status-color);
+}
+
+.ddm-recommendation {
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.ddm-recommendation-mb {
+  font-size: 13px;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.ddm-recommendation-value {
+  color: var(--text-warning-soft);
+  font-weight: 700;
+}
+
+.ddm-remarks-quote {
+  font-size: 12px;
+  color: var(--text-primary);
+  font-style: italic;
+  margin-top: 2px;
+}
+
+.ddm-awaiting {
+  font-size: 12px;
+  color: #f97316;
+  font-weight: 600;
+}
+
+.ddm-members-label {
+  font-weight: 600;
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  letter-spacing: 0.05em;
+}
+
+.ddm-member-card {
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+}
+
+.ddm-member-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ddm-member-name {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-heading);
+}
+
+.ddm-member-status {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--status-color);
+}
+
+.ddm-member-recommendation {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.ddm-no-data {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.ddm-action-box {
+  padding: 16px 20px;
+  background: var(--bg-hover);
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.ddm-step-title {
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 10px;
+  color: var(--text-heading);
+}
+
+.ddm-step-title-mb12 {
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 12px;
+  color: var(--text-heading);
+}
+
+.ddm-step-title-purple {
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 10px;
+  color: var(--text-purple-soft);
+}
+
+.ddm-datetime-row {
+  display: flex;
+  gap: 8px;
+}
+
+.ddm-flex1 {
+  flex: 1;
+}
+
+.ddm-time-input {
+  width: 110px;
+  font-size: 13px;
+}
+
+.ddm-input-full {
+  width: 100%;
+  font-size: 13px;
+}
+
+.ddm-multi-select {
+  width: 100%;
+  font-size: 13px;
+  height: 100px;
+}
+
+.ddm-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+
+.ddm-appearance-box {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  background: var(--bg-info-soft);
+  border-radius: 8px;
+  border: 1px solid var(--border-info-soft);
+}
+
+.ddm-appearance-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-info-soft);
+  margin-bottom: 8px;
+}
+
+.ddm-appearance-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 10px;
+}
+
+.ddm-candidate-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--row-bg);
+  border: 1px solid var(--row-border);
+  cursor: var(--row-cursor);
+  opacity: var(--row-opacity);
+}
+
+.ddm-candidate-checkbox {
+  cursor: pointer;
+}
+
+.ddm-candidate-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.ddm-candidate-label-text {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.ddm-no-account {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+.ddm-appeal-note-box {
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  background: var(--bg-purple-soft);
+  border-radius: 6px;
+  border: 1px solid var(--border-purple-soft);
+  font-size: 13px;
+}
+
+.ddm-suspension-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.ddm-parent-appeal-box {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 8px;
+  background: var(--box-bg);
+  border: 1px solid var(--box-border);
+}
+
+.ddm-parent-appeal-title {
+  font-weight: 700;
+  font-size: 12px;
+  margin-bottom: 6px;
+  color: var(--title-color);
+}
+
+.ddm-rejected-msg {
+  font-size: 13px;
+  color: #dc2626;
+  padding: 8px;
+  background: var(--bg-danger-soft);
+  border-radius: 6px;
+}
+
+.ddm-upheld-msg {
+  font-size: 13px;
+  color: var(--text-success-soft);
+  padding: 8px;
+  background: var(--bg-success-soft);
+  border-radius: 6px;
+}
+
+.ddm-under-review-msg {
+  font-size: 13px;
+  color: var(--text-success-soft);
+}
+
+.ddm-deadline {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.ddm-purple-btn {
+  background: #7c3aed;
+  color: #fff;
+  font-size: 12px;
+}
+
+.ddm-purple-btn-sm {
+  background: #7c3aed;
+  color: #fff;
+}
+
+.ddm-not-available {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.ddm-head-member-row {
+  margin-bottom: 6px;
+  padding: 8px 12px;
+  background: var(--bg-card);
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+  opacity: var(--row-opacity);
+}
+
+.ddm-hearing-hint {
+  color: var(--text-secondary);
+  font-weight: 400;
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+
+.ddm-appeal-note-textarea {
+  width: 100%;
+  font-size: 13px;
+  margin-bottom: 8px;
+}

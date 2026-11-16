@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import libraryApi from "../api/libraryApi";
 import { useGovernanceMode } from "../hooks/useGovernanceMode";
+import "./LibraryPublishers.css";
 
 function PublisherFormModal({ publisher, onClose, onSaved }) {
   const [form, setForm] = useState({
@@ -32,10 +33,10 @@ function PublisherFormModal({ publisher, onClose, onSaved }) {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
-      <div style={{ background: "#fff", borderRadius: 12, padding: 24, width: "100%", maxWidth: 420, maxHeight: "85vh", overflow: "auto" }} onClick={e => e.stopPropagation()}>
-        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>{publisher ? "Edit Publisher" : "Add Publisher"}</div>
-        {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}
+    <div className="lib-pub-modal-overlay" onClick={onClose}>
+      <div className="lib-pub-modal" onClick={e => e.stopPropagation()}>
+        <div className="lib-pub-modal-title">{publisher ? "Edit Publisher" : "Add Publisher"}</div>
+        {error && <div className="alert alert-error lib-pub-mb12">{error}</div>}
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label className="form-label">Name *</label>
@@ -57,7 +58,7 @@ function PublisherFormModal({ publisher, onClose, onSaved }) {
             <label className="form-label">Email</label>
             <input className="form-control" type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} />
           </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
+          <div className="lib-pub-modal-footer">
             <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Saving..." : publisher ? "Update" : "Add"}</button>
           </div>
@@ -108,18 +109,18 @@ export default function LibraryPublishers() {
 
   return (
     <div>
-      <div className="page-header" style={{ marginBottom: 16 }}>
+      <div className="page-header lib-pub-mb16">
         <h1 className="page-heading">Publishers</h1>
         {!isGlobalLocked && <button className="btn btn-primary" onClick={() => { setEditPublisher(null); setShowForm(true); }}>+ Add Publisher</button>}
       </div>
 
       {isGlobalLocked && (
-        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+        <div className="alert alert-warning lib-pub-mb16">
           Library Publishers are managed centrally by the superadmin. This list is read-only here.
         </div>
       )}
-      {success && <div className="alert alert-success" style={{ marginBottom: 16 }}>{success}</div>}
-      {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
+      {success && <div className="alert alert-success lib-pub-mb16">{success}</div>}
+      {error && <div className="alert alert-error lib-pub-mb16">{error}</div>}
 
       {loading ? (
         <div className="loading-state">Loading publishers...</div>
@@ -143,13 +144,13 @@ export default function LibraryPublishers() {
               {publishers.map(p => (
                 <tr key={p.id}>
                   <td><strong>{p.name}</strong></td>
-                  <td>{p.contact_person || <span style={{ color: "#94a3b8" }}>-</span>}</td>
-                  <td>{p.phone || <span style={{ color: "#94a3b8" }}>-</span>}</td>
-                  <td>{p.email || <span style={{ color: "#94a3b8" }}>-</span>}</td>
-                  <td style={{ maxWidth: 200, fontSize: 12, color: "#64748b" }}>{p.address || "-"}</td>
+                  <td>{p.contact_person || <span className="lib-pub-muted">-</span>}</td>
+                  <td>{p.phone || <span className="lib-pub-muted">-</span>}</td>
+                  <td>{p.email || <span className="lib-pub-muted">-</span>}</td>
+                  <td className="lib-pub-address">{p.address || "-"}</td>
                   <td><span className={"badge " + (p.is_active ? "badge-success" : "badge-gray")}>{p.is_active ? "Active" : "Inactive"}</span></td>
                   {!isGlobalLocked && (
-                    <td style={{ display: "flex", gap: 6, flexWrap: "nowrap" }}>
+                    <td className="lib-pub-actions">
                       <button className="btn btn-ghost btn-xs" onClick={() => { setEditPublisher(p); setShowForm(true); }}>Edit</button>
                       <button className={"btn btn-xs " + (p.is_active ? "btn-danger" : "btn-secondary")} onClick={() => handleToggleActive(p)}>
                         {p.is_active ? "Deactivate" : "Reactivate"}

@@ -1,5 +1,6 @@
-﻿import { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import "./HRDashboard.css";
 
 export default function HRDashboard() {
   const navigate = useNavigate();
@@ -16,24 +17,19 @@ export default function HRDashboard() {
       <div className="page-header">
         <div>
           <h1 className="page-heading">HR Dashboard</h1>
-          <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 4 }}>
+          <div className="hrd-subtitle">
             Human Resources Management
           </div>
         </div>
       </div>
 
       {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px,1fr))", gap: 16, marginBottom: 24 }}>
+      <div className="hrd-stats-grid">
         {stats.map(s => (
-          <div key={s.label} onClick={() => navigate(s.path)} style={{
-            background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0",
-            borderTop: "3px solid " + s.color, padding: "18px 20px",
-            cursor: "pointer", boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
-            transition: "box-shadow .15s",
-          }}>
-            <div style={{ fontSize: 28, marginBottom: 8 }}>{s.icon}</div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: s.color }}>{s.value}</div>
-            <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>{s.label}</div>
+          <div key={s.label} onClick={() => navigate(s.path)} className="hrd-stat-card" style={{ "--stat-color": s.color }}>
+            <div className="hrd-stat-icon">{s.icon}</div>
+            <div className="hrd-stat-value" style={{ "--stat-color": s.color }}>{s.value}</div>
+            <div className="hrd-stat-label">{s.label}</div>
           </div>
         ))}
       </div>
@@ -43,21 +39,14 @@ export default function HRDashboard() {
         <div className="section-card-header">
           <span className="section-card-title">Quick Actions</span>
         </div>
-        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", paddingTop: 4 }}>
+        <div className="hrd-quick-actions-row">
           {[
-            { label: "View Staff",         path: "/teachers",       icon: "👤" },
-            { label: "Mark Attendance",    path: "/attendance",     icon: "📅" },
-            { label: "Leave Requests",     path: "/leave-approval", icon: "📋" },
-            { label: "Settings",           path: "/settings",       icon: "⚙️" },
+            { label: "View Staff",         path: "/teachers",       icon: "??" },
+            { label: "Mark Attendance",    path: "/attendance",     icon: "??" },
+            { label: "Leave Requests",     path: "/leave-approval", icon: "??" },
+            { label: "Settings",           path: "/settings",       icon: "??" },
           ].map(a => (
-            <button key={a.label} onClick={() => navigate(a.path)} style={{
-              display: "flex", alignItems: "center", gap: 8,
-              padding: "10px 18px", borderRadius: 8,
-              border: "1px solid var(--color-border-secondary)",
-              background: "var(--color-background-secondary)",
-              color: "var(--color-text-primary)", fontSize: 14,
-              fontWeight: 500, cursor: "pointer",
-            }}>
+            <button key={a.label} onClick={() => navigate(a.path)} className="hrd-action-btn">
               <span>{a.icon}</span> {a.label}
             </button>
           ))}
@@ -65,12 +54,12 @@ export default function HRDashboard() {
       </div>
 
       {/* Coming Soon */}
-      <div className="section-card" style={{ marginTop: 16, textAlign: "center", padding: "40px 24px" }}>
-        <div style={{ fontSize: 40, marginBottom: 12 }}>🚧</div>
-        <div style={{ fontWeight: 600, fontSize: 16, color: "var(--color-text-primary)", marginBottom: 8 }}>
+      <div className="section-card hrd-coming-soon-card">
+        <div className="hrd-coming-soon-icon">??</div>
+        <div className="hrd-coming-soon-title">
           HR Module Coming Soon
         </div>
-        <div style={{ fontSize: 14, color: "var(--color-text-secondary)", maxWidth: 400, margin: "0 auto" }}>
+        <div className="hrd-coming-soon-text">
           Payroll management, staff contracts, recruitment tracking, and performance reviews will be available in the HR module.
         </div>
       </div>

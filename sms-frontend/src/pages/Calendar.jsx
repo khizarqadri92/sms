@@ -5,6 +5,7 @@ import calendarApi from "../api/calendarApi";
 import { useProcessingToday } from "../hooks/useProcessingToday";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
 import DatePicker from "../components/DatePicker";
+import "./Calendar.css";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const DAYS   = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -83,16 +84,16 @@ export default function Calendar() {
     <div>
       <div className="page-header">
         <h1 className="page-heading">Academic Calendar</h1>
-        <div style={{ display:"flex", gap:10 }}>
-          <div style={{ display:"flex", border:"1px solid #e2e8f0", borderRadius:8, overflow:"hidden" }}>
-            <button onClick={()=>setView("calendar")} style={{ padding:"7px 14px", fontSize:12, fontWeight:600, border:"none", cursor:"pointer",
-              background:view==="calendar"?"#2563eb":"#fff", color:view==="calendar"?"#fff":"#64748b" }}>Calendar</button>
-            <button onClick={()=>setView("list")} style={{ padding:"7px 14px", fontSize:12, fontWeight:600, border:"none", cursor:"pointer",
-              background:view==="list"?"#2563eb":"#fff", color:view==="list"?"#fff":"#64748b" }}>List</button>
+        <div className="cal-header-actions">
+          <div className="cal-view-toggle">
+            <button onClick={()=>setView("calendar")} className="cal-view-btn"
+              style={{ "--btn-bg": view==="calendar"?"#2563eb":"var(--bg-card)", "--btn-color": view==="calendar"?"#fff":"var(--text-secondary)" }}>Calendar</button>
+            <button onClick={()=>setView("list")} className="cal-view-btn"
+              style={{ "--btn-bg": view==="list"?"#2563eb":"var(--bg-card)", "--btn-color": view==="list"?"#fff":"var(--text-secondary)" }}>List</button>
           </div>
           {canManage && (
             <>
-              <button className="btn btn-ghost" style={{ fontSize:12 }} onClick={()=>setShowTypesMgr(true)}>⚙ Event Types</button>
+              <button className="btn btn-ghost cal-event-types-btn" onClick={()=>setShowTypesMgr(true)}>⚙ Event Types</button>
               <button className="btn btn-primary" onClick={()=>{setEditEvent(null);setShowModal(true);}}>+ Add Event</button>
             </>
           )}
@@ -100,60 +101,61 @@ export default function Calendar() {
       </div>
 
       {/* Event type legend */}
-      <div style={{ display:"flex", gap:10, flexWrap:"wrap", marginBottom:16 }}>
+      <div className="cal-legend">
         {eventTypes.map(t=>{ const s=makeTypeStyle(t.color); return (
-          <span key={t.id} style={{ fontSize:11, padding:"3px 10px", borderRadius:20, background:s.bg, color:s.color, border:"1px solid "+s.border, fontWeight:600 }}>
+          <span key={t.id} className="cal-legend-item" style={{ "--item-bg": s.bg, "--item-color": s.color, "--item-border": s.border }}>
             {t.name}{t.is_holiday?" 🏖":""}
           </span>
         );})}
       </div>
 
       {view==="calendar" ? (
-        <div style={{ display:"grid", gridTemplateColumns:"1fr 300px", gap:16 }}>
+        <div className="cal-grid-layout">
           {/* Calendar */}
-          <div style={{ background:"#fff", border:"1px solid #e2e8f0", borderRadius:12, overflow:"hidden" }}>
+          <div className="cal-calendar-box">
             {/* Nav */}
-            <div style={{ padding:"14px 20px", borderBottom:"1px solid #f1f5f9", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-              <button onClick={prevMonth} style={{ background:"#f8fafc", border:"1px solid #e2e8f0", borderRadius:8, width:32, height:32, cursor:"pointer", fontSize:16 }}>‹</button>
-              <div style={{ fontWeight:700, fontSize:16, color:"#1e3a5f" }}>{MONTHS[month-1]} {year}</div>
-              <button onClick={nextMonth} style={{ background:"#f8fafc", border:"1px solid #e2e8f0", borderRadius:8, width:32, height:32, cursor:"pointer", fontSize:16 }}>›</button>
+            <div className="cal-nav">
+              <button onClick={prevMonth} className="cal-nav-btn">‹</button>
+              <div className="cal-nav-title">{MONTHS[month-1]} {year}</div>
+              <button onClick={nextMonth} className="cal-nav-btn">›</button>
             </div>
             {/* Day headers */}
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)", borderBottom:"1px solid #f1f5f9" }}>
+            <div className="cal-day-headers">
               {DAYS.map(d=>(
-                <div key={d} style={{ padding:"10px", textAlign:"center", fontSize:12, fontWeight:700, color:"#64748b" }}>{d}</div>
+                <div key={d} className="cal-day-header">{d}</div>
               ))}
             </div>
             {/* Cells */}
-            <div style={{ display:"grid", gridTemplateColumns:"repeat(7,1fr)" }}>
+            <div className="cal-cells-grid">
               {cells.map((day,i)=>{
                 const dayEvents = getDateEvents(day);
                 const isHoliday = dayEvents.some(e=>e.is_holiday);
                 const isSel = selDate===`${year}-${String(month).padStart(2,"0")}-${String(day).padStart(2,"0")}`;
                 return (
                   <div key={i} onClick={()=>handleDayClick(day)}
-                    style={{ minHeight:80, padding:"6px", borderRight:"1px solid #f8fafc", borderBottom:"1px solid #f8fafc",
-                      cursor:day?"pointer":"default",
-                      background:isSel?"#eff6ff":isHoliday?"#fef2f2":day?"#fff":"#fafafa" }}>
+                    className="cal-cell" style={{
+                      "--cell-cursor": day?"pointer":"default",
+                      "--cell-bg": isSel?"var(--bg-info-soft)":isHoliday?"var(--bg-danger-soft)":day?"var(--bg-card)":"var(--bg-hover)"
+                    }}>
                     {day && (
                       <>
-                        <div style={{ width:26, height:26, borderRadius:"50%", display:"flex", alignItems:"center", justifyContent:"center",
-                          background:isToday(day)?"#2563eb":"transparent",
-                          color:isToday(day)?"#fff":isHoliday?"#ef4444":"#1e3a5f",
-                          fontWeight:isToday(day)||dayEvents.length>0?700:400, fontSize:13, marginBottom:4 }}>
+                        <div className="cal-day-number" style={{
+                          "--num-bg": isToday(day)?"#2563eb":"transparent",
+                          "--num-color": isToday(day)?"#fff":isHoliday?"#ef4444":"var(--text-heading)",
+                          "--num-weight": isToday(day)||dayEvents.length>0?700:400
+                        }}>
                           {day}
                         </div>
-                        <div style={{ display:"flex", flexDirection:"column", gap:2 }}>
+                        <div className="cal-day-events-wrap">
                           {dayEvents.slice(0,2).map(e=>{
                             const t=getTypeStyle(e.event_type);
                             return (
-                              <div key={e.id} style={{ fontSize:10, padding:"1px 5px", borderRadius:4, background:t.color, color:"#fff",
-                                overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>
+                              <div key={e.id} className="cal-day-event-tag" style={{ "--tag-bg": t.color }}>
                                 {e.title}
                               </div>
                             );
                           })}
-                          {dayEvents.length>2 && <div style={{ fontSize:10, color:"#94a3b8" }}>+{dayEvents.length-2} more</div>}
+                          {dayEvents.length>2 && <div className="cal-more-text">+{dayEvents.length-2} more</div>}
                         </div>
                       </>
                     )}
@@ -164,32 +166,32 @@ export default function Calendar() {
           </div>
 
           {/* Side panel */}
-          <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+          <div className="cal-side-panel">
             {selDate ? (
-              <div style={{ background:"#fff", border:"1px solid #e2e8f0", borderRadius:12, padding:"16px" }}>
-                <div style={{ fontWeight:700, fontSize:14, color:"#1e3a5f", marginBottom:12 }}>
+              <div className="cal-sel-date-card">
+                <div className="cal-sel-date-title">
                   {(() => { const d = new Date(selDate+"T00:00:00"); return `${["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][d.getDay()]}, ${formatDate(d)}`; })()}
                 </div>
                 {selEvents.length===0 ? (
-                  <div style={{ fontSize:13, color:"#94a3b8" }}>No events on this date.</div>
+                  <div className="cal-no-events-text">No events on this date.</div>
                 ) : selEvents.map(e=>{
                   const t=getTypeStyle(e.event_type);
                   return (
-                    <div key={e.id} style={{ padding:"10px 12px", border:"1px solid "+t.border, borderRadius:8, background:t.bg, marginBottom:8 }}>
-                      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
+                    <div key={e.id} className="cal-event-item" style={{ "--item-border": t.border, "--item-bg": t.bg }}>
+                      <div className="cal-event-item-top">
                         <div>
-                          <div style={{ fontWeight:700, fontSize:13, color:t.color }}>{e.title}</div>
-                          {e.description && <div style={{ fontSize:11, color:"#64748b", marginTop:2 }}>{e.description}</div>}
-                          <div style={{ fontSize:11, marginTop:4, display:"flex", gap:6 }}>
-                            <span style={{ padding:"1px 8px", borderRadius:20, background:t.color, color:"#fff", fontSize:10 }}>{t.label}</span>
-                            {e.is_holiday && <span style={{ padding:"1px 8px", borderRadius:20, background:"#fee2e2", color:"#dc2626", fontSize:10 }}>Holiday</span>}
+                          <div className="cal-event-title" style={{ "--title-color": t.color }}>{e.title}</div>
+                          {e.description && <div className="cal-event-desc">{e.description}</div>}
+                          <div className="cal-event-tags-row">
+                            <span className="cal-event-type-tag" style={{ "--tag-bg": t.color }}>{t.label}</span>
+                            {e.is_holiday && <span className="cal-holiday-tag">Holiday</span>}
                           </div>
                         </div>
                         {canManage && (
-                          <div style={{ display:"flex", gap:4 }}>
-                            <button onClick={()=>{setEditEvent(e);setShowModal(true);}} style={{ background:"#f8fafc", border:"1px solid #e2e8f0", borderRadius:6, padding:"3px 8px", fontSize:11, cursor:"pointer" }}>Edit</button>
+                          <div className="cal-event-actions">
+                            <button onClick={()=>{setEditEvent(e);setShowModal(true);}} className="cal-edit-btn">Edit</button>
                             <button onClick={async()=>{ if(window.confirm("Delete?")){ await calendarApi.remove(e.id); loadEvents(); setSelEvents(p=>p.filter(x=>x.id!==e.id)); }}}
-                              style={{ background:"#fef2f2", border:"1px solid #fecaca", borderRadius:6, padding:"3px 8px", fontSize:11, cursor:"pointer", color:"#dc2626" }}>Del</button>
+                              className="cal-del-btn">Del</button>
                           </div>
                         )}
                       </div>
@@ -198,31 +200,31 @@ export default function Calendar() {
                 })}
                 {canManage && (
                   <button onClick={()=>{setEditEvent({event_date:selDate});setShowModal(true);}}
-                    style={{ width:"100%", padding:"8px", fontSize:12, fontWeight:600, background:"#f8fafc", border:"1px dashed #e2e8f0", borderRadius:8, cursor:"pointer", color:"#64748b", marginTop:8 }}>
+                    className="cal-add-on-date-btn">
                     + Add event on this date
                   </button>
                 )}
               </div>
             ) : (
-              <div style={{ background:"#fff", border:"1px solid #e2e8f0", borderRadius:12, padding:"24px", textAlign:"center", color:"#94a3b8" }}>
-                <div style={{ fontSize:32, marginBottom:8 }}>📅</div>
-                <div style={{ fontSize:13 }}>Click a date to see events</div>
+              <div className="cal-empty-sel-card">
+                <div className="cal-empty-sel-icon">📅</div>
+                <div className="cal-empty-sel-text">Click a date to see events</div>
               </div>
             )}
 
             {/* Upcoming events */}
-            <div style={{ background:"#fff", border:"1px solid #e2e8f0", borderRadius:12, padding:"16px" }}>
-              <div style={{ fontWeight:700, fontSize:13, color:"#1e3a5f", marginBottom:10 }}>This Month</div>
-              {events.length===0 ? <div style={{ fontSize:12, color:"#94a3b8" }}>No events this month.</div> : (
-                <div style={{ display:"flex", flexDirection:"column", gap:6, maxHeight:300, overflowY:"auto" }}>
+            <div className="cal-month-card">
+              <div className="cal-month-card-title">This Month</div>
+              {events.length===0 ? <div className="cal-no-events-month">No events this month.</div> : (
+                <div className="cal-month-list">
                   {events.map(e=>{
                     const t=getTypeStyle(e.event_type);
                     return (
-                      <div key={e.id} style={{ display:"flex", gap:10, alignItems:"flex-start", padding:"6px 0", borderBottom:"1px solid #f8fafc" }}>
-                        <div style={{ width:6, height:6, borderRadius:"50%", background:t.color, marginTop:5, flexShrink:0 }} />
+                      <div key={e.id} className="cal-month-list-item">
+                        <div className="cal-month-list-dot" style={{ "--dot-color": t.color }} />
                         <div>
-                          <div style={{ fontSize:12, fontWeight:600, color:"#1e3a5f" }}>{e.title}</div>
-                          <div style={{ fontSize:11, color:"#94a3b8" }}>{formatDate(e.event_date)}{e.end_date&&e.end_date!==e.event_date?" — "+formatDate(e.end_date):""}</div>
+                          <div className="cal-month-list-title">{e.title}</div>
+                          <div className="cal-month-list-date">{formatDate(e.event_date)}{e.end_date&&e.end_date!==e.event_date?" — "+formatDate(e.end_date):""}</div>
                         </div>
                       </div>
                     );
@@ -235,38 +237,37 @@ export default function Calendar() {
       ) : (
         /* List view */
         <div className="section-card">
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
-            <div style={{ fontWeight:700, fontSize:15, color:"#1e3a5f" }}>{MONTHS[month-1]} {year}</div>
-            <div style={{ display:"flex", gap:8 }}>
-              <button onClick={prevMonth} className="btn btn-ghost" style={{ fontSize:12 }}>‹ Prev</button>
-              <button onClick={nextMonth} className="btn btn-ghost" style={{ fontSize:12 }}>Next ›</button>
+          <div className="cal-list-header">
+            <div className="cal-list-title">{MONTHS[month-1]} {year}</div>
+            <div className="cal-list-nav">
+              <button onClick={prevMonth} className="btn btn-ghost cal-list-nav-btn">‹ Prev</button>
+              <button onClick={nextMonth} className="btn btn-ghost cal-list-nav-btn">Next ›</button>
             </div>
           </div>
           {events.length===0 ? <div className="empty-state">No events this month.</div> : (
-            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            <div className="cal-list-items-wrap">
               {events.map(e=>{
                 const t=getTypeStyle(e.event_type);
                 return (
-                  <div key={e.id} style={{ display:"flex", gap:14, alignItems:"flex-start", padding:"12px 14px",
-                    border:"1px solid "+t.border, borderRadius:10, background:t.bg, borderLeft:"4px solid "+t.color }}>
-                    <div style={{ minWidth:60, textAlign:"center" }}>
-                      <div style={{ fontSize:20, fontWeight:800, color:t.color }}>{new Date(e.event_date+"T00:00:00").getDate()}</div>
-                      <div style={{ fontSize:11, color:"#64748b" }}>{MONTHS[new Date(e.event_date+"T00:00:00").getMonth()].slice(0,3)}</div>
+                  <div key={e.id} className="cal-list-item" style={{ "--item-border": t.border, "--item-bg": t.bg, "--item-left-color": t.color }}>
+                    <div className="cal-list-item-date-box">
+                      <div className="cal-list-item-day" style={{ "--day-color": t.color }}>{new Date(e.event_date+"T00:00:00").getDate()}</div>
+                      <div className="cal-list-item-month">{MONTHS[new Date(e.event_date+"T00:00:00").getMonth()].slice(0,3)}</div>
                     </div>
-                    <div style={{ flex:1 }}>
-                      <div style={{ fontWeight:700, fontSize:14, color:"#1e3a5f" }}>{e.title}</div>
-                      {e.description && <div style={{ fontSize:12, color:"#64748b", marginTop:2 }}>{e.description}</div>}
-                      <div style={{ display:"flex", gap:6, marginTop:6 }}>
-                        <span style={{ fontSize:10, padding:"2px 8px", borderRadius:20, background:t.color, color:"#fff" }}>{t.label}</span>
-                        {e.is_holiday && <span style={{ fontSize:10, padding:"2px 8px", borderRadius:20, background:"#fee2e2", color:"#dc2626", border:"1px solid #fecaca" }}>Holiday</span>}
-                        {e.end_date && e.end_date!==e.event_date && <span style={{ fontSize:11, color:"#64748b" }}>Until {formatDate(e.end_date)}</span>}
+                    <div className="cal-list-item-content">
+                      <div className="cal-list-item-title">{e.title}</div>
+                      {e.description && <div className="cal-list-item-desc">{e.description}</div>}
+                      <div className="cal-list-item-tags">
+                        <span className="cal-list-type-tag" style={{ "--tag-bg": t.color }}>{t.label}</span>
+                        {e.is_holiday && <span className="cal-list-holiday-tag">Holiday</span>}
+                        {e.end_date && e.end_date!==e.event_date && <span className="cal-list-until-text">Until {formatDate(e.end_date)}</span>}
                       </div>
                     </div>
                     {canManage && (
-                      <div style={{ display:"flex", gap:6 }}>
-                        <button onClick={()=>{setEditEvent(e);setShowModal(true);}} className="btn btn-ghost" style={{ fontSize:11 }}>Edit</button>
+                      <div className="cal-list-actions">
+                        <button onClick={()=>{setEditEvent(e);setShowModal(true);}} className="btn btn-ghost cal-list-edit-btn">Edit</button>
                         <button onClick={async()=>{ if(window.confirm("Delete?")){ await calendarApi.remove(e.id); loadEvents(); }}}
-                          style={{ background:"#fef2f2", border:"1px solid #fecaca", borderRadius:6, padding:"3px 10px", fontSize:11, cursor:"pointer", color:"#dc2626" }}>Delete</button>
+                          className="cal-list-delete-btn">Delete</button>
                       </div>
                     )}
                   </div>
@@ -305,34 +306,34 @@ function EventModal({ event, eventTypes, onClose, onSaved }) {
   };
 
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.45)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000, padding:20 }}>
-      <div style={{ background:"#fff", borderRadius:16, width:"100%", maxWidth:480 }}>
-        <div style={{ padding:"18px 24px", borderBottom:"1px solid #f1f5f9", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <div style={{ fontWeight:700, fontSize:15 }}>{event?.id?"Edit Event":"Add Event"}</div>
-          <button onClick={onClose} style={{ background:"#f8fafc", border:"1px solid #e2e8f0", borderRadius:8, width:32, height:32, cursor:"pointer", fontSize:18, color:"#64748b" }}>×</button>
+    <div className="cal-modal-overlay">
+      <div className="cal-modal-box">
+        <div className="cal-modal-header">
+          <div className="cal-modal-title">{event?.id?"Edit Event":"Add Event"}</div>
+          <button onClick={onClose} className="cal-close-btn">×</button>
         </div>
-        <div style={{ padding:"20px 24px", display:"flex", flexDirection:"column", gap:14 }}>
-          {err && <div style={{ background:"#fef2f2", border:"1px solid #fecaca", borderRadius:8, padding:"10px", fontSize:13, color:"#dc2626" }}>{err}</div>}
+        <div className="cal-modal-body">
+          {err && <div className="cal-error-box">{err}</div>}
           <div>
-            <label style={{ display:"block", fontSize:12, fontWeight:600, color:"#64748b", marginBottom:6 }}>Title *</label>
+            <label className="cal-field-label">Title *</label>
             <input className="form-control" value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="Event title..." />
           </div>
           <div>
-            <label style={{ display:"block", fontSize:12, fontWeight:600, color:"#64748b", marginBottom:6 }}>Description</label>
-            <textarea className="form-control" rows={2} value={form.description} onChange={e=>setForm({...form,description:e.target.value})} style={{ resize:"vertical" }} />
+            <label className="cal-field-label">Description</label>
+            <textarea className="form-control cal-textarea-resize" rows={2} value={form.description} onChange={e=>setForm({...form,description:e.target.value})} />
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+          <div className="cal-date-grid">
             <div>
-              <label style={{ display:"block", fontSize:12, fontWeight:600, color:"#64748b", marginBottom:6 }}>Start Date *</label>
+              <label className="cal-field-label">Start Date *</label>
               <DatePicker value={form.event_date} onChange={val=>setForm({...form,event_date:val})} />
             </div>
             <div>
-              <label style={{ display:"block", fontSize:12, fontWeight:600, color:"#64748b", marginBottom:6 }}>End Date <span style={{ fontWeight:400, color:"#94a3b8" }}>(optional)</span></label>
+              <label className="cal-field-label">End Date <span className="cal-optional-tag">(optional)</span></label>
               <DatePicker value={form.end_date||""} onChange={val=>setForm({...form,end_date:val})} />
             </div>
           </div>
           <div>
-            <label style={{ display:"block", fontSize:12, fontWeight:600, color:"#64748b", marginBottom:6 }}>Event Type</label>
+            <label className="cal-field-label">Event Type</label>
             <select className="form-control" value={form.event_type} onChange={e=>{
               const t=eventTypes.find(x=>x.name.toLowerCase()===e.target.value.toLowerCase());
               setForm({...form, event_type:e.target.value, is_holiday:t?.is_holiday||false});
@@ -340,18 +341,20 @@ function EventModal({ event, eventTypes, onClose, onSaved }) {
               {eventTypes.map(t=><option key={t.id} value={t.name.toLowerCase()}>{t.name}{t.is_holiday?" (Holiday)":""}</option>)}
             </select>
           </div>
-          <label style={{ display:"flex", alignItems:"center", gap:10, cursor:"pointer", padding:"10px 12px",
-            background:form.is_holiday?"#fef2f2":"#f8fafc", border:"1px solid "+(form.is_holiday?"#fecaca":"#e2e8f0"), borderRadius:8 }}>
+          <label className="cal-holiday-check-label" style={{
+            "--label-bg": form.is_holiday?"var(--bg-danger-soft)":"var(--bg-hover)",
+            "--label-border": form.is_holiday?"var(--border-danger-soft)":"var(--border-color)"
+          }}>
             <input type="checkbox" checked={form.is_holiday} onChange={e=>setForm({...form,is_holiday:e.target.checked})} />
             <div>
-              <div style={{ fontSize:13, fontWeight:600, color:form.is_holiday?"#dc2626":"#1e3a5f" }}>Mark as Holiday</div>
-              <div style={{ fontSize:11, color:"#64748b" }}>Blocks attendance marking and notifies all users</div>
+              <div className="cal-holiday-check-title" style={{ "--title-color": form.is_holiday?"#dc2626":"var(--text-heading)" }}>Mark as Holiday</div>
+              <div className="cal-holiday-check-subtext">Blocks attendance marking and notifies all users</div>
             </div>
           </label>
         </div>
-        <div style={{ padding:"16px 24px", borderTop:"1px solid #f1f5f9", display:"flex", justifyContent:"flex-end", gap:10 }}>
+        <div className="cal-modal-footer">
           <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-          <button onClick={handleSave} disabled={saving} style={{ padding:"8px 20px", fontSize:13, fontWeight:600, background:"#2563eb", color:"#fff", border:"none", borderRadius:8, cursor:"pointer" }}>
+          <button onClick={handleSave} disabled={saving} className="cal-save-btn">
             {saving?"Saving...":event?.id?"Update Event":"Add Event"}
           </button>
         </div>
@@ -394,64 +397,63 @@ function EventTypeManager({ onClose }) {
   };
 
   return (
-    <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.45)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000, padding:20 }}>
-      <div style={{ background:"#fff", borderRadius:16, width:"100%", maxWidth:500 }}>
-        <div style={{ padding:"18px 24px", borderBottom:"1px solid #f1f5f9", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-          <div style={{ fontWeight:700, fontSize:15 }}>Manage Event Types</div>
-          <button onClick={onClose} style={{ background:"#f8fafc", border:"1px solid #e2e8f0", borderRadius:8, width:32, height:32, cursor:"pointer", fontSize:18, color:"#64748b" }}>×</button>
+    <div className="cal-modal-overlay">
+      <div className="cal-modal-box-wide">
+        <div className="cal-modal-header">
+          <div className="cal-modal-title">Manage Event Types</div>
+          <button onClick={onClose} className="cal-close-btn">×</button>
         </div>
-        <div style={{ padding:"20px 24px" }}>
+        <div className="cal-modal-body-block">
           {isGlobalLocked && (
-            <div style={{ marginBottom:16, padding:"8px 12px", background:"#fffbeb", border:"1px solid #fde68a", borderRadius:8, fontSize:12, color:"#92400e" }}>
+            <div className="cal-type-mgr-readonly">
               Event Types are managed centrally by the superadmin. This list is read-only here.
             </div>
           )}
           {/* Add/Edit Form */}
           {!isGlobalLocked && (
-          <div style={{ background:"#f8fafc", border:"1px solid #e2e8f0", borderRadius:10, padding:"14px", marginBottom:16 }}>
-            <div style={{ fontWeight:600, fontSize:13, color:"#1e3a5f", marginBottom:12 }}>{editing?"Edit Type":"Add New Type"}</div>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr auto auto", gap:10, alignItems:"flex-end" }}>
+          <div className="cal-add-form-box">
+            <div className="cal-add-form-title">{editing?"Edit Type":"Add New Type"}</div>
+            <div className="cal-add-form-grid">
               <div>
-                <label style={{ display:"block", fontSize:11, fontWeight:600, color:"#64748b", marginBottom:4 }}>Type Name *</label>
+                <label className="cal-field-label-sm">Type Name *</label>
                 <input className="form-control" value={form.name} onChange={e=>setForm({...form,name:e.target.value})} placeholder="e.g. Sports Day" />
               </div>
               <div>
-                <label style={{ display:"block", fontSize:11, fontWeight:600, color:"#64748b", marginBottom:4 }}>Color</label>
+                <label className="cal-field-label-sm">Color</label>
                 <input type="color" value={form.color} onChange={e=>setForm({...form,color:e.target.value})}
-                  style={{ width:42, height:36, border:"1px solid #e2e8f0", borderRadius:8, cursor:"pointer", padding:2 }} />
+                  className="cal-color-input" />
               </div>
               <button onClick={handleSave} disabled={saving||!form.name}
-                style={{ padding:"0 16px", height:36, fontSize:13, fontWeight:600, background:"#2563eb", color:"#fff", border:"none", borderRadius:8, cursor:"pointer" }}>
+                className="cal-add-btn">
                 {saving?"...":(editing?"Update":"Add")}
               </button>
             </div>
-            <label style={{ display:"flex", alignItems:"center", gap:8, marginTop:10, cursor:"pointer", fontSize:12 }}>
+            <label className="cal-holiday-checkbox-row">
               <input type="checkbox" checked={form.is_holiday} onChange={e=>setForm({...form,is_holiday:e.target.checked})} />
-              <span style={{ color:"#64748b" }}>Mark as holiday (blocks attendance)</span>
+              <span className="cal-holiday-checkbox-label">Mark as holiday (blocks attendance)</span>
             </label>
             {editing && (
               <button onClick={()=>{setEditing(null);setForm({name:"",color:"#2563eb",is_holiday:false});}}
-                style={{ marginTop:8, fontSize:11, color:"#64748b", background:"none", border:"none", cursor:"pointer" }}>✕ Cancel edit</button>
+                className="cal-cancel-edit-btn">✕ Cancel edit</button>
             )}
           </div>
           )}
 
           {/* Types list */}
-          <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+          <div className="cal-types-list">
             {types.map(t=>{
               const s=makeTypeStyle(t.color);
               return (
-                <div key={t.id} style={{ display:"flex", alignItems:"center", gap:12, padding:"10px 12px",
-                  border:"1px solid "+s.border, borderRadius:8, background:s.bg }}>
-                  <div style={{ width:16, height:16, borderRadius:"50%", background:t.color, flexShrink:0 }} />
-                  <div style={{ flex:1 }}>
-                    <span style={{ fontWeight:600, fontSize:13, color:t.color }}>{t.name}</span>
-                    {t.is_holiday && <span style={{ fontSize:10, marginLeft:8, padding:"1px 6px", borderRadius:10, background:"#fef2f2", color:"#dc2626", border:"1px solid #fecaca" }}>Holiday</span>}
+                <div key={t.id} className="cal-type-row" style={{ "--row-border": s.border, "--row-bg": s.bg }}>
+                  <div className="cal-type-dot" style={{ "--dot-bg": t.color }} />
+                  <div className="cal-type-name-content">
+                    <span className="cal-type-name" style={{ "--name-color": t.color }}>{t.name}</span>
+                    {t.is_holiday && <span className="cal-type-holiday-tag">Holiday</span>}
                   </div>
                   {!isGlobalLocked && (
-                    <div style={{ display:"flex", gap:6 }}>
-                      <button onClick={()=>handleEdit(t)} style={{ fontSize:11, padding:"3px 10px", background:"#f8fafc", border:"1px solid #e2e8f0", borderRadius:6, cursor:"pointer" }}>Edit</button>
-                      <button onClick={()=>handleDelete(t.id)} style={{ fontSize:11, padding:"3px 10px", background:"#fef2f2", border:"1px solid #fecaca", borderRadius:6, cursor:"pointer", color:"#dc2626" }}>Delete</button>
+                    <div className="cal-type-actions">
+                      <button onClick={()=>handleEdit(t)} className="cal-type-edit-btn">Edit</button>
+                      <button onClick={()=>handleDelete(t.id)} className="cal-type-delete-btn">Delete</button>
                     </div>
                   )}
                 </div>

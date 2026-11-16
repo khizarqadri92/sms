@@ -1,0 +1,66 @@
+.ic-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.ic-modal-box {
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 24px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.ic-modal-title {
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 16px;
+}
+
+.ic-mb12 {
+  margin-bottom: 12px;
+}
+
+.ic-btn-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.ic-page-header {
+  margin-bottom: 16px;
+}
+
+.ic-readonly-alert {
+  background: var(--bg-warning-soft);
+  border: 1px solid var(--border-warning-soft);
+  color: var(--text-warning-soft);
+  margin-bottom: 16px;
+}
+
+.ic-intro-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.ic-mb16 {
+  margin-bottom: 16px;
+}
+
+.ic-none-text {
+  color: var(--text-muted);
+}
+
+.ic-actions-cell {
+  display: flex;
+  gap: 6px;
+  flex-wrap: nowrap;
+}

@@ -4,6 +4,7 @@ import processingDateApi from "../api/processingDateApi";
 import { useProcessingNow } from "../hooks/useProcessingNow";
 import DatePicker from "../components/DatePicker";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
+import "./MyAttendance.css";
 
 function formatDuration(ms) {
   if (ms == null || ms < 0) return "-";
@@ -39,11 +40,11 @@ const STATUS_LABELS = {
 const STATUS_COLORS = {
   present: { bg: "#f0fdf4", color: "#166534" },
   half_day: { bg: "#fff7ed", color: "#c2410c" },
-  weekly_off: { bg: "#f8fafc", color: "#64748b" },
+  weekly_off: { bg: "var(--bg-hover)", color: "var(--text-secondary)" },
   holiday: { bg: "#eff6ff", color: "#1d4ed8" },
   on_leave: { bg: "#fef3c7", color: "#92400e" },
   absent: { bg: "#fef2f2", color: "#dc2626" },
-  pending: { bg: "#f8fafc", color: "#94a3b8" },
+  pending: { bg: "var(--bg-hover)", color: "var(--text-muted)" },
 };
 
 export default function MyAttendance() {
@@ -215,15 +216,15 @@ export default function MyAttendance() {
   const selectedDaySessions = selectedDay ? (historyByDate[selectedDay] || []) : [];
   const selectedDayStatusRow = selectedDay ? statusByDate[selectedDay] : null;
 
-  if (loading || !viewMonth) return <div style={{ padding: 60, textAlign: "center", color: "#64748b" }}>Loading...</div>;
+  if (loading || !viewMonth) return <div className="ma-loading">Loading...</div>;
 
   return (
-    <div style={{ margin: "0 auto", padding: 24 }}>
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 22, fontWeight: 800, color: "#0f172a" }}>My Attendance</div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ fontSize: 13, color: "#64748b" }}>Clock in and out, and view your attendance history</div>
-          <button className="btn btn-primary btn-sm" style={{ color: "#fff" }}
+    <div className="ma-page">
+      <div className="ma-header">
+        <div className="ma-title">My Attendance</div>
+        <div className="ma-header-row">
+          <div className="ma-subtitle">Clock in and out, and view your attendance history</div>
+          <button className="btn btn-primary btn-sm ma-correction-btn"
             onClick={() => { setCorrectionError(null); setShowCorrectionForm(true); }}>
             Request Correction
           </button>
@@ -231,73 +232,71 @@ export default function MyAttendance() {
       </div>
 
       {/* Status Card */}
-      <div style={{
-        background: isClockedIn ? "#f0fdf4" : "#fff",
-        border: "2px solid " + (isClockedIn ? "#22c55e" : "#e2e8f0"),
-        borderRadius: 16, padding: 28, marginBottom: 24, textAlign: "center"
+      <div className="ma-status-card" style={{
+        "--card-bg": isClockedIn ? "var(--bg-success-soft)" : "var(--bg-card)",
+        "--card-border": isClockedIn ? "#22c55e" : "var(--border-color)"
       }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: isClockedIn ? "#166534" : "#64748b", marginBottom: 6, textTransform: "uppercase", letterSpacing: ".05em" }}>
+        <div className="ma-status-label" style={{ "--label-color": isClockedIn ? "#166534" : "var(--text-secondary)" }}>
           {isClockedIn ? "Currently Clocked In" : "Not Clocked In"}
         </div>
         {isClockedIn && openSession && (
-          <div style={{ fontSize: 14, color: "#166534", marginBottom: 14 }}>
+          <div className="ma-since-text">
             Since {fmtTime(openSession.clock_in_at)} &middot; {formatDuration(now - new Date(openSession.clock_in_at))} so far
           </div>
         )}
         <button
+          className="ma-toggle-btn"
           onClick={handleToggle}
           disabled={toggling}
           style={{
-            padding: "16px 48px", fontSize: 17, fontWeight: 700, borderRadius: 12, border: "none", color: "#fff",
-            background: isClockedIn ? "#dc2626" : "#16a34a", cursor: toggling ? "not-allowed" : "pointer",
-            opacity: toggling ? 0.7 : 1, boxShadow: "0 4px 14px rgba(0,0,0,0.15)"
+            "--toggle-bg": isClockedIn ? "#dc2626" : "#16a34a", "--toggle-cursor": toggling ? "not-allowed" : "pointer",
+            "--toggle-opacity": toggling ? 0.7 : 1
           }}
         >
           {toggling ? "Please wait..." : isClockedIn ? "Clock Out" : "Clock In"}
         </button>
         {toggleMsg && (
-          <div style={{
-            marginTop: 14, padding: "8px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600, display: "inline-block",
-            background: toggleMsg.type === "success" ? "#dcfce7" : "#fee2e2",
-            color: toggleMsg.type === "success" ? "#166534" : "#dc2626"
+          <div className="ma-toggle-msg" style={{
+            "--msg-bg": toggleMsg.type === "success" ? "var(--bg-success-soft)" : "var(--bg-danger-soft)",
+            "--msg-color": toggleMsg.type === "success" ? "#166534" : "#dc2626"
           }}>
             {toggleMsg.type === "success" ? "\u2713 " : "\u26a0 "}{toggleMsg.text}
           </div>
         )}
         {todayTotalMs > 0 && (
-          <div style={{ marginTop: 16, fontSize: 13, color: "#64748b" }}>
-            Total today: <strong style={{ color: "#0f172a" }}>{formatDuration(todayTotalMs)}</strong>
+          <div className="ma-total-today">
+            Total today: <strong className="ma-total-today-value">{formatDuration(todayTotalMs)}</strong>
           </div>
         )}
       </div>
 
       {/* Today's Sessions */}
       {today?.sessions?.length > 0 && (
-        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, overflow: "hidden", marginBottom: 24 }}>
-          <div style={{ padding: "12px 16px", borderBottom: "1px solid #e2e8f0", fontWeight: 700, fontSize: 14 }}>Today's Sessions</div>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <div className="ma-card">
+          <div className="ma-card-header">Today's Sessions</div>
+          <table className="ma-table">
             <thead>
-              <tr style={{ background: "#f8fafc" }}>
+              <tr className="ma-th-row">
                 {["Clock In", "Clock Out", "Duration", "Source"].map(h => (
-                  <th key={h} style={{ padding: "8px 16px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase" }}>{h}</th>
+                  <th key={h} className="ma-th">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {today.sessions.map(s => (
-                <tr key={s.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                  <td style={{ padding: "10px 16px", fontSize: 13 }}>
+                <tr key={s.id} className="ma-tr">
+                  <td className="ma-td">
                     {fmtTime(s.clock_in_at)}
-                    {s.is_late && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 6, background: "#fef2f2", color: "#dc2626" }}>Late</span>}
+                    {s.is_late && <span className="ma-late-tag">Late</span>}
                   </td>
-                  <td style={{ padding: "10px 16px", fontSize: 13 }}>
-                    {s.clock_out_at ? fmtTime(s.clock_out_at) : <span style={{ color: "#16a34a", fontWeight: 600 }}>In Progress</span>}
+                  <td className="ma-td">
+                    {s.clock_out_at ? fmtTime(s.clock_out_at) : <span className="ma-in-progress-tag">In Progress</span>}
                   </td>
-                  <td style={{ padding: "10px 16px", fontSize: 13, fontWeight: 600 }}>
+                  <td className="ma-td-bold">
                     {formatDuration((s.clock_out_at ? new Date(s.clock_out_at) : now) - new Date(s.clock_in_at))}
                   </td>
-                  <td style={{ padding: "10px 16px" }}>
-                    <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 6, background: "#f1f5f9", color: "#475569", textTransform: "uppercase" }}>{s.source}</span>
+                  <td className="ma-td">
+                    <span className="ma-source-tag">{s.source}</span>
                   </td>
                 </tr>
               ))}
@@ -307,19 +306,19 @@ export default function MyAttendance() {
       )}
 
       {/* Attendance History - Table */}
-      <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, overflow: "hidden" }}>
-        <div style={{ padding: "12px 16px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <button className="btn btn-ghost btn-sm" style={{ fontSize: 13 }} onClick={goPrevMonth}>&larr; Prev</button>
-          <div style={{ fontWeight: 700, fontSize: 14 }}>
+      <div className="ma-card-flat">
+        <div className="ma-month-nav">
+          <button className="btn btn-ghost btn-sm ma-nav-btn" onClick={goPrevMonth}>&larr; Prev</button>
+          <div className="ma-month-label">
             {viewMonth.toLocaleDateString(undefined, { month: "long", year: "numeric" })}
           </div>
-          <button className="btn btn-ghost btn-sm" style={{ fontSize: 13 }} onClick={goNextMonth} disabled={isCurrentOrFutureMonth}>Next &rarr;</button>
+          <button className="btn btn-ghost btn-sm ma-nav-btn" onClick={goNextMonth} disabled={isCurrentOrFutureMonth}>Next &rarr;</button>
         </div>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <table className="ma-table">
           <thead>
-            <tr style={{ background: "#f8fafc" }}>
+            <tr className="ma-th-row">
               {["Date", "Status", "First In", "Last Out", "Total Hours", "Out of School"].map(h => (
-                <th key={h} style={{ padding: "10px 16px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase" }}>{h}</th>
+                <th key={h} className="ma-th-lg">{h}</th>
               ))}
             </tr>
           </thead>
@@ -341,24 +340,22 @@ export default function MyAttendance() {
                 : null;
               return (
                 <tr key={dateStr} onClick={() => setSelectedDay(dateStr)}
-                  style={{ borderBottom: "1px solid #f1f5f9", cursor: "pointer" }}
-                  onMouseEnter={e => e.currentTarget.style.background = "#f8fafc"}
-                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                  <td style={{ padding: "10px 16px", fontSize: 13, fontWeight: 600 }}>{fmtDateLabel(dateStr, formatDate)}</td>
-                  <td style={{ padding: "10px 16px" }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 10, background: colors.bg, color: colors.color }}>
+                  className="ma-tr-clickable">
+                  <td className="ma-td-bold">{fmtDateLabel(dateStr, formatDate)}</td>
+                  <td className="ma-td">
+                    <span className="ma-status-badge" style={{ "--badge-bg": colors.bg, "--badge-color": colors.color }}>
                       {STATUS_LABELS[statusRow?.status] || statusRow?.status || "-"}
                     </span>
-                    {statusRow?.is_late && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: "#fef2f2", color: "#dc2626" }}>Late</span>}
+                    {statusRow?.is_late && <span className="ma-late-tag-sm">Late</span>}
                   </td>
-                  <td style={{ padding: "10px 16px", fontSize: 13, color: "#475569" }}>{firstIn ? fmtTime(firstIn.clock_in_at) : "-"}</td>
-                  <td style={{ padding: "10px 16px", fontSize: 13, color: "#475569" }}>
-                    {hasOpenSession ? <span style={{ color: "#16a34a", fontWeight: 600 }}>Open</span> : (lastOut ? fmtTime(lastOut.clock_out_at) : "-")}
+                  <td className="ma-td-secondary">{firstIn ? fmtTime(firstIn.clock_in_at) : "-"}</td>
+                  <td className="ma-td-secondary">
+                    {hasOpenSession ? <span className="ma-open-text">Open</span> : (lastOut ? fmtTime(lastOut.clock_out_at) : "-")}
                   </td>
-                  <td style={{ padding: "10px 16px", fontSize: 13, fontWeight: 600 }}>
+                  <td className="ma-td-bold">
                     {sessions.length ? formatDuration(dayTotalMs(sessions)) : "-"}
                   </td>
-                  <td style={{ padding: "10px 16px", fontSize: 13, fontWeight: 600, color: outOfSchoolMs > 0 ? "#c2410c" : "#94a3b8" }}>
+                  <td className="ma-oos-value" style={{ "--oos-color": outOfSchoolMs > 0 ? "#c2410c" : "var(--text-muted)" }}>
                     {outOfSchoolMs != null ? formatDuration(outOfSchoolMs) : "-"}
                   </td>
                 </tr>
@@ -370,53 +367,52 @@ export default function MyAttendance() {
 
       {/* Day Detail Popup */}
       {selectedDay && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 9000, background: "rgba(15,23,42,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
+        <div className="ma-modal-overlay"
           onClick={() => setSelectedDay(null)}>
-          <div style={{ background: "#fff", borderRadius: 12, width: "100%", maxWidth: 480, boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}
+          <div className="ma-modal-box"
             onClick={e => e.stopPropagation()}>
-            <div style={{ padding: "14px 20px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>{fmtDateLabel(selectedDay, formatDate)}</div>
+            <div className="ma-modal-header">
+              <div className="ma-modal-title">{fmtDateLabel(selectedDay, formatDate)}</div>
               <button className="btn btn-ghost btn-sm" onClick={() => setSelectedDay(null)}>Close</button>
             </div>
-            <div style={{ padding: 20 }}>
+            <div className="ma-modal-body">
               {selectedDayStatusRow && (
-                <div style={{ marginBottom: 14 }}>
-                  <span style={{
-                    fontSize: 12, fontWeight: 700, padding: "4px 12px", borderRadius: 10,
-                    background: (STATUS_COLORS[selectedDayStatusRow.status] || STATUS_COLORS.pending).bg,
-                    color: (STATUS_COLORS[selectedDayStatusRow.status] || STATUS_COLORS.pending).color
+                <div className="ma-status-wrap">
+                  <span className="ma-status-badge-lg" style={{
+                    "--badge-bg": (STATUS_COLORS[selectedDayStatusRow.status] || STATUS_COLORS.pending).bg,
+                    "--badge-color": (STATUS_COLORS[selectedDayStatusRow.status] || STATUS_COLORS.pending).color
                   }}>
                     {STATUS_LABELS[selectedDayStatusRow.status] || selectedDayStatusRow.status}
                   </span>
                 </div>
               )}
               {selectedDaySessions.length === 0 ? (
-                <div style={{ padding: 20, textAlign: "center", color: "#94a3b8", fontSize: 13 }}>No sessions recorded for this day.</div>
+                <div className="ma-empty-text">No sessions recorded for this day.</div>
               ) : (
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <table className="ma-table">
                 <thead>
-                  <tr style={{ background: "#f8fafc" }}>
+                  <tr className="ma-th-row">
                     {["Clock In", "Clock Out", "Duration", "Source"].map(h => (
-                      <th key={h} style={{ padding: "8px 10px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase" }}>{h}</th>
+                      <th key={h} className="ma-th-sm">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {selectedDaySessions.map(s => (
-                    <tr key={s.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                      <td style={{ padding: "8px 10px", fontSize: 12 }}>
+                    <tr key={s.id} className="ma-tr">
+                      <td className="ma-td-sm">
                         {fmtTime(s.clock_in_at)}
-                        {s.is_late && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 6, background: "#fef2f2", color: "#dc2626" }}>Late</span>}
+                        {s.is_late && <span className="ma-late-tag">Late</span>}
                       </td>
-                      <td style={{ padding: "8px 10px", fontSize: 12 }}>
-                        {s.clock_out_at ? fmtTime(s.clock_out_at) : <span style={{ color: "#16a34a", fontWeight: 600 }}>Open</span>}
-                        {s.auto_closed && <span style={{ marginLeft: 6, fontSize: 10, color: "#c2410c", fontWeight: 600 }}>Auto-closed</span>}
+                      <td className="ma-td-sm">
+                        {s.clock_out_at ? fmtTime(s.clock_out_at) : <span className="ma-open-text">Open</span>}
+                        {s.auto_closed && <span className="ma-auto-closed-tag">Auto-closed</span>}
                       </td>
-                      <td style={{ padding: "8px 10px", fontSize: 12, fontWeight: 600 }}>
+                      <td className="ma-td-sm-bold">
                         {formatDuration((s.clock_out_at ? new Date(s.clock_out_at) : now) - new Date(s.clock_in_at))}
                       </td>
-                      <td style={{ padding: "8px 10px" }}>
-                        <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 5, background: "#f1f5f9", color: "#475569", textTransform: "uppercase" }}>{s.source}</span>
+                      <td className="ma-td-sm">
+                        <span className="ma-source-tag-sm">{s.source}</span>
                       </td>
                     </tr>
                   ))}
@@ -429,13 +425,13 @@ export default function MyAttendance() {
       )}
 
       {myCorrectionRequests.length > 0 && (
-        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, overflow: "hidden", marginTop: 24 }}>
-          <div style={{ padding: "12px 16px", borderBottom: "1px solid #e2e8f0", fontWeight: 700, fontSize: 14 }}>My Correction Requests</div>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <div className="ma-card-mt24">
+          <div className="ma-card-header">My Correction Requests</div>
+          <table className="ma-table">
             <thead>
-              <tr style={{ background: "#f8fafc" }}>
+              <tr className="ma-th-row">
                 {["Date", "Requested In", "Requested Out", "Reason", "Status"].map(h => (
-                  <th key={h} style={{ padding: "8px 16px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase" }}>{h}</th>
+                  <th key={h} className="ma-th">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -448,15 +444,15 @@ export default function MyAttendance() {
                 };
                 const sc = statusColors[r.status] || statusColors.pending;
                 return (
-                  <tr key={r.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                    <td style={{ padding: "10px 16px", fontSize: 13 }}>{fmtDateLabel(r.request_date, formatDate)}</td>
-                    <td style={{ padding: "10px 16px", fontSize: 13 }}>{r.requested_clock_in?.slice(0, 5) || "-"}</td>
-                    <td style={{ padding: "10px 16px", fontSize: 13 }}>{r.requested_clock_out?.slice(0, 5) || "-"}</td>
-                    <td style={{ padding: "10px 16px", fontSize: 12, color: "#64748b", maxWidth: 200 }}>
-                      <div style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={r.reason}>{r.reason}</div>
+                  <tr key={r.id} className="ma-tr">
+                    <td className="ma-td">{fmtDateLabel(r.request_date, formatDate)}</td>
+                    <td className="ma-td">{r.requested_clock_in?.slice(0, 5) || "-"}</td>
+                    <td className="ma-td">{r.requested_clock_out?.slice(0, 5) || "-"}</td>
+                    <td className="ma-reason-cell">
+                      <div className="ma-reason-text" title={r.reason}>{r.reason}</div>
                     </td>
-                    <td style={{ padding: "10px 16px" }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 10, background: sc.bg, color: sc.color }}>
+                    <td className="ma-td">
+                      <span className="ma-status-badge" style={{ "--badge-bg": sc.bg, "--badge-color": sc.color }}>
                         {r.status}
                       </span>
                     </td>
@@ -470,37 +466,37 @@ export default function MyAttendance() {
 
       {/* Request Correction Modal */}
       {showCorrectionForm && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 9000, background: "rgba(15,23,42,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <div style={{ background: "#fff", borderRadius: 12, width: "100%", maxWidth: 460, boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
-            <div style={{ padding: "14px 20px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>Request Attendance Correction</div>
+        <div className="ma-modal-overlay">
+          <div className="ma-modal-box-sm">
+            <div className="ma-modal-header">
+              <div className="ma-modal-title">Request Attendance Correction</div>
               <button className="btn btn-ghost btn-sm" onClick={() => setShowCorrectionForm(false)}>Close</button>
             </div>
-            <div style={{ padding: 20 }}>
+            <div className="ma-modal-body">
               {correctionError && (
-                <div style={{ marginBottom: 14, padding: "10px 14px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, fontSize: 13, color: "#b91c1c", fontWeight: 600 }}>
+                <div className="ma-error-banner">
                   \u26a0 {correctionError}
                 </div>
               )}
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div className="ma-form-column">
                 <div>
-                  <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Date *</label>
+                  <label className="ma-field-label">Date *</label>
                   <DatePicker style={{ width: "100%", fontSize: 13 }} max={processingToday ? toLocalDateStr(processingToday) : undefined}
                     value={correctionForm.request_date} onChange={val => setCorrectionForm(p => ({ ...p, request_date: val, update_field: "" }))} />
                 </div>
 
                 {existingMarks && (
-                  <div style={{ padding: "8px 12px", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 12, color: "#475569" }}>
+                  <div className="ma-existing-marks-box">
                     Currently marked: <strong>In {existingMarks.in ? fmtTime(existingMarks.in) : "-"}</strong> &middot; <strong>Out {existingMarks.out ? fmtTime(existingMarks.out) : "Not clocked out"}</strong>
                   </div>
                 )}
 
                 {correctionForm.request_date && (
                   <div>
-                    <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6 }}>What do you want to update? *</label>
-                    <div style={{ display: "flex", gap: 14 }}>
+                    <label className="ma-field-label-mb6">What do you want to update? *</label>
+                    <div className="ma-radio-row">
                       {[["clock_in", "Clock In"], ["clock_out", "Clock Out"], ["both", "Both"]].map(([val, label]) => (
-                        <label key={val} style={{ display: "flex", gap: 5, alignItems: "center", fontSize: 13, cursor: "pointer" }}>
+                        <label key={val} className="ma-radio-label">
                           <input type="radio" name="update_field" checked={correctionForm.update_field === val}
                             onChange={() => setCorrectionForm(p => ({ ...p, update_field: val }))} />
                           {label}
@@ -511,33 +507,33 @@ export default function MyAttendance() {
                 )}
 
                 {correctionForm.update_field && (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                  <div className="ma-time-grid">
                     {(correctionForm.update_field === "clock_in" || correctionForm.update_field === "both") && (
                       <div>
-                        <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Clock In Time *</label>
-                        <input type="time" className="form-input" style={{ width: "100%", fontSize: 13 }}
+                        <label className="ma-field-label">Clock In Time *</label>
+                        <input type="time" className="form-input ma-input-full"
                           value={correctionForm.requested_clock_in} onChange={e => setCorrectionForm(p => ({ ...p, requested_clock_in: e.target.value }))} />
                       </div>
                     )}
                     {(correctionForm.update_field === "clock_out" || correctionForm.update_field === "both") && (
                       <div>
-                        <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Clock Out Time *</label>
-                        <input type="time" className="form-input" style={{ width: "100%", fontSize: 13 }}
+                        <label className="ma-field-label">Clock Out Time *</label>
+                        <input type="time" className="form-input ma-input-full"
                           value={correctionForm.requested_clock_out} onChange={e => setCorrectionForm(p => ({ ...p, requested_clock_out: e.target.value }))} />
                       </div>
                     )}
                   </div>
                 )}
                 <div>
-                  <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Reason *</label>
-                  <textarea className="form-input" rows={3} style={{ width: "100%", fontSize: 13 }}
+                  <label className="ma-field-label">Reason *</label>
+                  <textarea className="form-input ma-input-full" rows={3}
                     placeholder="Why do you need this correction?"
                     value={correctionForm.reason} onChange={e => setCorrectionForm(p => ({ ...p, reason: e.target.value }))} />
                 </div>
               </div>
-              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 16 }}>
+              <div className="ma-btn-row">
                 <button className="btn btn-ghost btn-sm" onClick={() => setShowCorrectionForm(false)}>Cancel</button>
-                <button className="btn btn-primary btn-sm" style={{ color: "#fff" }} disabled={correctionSaving} onClick={submitCorrectionRequest}>
+                <button className="btn btn-primary btn-sm ma-submit-btn" disabled={correctionSaving} onClick={submitCorrectionRequest}>
                   {correctionSaving ? "Submitting..." : "Submit Request"}
                 </button>
               </div>
@@ -547,11 +543,9 @@ export default function MyAttendance() {
       )}
 
       {flash && (
-        <div style={{
-          position: "fixed", bottom: 20, right: 20, zIndex: 9999, padding: "10px 18px", borderRadius: 8,
-          background: flash.type === "success" ? "#dcfce7" : "#fee2e2",
-          color: flash.type === "success" ? "#166534" : "#dc2626",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.15)", fontSize: 14, fontWeight: 600
+        <div className="ma-flash-toast" style={{
+          "--flash-bg": flash.type === "success" ? "var(--bg-success-soft)" : "var(--bg-danger-soft)",
+          "--flash-color": flash.type === "success" ? "#166534" : "#dc2626"
         }}>{flash.msg}</div>
       )}
     </div>

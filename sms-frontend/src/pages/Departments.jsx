@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import procurementApi from "../api/procurementApi";
 import { useAuth } from "../auth/AuthContext";
+import "./Departments.css";
 
 function DepartmentFormModal({ department, onClose, onSaved }) {
   const [form, setForm] = useState({
@@ -30,10 +31,10 @@ function DepartmentFormModal({ department, onClose, onSaved }) {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
-      <div style={{ background: "#fff", borderRadius: 12, padding: 24, width: "100%", maxWidth: 400 }} onClick={e => e.stopPropagation()}>
-        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>{department ? "Edit Department" : "Add Department"}</div>
-        {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}
+    <div className="dep-modal-overlay" onClick={onClose}>
+      <div className="dep-modal-box" onClick={e => e.stopPropagation()}>
+        <div className="dep-modal-title">{department ? "Edit Department" : "Add Department"}</div>
+        {error && <div className="alert alert-error dep-mb12">{error}</div>}
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label className="form-label">Name *</label>
@@ -42,9 +43,9 @@ function DepartmentFormModal({ department, onClose, onSaved }) {
           <div className="form-group">
             <label className="form-label">Department Head (User ID)</label>
             <input className="form-control" type="number" value={form.head_user_id} onChange={e => setForm({ ...form, head_user_id: e.target.value })} placeholder="Optional" />
-            <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>Enter the user ID of the department head, if known.</div>
+            <div className="dep-hint">Enter the user ID of the department head, if known.</div>
           </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
+          <div className="dep-btn-row">
             <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Saving..." : department ? "Update" : "Add"}</button>
           </div>
@@ -96,18 +97,18 @@ export default function Departments() {
 
   return (
     <div>
-      <div className="page-header" style={{ marginBottom: 16 }}>
+      <div className="page-header dep-page-header">
         <h1 className="page-heading">Departments</h1>
         {isSuperAdmin && <button className="btn btn-primary" onClick={() => { setEditDepartment(null); setShowForm(true); }}>+ Add Department</button>}
       </div>
 
       {!isSuperAdmin && (
-        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+        <div className="alert dep-readonly-alert">
           Departments are managed centrally by the superadmin. This list is read-only here.
         </div>
       )}
-      {success && <div className="alert alert-success" style={{ marginBottom: 16 }}>{success}</div>}
-      {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
+      {success && <div className="alert alert-success dep-mb16">{success}</div>}
+      {error && <div className="alert alert-error dep-mb16">{error}</div>}
 
       {loading ? (
         <div className="loading-state">Loading departments...</div>
@@ -128,10 +129,10 @@ export default function Departments() {
               {departments.map(d => (
                 <tr key={d.id}>
                   <td><strong>{d.name}</strong></td>
-                  <td>{d.head_name || <span style={{ color: "#94a3b8" }}>Not assigned</span>}</td>
+                  <td>{d.head_name || <span className="dep-not-assigned">Not assigned</span>}</td>
                   <td><span className={"badge " + (d.is_active ? "badge-success" : "badge-gray")}>{d.is_active ? "Active" : "Inactive"}</span></td>
                   {isSuperAdmin && (
-                    <td style={{ display: "flex", gap: 6, flexWrap: "nowrap" }}>
+                    <td className="dep-actions-cell">
                       <button className="btn btn-ghost btn-xs" onClick={() => { setEditDepartment(d); setShowForm(true); }}>Edit</button>
                       <button className={"btn btn-xs " + (d.is_active ? "btn-danger" : "btn-secondary")} onClick={() => handleToggleActive(d)}>
                         {d.is_active ? "Deactivate" : "Reactivate"}

@@ -97,30 +97,30 @@ function CreateModal({ onClose, onCreated }) {
 
   return (
     <div style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.45)", display:"flex", alignItems:"center", justifyContent:"center", zIndex:1000, padding:20 }}>
-      <div style={{ background:"#fff", borderRadius:16, border:"0.5px solid #e2e8f0", width:"100%", maxWidth:560, maxHeight:"90vh", overflowY:"auto" }}>
+      <div style={{ background:"var(--bg-card)", borderRadius:16, border:"0.5px solid var(--border-color)", width:"100%", maxWidth:560, maxHeight:"90vh", overflowY:"auto" }}>
         {/* Header */}
-        <div style={{ padding:"20px 24px 16px", borderBottom:"0.5px solid #f1f5f9", display:"flex", justifyContent:"space-between", alignItems:"center", position:"sticky", top:0, background:"#fff", zIndex:1 }}>
+        <div style={{ padding:"20px 24px 16px", borderBottom:"0.5px solid var(--border-color)", display:"flex", justifyContent:"space-between", alignItems:"center", position:"sticky", top:0, background:"var(--bg-card)", zIndex:1 }}>
           <div>
-            <div style={{ fontSize:16, fontWeight:600, color:"#0f172a" }}>New Assignment</div>
-            <div style={{ fontSize:12, color:"#64748b", marginTop:2 }}>Fill in the details below</div>
+            <div style={{ fontSize:16, fontWeight:600, color:"var(--text-heading)" }}>New Assignment</div>
+            <div style={{ fontSize:12, color:"var(--text-secondary)", marginTop:2 }}>Fill in the details below</div>
           </div>
-          <button onClick={onClose} style={{ background:"#f8fafc", border:"1px solid #e2e8f0", borderRadius:8, width:32, height:32, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, color:"#64748b" }}>×</button>
+          <button onClick={onClose} style={{ background:"var(--bg-hover)", border:"1px solid var(--border-color)", borderRadius:8, width:32, height:32, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16, color:"var(--text-secondary)" }}>×</button>
         </div>
 
         {/* Body */}
         <div style={{ padding:"20px 24px", display:"flex", flexDirection:"column", gap:14 }}>
-          {err && <div style={{ background:"#fef2f2", border:"1px solid #fecaca", borderRadius:8, padding:"10px 12px", fontSize:13, color:"#dc2626" }}>{err}</div>}
+          {err && <div style={{ background:"var(--bg-danger-soft)", border:"1px solid #fecaca", borderRadius:8, padding:"10px 12px", fontSize:13, color:"#dc2626" }}>{err}</div>}
 
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
             <div>
-              <label style={{ display:"block", fontSize:12, fontWeight:600, color:"#64748b", marginBottom:6 }}>Class *</label>
+              <label style={{ display:"block", fontSize:12, fontWeight:600, color:"var(--text-secondary)", marginBottom:6 }}>Class *</label>
               <select className="form-control" value={form.class_id} onChange={e=>setForm({...form,class_id:e.target.value,subject_id:""})}>
                 <option value="">Select class</option>
                 {classes.map(c=><option key={c.id} value={c.id}>{c.name}{c.section?" ("+c.section+")":""}</option>)}
               </select>
             </div>
             <div>
-              <label style={{ display:"block", fontSize:12, fontWeight:600, color:"#64748b", marginBottom:6 }}>Subject *</label>
+              <label style={{ display:"block", fontSize:12, fontWeight:600, color:"var(--text-secondary)", marginBottom:6 }}>Subject *</label>
               <select className="form-control" value={form.subject_id} onChange={e=>setForm({...form,subject_id:e.target.value})} disabled={!form.class_id}>
                 <option value="">Select subject</option>
                 {subjects.map(s=><option key={s.id} value={s.id}>{s.subject_name}</option>)}
@@ -129,57 +129,57 @@ function CreateModal({ onClose, onCreated }) {
           </div>
 
           <div>
-            <label style={{ display:"block", fontSize:12, fontWeight:600, color:"#64748b", marginBottom:6 }}>Title *</label>
+            <label style={{ display:"block", fontSize:12, fontWeight:600, color:"var(--text-secondary)", marginBottom:6 }}>Title *</label>
             <input className="form-control" value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="e.g. Chapter 3 — Fractions exercise" />
           </div>
 
           <div>
-            <label style={{ display:"block", fontSize:12, fontWeight:600, color:"#64748b", marginBottom:6 }}>Instructions</label>
+            <label style={{ display:"block", fontSize:12, fontWeight:600, color:"var(--text-secondary)", marginBottom:6 }}>Instructions</label>
             <textarea className="form-control" rows={3} value={form.description} onChange={e=>setForm({...form,description:e.target.value})} placeholder="Describe the assignment requirements..." style={{ resize:"vertical" }} />
           </div>
 
           <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
             <div>
-              <label style={{ display:"block", fontSize:12, fontWeight:600, color:"#64748b", marginBottom:6 }}>Due date *</label>
+              <label style={{ display:"block", fontSize:12, fontWeight:600, color:"var(--text-secondary)", marginBottom:6 }}>Due date *</label>
               <DatePicker value={form.due_date} min={processingToday} onChange={val=>setForm({...form,due_date:val})} />
             </div>
             <div>
-              <label style={{ display:"block", fontSize:12, fontWeight:600, color:"#64748b", marginBottom:6 }}>Total marks *</label>
+              <label style={{ display:"block", fontSize:12, fontWeight:600, color:"var(--text-secondary)", marginBottom:6 }}>Total marks *</label>
               <input type="number" className="form-control" value={form.total_marks} min="1" onChange={e=>setForm({...form,total_marks:e.target.value})} />
             </div>
           </div>
 
           {/* File upload */}
           <div>
-            <label style={{ display:"block", fontSize:12, fontWeight:600, color:"#64748b", marginBottom:6 }}>
-              Attachment <span style={{ fontWeight:400, color:"#94a3b8" }}>(optional)</span>
+            <label style={{ display:"block", fontSize:12, fontWeight:600, color:"var(--text-secondary)", marginBottom:6 }}>
+              Attachment <span style={{ fontWeight:400, color:"var(--text-muted)" }}>(optional)</span>
             </label>
             {!file ? (
               <div onDrop={handleDrop} onDragOver={e=>e.preventDefault()}
                 onClick={() => fileRef.current?.click()}
-                style={{ border:"1.5px dashed #cbd5e1", borderRadius:10, padding:"20px 16px", textAlign:"center", cursor:"pointer", background:"#f8fafc" }}>
+                style={{ border:"1.5px dashed #cbd5e1", borderRadius:10, padding:"20px 16px", textAlign:"center", cursor:"pointer", background:"var(--bg-hover)" }}>
                 <div style={{ fontSize:24, marginBottom:6 }}>📎</div>
-                <div style={{ fontSize:13, color:"#64748b" }}>Drop file here or <span style={{ color:"#2563eb", fontWeight:600 }}>browse</span></div>
-                <div style={{ fontSize:11, color:"#94a3b8", marginTop:4 }}>PDF, Word, Excel, PPT — max 10MB</div>
+                <div style={{ fontSize:13, color:"var(--text-secondary)" }}>Drop file here or <span style={{ color:"#2563eb", fontWeight:600 }}>browse</span></div>
+                <div style={{ fontSize:11, color:"var(--text-muted)", marginTop:4 }}>PDF, Word, Excel, PPT — max 10MB</div>
                 <input ref={fileRef} type="file" style={{ display:"none" }} accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
                   onChange={e => { if (e.target.files[0]) handleFile(e.target.files[0]); }} />
               </div>
             ) : (
-              <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", background:"#eff6ff", borderRadius:8, border:"1px solid #bfdbfe" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 14px", background:"var(--bg-info-soft)", borderRadius:8, border:"1px solid #bfdbfe" }}>
                 <div style={{ fontSize:20 }}>📄</div>
                 <div style={{ flex:1 }}>
                   <div style={{ fontSize:13, fontWeight:600, color:"#1d4ed8" }}>{file.name}</div>
-                  <div style={{ fontSize:11, color:"#64748b" }}>{(file.size/1024).toFixed(0)} KB</div>
+                  <div style={{ fontSize:11, color:"var(--text-secondary)" }}>{(file.size/1024).toFixed(0)} KB</div>
                 </div>
                 <button onClick={() => { setFile(null); if(fileRef.current) fileRef.current.value=""; }}
-                  style={{ background:"none", border:"none", cursor:"pointer", color:"#64748b", fontSize:18, lineHeight:1 }}>×</button>
+                  style={{ background:"none", border:"none", cursor:"pointer", color:"var(--text-secondary)", fontSize:18, lineHeight:1 }}>×</button>
               </div>
             )}
           </div>
         </div>
 
         {/* Footer */}
-        <div style={{ padding:"16px 24px", borderTop:"0.5px solid #f1f5f9", display:"flex", justifyContent:"flex-end", gap:10, position:"sticky", bottom:0, background:"#fff" }}>
+        <div style={{ padding:"16px 24px", borderTop:"0.5px solid var(--border-color)", display:"flex", justifyContent:"flex-end", gap:10, position:"sticky", bottom:0, background:"var(--bg-card)" }}>
           <button className="btn btn-ghost" onClick={onClose} disabled={saving}>Cancel</button>
           <button onClick={handleSubmit} disabled={saving}
             style={{ padding:"8px 20px", fontSize:13, background:"#2563eb", color:"#fff", border:"none", borderRadius:8, cursor:"pointer", fontWeight:600 }}>
@@ -266,21 +266,21 @@ function TeacherAssignments() {
       {/* My Assignments */}
       <div className="section-card" style={{ marginBottom:16 }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14, flexWrap:"wrap", gap:10 }}>
-          <span style={{ fontWeight:700, fontSize:15, color:"#1e3a5f" }}>My Assignments</span>
+          <span style={{ fontWeight:700, fontSize:15, color:"var(--text-heading)" }}>My Assignments</span>
           <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-            <select style={{ height:34, fontSize:12, padding:"0 8px", border:"1px solid #e2e8f0", borderRadius:8, background:"#fff", minWidth:140 }} value={selClass} onChange={e=>{setSelClass(e.target.value);setSelSubj("");}}>
+            <select style={{ height:34, fontSize:12, padding:"0 8px", border:"1px solid var(--border-color)", borderRadius:8, background:"var(--bg-card)", minWidth:140 }} value={selClass} onChange={e=>{setSelClass(e.target.value);setSelSubj("");}}>
               <option value="">All Classes</option>
               {allClasses.map(c=>(
                 <option key={c.id} value={c.id}>{c.name}{c.section?" ("+c.section+")":""}</option>
               ))}
             </select>
             {selClass && classSubjects.length>0 && (
-              <select style={{ height:34, fontSize:12, padding:"0 8px", border:"1px solid #e2e8f0", borderRadius:8, background:"#fff", minWidth:140 }} value={selSubj} onChange={e=>setSelSubj(e.target.value)}>
+              <select style={{ height:34, fontSize:12, padding:"0 8px", border:"1px solid var(--border-color)", borderRadius:8, background:"var(--bg-card)", minWidth:140 }} value={selSubj} onChange={e=>setSelSubj(e.target.value)}>
                 <option value="">All Subjects</option>
                 {classSubjects.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             )}
-            <span style={{ fontSize:12, padding:"3px 10px", borderRadius:20, background:"#f1f5f9", color:"#475569", border:"1px solid #e2e8f0", fontWeight:600 }}>{filtered.length}</span>
+            <span style={{ fontSize:12, padding:"3px 10px", borderRadius:20, background:"var(--bg-hover)", color:"var(--text-secondary)", border:"1px solid var(--border-color)", fontWeight:600 }}>{filtered.length}</span>
           </div>
         </div>
         {loading ? <div className="loading-state">Loading...</div> : filtered.length===0 ? (
@@ -296,9 +296,9 @@ function TeacherAssignments() {
       {inchargeClasses.length>0 && (
         <div>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
-            <span style={{ fontWeight:700, fontSize:15, color:"#1e3a5f" }}>Class Assignments — Incharge View</span>
+            <span style={{ fontWeight:700, fontSize:15, color:"var(--text-heading)" }}>Class Assignments — Incharge View</span>
             {inchargeClasses.length>1 ? (
-              <select style={{ height:34, fontSize:12, padding:"0 8px", border:"1px solid #e2e8f0", borderRadius:8, background:"#fff", minWidth:160 }}
+              <select style={{ height:34, fontSize:12, padding:"0 8px", border:"1px solid var(--border-color)", borderRadius:8, background:"var(--bg-card)", minWidth:160 }}
                 value={inchargeClass} onChange={e=>{setInchargeClass(e.target.value);setInchargeSubj("");}}>
                 {inchargeClasses.map(c=><option key={c.id} value={c.id}>{c.name}{c.section?" ("+c.section+")":""}</option>)}
               </select>
@@ -310,22 +310,22 @@ function TeacherAssignments() {
           </div>
           <div style={{ display:"grid", gridTemplateColumns:"200px 1fr", gap:16 }}>
             {/* Left: subjects */}
-            <div style={{ background:"#fff", border:"1px solid #e2e8f0", borderRadius:12, overflow:"hidden", alignSelf:"start" }}>
-              <div style={{ padding:"12px 16px", borderBottom:"1px solid #f1f5f9", background:"#f8fafc" }}>
-                <div style={{ fontSize:12, fontWeight:700, color:"#64748b", textTransform:"uppercase", letterSpacing:"0.06em" }}>Subjects</div>
+            <div style={{ background:"var(--bg-card)", border:"1px solid var(--border-color)", borderRadius:12, overflow:"hidden", alignSelf:"start" }}>
+              <div style={{ padding:"12px 16px", borderBottom:"1px solid var(--border-color)", background:"var(--bg-hover)" }}>
+                <div style={{ fontSize:12, fontWeight:700, color:"var(--text-secondary)", textTransform:"uppercase", letterSpacing:"0.06em" }}>Subjects</div>
               </div>
               {inchargeSubjects.length===0 ? (
-                <div style={{ padding:16, fontSize:12, color:"#94a3b8" }}>No subjects found.</div>
+                <div style={{ padding:16, fontSize:12, color:"var(--text-muted)" }}>No subjects found.</div>
               ) : inchargeSubjects.map(s => {
                 const count = inchargeAssignments.filter(a=>String(a.subject_id)===String(s.id)).length;
                 return (
                   <div key={s.id} onClick={() => setInchargeSubj(String(s.id))}
-                    style={{ padding:"12px 16px", cursor:"pointer", borderBottom:"1px solid #f1f5f9",
+                    style={{ padding:"12px 16px", cursor:"pointer", borderBottom:"1px solid var(--border-color)",
                       borderLeft:"3px solid "+(inchargeSubj===String(s.id)?"#2563eb":"transparent"),
-                      background: inchargeSubj===String(s.id)?"#eff6ff":"transparent" }}>
+                      background: inchargeSubj===String(s.id)?"var(--bg-info-soft)":"transparent" }}>
                     <div style={{ fontSize:13, fontWeight:inchargeSubj===String(s.id)?700:500,
-                      color:inchargeSubj===String(s.id)?"#2563eb":"#1e3a5f" }}>{s.name}</div>
-                    <div style={{ fontSize:11, color:"#94a3b8", marginTop:2 }}>{count} assignment{count!==1?"s":""}</div>
+                      color:inchargeSubj===String(s.id)?"#2563eb":"var(--text-heading)" }}>{s.name}</div>
+                    <div style={{ fontSize:11, color:"var(--text-muted)", marginTop:2 }}>{count} assignment{count!==1?"s":""}</div>
                   </div>
                 );
               })}
@@ -334,34 +334,34 @@ function TeacherAssignments() {
             {/* Right: assignments */}
             <div>
               {!inchargeSubj ? (
-                <div style={{ background:"#fff", border:"1px solid #e2e8f0", borderRadius:12, padding:"40px", textAlign:"center", color:"#94a3b8" }}>
+                <div style={{ background:"var(--bg-card)", border:"1px solid var(--border-color)", borderRadius:12, padding:"40px", textAlign:"center", color:"var(--text-muted)" }}>
                   <div style={{ fontSize:32, marginBottom:12 }}>📖</div>
                   <div style={{ fontSize:14 }}>Select a subject to view assignments</div>
                 </div>
               ) : (
                 <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
                   {inchargeAssignments.filter(a=>String(a.subject_id)===inchargeSubj).length===0 ? (
-                    <div style={{ background:"#fff", border:"1px solid #e2e8f0", borderRadius:12, padding:"30px", textAlign:"center", color:"#94a3b8" }}>
+                    <div style={{ background:"var(--bg-card)", border:"1px solid var(--border-color)", borderRadius:12, padding:"30px", textAlign:"center", color:"var(--text-muted)" }}>
                       <div style={{ fontSize:14 }}>No assignments for this subject yet.</div>
                     </div>
                   ) : inchargeAssignments.filter(a=>String(a.subject_id)===inchargeSubj).map(a => (
-                    <div key={a.id} style={{ background:"#fff", border:"1px solid #e2e8f0", borderRadius:12, overflow:"hidden", cursor:"pointer" }}
+                    <div key={a.id} style={{ background:"var(--bg-card)", border:"1px solid var(--border-color)", borderRadius:12, overflow:"hidden", cursor:"pointer" }}
                       onClick={() => setSelAssign(a)}
                       onMouseEnter={e=>e.currentTarget.style.borderColor="#bfdbfe"}
-                      onMouseLeave={e=>e.currentTarget.style.borderColor="#e2e8f0"}>
+                      onMouseLeave={e=>e.currentTarget.style.borderColor="var(--border-color)"}>
                       <div style={{ height:3, background:a.is_overdue?"#ef4444":"#2563eb" }} />
                       <div style={{ padding:"14px 16px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                         <div>
-                          <div style={{ fontWeight:700, fontSize:13, color:"#1e3a5f" }}>{a.title}</div>
-                          <div style={{ fontSize:11, color:"#64748b", marginTop:2 }}>{a.teacher_name} · Due: {a.due_date} · {a.total_marks} marks</div>
+                          <div style={{ fontWeight:700, fontSize:13, color:"var(--text-heading)" }}>{a.title}</div>
+                          <div style={{ fontSize:11, color:"var(--text-secondary)", marginTop:2 }}>{a.teacher_name} · Due: {a.due_date} · {a.total_marks} marks</div>
                         </div>
                         <div style={{ display:"flex", gap:8, alignItems:"center" }}>
                           <span style={{ fontSize:11, padding:"3px 10px", borderRadius:20, fontWeight:600,
-                            background:a.is_overdue?"#fef2f2":"#f0fdf4", color:a.is_overdue?"#dc2626":"#16a34a",
+                            background:a.is_overdue?"var(--bg-danger-soft)":"var(--bg-success-soft)", color:a.is_overdue?"#dc2626":"#16a34a",
                             border:"1px solid "+(a.is_overdue?"#fecaca":"#bbf7d0") }}>
                             {a.is_overdue?"Closed":"Active"}
                           </span>
-                          <span style={{ fontSize:11, padding:"3px 10px", borderRadius:20, background:"#f1f5f9", color:"#475569", border:"1px solid #e2e8f0" }}>
+                          <span style={{ fontSize:11, padding:"3px 10px", borderRadius:20, background:"var(--bg-hover)", color:"var(--text-secondary)", border:"1px solid var(--border-color)" }}>
                             {a.submission_count} submitted
                           </span>
                           <span style={{ fontSize:18, color:"#cbd5e1" }}>›</span>
@@ -397,21 +397,21 @@ function AssignmentCard({ a, onView, onDelete, isTeacher, compact }) {
   const file = a.file_name || a.assignment_file;
 
   if (compact) return (
-    <div style={{ background:"#fff", border:"1px solid #e2e8f0", borderRadius:10, padding:"12px 16px",
+    <div style={{ background:"var(--bg-card)", border:"1px solid var(--border-color)", borderRadius:10, padding:"12px 16px",
       borderLeft:"3px solid "+accentColor, display:"flex", justifyContent:"space-between", alignItems:"center" }}>
       <div>
-        <div style={{ fontWeight:600, fontSize:13, color:"#1e3a5f" }}>{a.title}</div>
-        <div style={{ fontSize:11, color:"#64748b", marginTop:2 }}>
+        <div style={{ fontWeight:600, fontSize:13, color:"var(--text-heading)" }}>{a.title}</div>
+        <div style={{ fontSize:11, color:"var(--text-secondary)", marginTop:2 }}>
           {a.subject_name} · {a.teacher_name} · Due: {a.due_date}
         </div>
       </div>
       <div style={{ display:"flex", gap:8, alignItems:"center" }}>
         <span style={{ fontSize:11, padding:"2px 10px", borderRadius:20, fontWeight:600,
-          background: a.is_overdue?"#fef2f2":"#f0fdf4", color: a.is_overdue?"#dc2626":"#16a34a",
+          background: a.is_overdue?"var(--bg-danger-soft)":"var(--bg-success-soft)", color: a.is_overdue?"#dc2626":"#16a34a",
           border:"1px solid "+(a.is_overdue?"#fecaca":"#bbf7d0") }}>
           {a.is_overdue ? "Closed" : "Active"}
         </span>
-        <span style={{ fontSize:11, padding:"2px 10px", borderRadius:20, background:"#f1f5f9", color:"#475569", border:"1px solid #e2e8f0" }}>
+        <span style={{ fontSize:11, padding:"2px 10px", borderRadius:20, background:"var(--bg-hover)", color:"var(--text-secondary)", border:"1px solid var(--border-color)" }}>
           {a.submission_count} submitted
         </span>
         {onView && <button className="btn btn-ghost" style={{ fontSize:12, padding:"4px 12px" }} onClick={onView}>View</button>}
@@ -420,20 +420,20 @@ function AssignmentCard({ a, onView, onDelete, isTeacher, compact }) {
   );
 
   return (
-    <div style={{ background:"#fff", border:"1px solid #e2e8f0", borderRadius:12, overflow:"hidden" }}>
+    <div style={{ background:"var(--bg-card)", border:"1px solid var(--border-color)", borderRadius:12, overflow:"hidden" }}>
       {/* Color accent top bar */}
       <div style={{ height:3, background: accentColor }} />
       <div style={{ padding:"16px 18px" }}>
         <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start" }}>
           <div style={{ flex:1 }}>
             <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6 }}>
-              <div style={{ width:36, height:36, borderRadius:10, background: a.is_overdue?"#fef2f2":"#eff6ff",
+              <div style={{ width:36, height:36, borderRadius:10, background: a.is_overdue?"var(--bg-danger-soft)":"var(--bg-info-soft)",
                 display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, flexShrink:0 }}>
                 📝
               </div>
               <div>
-                <div style={{ fontWeight:700, fontSize:14, color:"#1e3a5f" }}>{a.title}</div>
-                <div style={{ fontSize:12, color:"#64748b" }}>
+                <div style={{ fontWeight:700, fontSize:14, color:"var(--text-heading)" }}>{a.title}</div>
+                <div style={{ fontSize:12, color:"var(--text-secondary)" }}>
                   {a.class_name}{a.section?" ("+a.section+")":""} · {a.subject_name}
                   {isTeacher && <span> · {a.teacher_name}</span>}
                 </div>
@@ -442,23 +442,23 @@ function AssignmentCard({ a, onView, onDelete, isTeacher, compact }) {
 
             <div style={{ display:"flex", gap:8, flexWrap:"wrap", alignItems:"center" }}>
               <span style={{ fontSize:11, padding:"3px 10px", borderRadius:20, fontWeight:600,
-                background: a.is_overdue?"#fef2f2":"#f0fdf4", color: a.is_overdue?"#dc2626":"#16a34a",
+                background: a.is_overdue?"var(--bg-danger-soft)":"var(--bg-success-soft)", color: a.is_overdue?"#dc2626":"#16a34a",
                 border:"1px solid "+(a.is_overdue?"#fecaca":"#bbf7d0") }}>
                 {a.is_overdue ? "Closed" : "Active"}
               </span>
-              <span style={{ fontSize:11, padding:"3px 10px", borderRadius:20, background:"#f1f5f9", color:"#475569", border:"1px solid #e2e8f0" }}>
+              <span style={{ fontSize:11, padding:"3px 10px", borderRadius:20, background:"var(--bg-hover)", color:"var(--text-secondary)", border:"1px solid var(--border-color)" }}>
                 📅 Due {a.due_date}
               </span>
-              <span style={{ fontSize:11, padding:"3px 10px", borderRadius:20, background:"#eff6ff", color:"#2563eb", border:"1px solid #bfdbfe" }}>
+              <span style={{ fontSize:11, padding:"3px 10px", borderRadius:20, background:"var(--bg-info-soft)", color:"#2563eb", border:"1px solid #bfdbfe" }}>
                 {a.total_marks} marks
               </span>
               {isTeacher && (
-                <span style={{ fontSize:11, padding:"3px 10px", borderRadius:20, background:"#f8fafc", color:"#64748b", border:"1px solid #e2e8f0" }}>
+                <span style={{ fontSize:11, padding:"3px 10px", borderRadius:20, background:"var(--bg-hover)", color:"var(--text-secondary)", border:"1px solid var(--border-color)" }}>
                   {a.submission_count}/{a.total_students} submitted
                 </span>
               )}
               {isTeacher && a.graded_count>0 && (
-                <span style={{ fontSize:11, padding:"3px 10px", borderRadius:20, background:"#fffbeb", color:"#92400e", border:"1px solid #fde68a" }}>
+                <span style={{ fontSize:11, padding:"3px 10px", borderRadius:20, background:"var(--bg-warning-soft)", color:"#92400e", border:"1px solid #fde68a" }}>
                   {a.graded_count} graded
                 </span>
               )}
@@ -468,13 +468,13 @@ function AssignmentCard({ a, onView, onDelete, isTeacher, compact }) {
           <div style={{ display:"flex", gap:8, alignItems:"center", marginLeft:16 }}>
             {onView && (
               <button onClick={onView} style={{ display:"flex", alignItems:"center", gap:6, padding:"7px 14px", fontSize:12, fontWeight:600,
-                background:"#eff6ff", border:"1px solid #bfdbfe", borderRadius:8, cursor:"pointer", color:"#2563eb" }}>
+                background:"var(--bg-info-soft)", border:"1px solid #bfdbfe", borderRadius:8, cursor:"pointer", color:"#2563eb" }}>
                 📋 Submissions
               </button>
             )}
             {onDelete && (
               <button onClick={() => onDelete(a.id)} style={{ width:32, height:32, display:"flex", alignItems:"center", justifyContent:"center",
-                background:"#fef2f2", border:"1px solid #fecaca", borderRadius:8, cursor:"pointer", fontSize:16 }}>
+                background:"var(--bg-danger-soft)", border:"1px solid #fecaca", borderRadius:8, cursor:"pointer", fontSize:16 }}>
                 🗑
               </button>
             )}
@@ -482,10 +482,10 @@ function AssignmentCard({ a, onView, onDelete, isTeacher, compact }) {
         </div>
 
         {file && (
-          <div style={{ marginTop:12, paddingTop:12, borderTop:"1px solid #f1f5f9" }}>
+          <div style={{ marginTop:12, paddingTop:12, borderTop:"1px solid var(--border-color)" }}>
             <button onClick={handleDownload}
               style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"7px 14px", fontSize:12, fontWeight:600,
-                background:"#f8fafc", border:"1px solid #e2e8f0", borderRadius:8, cursor:"pointer", color:"#475569" }}>
+                background:"var(--bg-hover)", border:"1px solid var(--border-color)", borderRadius:8, cursor:"pointer", color:"var(--text-secondary)" }}>
               <span>📎</span> {file}
             </button>
           </div>
@@ -540,17 +540,17 @@ function SubmissionsView({ assignment, onBack, readOnly }) {
         <button className="btn btn-ghost" onClick={onBack}>← Back</button>
         <div>
           <div style={{ fontWeight:700, fontSize:15 }}>{assignment.title}</div>
-          <div style={{ fontSize:12, color:"#64748b" }}>{assignment.class_name}{assignment.section?" ("+assignment.section+")":""} · {assignment.subject_name} · Due: {assignment.due_date} · {assignment.total_marks} marks</div>
+          <div style={{ fontSize:12, color:"var(--text-secondary)" }}>{assignment.class_name}{assignment.section?" ("+assignment.section+")":""} · {assignment.subject_name} · Due: {assignment.due_date} · {assignment.total_marks} marks</div>
         </div>
       </div>
 
-      {msg && <div style={{ background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:8, padding:"10px 14px", marginBottom:12, fontSize:13, color:"#16a34a" }}>{msg}</div>}
+      {msg && <div style={{ background:"var(--bg-success-soft)", border:"1px solid #bbf7d0", borderRadius:8, padding:"10px 14px", marginBottom:12, fontSize:13, color:"#16a34a" }}>{msg}</div>}
 
       <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12, marginBottom:16 }}>
         {[["Submitted",data.submissions.length,"#2563eb"],["Not Submitted",data.not_submitted.length,"#ef4444"],["Graded",data.submissions.filter(s=>s.marks!==null).length,"#22c55e"]].map(([l,v,c])=>(
-          <div key={l} style={{ background:"#fff", border:"1px solid #e2e8f0", borderTop:"3px solid "+c, borderRadius:10, padding:"12px", textAlign:"center" }}>
+          <div key={l} style={{ background:"var(--bg-card)", border:"1px solid var(--border-color)", borderTop:"3px solid "+c, borderRadius:10, padding:"12px", textAlign:"center" }}>
             <div style={{ fontSize:22, fontWeight:800, color:c }}>{v}</div>
-            <div style={{ fontSize:12, color:"#64748b" }}>{l}</div>
+            <div style={{ fontSize:12, color:"var(--text-secondary)" }}>{l}</div>
           </div>
         ))}
       </div>
@@ -564,11 +564,11 @@ function SubmissionsView({ assignment, onBack, readOnly }) {
             {data.submissions.length===0 ? <div className="empty-state">No submissions yet.</div> : (
               <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
                 {data.submissions.map(sub=>(
-                  <div key={sub.id} style={{ border:"1px solid #e2e8f0", borderRadius:10, padding:"14px 16px", background: sub.marks!==null?"#f0fdf4":"#fff" }}>
+                  <div key={sub.id} style={{ border:"1px solid var(--border-color)", borderRadius:10, padding:"14px 16px", background: sub.marks!==null?"var(--bg-success-soft)":"var(--bg-card)" }}>
                     <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
                       <div>
                         <div style={{ fontWeight:600, fontSize:13 }}>{sub.student_name}</div>
-                        <div style={{ fontSize:11, color:"#64748b" }}>{sub.enrollment_no} · {formatDateTime(sub.submitted_at)}</div>
+                        <div style={{ fontSize:11, color:"var(--text-secondary)" }}>{sub.enrollment_no} · {formatDateTime(sub.submitted_at)}</div>
                       </div>
                       <div style={{ display:"flex", gap:8, alignItems:"center" }}>
                         {sub.marks!==null && <span className="badge badge-success">{sub.marks}/{assignment.total_marks}</span>}
@@ -577,13 +577,13 @@ function SubmissionsView({ assignment, onBack, readOnly }) {
                     </div>
                     {readOnly ? (
                       <div style={{ display:"flex", gap:10, alignItems:"center", marginTop:4 }}>
-                        <div style={{ padding:"6px 14px", background: sub.marks!==null?"#f0fdf4":"#f8fafc",
-                          border:"1px solid "+(sub.marks!==null?"#bbf7d0":"#e2e8f0"), borderRadius:8, fontSize:13 }}>
+                        <div style={{ padding:"6px 14px", background: sub.marks!==null?"var(--bg-success-soft)":"var(--bg-hover)",
+                          border:"1px solid "+(sub.marks!==null?"#bbf7d0":"var(--border-color)"), borderRadius:8, fontSize:13 }}>
                           {sub.marks!==null
                             ? <span style={{ fontWeight:700, color:"#16a34a" }}>Marks: {sub.marks}/{assignment.total_marks}</span>
-                            : <span style={{ color:"#94a3b8" }}>Not graded yet</span>}
+                            : <span style={{ color:"var(--text-muted)" }}>Not graded yet</span>}
                         </div>
-                        {sub.feedback && <div style={{ fontSize:12, color:"#64748b" }}>Feedback: {sub.feedback}</div>}
+                        {sub.feedback && <div style={{ fontSize:12, color:"var(--text-secondary)" }}>Feedback: {sub.feedback}</div>}
                       </div>
                     ) : (
                       <div style={{ display:"flex", gap:10, alignItems:"flex-end" }}>
@@ -616,9 +616,9 @@ function SubmissionsView({ assignment, onBack, readOnly }) {
             <div className="section-card">
               <div className="section-card-header"><span className="section-card-title" style={{ color:"#ef4444" }}>Not Submitted ({data.not_submitted.length})</span></div>
               {data.not_submitted.map(s=>(
-                <div key={s.student_id} style={{ display:"flex", justifyContent:"space-between", padding:"8px 10px", background:"#fef2f2", borderRadius:8, marginBottom:4, fontSize:13 }}>
+                <div key={s.student_id} style={{ display:"flex", justifyContent:"space-between", padding:"8px 10px", background:"var(--bg-danger-soft)", borderRadius:8, marginBottom:4, fontSize:13 }}>
                   <span style={{ fontWeight:500 }}>{s.student_name}</span>
-                  <span style={{ color:"#94a3b8", fontSize:12 }}>{s.enrollment_no}</span>
+                  <span style={{ color:"var(--text-muted)", fontSize:12 }}>{s.enrollment_no}</span>
                 </div>
               ))}
             </div>
@@ -677,13 +677,13 @@ function StudentAssignments() {
   return (
     <div>
       <div className="page-header"><h1 className="page-heading">Assignments</h1></div>
-      {msg && <div style={{ background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:8, padding:"10px 14px", marginBottom:12, fontSize:13, color:"#16a34a" }}>{msg}</div>}
+      {msg && <div style={{ background:"var(--bg-success-soft)", border:"1px solid #bbf7d0", borderRadius:8, padding:"10px 14px", marginBottom:12, fontSize:13, color:"#16a34a" }}>{msg}</div>}
 
-      <div style={{ display:"flex", gap:2, marginBottom:14, borderBottom:"1px solid #e2e8f0" }}>
+      <div style={{ display:"flex", gap:2, marginBottom:14, borderBottom:"1px solid var(--border-color)" }}>
         {FILTERS.map(([val,label])=>(
           <button key={val} onClick={()=>setFilter(val)}
             style={{ padding:"6px 16px", fontSize:12, fontWeight:500, border:"none", cursor:"pointer", background:"transparent",
-              color:filter===val?"#2563eb":"#64748b", borderBottom:filter===val?"2px solid #2563eb":"2px solid transparent", marginBottom:-1 }}>
+              color:filter===val?"#2563eb":"var(--text-secondary)", borderBottom:filter===val?"2px solid #2563eb":"2px solid transparent", marginBottom:-1 }}>
             {label}
           </button>
         ))}
@@ -692,34 +692,34 @@ function StudentAssignments() {
       {visible.length===0 ? <div className="section-card"><div className="empty-state">No assignments found.</div></div> : (
         <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
           {visible.map(a=>(
-            <div key={a.id} style={{ background:"#fff", border:"1px solid #e2e8f0", borderRadius:12, overflow:"hidden" }}>
+            <div key={a.id} style={{ background:"var(--bg-card)", border:"1px solid var(--border-color)", borderRadius:12, overflow:"hidden" }}>
               <div style={{ height:3, background: a.sub_status==="graded"?"#22c55e":a.submission_id?"#7c3aed":a.is_overdue?"#ef4444":"#2563eb" }} />
               <div style={{ padding:"16px 18px" }}>
               <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-start", marginBottom:10 }}>
                 <div style={{ display:"flex", gap:10, alignItems:"flex-start" }}>
-                  <div style={{ width:36, height:36, borderRadius:10, background:"#eff6ff", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, flexShrink:0 }}>📝</div>
+                  <div style={{ width:36, height:36, borderRadius:10, background:"var(--bg-info-soft)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, flexShrink:0 }}>📝</div>
                   <div>
-                    <div style={{ fontWeight:700, fontSize:14, color:"#1e3a5f" }}>{a.title}</div>
-                    <div style={{ fontSize:12, color:"#64748b", marginTop:2 }}>{a.subject_name} · {a.teacher_name}</div>
+                    <div style={{ fontWeight:700, fontSize:14, color:"var(--text-heading)" }}>{a.title}</div>
+                    <div style={{ fontSize:12, color:"var(--text-secondary)", marginTop:2 }}>{a.subject_name} · {a.teacher_name}</div>
                   </div>
                 </div>
                 <div style={{ display:"flex", gap:8, alignItems:"center" }}>
                   <span style={{ fontSize:11, padding:"3px 10px", borderRadius:20, fontWeight:600,
-                    background:a.is_overdue?"#fef2f2":"#f0fdf4", color:a.is_overdue?"#dc2626":"#16a34a",
+                    background:a.is_overdue?"var(--bg-danger-soft)":"var(--bg-success-soft)", color:a.is_overdue?"#dc2626":"#16a34a",
                     border:"1px solid "+(a.is_overdue?"#fecaca":"#bbf7d0") }}>{a.is_overdue?"Closed":"Active"}</span>
-                  <span style={{ fontSize:11, padding:"3px 10px", borderRadius:20, background:"#eff6ff", color:"#2563eb", border:"1px solid #bfdbfe" }}>{a.total_marks} marks</span>
-                  <span style={{ fontSize:11, padding:"3px 10px", borderRadius:20, background:"#f1f5f9", color:"#475569", border:"1px solid #e2e8f0" }}>📅 {a.due_date}</span>
+                  <span style={{ fontSize:11, padding:"3px 10px", borderRadius:20, background:"var(--bg-info-soft)", color:"#2563eb", border:"1px solid #bfdbfe" }}>{a.total_marks} marks</span>
+                  <span style={{ fontSize:11, padding:"3px 10px", borderRadius:20, background:"var(--bg-hover)", color:"var(--text-secondary)", border:"1px solid var(--border-color)" }}>📅 {a.due_date}</span>
                 </div>
               </div>
 
-              {a.description && <div style={{ fontSize:13, color:"#475569", marginBottom:10, padding:"10px 12px", background:"#f8fafc", borderRadius:8, lineHeight:1.5 }}>{a.description}</div>}
+              {a.description && <div style={{ fontSize:13, color:"var(--text-secondary)", marginBottom:10, padding:"10px 12px", background:"var(--bg-hover)", borderRadius:8, lineHeight:1.5 }}>{a.description}</div>}
 
               {/* Teacher attachment */}
               {a.assignment_file && (
                 <div style={{ marginBottom:10 }}>
                   <button onClick={()=>handleDownloadFile(a)}
                     style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"7px 14px", fontSize:12, fontWeight:600,
-                      background:"#f8fafc", border:"1px solid #e2e8f0", borderRadius:8, cursor:"pointer", color:"#475569" }}>
+                      background:"var(--bg-hover)", border:"1px solid var(--border-color)", borderRadius:8, cursor:"pointer", color:"var(--text-secondary)" }}>
                     📎 {a.assignment_file}
                   </button>
                 </div>
@@ -727,24 +727,24 @@ function StudentAssignments() {
 
               {/* Already submitted */}
               {a.submission_id && (
-                <div style={{ padding:"12px 14px", background:a.marks!==null?"#f0fdf4":"#f5f3ff",
+                <div style={{ padding:"12px 14px", background:a.marks!==null?"var(--bg-success-soft)":"#f5f3ff",
                   borderRadius:8, marginBottom:10, border:"1px solid "+(a.marks!==null?"#bbf7d0":"#ddd6fe") }}>
                   <div style={{ fontSize:13, fontWeight:700, color:a.marks!==null?"#16a34a":"#7c3aed" }}>
                     {a.marks!==null ? `✓ Graded: ${a.marks}/${a.total_marks} marks` : "✓ Submitted — awaiting grading"}
                   </div>
-                  {a.feedback && <div style={{ fontSize:12, color:"#64748b", marginTop:4 }}>Feedback: {a.feedback}</div>}
+                  {a.feedback && <div style={{ fontSize:12, color:"var(--text-secondary)", marginTop:4 }}>Feedback: {a.feedback}</div>}
                 </div>
               )}
 
               {/* Submit form */}
               {a.can_submit && (
                 <div style={{ marginTop:4 }}>
-                  <label style={{ fontSize:11, fontWeight:600, color:"#64748b", display:"block", marginBottom:6 }}>Upload your assignment</label>
+                  <label style={{ fontSize:11, fontWeight:600, color:"var(--text-secondary)", display:"block", marginBottom:6 }}>Upload your assignment</label>
                   <div style={{ display:"flex", gap:10, alignItems:"center" }}>
                     <label style={{ flex:1, display:"flex", alignItems:"center", gap:10, padding:"8px 12px",
-                      border:"1.5px dashed #cbd5e1", borderRadius:8, cursor:"pointer", background:"#f8fafc" }}>
+                      border:"1.5px dashed #cbd5e1", borderRadius:8, cursor:"pointer", background:"var(--bg-hover)" }}>
                       <span style={{ fontSize:16 }}>📎</span>
-                      <span id={"lbl-"+a.id} style={{ fontSize:12, color:"#64748b" }}>Choose file (PDF, Word, Excel)</span>
+                      <span id={"lbl-"+a.id} style={{ fontSize:12, color:"var(--text-secondary)" }}>Choose file (PDF, Word, Excel)</span>
                       <input type="file" ref={el=>fileRefs.current[a.id]=el} accept=".pdf,.doc,.docx,.xls,.xlsx"
                         style={{ display:"none" }} onChange={e=>{
                           const el=document.getElementById("lbl-"+a.id);
@@ -829,20 +829,20 @@ function ParentAssignments() {
         <div style={{ display:"grid", gridTemplateColumns:"200px 1fr", gap:16 }}>
 
           {/* Left: subjects */}
-          <div style={{ background:"#fff", border:"1px solid #e2e8f0", borderRadius:12, overflow:"hidden", alignSelf:"start" }}>
-            <div style={{ padding:"12px 16px", borderBottom:"1px solid #f1f5f9", background:"#f8fafc" }}>
-              <div style={{ fontSize:12, fontWeight:700, color:"#64748b", textTransform:"uppercase", letterSpacing:"0.06em" }}>Subjects</div>
+          <div style={{ background:"var(--bg-card)", border:"1px solid var(--border-color)", borderRadius:12, overflow:"hidden", alignSelf:"start" }}>
+            <div style={{ padding:"12px 16px", borderBottom:"1px solid var(--border-color)", background:"var(--bg-hover)" }}>
+              <div style={{ fontSize:12, fontWeight:700, color:"var(--text-secondary)", textTransform:"uppercase", letterSpacing:"0.06em" }}>Subjects</div>
             </div>
-            {loading ? <div style={{ padding:16, fontSize:12, color:"#94a3b8" }}>Loading...</div>
-            : subjectList.length===0 ? <div style={{ padding:16, fontSize:12, color:"#94a3b8" }}>No assignments yet.</div>
+            {loading ? <div style={{ padding:16, fontSize:12, color:"var(--text-muted)" }}>Loading...</div>
+            : subjectList.length===0 ? <div style={{ padding:16, fontSize:12, color:"var(--text-muted)" }}>No assignments yet.</div>
             : subjectList.map(s => (
               <div key={s.subject_id} onClick={() => { setSelSubject(s.subject_id); setSelAssign(null); }}
-                style={{ padding:"12px 16px", cursor:"pointer", borderBottom:"1px solid #f1f5f9",
+                style={{ padding:"12px 16px", cursor:"pointer", borderBottom:"1px solid var(--border-color)",
                   borderLeft:"3px solid "+(selSubject===s.subject_id?"#2563eb":"transparent"),
-                  background: selSubject===s.subject_id?"#eff6ff":"transparent" }}>
+                  background: selSubject===s.subject_id?"var(--bg-info-soft)":"transparent" }}>
                 <div style={{ fontSize:13, fontWeight: selSubject===s.subject_id?700:500,
-                  color: selSubject===s.subject_id?"#2563eb":"#1e3a5f" }}>{s.subject_name}</div>
-                <div style={{ fontSize:11, color:"#94a3b8", marginTop:2 }}>{s.assignments.length} assignment{s.assignments.length!==1?"s":""}</div>
+                  color: selSubject===s.subject_id?"#2563eb":"var(--text-heading)" }}>{s.subject_name}</div>
+                <div style={{ fontSize:11, color:"var(--text-muted)", marginTop:2 }}>{s.assignments.length} assignment{s.assignments.length!==1?"s":""}</div>
               </div>
             ))}
           </div>
@@ -850,7 +850,7 @@ function ParentAssignments() {
           {/* Right: assignments or detail */}
           <div>
             {!selSubject ? (
-              <div style={{ background:"#fff", border:"1px solid #e2e8f0", borderRadius:12, padding:"40px", textAlign:"center", color:"#94a3b8" }}>
+              <div style={{ background:"var(--bg-card)", border:"1px solid var(--border-color)", borderRadius:12, padding:"40px", textAlign:"center", color:"var(--text-muted)" }}>
                 <div style={{ fontSize:32, marginBottom:12 }}>📚</div>
                 <div style={{ fontSize:14 }}>Select a subject to view assignments</div>
               </div>
@@ -858,19 +858,19 @@ function ParentAssignments() {
               <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
                 {selSubjData?.assignments.map(a => (
                   <div key={a.id} onClick={() => setSelAssign(a)}
-                    style={{ background:"#fff", border:"1px solid #e2e8f0", borderRadius:12, overflow:"hidden", cursor:"pointer" }}
+                    style={{ background:"var(--bg-card)", border:"1px solid var(--border-color)", borderRadius:12, overflow:"hidden", cursor:"pointer" }}
                     onMouseEnter={e=>e.currentTarget.style.borderColor="#bfdbfe"}
-                    onMouseLeave={e=>e.currentTarget.style.borderColor="#e2e8f0"}>
+                    onMouseLeave={e=>e.currentTarget.style.borderColor="var(--border-color)"}>
                     <div style={{ height:3, background: a.is_overdue?"#ef4444":"#2563eb" }} />
                     <div style={{ padding:"14px 16px", display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                       <div>
-                        <div style={{ fontWeight:700, fontSize:14, color:"#1e3a5f" }}>{a.title}</div>
-                        <div style={{ fontSize:12, color:"#64748b", marginTop:2 }}>{a.teacher_name} · Due: {a.due_date} · {a.total_marks} marks</div>
-                        {a.description && <div style={{ fontSize:12, color:"#94a3b8", marginTop:4 }}>{a.description}</div>}
+                        <div style={{ fontWeight:700, fontSize:14, color:"var(--text-heading)" }}>{a.title}</div>
+                        <div style={{ fontSize:12, color:"var(--text-secondary)", marginTop:2 }}>{a.teacher_name} · Due: {a.due_date} · {a.total_marks} marks</div>
+                        {a.description && <div style={{ fontSize:12, color:"var(--text-muted)", marginTop:4 }}>{a.description}</div>}
                       </div>
                       <div style={{ display:"flex", gap:8, alignItems:"center" }}>
                         <span style={{ fontSize:11, padding:"3px 10px", borderRadius:20, fontWeight:600,
-                          background:a.is_overdue?"#fef2f2":"#f0fdf4", color:a.is_overdue?"#dc2626":"#16a34a",
+                          background:a.is_overdue?"var(--bg-danger-soft)":"var(--bg-success-soft)", color:a.is_overdue?"#dc2626":"#16a34a",
                           border:"1px solid "+(a.is_overdue?"#fecaca":"#bbf7d0") }}>
                           {a.is_overdue?"Closed":"Active"}
                         </span>
@@ -909,7 +909,7 @@ function ParentSubmissionView({ assignment, studentId, onBack }) {
         <button className="btn btn-ghost" onClick={onBack}>← Back</button>
         <div>
           <div style={{ fontWeight:700, fontSize:15 }}>{assignment.title}</div>
-          <div style={{ fontSize:12, color:"#64748b" }}>{assignment.subject_name} · Due: {assignment.due_date} · {assignment.total_marks} marks</div>
+          <div style={{ fontSize:12, color:"var(--text-secondary)" }}>{assignment.subject_name} · Due: {assignment.due_date} · {assignment.total_marks} marks</div>
         </div>
       </div>
 
@@ -918,7 +918,7 @@ function ParentSubmissionView({ assignment, studentId, onBack }) {
           {/* Assignment info */}
           {assignment.description && (
             <div className="section-card">
-              <div style={{ fontSize:13, color:"#475569" }}>{assignment.description}</div>
+              <div style={{ fontSize:13, color:"var(--text-secondary)" }}>{assignment.description}</div>
             </div>
           )}
 
@@ -926,34 +926,34 @@ function ParentSubmissionView({ assignment, studentId, onBack }) {
           <div className="section-card">
             <div style={{ fontWeight:700, fontSize:14, marginBottom:12 }}>Submission Status</div>
             {!sub ? (
-              <div style={{ padding:"16px", background:"#fef2f2", borderRadius:10, border:"1px solid #fecaca", textAlign:"center" }}>
+              <div style={{ padding:"16px", background:"var(--bg-danger-soft)", borderRadius:10, border:"1px solid #fecaca", textAlign:"center" }}>
                 <div style={{ fontSize:24, marginBottom:8 }}>⚠️</div>
                 <div style={{ fontWeight:600, color:"#dc2626", fontSize:14 }}>Not Submitted</div>
-                <div style={{ fontSize:12, color:"#64748b", marginTop:4 }}>
+                <div style={{ fontSize:12, color:"var(--text-secondary)", marginTop:4 }}>
                   {assignment.is_overdue ? "Due date has passed." : `Due: ${assignment.due_date}`}
                 </div>
               </div>
             ) : (
               <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
-                <div style={{ padding:"14px 16px", background:"#f0fdf4", borderRadius:10, border:"1px solid #bbf7d0" }}>
+                <div style={{ padding:"14px 16px", background:"var(--bg-success-soft)", borderRadius:10, border:"1px solid #bbf7d0" }}>
                   <div style={{ fontWeight:700, color:"#16a34a", fontSize:14, marginBottom:4 }}>✓ Submitted</div>
-                  <div style={{ fontSize:12, color:"#64748b" }}>
+                  <div style={{ fontSize:12, color:"var(--text-secondary)" }}>
                     {formatDateTime(sub.submitted_at)}
                   </div>
                 </div>
 
                 {/* Marks */}
-                <div style={{ padding:"16px", background: sub.marks!==null?"#eff6ff":"#f8fafc",
-                  borderRadius:10, border:"1px solid "+(sub.marks!==null?"#bfdbfe":"#e2e8f0"), textAlign:"center" }}>
+                <div style={{ padding:"16px", background: sub.marks!==null?"var(--bg-info-soft)":"var(--bg-hover)",
+                  borderRadius:10, border:"1px solid "+(sub.marks!==null?"#bfdbfe":"var(--border-color)"), textAlign:"center" }}>
                   {sub.marks!==null ? (
                     <>
-                      <div style={{ fontSize:36, fontWeight:800, color:"#2563eb" }}>{sub.marks}<span style={{ fontSize:18, color:"#94a3b8" }}>/{assignment.total_marks}</span></div>
-                      <div style={{ fontSize:12, color:"#64748b", marginTop:4 }}>Marks obtained</div>
+                      <div style={{ fontSize:36, fontWeight:800, color:"#2563eb" }}>{sub.marks}<span style={{ fontSize:18, color:"var(--text-muted)" }}>/{assignment.total_marks}</span></div>
+                      <div style={{ fontSize:12, color:"var(--text-secondary)", marginTop:4 }}>Marks obtained</div>
                       <div style={{ fontSize:12, color:"#7c3aed", marginTop:4, fontWeight:600 }}>
                         {Math.round(sub.marks/assignment.total_marks*100)}%
                       </div>
                       {sub.feedback && (
-                        <div style={{ marginTop:12, padding:"10px 14px", background:"#fff", borderRadius:8, fontSize:13, color:"#475569", textAlign:"left" }}>
+                        <div style={{ marginTop:12, padding:"10px 14px", background:"var(--bg-card)", borderRadius:8, fontSize:13, color:"var(--text-secondary)", textAlign:"left" }}>
                           <span style={{ fontWeight:600 }}>Feedback: </span>{sub.feedback}
                         </div>
                       )}
@@ -961,7 +961,7 @@ function ParentSubmissionView({ assignment, studentId, onBack }) {
                   ) : (
                     <>
                       <div style={{ fontSize:24, marginBottom:8 }}>⏳</div>
-                      <div style={{ fontWeight:600, color:"#64748b" }}>Awaiting grading</div>
+                      <div style={{ fontWeight:600, color:"var(--text-secondary)" }}>Awaiting grading</div>
                     </>
                   )}
                 </div>
@@ -1009,16 +1009,16 @@ function PrincipalAssignments() {
       <div className="page-header"><h1 className="page-heading">Assignments</h1></div>
       <div style={{ display:"grid", gridTemplateColumns:"220px 1fr", gap:16 }}>
 
-        <div style={{ background:"#fff", border:"1px solid #e2e8f0", borderRadius:12, overflow:"hidden", alignSelf:"start" }}>
-          <div style={{ padding:"12px 16px", borderBottom:"1px solid #f1f5f9", background:"#f8fafc" }}>
-            <div style={{ fontSize:12, fontWeight:700, color:"#64748b", textTransform:"uppercase", letterSpacing:"0.06em" }}>Classes</div>
+        <div style={{ background:"var(--bg-card)", border:"1px solid var(--border-color)", borderRadius:12, overflow:"hidden", alignSelf:"start" }}>
+          <div style={{ padding:"12px 16px", borderBottom:"1px solid var(--border-color)", background:"var(--bg-hover)" }}>
+            <div style={{ fontSize:12, fontWeight:700, color:"var(--text-secondary)", textTransform:"uppercase", letterSpacing:"0.06em" }}>Classes</div>
           </div>
           {classes.map(c => (
             <div key={c.id} onClick={() => { setSelClass(c); setAssignments([]); }}
-              style={{ padding:"12px 16px", cursor:"pointer", borderBottom:"1px solid #f1f5f9",
+              style={{ padding:"12px 16px", cursor:"pointer", borderBottom:"1px solid var(--border-color)",
                 borderLeft:"3px solid "+(selClass?.id===c.id?"#2563eb":"transparent"),
-                background: selClass?.id===c.id?"#eff6ff":"transparent" }}>
-              <div style={{ fontSize:13, fontWeight: selClass?.id===c.id?700:500, color: selClass?.id===c.id?"#2563eb":"#1e3a5f" }}>
+                background: selClass?.id===c.id?"var(--bg-info-soft)":"transparent" }}>
+              <div style={{ fontSize:13, fontWeight: selClass?.id===c.id?700:500, color: selClass?.id===c.id?"#2563eb":"var(--text-heading)" }}>
                 {c.name}{c.section?" ("+c.section+")":""}
               </div>
             </div>
@@ -1027,22 +1027,22 @@ function PrincipalAssignments() {
 
         <div>
           {!selClass ? (
-            <div style={{ background:"#fff", border:"1px solid #e2e8f0", borderRadius:12, padding:"40px", textAlign:"center", color:"#94a3b8" }}>
+            <div style={{ background:"var(--bg-card)", border:"1px solid var(--border-color)", borderRadius:12, padding:"40px", textAlign:"center", color:"var(--text-muted)" }}>
               <div style={{ fontSize:32, marginBottom:12 }}>📚</div>
               <div style={{ fontSize:14 }}>Select a class to view assignments</div>
             </div>
           ) : loading ? <div className="loading-state">Loading...</div>
           : Object.keys(bySubject).length===0 ? (
-            <div style={{ background:"#fff", border:"1px solid #e2e8f0", borderRadius:12, padding:"40px", textAlign:"center", color:"#94a3b8" }}>
+            <div style={{ background:"var(--bg-card)", border:"1px solid var(--border-color)", borderRadius:12, padding:"40px", textAlign:"center", color:"var(--text-muted)" }}>
               <div style={{ fontSize:14 }}>No assignments for {selClass.name}{selClass.section?" ("+selClass.section+")":""}.</div>
             </div>
           ) : (
             <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
               {Object.values(bySubject).map(subj => (
-                <div key={subj.subject_id} style={{ background:"#fff", border:"1px solid #e2e8f0", borderRadius:12, overflow:"hidden" }}>
-                  <div style={{ padding:"12px 16px", background:"#f8fafc", borderBottom:"1px solid #e2e8f0", display:"flex", alignItems:"center", gap:10 }}>
-                    <div style={{ width:32, height:32, borderRadius:8, background:"#eff6ff", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>📖</div>
-                    <div style={{ fontWeight:700, fontSize:14, color:"#1e3a5f" }}>{subj.subject_name}</div>
+                <div key={subj.subject_id} style={{ background:"var(--bg-card)", border:"1px solid var(--border-color)", borderRadius:12, overflow:"hidden" }}>
+                  <div style={{ padding:"12px 16px", background:"var(--bg-hover)", borderBottom:"1px solid var(--border-color)", display:"flex", alignItems:"center", gap:10 }}>
+                    <div style={{ width:32, height:32, borderRadius:8, background:"var(--bg-info-soft)", display:"flex", alignItems:"center", justifyContent:"center", fontSize:16 }}>📖</div>
+                    <div style={{ fontWeight:700, fontSize:14, color:"var(--text-heading)" }}>{subj.subject_name}</div>
                     <span style={{ fontSize:11, padding:"2px 10px", borderRadius:20, background:"#e0e7ff", color:"#3730a3", border:"1px solid #c7d2fe", marginLeft:"auto" }}>
                       {subj.assignments.length} assignment{subj.assignments.length!==1?"s":""}
                     </span>
@@ -1050,22 +1050,22 @@ function PrincipalAssignments() {
                   <div>
                     {subj.assignments.map(a => (
                       <div key={a.id} onClick={() => setSelAssign(a)}
-                        style={{ padding:"12px 16px", cursor:"pointer", borderBottom:"1px solid #f8fafc",
+                        style={{ padding:"12px 16px", cursor:"pointer", borderBottom:"1px solid var(--border-color)",
                           display:"flex", justifyContent:"space-between", alignItems:"center",
                           transition:"background 0.1s" }}
-                        onMouseEnter={e=>e.currentTarget.style.background="#f8fafc"}
+                        onMouseEnter={e=>e.currentTarget.style.background="var(--bg-hover)"}
                         onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
                         <div>
-                          <div style={{ fontWeight:600, fontSize:13, color:"#1e3a5f" }}>{a.title}</div>
-                          <div style={{ fontSize:11, color:"#64748b", marginTop:2 }}>Due: {a.due_date} · {a.total_marks} marks · {a.teacher_name}</div>
+                          <div style={{ fontWeight:600, fontSize:13, color:"var(--text-heading)" }}>{a.title}</div>
+                          <div style={{ fontSize:11, color:"var(--text-secondary)", marginTop:2 }}>Due: {a.due_date} · {a.total_marks} marks · {a.teacher_name}</div>
                         </div>
                         <div style={{ display:"flex", gap:8, alignItems:"center" }}>
                           <span style={{ fontSize:11, padding:"3px 10px", borderRadius:20, fontWeight:600,
-                            background:a.is_overdue?"#fef2f2":"#f0fdf4", color:a.is_overdue?"#dc2626":"#16a34a",
+                            background:a.is_overdue?"var(--bg-danger-soft)":"var(--bg-success-soft)", color:a.is_overdue?"#dc2626":"#16a34a",
                             border:"1px solid "+(a.is_overdue?"#fecaca":"#bbf7d0") }}>
                             {a.is_overdue?"Closed":"Active"}
                           </span>
-                          <span style={{ fontSize:11, padding:"3px 10px", borderRadius:20, background:"#f1f5f9", color:"#475569", border:"1px solid #e2e8f0" }}>
+                          <span style={{ fontSize:11, padding:"3px 10px", borderRadius:20, background:"var(--bg-hover)", color:"var(--text-secondary)", border:"1px solid var(--border-color)" }}>
                             {a.submission_count} submitted
                           </span>
                           <span style={{ fontSize:18, color:"#cbd5e1" }}>›</span>

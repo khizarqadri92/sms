@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import studentsApi from "../api/studentsApi";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
+import "../pages/StudentViews.css";
 
 export default function InvoiceTimelineModal({ studentId, invoiceId, onClose }) {
   const { formatDateTime } = useRegionalSettings();
@@ -23,34 +24,42 @@ export default function InvoiceTimelineModal({ studentId, invoiceId, onClose }) 
       label: "Invoice Issued",
       date: data.issued_at,
       detail: data.structure_name + (data.class_name ? " - " + data.class_name + (data.class_section ? " (" + data.class_section + ")" : "") : ""),
-      color: "#2563eb",
+      tone: "issued",
     });
     events.push({
       label: "Due Date",
       date: data.due_date,
       detail: "Payment due",
-      color: "#f59e0b",
+      tone: "due",
     });
     (data.payments || []).forEach(p => {
       events.push({
         label: "Payment Submitted",
         date: p.paid_at,
         detail: "Rs. " + Number(p.amount_paid).toLocaleString() + " via " + (p.method || "").replace("_", " ") + (p.reference ? " (Ref: " + p.reference + ")" : ""),
-        color: "#7c3aed",
+        tone: "paid",
       });
-      if (p.is_verified) {
+      const review = p.review_status || (p.is_verified ? "verified" : "pending");
+      if (review === "rejected") {
+        events.push({
+          label: "Payment Not Verified",
+          date: p.rejected_at || null,
+          detail: "Rs. " + Number(p.amount_paid).toLocaleString() + " - " + (p.rejected_reason || "the school could not verify this payment") + ". Please submit it again.",
+          tone: "due",
+        });
+      } else if (review === "verified") {
         events.push({
           label: "Payment Verified",
           date: p.verified_at,
           detail: "Rs. " + Number(p.amount_paid).toLocaleString() + " confirmed by school",
-          color: "#16a34a",
+          tone: "verified",
         });
       } else {
         events.push({
           label: "Pending Verification",
           date: null,
           detail: "Rs. " + Number(p.amount_paid).toLocaleString() + " awaiting school confirmation",
-          color: "#d97706",
+          tone: "pending",
           pending: true,
         });
       }
@@ -65,11 +74,11 @@ export default function InvoiceTimelineModal({ studentId, invoiceId, onClose }) 
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
+      <div className="modal sv-modal-box" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
           <div>
             <span className="modal-title">Fee Timeline</span>
-            {data && <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>{data.invoice_no} - {data.structure_name}</div>}
+            {data && <div className="sv-tl-sub">{data.invoice_no} - {data.structure_name}</div>}
           </div>
           <button className="modal-close" onClick={onClose}>x</button>
         </div>
@@ -80,25 +89,25 @@ export default function InvoiceTimelineModal({ studentId, invoiceId, onClose }) 
             <div className="alert alert-error">{error}</div>
           ) : (
             <>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 20 }}>
-                <div style={{ background: "#f8fafc", borderRadius: 8, padding: "10px 12px", textAlign: "center" }}>
-                  <div style={{ fontSize: 11, color: "#64748b" }}>Gross Amount</div>
-                  <div style={{ fontSize: 16, fontWeight: 700 }}>Rs. {Number(data.net_amount).toLocaleString()}</div>
+              <div className="sv-tl-boxes">
+                <div className="sv-tl-box">
+                  <div className="sv-tl-label">Gross Amount</div>
+                  <div className="sv-tl-value">Rs. {Number(data.net_amount).toLocaleString()}</div>
                 </div>
-                <div style={{ background: data.status === "paid" ? "#f0fdf4" : "#fef2f2", borderRadius: 8, padding: "10px 12px", textAlign: "center" }}>
-                  <div style={{ fontSize: 11, color: "#64748b" }}>Status</div>
-                  <div style={{ fontSize: 16, fontWeight: 700, textTransform: "capitalize", color: data.status === "paid" ? "#16a34a" : "#dc2626" }}>{data.status}</div>
+                <div className={"sv-tl-box " + (data.status === "paid" ? "sv-tl-box--paid" : "sv-tl-box--unpaid")}>
+                  <div className="sv-tl-label">Status</div>
+                  <div className="sv-tl-value sv-tl-status">{data.status}</div>
                 </div>
               </div>
 
-              <div style={{ position: "relative", paddingLeft: 24 }}>
-                <div style={{ position: "absolute", left: 7, top: 6, bottom: 6, width: 2, background: "#e2e8f0" }} />
+              <div className="sv-tl">
+                <div className="sv-tl-line" />
                 {events.map((ev, i) => (
-                  <div key={i} style={{ position: "relative", marginBottom: 20 }}>
-                    <div style={{ position: "absolute", left: -24, top: 2, width: 14, height: 14, borderRadius: "50%", background: ev.color, border: "3px solid #fff", boxShadow: "0 0 0 1px " + ev.color }} />
-                    <div style={{ fontWeight: 700, fontSize: 13, color: "#0f172a" }}>{ev.label}</div>
-                    <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>{ev.detail}</div>
-                    <div style={{ fontSize: 11, color: ev.pending ? "#d97706" : "#94a3b8", marginTop: 2, fontStyle: ev.pending ? "italic" : "normal" }}>
+                  <div key={i} className={"sv-tl-event sv-ev--" + ev.tone}>
+                    <div className="sv-tl-dot" />
+                    <div className="sv-tl-title">{ev.label}</div>
+                    <div className="sv-tl-detail">{ev.detail}</div>
+                    <div className={"sv-tl-when" + (ev.pending ? " sv-tl-when--pending" : "")}>
                       {ev.pending ? "Awaiting verification" : fmtDateTime(ev.date)}
                     </div>
                   </div>

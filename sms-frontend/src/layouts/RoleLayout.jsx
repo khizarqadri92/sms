@@ -3,9 +3,7 @@ import workQueueApi from "../api/workQueueApi";
 import AnnouncementTicker from '../components/AnnouncementTicker';
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import { useProcessingNow } from "../hooks/useProcessingNow";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
-import dashboardApi from "../api/dashboardApi";
 import attendanceApi from "../api/attendanceApi";
 import notificationsApi from "../api/notificationsApi";
 import campusesApi from "../api/campusesApi";
@@ -70,10 +68,19 @@ const NAV = {
       { label:"Roles",            path:"/roles"          },
       { label:"Announcements",    path:"/announcements"  },
             { label:"Workflow Config",  path:"/workflow-config" },
+      { label:"Notification Templates", path:"/notification-templates", perm:"settings.view" },
     ]},
     { label:"Purchase Requests", cat:"Purchase Requests", items:[
       { label:"My Requisitions",    path:"/procurement/my-requisitions",     perm:null },
       { label:"Pending Approvals",  path:"/procurement/pending-approvals",   perm:null },
+    ]},
+    { label:"Admissions", cat:"Admissions", items:[
+      { label:"Admissions Dashboard", path:"/admissions",          perm:"admission.view", end:true },
+      { label:"Applications",         path:"/admissions/applications", perm:"admission.view" },
+      { label:"Admission Tests",      path:"/admissions/tests",        perm:"admission.view" },
+      { label:"Interview Panels",     path:"/admissions/panels",       perm:"admission.view" },
+      { label:"Admission Fees",       path:"/admissions/fees",         perm:"admission.view" },
+      { label:"Admission Settings",   path:"/admissions/settings", perm:"admission.settings" },
     ]},
   ],
   admin: [
@@ -122,10 +129,19 @@ const NAV = {
             { label:"Workflow Config",  path:"/workflow-config" },
       { label:"Workflow Builder", path:"/workflow-builder", perm:"users.manage_roles" },
       { label:"Announcements",    path:"/announcements"  },
+      { label:"Notification Templates", path:"/notification-templates", perm:"settings.view" },
     ]},
     { label:"Purchase Requests", cat:"Purchase Requests", items:[
       { label:"My Requisitions",    path:"/procurement/my-requisitions",     perm:null },
       { label:"Pending Approvals",  path:"/procurement/pending-approvals",   perm:null },
+    ]},
+    { label:"Admissions", cat:"Admissions", items:[
+      { label:"Admissions Dashboard", path:"/admissions",          perm:"admission.view", end:true },
+      { label:"Applications",         path:"/admissions/applications", perm:"admission.view" },
+      { label:"Admission Tests",      path:"/admissions/tests",        perm:"admission.view" },
+      { label:"Interview Panels",     path:"/admissions/panels",       perm:"admission.view" },
+      { label:"Admission Fees",       path:"/admissions/fees",         perm:"admission.view" },
+      { label:"Admission Settings",   path:"/admissions/settings", perm:"admission.settings" },
     ]},
   ],
   principal: [
@@ -147,6 +163,8 @@ const NAV = {
       { label:"Attendance",     path:"/attendance" },
       { label:"Diary",          path:"/diary"          },
       { label:"Exams",              path:"/exams"           },
+      { label:"Academic History", path:"/academic-history" },
+      { label:"Promotions", path:"/promotions" },
     ]},
     { label:"Requests", cat:"Requests", items:[
       { label:"Leave Requests",     path:"/leave-approval"    },
@@ -170,11 +188,24 @@ const NAV = {
       { label:"My Requisitions",    path:"/procurement/my-requisitions",     perm:null },
       { label:"Pending Approvals",  path:"/procurement/pending-approvals",   perm:null },
     ]},
+    { label:"Admissions", cat:"Admissions", items:[
+      { label:"Admissions Dashboard", path:"/admissions",          perm:"admission.view", end:true },
+      { label:"Applications",         path:"/admissions/applications", perm:"admission.view" },
+      { label:"Admission Tests",      path:"/admissions/tests",        perm:"admission.view" },
+      { label:"Interview Panels",     path:"/admissions/panels",       perm:"admission.view" },
+      { label:"Admission Fees",       path:"/admissions/fees",         perm:"admission.view" },
+      { label:"Admission Settings",   path:"/admissions/settings", perm:"admission.settings" },
+    ]},
   ],
   academic_coordinator: [
     { label:"General",    cat:"General",    items:[
       { label:"Dashboard", path:"/dashboard" },
       { label:"Work Queue", path:"/work-queue" },
+      { label:"My Profile", path:"/my-profile" },
+      { label:"My Leave",   path:"/staff-leave" },
+      { label:"My Attendance", path:"/my-attendance" },
+      { label:"My Payslip", path:"/my-payslips" },
+      { label:"My Resignation", path:"/my-resignation" },
       { label:"Calendar",  path:"/calendar"  },
     ]},
     { label:"Management",   cat:"Management",   items:[
@@ -182,6 +213,8 @@ const NAV = {
       { label:"Syllabus",       path:"/syllabus"       },
       { label:"Diary",          path:"/diary"          },
       { label:"Exams",          path:"/exams"          },
+      { label:"Academic History", path:"/academic-history" },
+      { label:"Promotions", path:"/promotions" },
       { label:"Datesheet",       path:"/datesheet",     parent:"/exams" },
     ]},
     { label:"Requests", cat:"Requests", items:[
@@ -205,6 +238,14 @@ const NAV = {
     { label:"Purchase Requests", cat:"Purchase Requests", items:[
       { label:"My Requisitions",    path:"/procurement/my-requisitions",     perm:null },
       { label:"Pending Approvals",  path:"/procurement/pending-approvals",   perm:null },
+    ]},
+    { label:"Admissions", cat:"Admissions", items:[
+      { label:"Admissions Dashboard", path:"/admissions",          perm:"admission.view", end:true },
+      { label:"Applications",         path:"/admissions/applications", perm:"admission.view" },
+      { label:"Admission Tests",      path:"/admissions/tests",        perm:"admission.view" },
+      { label:"Interview Panels",     path:"/admissions/panels",       perm:"admission.view" },
+      { label:"Admission Fees",       path:"/admissions/fees",         perm:"admission.view" },
+      { label:"Admission Settings",   path:"/admissions/settings", perm:"admission.settings" },
     ]},
   ],
   teacher: [
@@ -232,6 +273,7 @@ const NAV = {
     ]},
     { label:"Exams",      cat:"Exams",      items:[
       { label:"Exams",              path:"/exams"                               },
+      { label:"Academic History", path:"/academic-history" },
       { label:"Exam Schedule",       path:"/datesheet-view"                    },
       { label:"Datesheet",          path:"/datesheet",     perm:"exam.manage"  },
       { label:"Exam Marks",          path:"/exam-marks",   perm:"exam.marks"   },
@@ -260,14 +302,16 @@ const NAV = {
       { label:"My Attendance", path:"/my-attendance" },
       { label:"My Payslip", path:"/my-payslips" },
       { label:"My Resignation", path:"/my-resignation" },
-      { label:"Payroll Runs", path:"/payroll/runs", perm:"payroll.edit" },
-      { label:"Department Attendance", path:"/my-department-attendance", requiresHod:true },
       { label:"My Profile", path:"/my-profile"   },
       { label:"Calendar",  path:"/calendar"  },
     ]},
     { label:"Management",    cat:"Management",    items:[
       { label:"Finance",   path:"/finance"   },
       { label:"Vendor Invoices", path:"/procurement/vendor-invoices" },
+      { label:"Provident Fund", path:"/payroll/provident-fund", perm:"payroll.pf.view_all" },
+      { label:"Income Tax", path:"/payroll/income-tax", perm:"payroll.income_tax.view_all" },
+      { label:"Payroll Runs", path:"/payroll/runs", perm:"payroll.edit" },
+      { label:"Department Attendance", path:"/my-department-attendance", requiresHod:true },
     ]},
     { label:"Requests", cat:"Requests", items:[
       { label:"Withdrawal", path:"/withdrawal" },
@@ -280,8 +324,6 @@ const NAV = {
       { label:"Payroll Adjustments", path:"/payroll/adjustments", parent:"/payroll/setup", noArrow:true, perm:"payroll.view" },
       { label:"Designation Grades", path:"/payroll/designation-grades", parent:"/payroll/setup", noArrow:true, perm:"payroll.view" },
       { label:"Income Tax Slabs", path:"/payroll/tax-slabs", parent:"/payroll/setup", noArrow:true, perm:"payroll.view" },
-      { label:"Provident Fund", path:"/payroll/provident-fund", parent:"/payroll/setup", noArrow:true, perm:"payroll.pf.view_all" },
-      { label:"Income Tax", path:"/payroll/income-tax", parent:"/payroll/setup", noArrow:true, perm:"payroll.income_tax.view_all" },
     ]},
     { label:"Reports",    cat:"Reports",    items:[
       { label:"Employee Attendance", path:"/reports/employee-attendance", perm:"reports.employee_attendance" },
@@ -297,10 +339,19 @@ const NAV = {
       { label:"My Requisitions",    path:"/procurement/my-requisitions",     perm:null },
       { label:"Pending Approvals",  path:"/procurement/pending-approvals",   perm:null },
     ]},
+    { label:"Admissions", cat:"Admissions", items:[
+      { label:"Admissions Dashboard", path:"/admissions",          perm:"admission.view", end:true },
+      { label:"Applications",         path:"/admissions/applications", perm:"admission.view" },
+      { label:"Admission Tests",      path:"/admissions/tests",        perm:"admission.view" },
+      { label:"Interview Panels",     path:"/admissions/panels",       perm:"admission.view" },
+      { label:"Admission Fees",       path:"/admissions/fees",         perm:"admission.view" },
+      { label:"Admission Settings",   path:"/admissions/settings", perm:"admission.settings" },
+    ]},
   ],
   parent: [
     { label:"General",    cat:"General",    items:[
       { label:"Dashboard",   path:"/dashboard" },
+      { label:"My Admissions",  path:"/my-admissions" },
       { label:"Work Queue", path:"/work-queue" },
       { label:"Calendar",    path:"/calendar"  },
       { label:"My Children", path:"/children"  },
@@ -317,6 +368,7 @@ const NAV = {
       { label:"Exams",              path:"/exams"            },
       { label:"Exam Schedule",       path:"/datesheet-view"   },
       { label:"Results",             path:"/exam-results"     },
+      { label:"Academic History", path:"/academic-history" },
     ]},
     { label:"Reports",    cat:"Reports",    items:[
       { label:"Withdrawal History", path:"/withdrawal-history"  },
@@ -392,7 +444,6 @@ const NAV = {
       { label:"Calendar",   path:"/calendar",  perm:"calendar.view"  },
     ]},
     { label:"Management",    cat:"Management",    items:[
-      { label:"Dashboard",    path:"/library",             perm:"library.view" },
       { label:"Catalog",      path:"/library/catalog",     perm:"library.view" },
       { label:"Issue/Return", path:"/library/issue-return", perm:"library.issue" },
       { label:"Members",      path:"/library/members",     perm:"library.manage" },
@@ -472,6 +523,7 @@ const NAV = {
       { label:"Exams",         path:"/exams"          },
       { label:"Exam Schedule", path:"/datesheet-view"  },
       { label:"My Results",    path:"/exam-results"   },
+      { label:"Academic History", path:"/academic-history" },
     ]},
     { label:"Classroom",  cat:"Classroom",  items:[
       { label:"Assignments", path:"/assignments" },
@@ -485,6 +537,26 @@ const NAV = {
       { label:"Fee Report", path:"/fee-report", perm:"reports.fee_report" },
     ]},
   ],
+  admission_staff: [
+    { label:"General",  cat:"General",  items:[
+      { label:"Dashboard",      path:"/dashboard", perm:null },
+      { label:"Work Queue",     path:"/work-queue" },
+      { label:"My Leave",       path:"/staff-leave" },
+      { label:"My Attendance",  path:"/my-attendance" },
+      { label:"My Payslip",     path:"/my-payslips" },
+      { label:"My Resignation", path:"/my-resignation" },
+      { label:"My Profile",     path:"/my-profile" },
+      { label:"Calendar",       path:"/calendar", perm:"calendar.view" },
+    ]},
+    { label:"Admissions", cat:"Admissions", items:[
+      { label:"Admissions Dashboard", path:"/admissions",          perm:"admission.view", end:true },
+      { label:"Applications",         path:"/admissions/applications", perm:"admission.view" },
+      { label:"Admission Tests",      path:"/admissions/tests",        perm:"admission.view" },
+      { label:"Interview Panels",     path:"/admissions/panels",       perm:"admission.view" },
+      { label:"Admission Fees",       path:"/admissions/fees",         perm:"admission.view" },
+      { label:"Admission Settings",   path:"/admissions/settings", perm:"admission.settings" },
+    ]},
+  ],
 };
 const SUBNAV = {
   "/children": [
@@ -492,11 +564,6 @@ const SUBNAV = {
     { label:"Timetable",   sub:"timetable"   },
     { label:"Attendance",  sub:"attendance"  },
     { label:"Fees",        sub:"fees"        },
-  ],
-  "/dashboard": [
-    { label:"Overview",       sub:"overview"  },
-    { label:"Quick Actions",  sub:"actions"   },
-    { label:"Permissions",    sub:"perms"     },
   ],
   "/students": [
     { label:"All Students",   sub:"list"      },
@@ -581,83 +648,6 @@ const SUBNAV = {
 
 };
 
-function buildHeroStats(role, s) {
-  if (!s) return [
-    { label:"Loading", value:"..." },
-    { label:"Loading", value:"..." },
-    { label:"Loading", value:"..." },
-    { label:"Loading", value:"..." },
-  ];
-
-  const attSchool = s.attendance_total > 0
-    ? s.attendance_pct + "% (" + s.attendance_present + "/" + s.attendance_total + ")"
-    : "Not marked";
-
-  const attTeacher = s.teacher_att_total > 0
-    ? s.teacher_att_pct + "% (" + s.teacher_att_present + "/" + s.teacher_att_total + ")"
-    : "Not marked";
-
-  switch (role) {
-    case "superadmin":
-    case "admin":
-      return [
-        { label:"Total Students",      value: s.total_students },
-        { label:"Total Teachers",      value: s.total_teachers },
-        { label:"Attendance Today",    value: attSchool },
-        { label:"Overdue Fees",        value: s.overdue_fees, warn: s.overdue_fees > 0 },
-      ];
-    case "principal":
-      return [
-        { label:"Students",            value: s.total_students },
-        { label:"Teachers",            value: s.total_teachers },
-        { label:"Classes",             value: s.total_classes  },
-        { label:"Attendance Today",    value: attSchool },
-      ];
-    case "teacher":
-      return [
-        { label:"My Classes",          value: s.teacher_classes   },
-        { label:"My Students",         value: s.teacher_students  },
-        { label:"My Subjects",         value: s.teacher_subjects  },
-        { label:"My Attendance Today", value: attTeacher },
-      ];
-    case "finance_officer":
-      return [
-        { label:"Total Students",      value: s.total_students },
-        { label:"Overdue Invoices",    value: s.overdue_fees, warn: s.overdue_fees > 0 },
-        { label:"Collected (Month)",   value: "Rs. " + Number(s.collected_month).toLocaleString() },
-        { label:"Classes",             value: s.total_classes },
-      ];
-    case "parent":
-      return [
-        { label:"My Children",    value: s.parent_children },
-        { label:"Academic Year",  value: s.academic_year || "2025-2026" },
-        { label:"School",         value: "Active" },
-        { label:"Portal",         value: "Parent" },
-      ];
-    case "student":
-      return [
-        { label:"My Class",      value: s.student_class  || "—" },
-        { label:"Enrollment No", value: s.enrollment_no  || "—" },
-        { label:"Academic Year", value: s.academic_year  || "2025-2026" },
-        { label:"Status",        value: (s.student_status||"active").charAt(0).toUpperCase()+(s.student_status||"active").slice(1) },
-      ];
-    case "librarian":
-      return [
-        { label:"Total Books",       value: s.lib_total_books },
-        { label:"Available Copies",  value: s.lib_available_copies },
-        { label:"Issued Today",      value: s.lib_issued_today },
-        { label:"Overdue Books",     value: s.lib_overdue_count, warn: s.lib_overdue_count > 0 },
-      ];
-    default:
-      return [
-        { label:"Students",            value: s.total_students },
-        { label:"Teachers",            value: s.total_teachers },
-        { label:"Classes",             value: s.total_classes  },
-        { label:"Subjects",            value: s.total_subjects },
-      ];
-  }
-}
-
 function darkenColor(hex, amount = 40) {
   try {
     const h = hex.replace("#","");
@@ -669,13 +659,11 @@ function darkenColor(hex, amount = 40) {
 }
 
 export default function RoleLayout({ children }) {
-  const processingNow = useProcessingNow();
-  const { formatDate, formatDateTime } = useRegionalSettings();
+  const { formatDateTime } = useRegionalSettings();
   const { user, logout }        = useAuth();
-  const { theme }               = useTheme();
+  const { theme, colorMode, toggleColorMode } = useTheme();
   const location                = useLocation();
   const navigate                = useNavigate();
-  const [stats, setStats]             = useState(null);
   const [activeSub, setActiveSub]       = useState(null);
   const [subGroup,  setSubGroup]         = useState("main");
   const [notifs, setNotifs]             = useState([]);
@@ -721,7 +709,7 @@ export default function RoleLayout({ children }) {
     const cat = (navGroups.find(g => g.items.some(i => i.path === location.pathname)) || navGroups.find(g => g.items.some(i => i.path === currentPath)))?.cat;
     if (cat) setSelCat(cat);
     setSubGroup("main");
-  }, [currentPath]);
+  }, [fullPath]);
 
   const activeGroup = navGroups.find(g => g.cat === selCat) || navGroups[0];
 
@@ -734,12 +722,6 @@ export default function RoleLayout({ children }) {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  useEffect(() => {
-    dashboardApi.getStats()
-      .then(res => setStats(res.data.data))
-      .catch(() => {});
-  }, [currentPath]);
 
   useEffect(() => {
     fetchUnreadCount();
@@ -793,10 +775,17 @@ export default function RoleLayout({ children }) {
   useEffect(() => {
     if (subnavItems.length > 0) {
       setActiveSub(subnavItems[0].sub);
+      // Pages (e.g. Finance.jsx) that render different content per subnav item rely
+      // on this event to sync their internal tab state; dispatch it here too, not
+      // just from the click handler below, so landing on/switching between routes
+      // that share the same top-level currentPath (e.g. /finance vs /finance/setup)
+      // still notifies the page which sub-tab should be active.
+      const event = new CustomEvent("subnav-change", { detail: { sub: subnavItems[0].sub } });
+      window.dispatchEvent(event);
     } else {
       setActiveSub(null);
     }
-  }, [currentPath]);
+  }, [fullPath]);
 
   const handleSubNav = (sub) => {
     setActiveSub(sub);
@@ -817,11 +806,6 @@ export default function RoleLayout({ children }) {
   const initials  = user?.name
     ? user.name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2)
     : "?";
-  const firstName = user?.name?.split(" ")[0] || "there";
-  const hour      = processingNow.getHours();
-  const greeting  = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-  const dateStr   = `${["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][processingNow.getDay()]}, ${formatDate(processingNow)}`;
-  const heroStats = buildHeroStats(role, stats);
 
   // Load school info
   const [schoolInfo, setSchoolInfo] = React.useState({ name:"SchoolMS", logo:null });
@@ -840,7 +824,7 @@ export default function RoleLayout({ children }) {
 
   return (
     <div className="shell">
-      <nav className="topnav" style={{ background: theme?.primary ? darkenColor(theme.primary, 50) : "#1e3a5f" }}>
+      <nav className="topnav" style={{ background: theme?.primary ? darkenColor(theme.primary, colorMode === "dark" ? 195 : 50) : "#1e3a5f" }}>
         {/* Brand */}
         <div className="topnav-brand">
           {schoolInfo.logo
@@ -873,6 +857,29 @@ export default function RoleLayout({ children }) {
                   {queueCount > 99 ? "99+" : queueCount}
                 </span>
               )}
+            </button>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={colorMode === "dark"}
+              aria-label="Dark mode"
+              onClick={toggleColorMode}
+              title={colorMode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
+              className={"mode-switch" + (colorMode === "dark" ? " mode-switch--dark" : "")}
+            >
+              {/* faint icons in the track show what the other side is */}
+              <span className="mode-switch-track-icon mode-switch-track-icon--sun" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+              </span>
+              <span className="mode-switch-track-icon mode-switch-track-icon--moon" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+              </span>
+              {/* the knob carries the current mode's icon */}
+              <span className="mode-switch-knob" aria-hidden="true">
+                {colorMode === "dark"
+                  ? <svg viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                  : <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>}
+              </span>
             </button>
             <div style={{ position:"relative" }} ref={bellRef}>
             <button
@@ -948,11 +955,11 @@ export default function RoleLayout({ children }) {
       </nav>
 
       {/* Ribbon row 1: category tabs */}
-      <div className="ribbon-cats" style={{ background: theme?.primary ? darkenColor(theme.primary, 40) : "#1e3a5f", borderBottom:"1px solid rgba(255,255,255,0.1)", "--nav-active-color": theme?.primary || "#1e3a5f" }}>
+      <div className="ribbon-cats" style={{ background: theme?.primary ? darkenColor(theme.primary, colorMode === "dark" ? 175 : 40) : "#1e3a5f", borderBottom:"1px solid rgba(255,255,255,0.1)", "--nav-active-color": theme?.primary || "#1e3a5f" }}>
         {navGroups.map(g => (
           <button key={g.cat}
             className={"ribbon-cat " + (selCat===g.cat ? "active" : "")}
-            onClick={() => { setSelCat(g.cat); navigate(g.items[0].path); }}>
+            onClick={() => { setSelCat(g.cat); navigate((g.items.find(i => i.path === "/dashboard") || g.items[0]).path); }}>
             {g.cat}
           </button>
         ))}
@@ -1019,24 +1026,8 @@ export default function RoleLayout({ children }) {
 
       {/* Announcements Ticker */}
       <div className="no-print"><AnnouncementTicker /></div>
-      {heroStats !== null && (<div className="hero-banner">
-        <div className="hero-banner-inner">
-          <div className="hero-greeting">{greeting}, {firstName}</div>
-          <div className="hero-date">{dateStr}</div>
-          <div className="hero-stats">
-            {heroStats.map((s, i) => (
-              <div key={i} className="hero-stat">
-                <div className="hero-stat-value" style={{ color: s.warn ? "#fca5a5" : "#fff" }}>
-                  {stats ? s.value : "..."}
-                </div>
-                <div className="hero-stat-label">{s.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>)}
 
-      <main className={"main-content" + (heroStats === null ? " no-hero" : "")}>
+      <main className="main-content no-hero">
         {children}
       </main>
     </div>
