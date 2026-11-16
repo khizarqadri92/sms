@@ -1,0 +1,163 @@
+.tp-toast {
+  margin-bottom: 16px;
+}
+
+.tp-avatar-gradient {
+  background: linear-gradient(135deg, #059669, #34d399);
+}
+
+.tp-detail-rows-wrap {
+  margin-top: 20px;
+}
+
+.tp-section-card-spaced {
+  margin-bottom: 16px;
+}
+
+.tp-detail-value-cap {
+  text-transform: capitalize;
+}
+
+.tp-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+
+.tp-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.tp-subject-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-success-soft);
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 6px 12px;
+}
+
+.tp-chip-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #166534;
+}
+
+.tp-chip-code {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.tp-chip-remove-btn {
+  background: none;
+  border: none;
+  color: #dc2626;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  margin-left: 4px;
+}
+
+.tp-section-header-spaced {
+  margin-top: 16px;
+}
+
+.tp-assign-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.tp-assign-select {
+  flex: 1;
+  min-width: 200px;
+}
+
+.tp-timetable-grid {
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: 12px;
+}
+
+.tp-day-card {
+  background: var(--bg-hover);
+  border-radius: 8px;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+}
+
+.tp-day-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #2563eb;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 8px;
+}
+
+.tp-free-slot {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 8px 0;
+}
+
+.tp-slot-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 8px 10px;
+  margin-bottom: 6px;
+}
+
+.tp-slot-subject {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-heading);
+}
+
+.tp-slot-class {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.tp-slot-time {
+  font-size: 11px;
+  color: #2563eb;
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.tp-slot-room {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.tp-class-card {
+  border-top: 3px solid var(--card-accent);
+  padding: 16px;
+}
+
+.tp-class-name {
+  font-size: 20px;
+}
+
+.tp-class-subjects {
+  font-size: 11px;
+  color: #16a34a;
+  font-weight: 500;
+  margin-top: 4px;
+}
+
+.tp-class-teacher-badge-wrap {
+  margin-top: 6px;
+}
+
+.tp-class-teacher-badge {
+  font-size: 10px;
+}

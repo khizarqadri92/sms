@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import procurementApi from "../api/procurementApi";
 import RequisitionDetailModal from "../components/RequisitionDetailModal";
+import { useAutoOpenById } from "../hooks/useAutoOpenById";
 
 const statusBadge = (status) => ({
   draft: "badge-gray",
@@ -30,7 +31,7 @@ function NewRequisitionModal({ departments, onClose, onCreated }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
-      <div style={{ background: "#fff", borderRadius: 12, padding: 24, width: "100%", maxWidth: 440 }} onClick={e => e.stopPropagation()}>
+      <div style={{ background: "var(--bg-card)", borderRadius: 12, padding: 24, width: "100%", maxWidth: 440 }} onClick={e => e.stopPropagation()}>
         <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>New Purchase Requisition</div>
         {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}
         <form onSubmit={handleSubmit}>
@@ -132,13 +133,13 @@ function AddItemModal({ items, categories, onClose, onAdded }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 1100, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
-      <div style={{ background: "#fff", borderRadius: 12, padding: 24, width: "100%", maxWidth: 420, maxHeight: "88vh", overflow: "auto" }} onClick={e => e.stopPropagation()}>
+      <div style={{ background: "var(--bg-card)", borderRadius: 12, padding: 24, width: "100%", maxWidth: 420, maxHeight: "88vh", overflow: "auto" }} onClick={e => e.stopPropagation()}>
         <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>Add Item</div>
         {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}
 
         <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-          <button type="button" className="btn btn-sm" style={mode === "catalog" ? { background: "#2563eb", color: "#fff", border: "none" } : { background: "#f1f5f9", color: "#0f172a", border: "1px solid #e2e8f0" }} onClick={() => setMode("catalog")}>From Catalog</button>
-          <button type="button" className="btn btn-sm" style={mode === "custom" ? { background: "#2563eb", color: "#fff", border: "none" } : { background: "#f1f5f9", color: "#0f172a", border: "1px solid #e2e8f0" }} onClick={() => setMode("custom")}>Custom Item</button>
+          <button type="button" className="btn btn-sm" style={mode === "catalog" ? { background: "#2563eb", color: "#fff", border: "none" } : { background: "var(--bg-hover)", color: "var(--text-heading)", border: "1px solid var(--border-color)" }} onClick={() => setMode("catalog")}>From Catalog</button>
+          <button type="button" className="btn btn-sm" style={mode === "custom" ? { background: "#2563eb", color: "#fff", border: "none" } : { background: "var(--bg-hover)", color: "var(--text-heading)", border: "1px solid var(--border-color)" }} onClick={() => setMode("custom")}>Custom Item</button>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -166,8 +167,8 @@ function AddItemModal({ items, categories, onClose, onAdded }) {
               </div>
 
               {isBookCategory && (
-                <div style={{ background: "#f8fafc", borderRadius: 8, padding: 12, marginBottom: 12 }}>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: "#374151", marginBottom: 8 }}>Book Details</div>
+                <div style={{ background: "var(--bg-hover)", borderRadius: 8, padding: 12, marginBottom: 12 }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)", marginBottom: 8 }}>Book Details</div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                     <div className="form-group" style={{ marginBottom: 8 }}>
                       <label className="form-label">Author</label>
@@ -259,11 +260,11 @@ function DraftEditPanel({ draft, items, categories, onClose, onChanged }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
-      <div style={{ background: "#fff", borderRadius: 12, padding: 24, width: "100%", maxWidth: 600, maxHeight: "88vh", overflow: "auto" }} onClick={e => e.stopPropagation()}>
+      <div style={{ background: "var(--bg-card)", borderRadius: 12, padding: 24, width: "100%", maxWidth: 600, maxHeight: "88vh", overflow: "auto" }} onClick={e => e.stopPropagation()}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
           <div>
             <div style={{ fontWeight: 700, fontSize: 16 }}>{draft.pr_number}</div>
-            <div style={{ fontSize: 12, color: "#94a3b8" }}>Draft - add items, then submit for approval</div>
+            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Draft - add items, then submit for approval</div>
           </div>
           <button className="btn btn-ghost btn-sm" onClick={onClose}>Close</button>
         </div>
@@ -295,7 +296,7 @@ function DraftEditPanel({ draft, items, categories, onClose, onChanged }) {
                     <td>
                       {it.item_description}
                       {it.specifications && (
-                        <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>
+                        <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2 }}>
                           {Object.entries(it.specifications).map(([k, v]) => k + ": " + v).join(" / ")}
                         </div>
                       )}
@@ -311,7 +312,7 @@ function DraftEditPanel({ draft, items, categories, onClose, onChanged }) {
           </div>
         )}
 
-        <div style={{ textAlign: "right", fontSize: 13, color: "#64748b", marginBottom: 16 }}>
+        <div style={{ textAlign: "right", fontSize: 13, color: "var(--text-secondary)", marginBottom: 16 }}>
           Estimated Total: <strong>Rs. {Number(draft.total_estimated_amount).toLocaleString()}</strong>
         </div>
 
@@ -366,6 +367,11 @@ export default function MyRequisitions() {
     procurementApi.getRequisition(id).then(r => { setDraft(r.data.data); setDraftId(id); }).catch(() => setError("Failed to load draft."));
   };
 
+  // Lets a Work Queue "Open full request" link (?id=<requisition_id>) land
+  // directly on this specific requisition's detail popup instead of just
+  // the plain list - drafts open for editing, everything else opens read-only.
+  useAutoOpenById(requisitions, (pr) => { if (pr.status === "draft") openDraft(pr.id); else setViewId(pr.id); });
+
   return (
     <div>
       <div className="page-header" style={{ marginBottom: 16 }}>
@@ -404,7 +410,7 @@ export default function MyRequisitions() {
                   <td>{pr.item_count}</td>
                   <td>Rs. {Number(pr.total_estimated_amount).toLocaleString()}</td>
                   <td><span className={"badge " + statusBadge(pr.status)} style={{ textTransform: "capitalize" }}>{pr.status.replace("_", " ")}</span></td>
-                  <td style={{ fontSize: 12, color: "#64748b" }}>{pr.current_step_role ? "Step " + pr.current_step_order + ": " + pr.current_step_role.replace("_", " ") : "-"}</td>
+                  <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{pr.current_step_role ? "Step " + pr.current_step_order + ": " + pr.current_step_role.replace("_", " ") : "-"}</td>
                   <td>
                     {pr.status === "draft" ? (
                       <button className="btn btn-secondary btn-xs" onClick={() => openDraft(pr.id)}>Edit / Submit</button>

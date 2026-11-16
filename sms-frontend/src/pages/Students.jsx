@@ -108,15 +108,15 @@ export default function Students() {
             <tbody>
               {students.map(s => (
                 <tr key={s.id}>
-                  <td><code style={{ background:"#f1f5f9", padding:"2px 7px", borderRadius:5, fontSize:12, color:"#475569" }}>{s.enrollment_no}</code></td>
+                  <td><code style={{ background:"var(--bg-hover)", padding:"2px 7px", borderRadius:5, fontSize:12, color:"var(--text-secondary)" }}>{s.enrollment_no}</code></td>
                   <td>
-                    <div style={{ fontWeight:600, color:"#0f172a" }}>{s.first_name} {s.last_name}</div>
-                    <div style={{ fontSize:12, color:"#94a3b8" }}>{s.email}</div>
+                    <div style={{ fontWeight:600, color:"var(--text-heading)" }}>{s.first_name} {s.last_name}</div>
+                    <div style={{ fontSize:12, color:"var(--text-muted)" }}>{s.email}</div>
                   </td>
-                  <td>{s.class_name ? (s.class_name + (s.class_section ? " (" + s.class_section + ")" : "")) : <span style={{ color:"#94a3b8" }}>-</span>}</td>
-                  <td style={{ textTransform:"capitalize" }}>{s.gender || <span style={{ color:"#94a3b8" }}>â€”</span>}</td>
+                  <td>{s.class_name ? (s.class_name + (s.class_section ? " (" + s.class_section + ")" : "")) : <span style={{ color:"var(--text-muted)" }}>-</span>}</td>
+                  <td style={{ textTransform:"capitalize" }}>{s.gender || <span style={{ color:"var(--text-muted)" }}>â€”</span>}</td>
                   <td><span className={`badge ${s.status === "active" ? "badge-success" : "badge-danger"}`}>{s.status}</span></td>
-                  <td style={{ fontSize:12, color:"#64748b" }}>
+                  <td style={{ fontSize:12, color:"var(--text-secondary)" }}>
                     {s.admission_date ? formatDate(s.admission_date) : "â€”"}
                   </td>
                   <td>

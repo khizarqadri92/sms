@@ -5,6 +5,7 @@ import academicsApi from "../api/academicsApi";
 import settingsApi from "../api/settingsApi";
 import financeApi from "../api/financeApi";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
+import "./MyClasses.css";
 
 export default function MyClasses() {
   const { formatDate } = useRegionalSettings();
@@ -65,76 +66,69 @@ export default function MyClasses() {
   if (loading) return <div className="loading-state">Loading your classes...</div>;
 
   return (
-    <div>
+    <div className="mc-page">
       <div className="page-header">
         <div>
           <h1 className="page-heading">My Classes</h1>
           {teacher && (
-            <div style={{ fontSize: 14, color: "var(--color-text-secondary)", marginTop: 4 }}>
+            <div className="mc-teacher-line">
               {teacher.first_name} {teacher.last_name} &mdash; {teacher.employee_no}
             </div>
           )}
         </div>
       </div>
 
-      {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
+      {error && <div className="alert alert-error mc-error">{error}</div>}
 
       {!error && teacher && tab === "timetable" && <MyTimetableTab />}
       {!error && teacher && tab === "overview" && <MyClassOverviewTab classes={teacher.classes || []} />}
       {!error && teacher && tab === "list" && (
         <>
           {/* Classes */}
-          <div style={{ marginBottom: 24 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 14 }}>
+          <div className="mc-block">
+            <div className="mc-label">
               Assigned Classes
             </div>
             {(!teacher.classes || teacher.classes.length === 0) ? (
-              <div className="section-card" style={{ padding: "32px 0", textAlign: "center", color: "var(--color-text-secondary)", fontSize: 14 }}>
+              <div className="section-card mc-empty-card">
                 No classes assigned to you yet.
               </div>
             ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
+              <div className="mc-grid">
                 {teacher.classes.map(c => {
                   const showAttBtn = attConfig === "all_teachers" || c.is_primary;
                   return (
-                    <div key={c.id} style={{
-                      background: "#ffffff", borderRadius: 12,
-                      border: "1px solid #e2e8f0",
-                      borderLeft: c.is_primary ? "4px solid #4f46e5" : "4px solid #c7d2fe",
-                      boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-                    }}>
-                      <div style={{ padding: "16px 20px" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                    <div key={c.id} className={"mc-card" + (c.is_primary ? " mc-card--primary" : "")}>
+                      <div className="mc-card-body">
+                        <div className="mc-card-top">
                           <div>
-                            <div style={{ fontWeight: 700, fontSize: 17, color: "#0f172a" }}>
+                            <div className="mc-class-name">
                               {c.name}
-                              {c.section && <span style={{ fontWeight: 400, color: "#64748b", fontSize: 14, marginLeft: 6 }}>({c.section})</span>}
+                              {c.section && <span className="mc-class-section">({c.section})</span>}
                             </div>
-                            <div style={{ fontSize: 13, color: "#64748b", marginTop: 3 }}>
+                            <div className="mc-class-meta">
                               {c.student_count} student{c.student_count !== 1 ? "s" : ""}
-                              {c.class_type && <span style={{ marginLeft: 8, background: "#f1f5f9", color: "#475569", padding: "1px 8px", borderRadius: 10, fontSize: 11 }}>{c.class_type}</span>}
+                              {c.class_type && <span className="mc-type-chip">{c.class_type}</span>}
                             </div>
                           </div>
                           {c.is_primary && (
-                            <span style={{ background: "#ede9fe", color: "#4f46e5", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, whiteSpace: "nowrap" }}>
+                            <span className="mc-role-pill">
                               Class Teacher
                             </span>
                           )}
                         </div>
 
-                        <div style={{ display: "flex", gap: 8 }}>
-                          <button onClick={() => openDetail(c)}
-                            style={{ flex: 1, padding: "7px 0", borderRadius: 8, border: "1px solid #e2e8f0", background: "#f8fafc", color: "#475569", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                        <div className="mc-actions">
+                          <button className="mc-btn" onClick={() => openDetail(c)}>
                             View
                           </button>
                           {showAttBtn && (
                             <button onClick={() => navigate("/attendance?class_id=" + c.id + "&class_name=" + encodeURIComponent(c.name + (c.section ? " (" + c.section + ")" : "")))}
-                              style={{ flex: 1, padding: "7px 0", borderRadius: 8, border: "1px solid #e0e7ff", background: "#f5f3ff", color: "#4f46e5", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                              className="mc-btn mc-btn--indigo">
                               Attendance
                             </button>
                           )}
-                          <button onClick={() => navigate("/diary?class_id=" + c.id)}
-                            style={{ flex: 1, padding: "7px 0", borderRadius: 8, border: "1px solid #dcfce7", background: "#f0fdf4", color: "#166534", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>
+                          <button className="mc-btn mc-btn--green" onClick={() => navigate("/diary?class_id=" + c.id)}>
                             Diary
                           </button>
                         </div>
@@ -153,13 +147,13 @@ export default function MyClasses() {
               <span className="badge badge-gray">{teacher.subjects?.length || 0} subjects</span>
             </div>
             {(!teacher.subjects || teacher.subjects.length === 0) ? (
-              <div style={{ padding: "24px 0", textAlign: "center", color: "var(--color-text-secondary)", fontSize: 14 }}>No subjects assigned.</div>
+              <div className="mc-empty-line">No subjects assigned.</div>
             ) : (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 10, paddingTop: 4 }}>
+              <div className="mc-subjects">
                 {teacher.subjects.map(s => (
-                  <div key={s.id} style={{ background: "var(--color-background-secondary)", border: "1px solid var(--color-border-secondary)", borderRadius: 8, padding: "8px 16px", fontSize: 14, fontWeight: 500 }}>
+                  <div key={s.id} className="mc-subject">
                     {s.name}
-                    <span style={{ fontSize: 12, color: "var(--color-text-secondary)", marginLeft: 6 }}>({s.code})</span>
+                    <span className="mc-subject-code">({s.code})</span>
                   </div>
                 ))}
               </div>
@@ -170,68 +164,68 @@ export default function MyClasses() {
 
       {/* Class Detail Modal */}
       {detail && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <div style={{ background: "#ffffff", borderRadius: 12, width: "100%", maxWidth: 580, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.18)", display: "flex", flexDirection: "column" }}>
-            <div style={{ padding: "16px 24px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f8fafc", borderRadius: "12px 12px 0 0", flexShrink: 0 }}>
+        <div className="mc-overlay">
+          <div className="mc-modal">
+            <div className="mc-modal-head">
               <div>
-                <div style={{ fontWeight: 700, fontSize: 17, color: "#0f172a" }}>
+                <div className="mc-class-name">
                   {detail.name}{detail.section ? " (" + detail.section + ")" : ""}
                 </div>
-                <div style={{ fontSize: 13, color: "#64748b", marginTop: 2 }}>
+                <div className="mc-modal-sub">
                   {detail.student_count} students &nbsp;&middot;&nbsp; {detail.class_type || "Regular"}
                 </div>
               </div>
               {detail.is_primary && (
-                <span style={{ background: "#ede9fe", color: "#4f46e5", fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 20 }}>
+                <span className="mc-role-pill mc-role-pill--lg">
                   Your Class
                 </span>
               )}
             </div>
 
-            <div style={{ padding: "20px 24px", flex: 1 }}>
+            <div className="mc-modal-body">
               {/* Class info */}
-              <div style={{ marginBottom: 20 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 12 }}>Class Information</div>
+              <div className="mc-modal-section">
+                <div className="mc-label mc-label--sm">Class Information</div>
                 {[
                   { label: "Class Name",     value: detail.name },
                   { label: "Section",        value: detail.section || "?" },
                   { label: "Total Students", value: detail.student_count },
                   { label: "Your Role",      value: detail.is_primary ? "Class Teacher (Incharge)" : "Subject Teacher" },
                 ].map((row, i) => (
-                  <div key={i} style={{ display: "flex", gap: 16, padding: "9px 0", borderBottom: "1px solid #f1f5f9", fontSize: 14 }}>
-                    <span style={{ minWidth: 140, fontWeight: 500, color: "#64748b", flexShrink: 0 }}>{row.label}</span>
-                    <span style={{ color: "#0f172a" }}>{row.value}</span>
+                  <div key={i} className="mc-info-row">
+                    <span className="mc-info-key">{row.label}</span>
+                    <span className="mc-info-val">{row.value}</span>
                   </div>
                 ))}
               </div>
 
               {/* Teachers in this class */}
               <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 12 }}>
+                <div className="mc-label mc-label--sm">
                   Teachers in This Class
                 </div>
                 {loadingDetail ? (
-                  <div style={{ color: "#64748b", fontSize: 14 }}>Loading...</div>
+                  <div className="mc-muted">Loading...</div>
                 ) : classTeachers.length === 0 ? (
-                  <div style={{ color: "#64748b", fontSize: 14 }}>No teachers assigned yet.</div>
+                  <div className="mc-muted">No teachers assigned yet.</div>
                 ) : (
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+                  <table className="mc-table">
                     <thead>
-                      <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-                        <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#94a3b8" }}>Teacher</th>
-                        <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#94a3b8" }}>Subject</th>
-                        <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#94a3b8" }}>Role</th>
+                      <tr>
+                        <th>Teacher</th>
+                        <th>Subject</th>
+                        <th>Role</th>
                       </tr>
                     </thead>
                     <tbody>
                       {classTeachers.map((t, i) => (
-                        <tr key={i} style={{ borderBottom: "1px solid #f1f5f9", background: i % 2 === 0 ? "#ffffff" : "#fafbfc" }}>
-                          <td style={{ padding: "10px 12px", fontWeight: 500 }}>{t.teacher_name || (t.first_name + " " + t.last_name)}</td>
-                          <td style={{ padding: "10px 12px", color: "#475569" }}>{t.subject_names || "?"}</td>
-                          <td style={{ padding: "10px 12px" }}>
+                        <tr key={i}>
+                          <td className="mc-td-strong">{t.teacher_name || (t.first_name + " " + t.last_name)}</td>
+                          <td className="mc-td-soft">{t.subject_names || "?"}</td>
+                          <td>
                             {t.is_primary
-                              ? <span style={{ background: "#ede9fe", color: "#4f46e5", fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 10 }}>Incharge</span>
-                              : <span style={{ background: "#f1f5f9", color: "#475569", fontSize: 11, fontWeight: 500, padding: "2px 8px", borderRadius: 10 }}>Subject</span>}
+                              ? <span className="mc-tag mc-tag--indigo">Incharge</span>
+                              : <span className="mc-tag mc-tag--gray">Subject</span>}
                           </td>
                         </tr>
                       ))}
@@ -241,37 +235,37 @@ export default function MyClasses() {
               </div>
 
               {detail.is_primary && (
-                <div style={{ marginTop: 24 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 12 }}>
+                <div className="mc-modal-section--top">
+                  <div className="mc-label mc-label--sm">
                     Locked Students (Unpaid Fees)
                   </div>
                   {loadingLocked ? (
-                    <div style={{ color: "#64748b", fontSize: 14 }}>Loading...</div>
+                    <div className="mc-muted">Loading...</div>
                   ) : lockedStudents.length === 0 ? (
-                    <div style={{ color: "#64748b", fontSize: 14 }}>No locked students in this class.</div>
+                    <div className="mc-muted">No locked students in this class.</div>
                   ) : (
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+                    <table className="mc-table">
                       <thead>
-                        <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-                          <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#94a3b8" }}>Student</th>
-                          <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#94a3b8" }}>Enrollment No.</th>
-                          <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#94a3b8" }}>Due Date</th>
-                          <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#94a3b8" }}>Days Overdue</th>
-                          <th style={{ padding: "8px 12px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "#94a3b8" }}>Net Amount</th>
+                        <tr>
+                          <th>Student</th>
+                          <th>Enrollment No.</th>
+                          <th>Due Date</th>
+                          <th>Days Overdue</th>
+                          <th>Net Amount</th>
                         </tr>
                       </thead>
                       <tbody>
                         {lockedStudents.map((r, i) => (
-                          <tr key={r.user_id} style={{ borderBottom: "1px solid #f1f5f9", background: i % 2 === 0 ? "#ffffff" : "#fafbfc" }}>
-                            <td style={{ padding: "10px 12px", fontWeight: 500 }}>{r.first_name} {r.last_name}</td>
-                            <td style={{ padding: "10px 12px", color: "#475569" }}>{r.enrollment_no}</td>
-                            <td style={{ padding: "10px 12px", color: "#475569" }}>{fmtLockedDate(r.due_date)}</td>
-                            <td style={{ padding: "10px 12px" }}>
-                              <span style={{ background: "#fee2e2", color: "#b91c1c", fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 10 }}>
+                          <tr key={r.user_id}>
+                            <td className="mc-td-strong">{r.first_name} {r.last_name}</td>
+                            <td className="mc-td-soft">{r.enrollment_no}</td>
+                            <td className="mc-td-soft">{fmtLockedDate(r.due_date)}</td>
+                            <td>
+                              <span className="mc-tag mc-tag--red">
                                 {r.days_overdue != null ? r.days_overdue + " days" : "-"}
                               </span>
                             </td>
-                            <td style={{ padding: "10px 12px", fontWeight: 600 }}>{r.net_amount != null ? "Rs. " + Number(r.net_amount).toLocaleString() : "-"}</td>
+                            <td className="mc-td-bold">{r.net_amount != null ? "Rs. " + Number(r.net_amount).toLocaleString() : "-"}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -281,10 +275,10 @@ export default function MyClasses() {
               )}
             </div>
 
-            <div style={{ padding: "14px 24px", borderTop: "1px solid #e2e8f0", display: "flex", gap: 10, justifyContent: "flex-end", background: "#f8fafc", borderRadius: "0 0 12px 12px", flexShrink: 0 }}>
+            <div className="mc-modal-foot">
               {(attConfig === "all_teachers" || detail.is_primary) && (
                 <button onClick={() => { setDetail(null); navigate("/attendance?class_id=" + detail.id + "&class_name=" + encodeURIComponent(detail.name + (detail.section ? " (" + detail.section + ")" : ""))); }}
-                  style={{ padding: "8px 18px", borderRadius: 8, border: "1px solid #e0e7ff", background: "#f5f3ff", color: "#4f46e5", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+                  className="mc-btn mc-btn--indigo mc-btn--wide">
                   Mark Attendance
                 </button>
               )}
@@ -319,8 +313,8 @@ function MyTimetableTab() {
   );
 
   // One row per class this teacher teaches, one column per weekday -
-  // matches the table layout used in the admin\'s timetable view, instead
-  // of a per-day card list that made it hard to see a class\'s whole week
+  // matches the table layout used in the admin's timetable view, instead
+  // of a per-day card list that made it hard to see a class's whole week
   // at a glance.
   const classRowsMap = new Map();
   for (const slot of timetable) {
@@ -333,12 +327,12 @@ function MyTimetableTab() {
   );
 
   return (
-    <div className="section-card" style={{ padding: 0, overflow: "auto" }}>
-      <div className="section-card-header" style={{ padding: "16px 20px" }}>
+    <div className="section-card mc-tt-card">
+      <div className="section-card-header mc-tt-head">
         <span className="section-card-title">My Weekly Timetable</span>
         <span className="badge badge-gray">{timetable.length} periods</span>
       </div>
-      <table className="table" style={{ minWidth: 700 }}>
+      <table className="table mc-tt-table">
         <thead>
           <tr>
             <th>Class</th>
@@ -354,17 +348,17 @@ function MyTimetableTab() {
                   .filter(t => t.class_id === row.class_id && t.day_name === day)
                   .sort((a, b) => (a.start_time || "").localeCompare(b.start_time || ""));
                 return (
-                  <td key={day} style={{ verticalAlign: "top" }}>
+                  <td key={day} className="mc-tt-cell">
                     {slots.length === 0 ? (
-                      <span style={{ color: "#cbd5e1" }}>&mdash;</span>
+                      <span className="mc-tt-none">&mdash;</span>
                     ) : (
                       slots.map((slot, i) => (
-                        <div key={i} style={{ background: "#ede9fe", borderLeft: "2px solid #7c3aed", borderRadius: 3, padding: "3px 6px", marginBottom: 4 }}>
-                          <div style={{ fontWeight: 600, fontSize: 11, color: "#5b21b6" }}>{slot.subject_name}</div>
-                          <div style={{ fontSize: 10, color: "#7c3aed" }}>
+                        <div key={i} className="mc-slot">
+                          <div className="mc-slot-subject">{slot.subject_name}</div>
+                          <div className="mc-slot-time">
                             {slot.start_time ? slot.start_time.slice(0, 5) : ""} - {slot.end_time ? slot.end_time.slice(0, 5) : ""}
                           </div>
-                          {slot.room_number && <div style={{ fontSize: 9, color: "#94a3b8" }}>Room: {slot.room_number}</div>}
+                          {slot.room_number && <div className="mc-slot-room">Room: {slot.room_number}</div>}
                         </div>
                       ))
                     )}
@@ -389,34 +383,28 @@ function MyClassOverviewTab({ classes }) {
   }
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
+    <div className="mc-grid">
       {classes.map(c => (
-        <div key={c.id} style={{
-          background: "#ffffff", borderRadius: 12,
-          border: "1px solid #e2e8f0",
-          borderLeft: c.is_primary ? "4px solid #4f46e5" : "4px solid #c7d2fe",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-          padding: "16px 20px",
-        }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+        <div key={c.id} className={"mc-card mc-card--pad" + (c.is_primary ? " mc-card--primary" : "")}>
+          <div className="mc-card-top mc-card-top--tight">
             <div>
-              <div style={{ fontWeight: 700, fontSize: 17, color: "#0f172a" }}>
+              <div className="mc-class-name">
                 {c.name}
-                {c.section && <span style={{ fontWeight: 400, color: "#64748b", fontSize: 14, marginLeft: 6 }}>({c.section})</span>}
+                {c.section && <span className="mc-class-section">({c.section})</span>}
               </div>
-              <div style={{ fontSize: 13, color: "#64748b", marginTop: 3 }}>
+              <div className="mc-class-meta">
                 {c.student_count} student{c.student_count !== 1 ? "s" : ""}
-                {c.class_type && <span style={{ marginLeft: 8, background: "#f1f5f9", color: "#475569", padding: "1px 8px", borderRadius: 10, fontSize: 11 }}>{c.class_type}</span>}
+                {c.class_type && <span className="mc-type-chip">{c.class_type}</span>}
               </div>
             </div>
             {c.is_primary && (
-              <span style={{ background: "#ede9fe", color: "#4f46e5", fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, whiteSpace: "nowrap" }}>
+              <span className="mc-role-pill">
                 Class Teacher
               </span>
             )}
           </div>
           {c.subject_names && (
-            <div style={{ fontSize: 12, color: "#16a34a", fontWeight: 500, marginTop: 6 }}>
+            <div className="mc-teaching">
               Teaching: {c.subject_names}
             </div>
           )}

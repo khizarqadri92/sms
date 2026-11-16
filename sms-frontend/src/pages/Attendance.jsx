@@ -5,6 +5,7 @@ import attendanceApi from "../api/attendanceApi";
 import teachersApi   from "../api/teachersApi";
 import { useProcessingToday } from "../hooks/useProcessingToday";
 import DatePicker from "../components/DatePicker";
+import "./Attendance.css";
 import { useAuth }   from "../auth/AuthContext";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
@@ -12,17 +13,17 @@ const today = () => new Date().toISOString().split("T")[0];
 const monthStart = () => new Date().toISOString().slice(0,7) + "-01";
 
 const STATUS_STYLES = {
-  present:  { bg:"#f0fdf4", border:"#22c55e", color:"#166534", btn:"#22c55e", label:"Present"  },
-  absent:   { bg:"#fef2f2", border:"#ef4444", color:"#991b1b", btn:"#ef4444", label:"Absent"   },
-  late:     { bg:"#fffbeb", border:"#f59e0b", color:"#92400e", btn:"#f59e0b", label:"Late"     },
- on_leave:  { bg:"#eff6ff", border:"#2563eb", color:"#1e40af", btn:"#2563eb", label:"On Leave"   },
+  present:  { bg:"var(--bg-success-soft)", border:"#22c55e", color:"#166534", btn:"#22c55e", label:"Present"  },
+  absent:   { bg:"var(--bg-danger-soft)", border:"#ef4444", color:"#991b1b", btn:"#ef4444", label:"Absent"   },
+  late:     { bg:"var(--bg-warning-soft)", border:"#f59e0b", color:"#92400e", btn:"#f59e0b", label:"Late"     },
+ on_leave:  { bg:"var(--bg-info-soft)", border:"#2563eb", color:"#1e40af", btn:"#2563eb", label:"On Leave"   },
 };
 
 const STATUS_INLINE = {
-  present:  { background:"#f0fdf4", color:"#166534", border:"1px solid #22c55e" },
-  absent:   { background:"#fef2f2", color:"#991b1b", border:"1px solid #ef4444" },
-  late:     { background:"#fffbeb", color:"#92400e", border:"1px solid #f59e0b" },
-  on_leave: { background:"#f0f9ff", color:"#0369a1", border:"1px solid #38bdf8" },
+  present:  { background:"var(--bg-success-soft)", color:"#166534", border:"1px solid #22c55e" },
+  absent:   { background:"var(--bg-danger-soft)", color:"#991b1b", border:"1px solid #ef4444" },
+  late:     { background:"var(--bg-warning-soft)", color:"#92400e", border:"1px solid #f59e0b" },
+  on_leave: { background:"var(--bg-info-soft)", color:"#0369a1", border:"1px solid #38bdf8" },
 };
 const STATUS_LABEL = { present:"Present", absent:"Absent", late:"Late", on_leave:"On Leave", on_leave:"On Leave" };
 export default function Attendance() {
@@ -32,7 +33,7 @@ export default function Attendance() {
     <div>
       <div className="page-header"><h1 className="page-heading">Staff Attendance</h1></div>
       <div className="section-card" style={{ textAlign: "center", padding: "40px 24px" }}>
-        <div style={{ fontSize: 40, marginBottom: 12 }}>??</div>
+        <div style={{ fontSize: 40, marginBottom: 12 }}>👷</div>
         <div style={{ fontWeight: 600, fontSize: 16, marginBottom: 8 }}>Staff Attendance Management Coming Soon</div>
         <div style={{ fontSize: 14, color: "var(--color-text-secondary)" }}>
           Teacher and staff daily attendance tracking will be available here.
@@ -165,16 +166,16 @@ function TeacherAttendance() {
       {err && <div className="alert alert-error">{err}</div>}
       {msg && <div className="alert alert-success">{msg}</div>}
 
-      <div className="section-card" style={{ marginBottom:16 }}>
-        <div style={{ display:"flex", gap:16, flexWrap:"wrap", alignItems:"center" }}>
-          <div className="form-group" style={{ marginBottom:0, flex:1, minWidth:180 }}>
+      <div className="section-card att-filter-card">
+        <div className="att-filter-row">
+          <div className="form-group att-form-group-tight">
             <label className="form-label">Class</label>
             <select className="form-control" value={classId} onChange={e => setClassId(e.target.value)}>
               <option value="">Select class</option>
               {myClasses.map(c => <option key={c.id} value={c.id}>{c.name}{c.section?" ("+c.section+")":""}{c.is_primary?" ★":""}</option>)}
             </select>
           </div>
-          <div className="form-group" style={{ marginBottom:0 }}>
+          <div className="form-group att-form-group-tight-sm">
             <label className="form-label">Date</label>
             <DatePicker value={date} max={processingToday}
               onChange={(val) => {
@@ -188,7 +189,7 @@ function TeacherAttendance() {
               style={{ width:180 }} />
           </div>
           {attConfig === "all_teachers" && subjects.length > 0 && (
-            <div className="form-group" style={{ marginBottom:0 }}>
+            <div className="form-group att-form-group-tight-sm">
               <label className="form-label">Subject</label>
               <select className="form-control" value={selSubj} onChange={e => setSelSubj(e.target.value)}>
                 <option value="">All Subjects</option>
@@ -196,12 +197,12 @@ function TeacherAttendance() {
               </select>
             </div>
           )}
-          <div style={{ display:"flex", flexDirection:"column", gap:4, paddingTop:20 }}>
+          <div className="att-status-col">
             {!isWorkingDay(date) && (
-              <span style={{ fontSize:12, color:"#dc2626", fontWeight:600, background:"#fef2f2", padding:"4px 10px", borderRadius:6, border:"1px solid #fecaca" }}>⚠ Not a working day</span>
+              <span className="att-warning-badge">⚠ Not a working day</span>
             )}
             {isSaved && isWorkingDay(date) && (
-              <span style={{ fontSize:12, color:"#92400e", fontWeight:600, background:"#fffbeb", padding:"4px 10px", borderRadius:6, border:"1px solid #fde68a" }}>✓ Already marked — updating</span>
+              <span className="att-marked-badge">✓ Already marked — updating</span>
             )}
           </div>
         </div>
@@ -212,53 +213,52 @@ function TeacherAttendance() {
       {classId && students.length > 0 && (
         <>
           {/* Summary */}
-          <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:12, marginBottom:16 }}>
+          <div className="att-summary-grid-5">
             {Object.entries(STATUS_STYLES).map(([st, sty]) => (
-              <div key={st} style={{ background:"#fff", border:"1px solid #e2e8f0", borderTop:"3px solid "+sty.btn, borderRadius:10, padding:"14px 16px", textAlign:"center" }}>
-                <div style={{ fontSize:22, fontWeight:800, color:sty.btn }}>{counts[st]||0}</div>
-                <div style={{ fontSize:12, color:"#64748b" }}>{sty.label || st}</div>
+              <div key={st} className="att-summary-card" style={{ "--card-color": sty.btn }}>
+                <div className="att-summary-value">{counts[st]||0}</div>
+                <div className="att-summary-label">{sty.label || st}</div>
               </div>
             ))}
           </div>
 
           <div className="section-card">
-            <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:14 }}>
-              <div style={{ fontWeight:700, fontSize:14 }}>{students.length} Students</div>
-              <div style={{ display:"flex", gap:6, alignItems:"center" }}>
-                <span style={{ fontSize:12, color:"#94a3b8" }}>Mark all:</span>
+            <div className="att-students-header-row">
+              <div className="att-students-title">{students.length} Students</div>
+              <div className="att-mark-all-row">
+                <span className="att-mark-all-label">Mark all:</span>
                 {Object.entries(STATUS_STYLES).map(([st,sty]) => (
                   <button key={st} onClick={() => markAll(st)}
-                    style={{ padding:"4px 11px", borderRadius:6, border:"1px solid "+sty.btn, background:"transparent", color:sty.btn, fontSize:11, fontWeight:600, cursor:"pointer" }}>
+                    className="att-mark-all-btn" style={{ "--btn-color": sty.btn }}>
                     {sty.label || st}
                   </button>
                 ))}
               </div>
             </div>
 
-            <div style={{ display:"flex", flexDirection:"column", gap:5 }}>
+            <div className="att-students-list">
               {students.map((s, i) => {
                 const status = records[s.id] || "present";
                 const sty = STATUS_STYLES[status] || STATUS_STYLES["absent"];
                 const isOnLeave = status === "on_leave" || status === "withdrawn";
                 return (
-                  <div key={s.id} style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"10px 14px", borderRadius:8, background:sty.bg, borderLeft:"3px solid "+sty.border }}>
-                    <div style={{ display:"flex", alignItems:"center", gap:12 }}>
-                      <span style={{ fontSize:12, color:"#94a3b8", width:22, textAlign:"right" }}>{i+1}</span>
-                      <div style={{ width:32, height:32, borderRadius:"50%", background:"#fff", border:"1px solid "+sty.border, display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, fontWeight:700, color:sty.color }}>
+                  <div key={s.id} className="att-student-row" style={{ "--row-bg": sty.bg, "--row-border": sty.border }}>
+                    <div className="att-student-left">
+                      <span className="att-student-index">{i+1}</span>
+                      <div className="att-student-avatar" style={{ "--avatar-border": sty.border, "--avatar-color": sty.color }}>
                         {s.first_name[0]}{s.last_name[0]}
                       </div>
                       <div>
-                        <div style={{ fontWeight:600, fontSize:13 }}>{s.first_name} {s.last_name}</div>
-                        <div style={{ fontSize:11, color:"#94a3b8" }}>{s.enrollment_no}</div>
+                        <div className="att-student-name">{s.first_name} {s.last_name}</div>
+                        <div className="att-student-enrollment">{s.enrollment_no}</div>
                       </div>
                     </div>
-                    <div style={{ display:"flex", gap:5 }}>
+                    <div className="att-student-actions">
                       {Object.entries(STATUS_STYLES).map(([st,stySt]) => (
                         <button key={st} onClick={() => !isOnLeave && setRecords(p=>({...p,[s.id]:st}))}
                           disabled={isOnLeave}
-                          style={{ padding:"5px 11px", borderRadius:6, border:"none", fontSize:11, fontWeight:600, cursor:"pointer",
-                            background: status===st ? stySt.btn : "#f1f5f9",
-                            color:      status===st ? "#fff"    : "#94a3b8" }}>
+                          className="att-status-btn"
+                          style={{ "--btn-bg": status===st ? stySt.btn : "var(--bg-hover)", "--btn-text-color": status===st ? "#fff" : "var(--text-muted)" }}>
                           {stySt.label || st}
                         </button>
                       ))}
@@ -268,7 +268,7 @@ function TeacherAttendance() {
               })}
             </div>
 
-            <div style={{ marginTop:18, display:"flex", justifyContent:"flex-end", gap:12 }}>
+            <div className="att-save-row">
               <button className="btn btn-primary" onClick={handleSave} disabled={saving || !isWorkingDay(date)}>
                 {saving ? "Saving..." : (isSaved?"Update":"Save")+" Attendance ("+students.length+")"}
               </button>
@@ -317,11 +317,11 @@ function StudentAttendance() {
   }, [from, to, selSubj]);
 
   const STATUS_INLINE = {
-    present:  { background:"#f0fdf4", color:"#166534", border:"1px solid #22c55e" },
-    absent:   { background:"#fef2f2", color:"#991b1b", border:"1px solid #ef4444" },
-    late:     { background:"#fffbeb", color:"#92400e", border:"1px solid #f59e0b" },
-    on_leave2: { background:"#eff6ff", color:"#1e40af", border:"1px solid #2563eb" },
-    on_leave: { background:"#eff6ff", color:"#1e40af", border:"1px solid #2563eb" },
+    present:  { background:"var(--bg-success-soft)", color:"#166534", border:"1px solid #22c55e" },
+    absent:   { background:"var(--bg-danger-soft)", color:"#991b1b", border:"1px solid #ef4444" },
+    late:     { background:"var(--bg-warning-soft)", color:"#92400e", border:"1px solid #f59e0b" },
+    on_leave2: { background:"var(--bg-info-soft)", color:"#1e40af", border:"1px solid #2563eb" },
+    on_leave: { background:"var(--bg-info-soft)", color:"#1e40af", border:"1px solid #2563eb" },
   };
 
   return (
@@ -329,18 +329,18 @@ function StudentAttendance() {
       <div className="page-header">
         <h1 className="page-heading">My Attendance</h1>
       </div>
-      <div className="section-card" style={{ marginBottom:16 }}>
-        <div style={{ display:"flex", gap:14, flexWrap:"wrap", alignItems:"flex-end" }}>
-          <div className="form-group" style={{ marginBottom:0 }}>
+      <div className="section-card att-filter-card">
+        <div className="att-filter-row-end">
+          <div className="form-group att-form-group-tight-sm">
             <label className="form-label">From</label>
             <DatePicker value={from} onChange={setFrom} style={{ width:160 }} />
           </div>
-          <div className="form-group" style={{ marginBottom:0 }}>
+          <div className="form-group att-form-group-tight-sm">
             <label className="form-label">To</label>
             <DatePicker value={to} onChange={setTo} style={{ width:160 }} />
           </div>
           {attConfig==="all_teachers" && subjects.length>0 && (
-            <div className="form-group" style={{ marginBottom:0 }}>
+            <div className="form-group att-form-group-tight-sm">
               <label className="form-label">Subject</label>
               <select className="form-control" value={selSubj} onChange={e=>setSelSubj(e.target.value)}>
                 <option value="">All Subjects</option>
@@ -349,11 +349,11 @@ function StudentAttendance() {
             </div>
           )}
         </div>
-        {attConfig==="incharge_only" && <div style={{ fontSize:12, color:"#64748b", marginTop:8 }}>Attendance is marked by class incharge — no subject-wise breakdown.</div>}
+        {attConfig==="incharge_only" && <div className="att-help-text">Attendance is marked by class incharge — no subject-wise breakdown.</div>}
       </div>
 
       {summary && (
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:12, marginBottom:16 }}>
+        <div className="att-summary-grid-5">
           {[
             ["Present",  summary.present,              "#22c55e"],
             ["Absent",   summary.absent,               "#ef4444"],
@@ -361,9 +361,9 @@ function StudentAttendance() {
             ["On Leave", summary.on_leave||0,          "#0891b2"],
             ["On Leave",  summary.on_leave||0,           "#2563eb"],
           ].map(([label,val,color])=>(
-            <div key={label} style={{ background:"#fff", border:"1px solid #e2e8f0", borderTop:"3px solid "+color, borderRadius:10, padding:"14px 16px", textAlign:"center" }}>
-              <div style={{ fontSize:22, fontWeight:800, color }}>{val}</div>
-              <div style={{ fontSize:12, color:"#64748b" }}>{label}</div>
+            <div key={label} className="att-summary-card" style={{ "--card-color": color }}>
+              <div className="att-summary-value">{val}</div>
+              <div className="att-summary-label">{label}</div>
             </div>
           ))}
         </div>
@@ -373,22 +373,22 @@ function StudentAttendance() {
         {loading ? <div className="loading-state">Loading...</div> : records.length===0 ? (
           <div className="empty-state">No attendance records for this period.</div>
         ) : (
-          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
+          <table className="att-table">
             <thead>
-              <tr style={{ background:"#f8fafc" }}>
+              <tr className="att-th-row">
                 {["Date","Day","Status",attConfig==="all_teachers"?"Subject":"","Remarks"].filter(Boolean).map(h=>(
-                  <th key={h} style={{ padding:"10px 12px", textAlign:"left", color:"#64748b", fontWeight:600 }}>{h}</th>
+                  <th key={h} className="att-th">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {records.map((r,i)=>(
-                <tr key={i} style={{ borderBottom:"1px solid #f1f5f9" }}>
-                  <td style={{ padding:"10px 12px", fontWeight:500 }}>{r.date}</td>
-                  <td style={{ padding:"10px 12px", color:"#64748b" }}>{new Date(r.date+"T00:00:00").toLocaleDateString("en-PK",{weekday:"short"})}</td>
-                  <td style={{ padding:"10px 12px" }}><span style={{ ...( STATUS_INLINE[r.status] || STATUS_INLINE[r.status] || { background:"#f1f5f9", color:"#475569", border:"1px solid #e2e8f0" }), padding:"2px 10px", borderRadius:20, fontSize:11, fontWeight:600 }}>{STATUS_LABEL[r.status] || STATUS_LABEL[r.status] || r.status}</span></td>
-                  {attConfig==="all_teachers" && <td style={{ padding:"10px 12px", color:"#64748b" }}>{r.subject_name||"—"}</td>}
-                  <td style={{ padding:"10px 12px", color:"#94a3b8", fontSize:12 }}>{r.remarks||"—"}</td>
+                <tr key={i} className="att-tr">
+                  <td className="att-td">{r.date}</td>
+                  <td className="att-td-muted">{new Date(r.date+"T00:00:00").toLocaleDateString("en-PK",{weekday:"short"})}</td>
+                  <td className="att-td"><span className="att-status-pill" style={{ ...( STATUS_INLINE[r.status] || STATUS_INLINE[r.status] || { background:"var(--bg-hover)", color:"var(--text-secondary)", border:"1px solid var(--border-color)" }) }}>{STATUS_LABEL[r.status] || STATUS_LABEL[r.status] || r.status}</span></td>
+                  {attConfig==="all_teachers" && <td className="att-td-muted">{r.subject_name||"—"}</td>}
+                  <td className="att-td-faint">{r.remarks||"—"}</td>
                 </tr>
               ))}
             </tbody>
@@ -447,34 +447,34 @@ function ParentAttendance() {
   const total  = records.length;
   const pct    = total>0 ? Math.round(((counts.present||0)/total)*100) : 0;
   const STATUS_INLINE = {
-    present:  { background:"#f0fdf4", color:"#166534", border:"1px solid #22c55e" },
-    absent:   { background:"#fef2f2", color:"#991b1b", border:"1px solid #ef4444" },
-    late:     { background:"#fffbeb", color:"#92400e", border:"1px solid #f59e0b" },
-    on_leave2: { background:"#eff6ff", color:"#1e40af", border:"1px solid #2563eb" },
-    on_leave: { background:"#eff6ff", color:"#1e40af", border:"1px solid #2563eb" },
+    present:  { background:"var(--bg-success-soft)", color:"#166534", border:"1px solid #22c55e" },
+    absent:   { background:"var(--bg-danger-soft)", color:"#991b1b", border:"1px solid #ef4444" },
+    late:     { background:"var(--bg-warning-soft)", color:"#92400e", border:"1px solid #f59e0b" },
+    on_leave2: { background:"var(--bg-info-soft)", color:"#1e40af", border:"1px solid #2563eb" },
+    on_leave: { background:"var(--bg-info-soft)", color:"#1e40af", border:"1px solid #2563eb" },
   };
 
   return (
     <div>
       <div className="page-header"><h1 className="page-heading">Child Attendance</h1></div>
-      <div className="section-card" style={{ marginBottom:16 }}>
-        <div style={{ display:"flex", gap:14, flexWrap:"wrap", alignItems:"flex-end" }}>
+      <div className="section-card att-filter-card">
+        <div className="att-filter-row-end">
           <div className="form-group" style={{ marginBottom:0, minWidth:180 }}>
             <label className="form-label">Child</label>
             <select className="form-control" value={selChild} onChange={e=>{setSelChild(e.target.value);setSelSubj("");}}>
               {children.map(c=><option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>)}
             </select>
           </div>
-          <div className="form-group" style={{ marginBottom:0 }}>
+          <div className="form-group att-form-group-tight-sm">
             <label className="form-label">From</label>
             <DatePicker value={from} onChange={setFrom} style={{ width:150 }} />
           </div>
-          <div className="form-group" style={{ marginBottom:0 }}>
+          <div className="form-group att-form-group-tight-sm">
             <label className="form-label">To</label>
             <DatePicker value={to} onChange={setTo} style={{ width:150 }} />
           </div>
           {attConfig==="all_teachers" && subjects.length>0 && (
-            <div className="form-group" style={{ marginBottom:0 }}>
+            <div className="form-group att-form-group-tight-sm">
               <label className="form-label">Subject</label>
               <select className="form-control" value={selSubj} onChange={e=>setSelSubj(e.target.value)}>
                 <option value="">All Subjects</option>
@@ -483,14 +483,14 @@ function ParentAttendance() {
             </div>
           )}
         </div>
-        {attConfig==="incharge_only" && <div style={{ fontSize:12, color:"#64748b", marginTop:8 }}>Attendance is marked by class incharge — no subject-wise breakdown.</div>}
+        {attConfig==="incharge_only" && <div className="att-help-text">Attendance is marked by class incharge — no subject-wise breakdown.</div>}
       </div>
 
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(5,1fr)", gap:12, marginBottom:16 }}>
+      <div className="att-summary-grid-5">
         {[["Present",counts.present||0,"#22c55e"],["Absent",counts.absent||0,"#ef4444"],["Late",counts.late||0,"#f59e0b"],["On Leave",counts.on_leave||0,"#0891b2"],["On Leave",counts.on_leave||0,"#2563eb"]].map(([label,val,color])=>(
-          <div key={label} style={{ background:"#fff", border:"1px solid #e2e8f0", borderTop:"3px solid "+color, borderRadius:10, padding:"14px 16px", textAlign:"center" }}>
-            <div style={{ fontSize:22, fontWeight:800, color }}>{val}</div>
-            <div style={{ fontSize:12, color:"#64748b" }}>{label}</div>
+          <div key={label} className="att-summary-card" style={{ "--card-color": color }}>
+            <div className="att-summary-value">{val}</div>
+            <div className="att-summary-label">{label}</div>
           </div>
         ))}
       </div>
@@ -499,22 +499,22 @@ function ParentAttendance() {
         {loading ? <div className="loading-state">Loading...</div> : records.length===0 ? (
           <div className="empty-state">No attendance records for this period.</div>
         ) : (
-          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
+          <table className="att-table">
             <thead>
-              <tr style={{ background:"#f8fafc" }}>
+              <tr className="att-th-row">
                 {["Date","Day","Status",attConfig==="all_teachers"?"Subject":"","Remarks"].filter(Boolean).map(h=>(
-                  <th key={h} style={{ padding:"10px 12px", textAlign:"left", color:"#64748b", fontWeight:600 }}>{h}</th>
+                  <th key={h} className="att-th">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {records.map((r,i)=>(
-                <tr key={i} style={{ borderBottom:"1px solid #f1f5f9" }}>
-                  <td style={{ padding:"10px 12px", fontWeight:500 }}>{r.date}</td>
-                  <td style={{ padding:"10px 12px", color:"#64748b" }}>{new Date(r.date+"T00:00:00").toLocaleDateString("en-PK",{weekday:"short"})}</td>
-                  <td style={{ padding:"10px 12px" }}><span style={{ ...( STATUS_INLINE[r.status] || STATUS_INLINE[r.status] || { background:"#f1f5f9", color:"#475569", border:"1px solid #e2e8f0" }), padding:"2px 10px", borderRadius:20, fontSize:11, fontWeight:600 }}>{STATUS_LABEL[r.status] || STATUS_LABEL[r.status] || r.status}</span></td>
-                  {attConfig==="all_teachers" && <td style={{ padding:"10px 12px", color:"#64748b" }}>{r.subject_name||"—"}</td>}
-                  <td style={{ padding:"10px 12px", color:"#94a3b8", fontSize:12 }}>{r.remarks||"—"}</td>
+                <tr key={i} className="att-tr">
+                  <td className="att-td">{r.date}</td>
+                  <td className="att-td-muted">{new Date(r.date+"T00:00:00").toLocaleDateString("en-PK",{weekday:"short"})}</td>
+                  <td className="att-td"><span className="att-status-pill" style={{ ...( STATUS_INLINE[r.status] || STATUS_INLINE[r.status] || { background:"var(--bg-hover)", color:"var(--text-secondary)", border:"1px solid var(--border-color)" }) }}>{STATUS_LABEL[r.status] || STATUS_LABEL[r.status] || r.status}</span></td>
+                  {attConfig==="all_teachers" && <td className="att-td-muted">{r.subject_name||"—"}</td>}
+                  <td className="att-td-faint">{r.remarks||"—"}</td>
                 </tr>
               ))}
             </tbody>
@@ -576,32 +576,32 @@ function PrincipalAttendance() {
   const totalStudents= filteredSummary.reduce((a,s)=>a+(s.total_students||0),0);
 
   return (
-    <div style={{padding:24,background:"#f1f5f9",minHeight:"100vh"}}>
-      <div style={{marginBottom:20}}>
-        <div style={{fontSize:22,fontWeight:800,color:"#0f172a",marginBottom:4}}>Attendance</div>
-        <div style={{fontSize:13,color:"#64748b"}}>View daily attendance by class and student</div>
+    <div className="att-principal-page">
+      <div className="att-principal-header">
+        <div className="att-principal-title">Attendance</div>
+        <div className="att-principal-subtitle">View daily attendance by class and student</div>
       </div>
 
       {/* Filters */}
-      <div style={{background:"#fff",borderRadius:12,padding:"16px 20px",border:"1px solid #e2e8f0",marginBottom:20,display:"flex",gap:16,alignItems:"flex-end",flexWrap:"wrap"}}>
+      <div className="att-principal-filter-card">
         <div>
-          <label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>Date</label>
+          <label className="att-principal-field-label">Date</label>
           <DatePicker value={selDate} onChange={(val)=>{setSelDate(val);setSelClass("");setDetail([]);}} style={{width:160}} />
         </div>
         <div>
-          <label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>Class</label>
-          <select value={selClass} onChange={e=>loadDetail(e.target.value)} style={{padding:"9px 12px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:13,minWidth:180}}>
+          <label className="att-principal-field-label">Class</label>
+          <select value={selClass} onChange={e=>loadDetail(e.target.value)} className="att-principal-class-select">
             <option value="">All Classes</option>
             {classes.map(c=><option key={c.id} value={c.id}>{c.name}{c.section?" ("+c.section+")":""}</option>)}
           </select>
         </div>
-        <div style={{fontSize:12,color:"#64748b",paddingBottom:4}}>
+        <div className="att-principal-date-text">
           Showing attendance for <strong>{formatDate(selDate)}</strong>
         </div>
       </div>
 
       {/* Summary Cards */}
-      <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:12,marginBottom:20}}>
+      <div className="att-summary-grid-5">
         {[
           {l:"Total Students", v:totalStudents, c:"#2563eb"},
           {l:"Present",        v:totalPresent,  c:"#166534"},
@@ -609,42 +609,43 @@ function PrincipalAttendance() {
           {l:"Late",           v:totalLate,     c:"#854d0e"},
           {l:"On Leave",       v:totalLeave,    c:"#1e40af"},
         ].map((s,i)=>(
-          <div key={i} style={{background:"#fff",borderRadius:12,padding:"16px",border:"1px solid #e2e8f0",textAlign:"center"}}>
-            <div style={{fontSize:26,fontWeight:800,color:s.c}}>{s.v}</div>
-            <div style={{fontSize:11,color:"#64748b",marginTop:3}}>{s.l}</div>
+          <div key={i} className="att-summary-card" style={{ "--card-color": s.c }}>
+            <div className="att-summary-value">{s.v}</div>
+            <div className="att-summary-label">{s.l}</div>
           </div>
         ))}
       </div>
 
       <div>
         {/* Class List */}
-        <div style={{background:"#fff",borderRadius:12,border:"1px solid #e2e8f0",overflow:"hidden",marginBottom:selClass?16:0}}>
-          <div style={{padding:"12px 16px",borderBottom:"1px solid #f1f5f9",background:"#f8fafc",fontWeight:700,fontSize:13}}>Classes &mdash; {formatDate(selDate)}</div>
-          {loading?<div style={{padding:20,textAlign:"center",color:"#94a3b8",fontSize:13}}>Loading...</div>:(
+        <div className="att-class-list-wrap" style={{marginBottom:selClass?16:0}}>
+          <div className="att-class-list-header">Classes &mdash; {formatDate(selDate)}</div>
+          {loading?<div className="att-principal-loading">Loading...</div>:(
             <div>
-              {summary.length===0&&<div style={{padding:20,textAlign:"center",color:"#94a3b8",fontSize:13}}>No attendance marked for this date.</div>}
-              <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+              {summary.length===0&&<div className="att-principal-empty">No attendance marked for this date.</div>}
+              <table className="att-table">
                 <thead>
-                  <tr style={{background:"#f8fafc"}}>
+                  <tr className="att-th-row">
                     {["Class","Incharge","Present","Absent","Late","On Leave","Status"].map(h=>(
-                      <th key={h} style={{padding:"9px 14px",fontSize:11,fontWeight:700,color:"#94a3b8",textTransform:"uppercase",textAlign:"left",borderBottom:"1px solid #e2e8f0"}}>{h}</th>
+                      <th key={h} className="att-th">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {summary.map((s,i)=>(
                     <tr key={i} onClick={()=>loadDetail(String(s.class_id))}
-                      style={{borderBottom:"1px solid #f8fafc",cursor:"pointer",background:String(selClass)===String(s.class_id)?"#f0fdf4":i%2===0?"#fff":"#fafafa",borderLeft:"3px solid "+(String(selClass)===String(s.class_id)?"#0f4c35":"transparent")}}>
-                      <td style={{padding:"10px 14px",fontWeight:700}}>{s.class_name}{s.section?" ("+s.section+")":""}</td>
-                      <td style={{padding:"10px 14px",color:"#2563eb",fontSize:12}}>{s.incharge_name||"-"}</td>
-                      <td style={{padding:"10px 14px",color:"#166534",fontWeight:600}}>{s.present||0}</td>
-                      <td style={{padding:"10px 14px",color:"#991b1b",fontWeight:600}}>{s.absent||0}</td>
-                      <td style={{padding:"10px 14px",color:"#854d0e",fontWeight:600}}>{s.late||0}</td>
-                      <td style={{padding:"10px 14px",color:"#1e40af",fontWeight:600}}>{s.on_leave||0}</td>
-                      <td style={{padding:"10px 14px"}}>
+                      className="att-class-row"
+                      style={{ "--class-row-bg": String(selClass)===String(s.class_id)?"var(--bg-success-soft)":i%2===0?"var(--bg-card)":"var(--bg-hover)", "--class-row-border": String(selClass)===String(s.class_id)?"#0f4c35":"transparent" }}>
+                      <td className="att-class-td-bold">{s.class_name}{s.section?" ("+s.section+")":""}</td>
+                      <td className="att-class-td-incharge">{s.incharge_name||"-"}</td>
+                      <td className="att-td-present-c">{s.present||0}</td>
+                      <td className="att-td-absent-c">{s.absent||0}</td>
+                      <td className="att-td-late-c">{s.late||0}</td>
+                      <td className="att-td-leave-c">{s.on_leave||0}</td>
+                      <td className="att-class-td">
                         {s.is_marked
-                          ? <span style={{fontSize:11,fontWeight:600,background:"#dcfce7",color:"#166534",padding:"2px 8px",borderRadius:10}}>Marked</span>
-                          : <span style={{fontSize:11,fontWeight:600,background:"#fee2e2",color:"#991b1b",padding:"2px 8px",borderRadius:10}}>Not Marked</span>
+                          ? <span className="att-status-marked">Marked</span>
+                          : <span className="att-status-unmarked">Not Marked</span>
                         }
                       </td>
                     </tr>
@@ -657,34 +658,34 @@ function PrincipalAttendance() {
 
         {/* Student Detail */}
         {selClass&&(
-          <div style={{background:"#fff",borderRadius:12,border:"1.5px solid #0f4c35",overflow:"hidden"}}>
-            <div style={{padding:"12px 16px",borderBottom:"1px solid #f1f5f9",background:"#f0fdf4",fontWeight:700,fontSize:13}}>
-              {cls?.name}{cls?.section?" ("+cls.section+")":""} ? Students
+          <div className="att-detail-wrap">
+            <div className="att-detail-header">
+              {cls?.name}{cls?.section?" ("+cls.section+")":""} — Students
             </div>
-            {detailLoading?<div style={{padding:30,textAlign:"center",color:"#94a3b8"}}>Loading...</div>:
-            detail.length===0?<div style={{padding:30,textAlign:"center",color:"#94a3b8",fontSize:13}}>No attendance marked for this class.</div>:(
-              <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+            {detailLoading?<div className="att-principal-loading">Loading...</div>:
+            detail.length===0?<div className="att-principal-empty">No attendance marked for this class.</div>:(
+              <table className="att-table">
                 <thead>
-                  <tr style={{background:"#f8fafc"}}>
+                  <tr className="att-th-row">
                     {["#","Student","Enrollment","Status","Remarks"].map(h=>(
-                      <th key={h} style={{padding:"9px 14px",fontSize:11,fontWeight:700,color:"#94a3b8",textTransform:"uppercase",textAlign:"left",borderBottom:"1px solid #e2e8f0"}}>{h}</th>
+                      <th key={h} className="att-th">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {detail.map((r,i)=>{
-                    const sc = STATUS_INLINE[r.status]||{background:"#f1f5f9",color:"#475569",border:"1px solid #e2e8f0"};
+                    const sc = STATUS_INLINE[r.status]||{background:"var(--bg-hover)",color:"var(--text-secondary)",border:"1px solid var(--border-color)"};
                     return (
-                      <tr key={i} style={{borderBottom:"1px solid #f8fafc"}}>
-                        <td style={{padding:"9px 14px",color:"#94a3b8"}}>{i+1}</td>
-                        <td style={{padding:"9px 14px",fontWeight:600}}>{r.student_name}</td>
-                        <td style={{padding:"9px 14px",color:"#64748b",fontSize:12}}>{r.enrollment_no}</td>
-                        <td style={{padding:"9px 14px"}}>
-                          <span style={{...sc,padding:"2px 10px",borderRadius:20,fontSize:11,fontWeight:600}}>
+                      <tr key={i} className="att-tr">
+                        <td className="att-td-faint">{i+1}</td>
+                        <td className="att-class-td" style={{fontWeight:600}}>{r.student_name}</td>
+                        <td className="att-class-td-incharge" style={{color:"var(--text-secondary)"}}>{r.enrollment_no}</td>
+                        <td className="att-class-td">
+                          <span className="att-status-pill" style={sc}>
                             {STATUS_LABEL[r.status]||r.status}
                           </span>
                         </td>
-                        <td style={{padding:"9px 14px",color:"#94a3b8",fontSize:12}}>{r.remarks||"-"}</td>
+                        <td className="att-td-faint">{r.remarks||"-"}</td>
                       </tr>
                     );
                   })}

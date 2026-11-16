@@ -178,7 +178,7 @@ def get_case(case_id: int, user_id: int = Depends(require_permission("discipline
 
 
 @router.post("/report")
-def report_case(body: ReportIn, user_id: int = Depends(require_permission("discipline.report")), db=Depends(get_db)):
+def report_case(body: ReportIn, user_id: int = Depends(require_permission("discipline.report")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     if not body.description or not body.incident_date:
         fail("student_id, description and incident_date are required", 400)
     cur = get_cur(db)
@@ -190,7 +190,7 @@ def report_case(body: ReportIn, user_id: int = Depends(require_permission("disci
     db.commit()
 
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         import main as _main
         cur.execute("SELECT campus_id FROM students WHERE id=%s", (body.student_id,))
         _srow = cur.fetchone()
@@ -198,9 +198,9 @@ def report_case(body: ReportIn, user_id: int = Depends(require_permission("disci
         cur.execute("SELECT * FROM sp_get_dept_role_users(%s, %s)", ("academic_coordinator", _student_campus_id))
         rows = cur.fetchall()
         with _main.flask_app.app_context():
+            _t, _b = render_templated_notification("discipline_case_reported", {}, "New Discipline Case Reported", "A teacher has reported a discipline case.", campus_id=campus_id)
             for row in rows:
-                send_notification(row["user_id"], "New Discipline Case Reported",
-                    "A teacher has reported a discipline case.", "warning")
+                send_notification(row["user_id"], _t, _b, "warning")
     except Exception as e:
         print("[discipline notify]", e)
     # Trigger workflow engine
@@ -239,7 +239,7 @@ def report_case(body: ReportIn, user_id: int = Depends(require_permission("disci
 
 
 @router.post("/{case_id}/review")
-def review_case(case_id: int, body: ReviewIn, user_id: int = Depends(require_permission("discipline.review")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus)):
+def review_case(case_id: int, body: ReviewIn, user_id: int = Depends(require_permission("discipline.review")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     # Engine-first
     if wf_engine:
@@ -265,7 +265,7 @@ def review_case(case_id: int, body: ReviewIn, user_id: int = Depends(require_per
 
     if body.action == "schedule":
         try:
-            from app.utils.notify import send_notification
+            from app.utils.notify import send_notification, render_templated_notification
             import main as _main
             cur.execute("SELECT * FROM sp_get_discipline_case_detail(%s)", (case_id,))
             dc = cur.fetchone()
@@ -275,10 +275,10 @@ def review_case(case_id: int, body: ReviewIn, user_id: int = Depends(require_per
                     stu = cur.fetchone()
                     if stu:
                         if stu["parent_id"]:
-                            send_notification(stu["parent_id"], "Hearing Scheduled",
-                                "A disciplinary hearing has been scheduled for your child.", "warning")
-                        send_notification(stu["student_user_id"], "Hearing Scheduled",
-                            "A disciplinary hearing has been scheduled.", "warning")
+                            _t, _b = render_templated_notification("hearing_scheduled_parent", {}, "Hearing Scheduled", "A disciplinary hearing has been scheduled for your child.", campus_id=campus_id)
+                            send_notification(stu["parent_id"], _t, _b, "warning")
+                        _t2, _b2 = render_templated_notification("hearing_scheduled_student", {}, "Hearing Scheduled", "A disciplinary hearing has been scheduled.", campus_id=campus_id)
+                        send_notification(stu["student_user_id"], _t2, _b2, "warning")
         except Exception as e:
             print("[discipline notify]", e)
 
@@ -286,7 +286,7 @@ def review_case(case_id: int, body: ReviewIn, user_id: int = Depends(require_per
 
 
 @router.post("/{case_id}/hearing")
-def conduct_hearing(case_id: int, body: HearingIn, user_id: int = Depends(require_permission("discipline.hearing")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus)):
+def conduct_hearing(case_id: int, body: HearingIn, user_id: int = Depends(require_permission("discipline.hearing")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     # Engine-first
     if wf_engine:
@@ -308,14 +308,14 @@ def conduct_hearing(case_id: int, body: HearingIn, user_id: int = Depends(requir
     db.commit()
 
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         import main as _main
         cur.execute("SELECT * FROM sp_get_dept_role_users(%s, %s)", ("principal", campus_id))
         rows = cur.fetchall()
         with _main.flask_app.app_context():
+            _t, _b = render_templated_notification("hearing_conducted", {}, "Hearing Conducted", "Disciplinary hearing completed. Decision required.", campus_id=campus_id)
             for row in rows:
-                send_notification(row["user_id"], "Hearing Conducted",
-                    "Disciplinary hearing completed. Decision required.", "info")
+                send_notification(row["user_id"], _t, _b, "info")
     except Exception as e:
         print("[discipline notify]", e)
 
@@ -356,7 +356,7 @@ def decide_case(case_id: int, body: DecideIn, user_id: int = Depends(require_per
     db.commit()
 
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         import main as _main
         cur.execute("SELECT * FROM sp_get_discipline_case_detail(%s)", (case_id,))
         dc = cur.fetchone()
@@ -366,10 +366,13 @@ def decide_case(case_id: int, body: DecideIn, user_id: int = Depends(require_per
             if stu:
                 msg = "A decision has been made on the disciplinary case: " + body.action_type.upper()
                 ntype = "warning" if body.action_type in ("suspension", "expulsion") else "info"
+                _tags = {"action_type": body.action_type.upper()}
                 with _main.flask_app.app_context():
                     if stu["parent_id"]:
-                        send_notification(stu["parent_id"], "Disciplinary Decision", msg, ntype)
-                    send_notification(stu["student_user_id"], "Disciplinary Decision", msg, "warning")
+                        _t, _b = render_templated_notification("disciplinary_decision_parent", _tags, "Disciplinary Decision", msg, campus_id=campus_id)
+                        send_notification(stu["parent_id"], _t, _b, ntype)
+                    _t2, _b2 = render_templated_notification("disciplinary_decision_student", _tags, "Disciplinary Decision", msg, campus_id=campus_id)
+                    send_notification(stu["student_user_id"], _t2, _b2, "warning")
     except Exception as e:
         print("[discipline notify]", e)
 
@@ -387,7 +390,7 @@ def decide_case(case_id: int, body: DecideIn, user_id: int = Depends(require_per
 
 
 @router.post("/{case_id}/committee")
-def assign_committee(case_id: int, body: CommitteeIn, user_id: int = Depends(require_permission("discipline.review")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus)):
+def assign_committee(case_id: int, body: CommitteeIn, user_id: int = Depends(require_permission("discipline.review")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus), campus_id: Optional[int] = Depends(get_current_campus_id)):
     if not body.teacher_ids or not body.head_id:
         fail("teacher_ids and head_id are required", 400)
     cur = get_cur(db)
@@ -399,7 +402,7 @@ def assign_committee(case_id: int, body: CommitteeIn, user_id: int = Depends(req
     db.commit()
 
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         import main as _main
         with _main.flask_app.app_context():
             for tid in body.teacher_ids:
@@ -407,8 +410,9 @@ def assign_committee(case_id: int, body: CommitteeIn, user_id: int = Depends(req
                 row = cur.fetchone()
                 if row and row.get("uid"):
                     role_label = "Head of Hearing Committee" if tid == body.head_id else "Hearing Committee Member"
-                    send_notification(row["uid"], "Hearing Committee Assignment",
-                        "You have been assigned as " + role_label + " for a discipline case.", "warning")
+                    _t, _b = render_templated_notification("hearing_committee_assignment", {"role_label": role_label},
+                        "Hearing Committee Assignment", "You have been assigned as " + role_label + " for a discipline case.", campus_id=campus_id)
+                    send_notification(row["uid"], _t, _b, "warning")
     except Exception as e:
         print("[committee notify]", e)
 
@@ -499,7 +503,7 @@ def assign_committee(case_id: int, body: CommitteeIn, user_id: int = Depends(req
             db.commit()
             # Send notifications
             try:
-                from app.utils.notify import send_notification
+                from app.utils.notify import send_notification, render_templated_notification
                 import main as _main
                 with _main.flask_app.app_context():
                     for (uid, role) in appear_users:
@@ -512,9 +516,11 @@ def assign_committee(case_id: int, body: CommitteeIn, user_id: int = Depends(req
                                 hearing_formatted = hd.strftime("%A, %d %B %Y at %I:%M %p") if hasattr(hd,"strftime") else str(hd)
                             except: hearing_formatted = str(case_info["hearing_date"])
                         location_str = case_info.get("hearing_location") or "To be announced"
-                        send_notification(uid, "Hearing Appearance Notice",
-                            f"You are required to appear before the Discipline Hearing Committee {role_label}.\n\nHearing Details:\nDate & Time: {hearing_formatted}\nLocation: {location_str}\nPlease ensure your presence at the scheduled time.",
-                            "warning")
+                        _default_msg = f"You are required to appear before the Discipline Hearing Committee {role_label}.\n\nHearing Details:\nDate & Time: {hearing_formatted}\nLocation: {location_str}\nPlease ensure your presence at the scheduled time."
+                        _t, _b = render_templated_notification("hearing_appearance_notice",
+                            {"role_label": role_label, "hearing_date": hearing_formatted, "location": location_str},
+                            "Hearing Appearance Notice", _default_msg, campus_id=campus_id)
+                        send_notification(uid, _t, _b, "warning")
             except Exception as ne:
                 print("[appearance notify]", ne)
     except Exception as ae:
@@ -583,7 +589,7 @@ def get_committee(case_id: int, user_id: int = Depends(require_permission("disci
 
 
 @router.post("/{case_id}/remarks")
-def submit_remarks(case_id: int, body: RemarksIn, user_id: int = Depends(require_permission("discipline.committee")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus)):
+def submit_remarks(case_id: int, body: RemarksIn, user_id: int = Depends(require_permission("discipline.committee")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus), campus_id: Optional[int] = Depends(get_current_campus_id)):
     if not body.remarks.strip():
         fail("Remarks are required", 400)
     cur = get_cur(db)
@@ -601,7 +607,7 @@ def submit_remarks(case_id: int, body: RemarksIn, user_id: int = Depends(require
 
     if result.get("all_submitted"):
         try:
-            from app.utils.notify import send_notification
+            from app.utils.notify import send_notification, render_templated_notification
             import main as _main
             cur.execute("""SELECT hc.teacher_id, t.user_id FROM hearing_committee hc
                           JOIN teachers t ON t.id=hc.teacher_id
@@ -609,8 +615,9 @@ def submit_remarks(case_id: int, body: RemarksIn, user_id: int = Depends(require
             head = cur.fetchone()
             if head:
                 with _main.flask_app.app_context():
-                    send_notification(head["user_id"], "All Remarks Submitted",
-                        "All committee members have submitted their remarks. You can now submit the final hearing report.", "info")
+                    _t, _b = render_templated_notification("all_remarks_submitted", {}, "All Remarks Submitted",
+                        "All committee members have submitted their remarks. You can now submit the final hearing report.", campus_id=campus_id)
+                    send_notification(head["user_id"], _t, _b, "info")
         except Exception as e:
             print("[remarks notify]", e)
 
@@ -646,14 +653,15 @@ def submit_final_hearing(case_id: int, body: FinalHearingIn, user_id: int = Depe
     db.commit()
 
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         import main as _main
         cur.execute("SELECT * FROM sp_get_dept_role_users(%s, %s)", ("principal", campus_id))
         rows = cur.fetchall()
         with _main.flask_app.app_context():
+            _t, _b = render_templated_notification("hearing_report_submitted", {}, "Hearing Report Submitted",
+                "The hearing committee has submitted their final report. Your decision is required.", campus_id=campus_id)
             for row in rows:
-                send_notification(row["user_id"], "Hearing Report Submitted",
-                    "The hearing committee has submitted their final report. Your decision is required.", "info")
+                send_notification(row["user_id"], _t, _b, "info")
     except Exception as e:
         print("[final hearing notify]", e)
 
@@ -706,7 +714,7 @@ def forward_appeal(case_id: int, body: NoteIn, user_id: int = Depends(require_pe
     fail("Workflow engine not available.", 500)
 
 @router.post("/{case_id}/appeal/respond")
-def respond_appeal(case_id: int, body: AppealRespondIn, user_id: int = Depends(require_permission("discipline.decide")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus)):
+def respond_appeal(case_id: int, body: AppealRespondIn, user_id: int = Depends(require_permission("discipline.decide")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus), campus_id: Optional[int] = Depends(get_current_campus_id)):
     if body.outcome not in ("upheld", "overturned"):
         fail("outcome must be upheld or overturned", 400)
     if not body.response:
@@ -720,7 +728,7 @@ def respond_appeal(case_id: int, body: AppealRespondIn, user_id: int = Depends(r
     db.commit()
 
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         import main as _main
         cur.execute("SELECT * FROM sp_get_discipline_case_detail(%s)", (case_id,))
         dc = cur.fetchone()
@@ -728,12 +736,16 @@ def respond_appeal(case_id: int, body: AppealRespondIn, user_id: int = Depends(r
             cur.execute("SELECT * FROM sp_get_student_notify_info(%s)", (dc["student_id"],))
             stu = cur.fetchone()
             if stu:
-                msg = "Your appeal has been " + ("accepted - student reinstated." if body.outcome == "overturned" else "rejected - original decision stands.")
+                _outcome_text = "accepted - student reinstated." if body.outcome == "overturned" else "rejected - original decision stands."
+                msg = "Your appeal has been " + _outcome_text
                 ntype = "success" if body.outcome == "overturned" else "warning"
+                _tags = {"outcome": _outcome_text}
                 with _main.flask_app.app_context():
                     if stu["parent_id"]:
-                        send_notification(stu["parent_id"], "Appeal Decision", msg, ntype)
-                    send_notification(stu["student_user_id"], "Appeal Decision", msg, ntype)
+                        _t, _b = render_templated_notification("appeal_decision_parent", _tags, "Appeal Decision", msg, campus_id=campus_id)
+                        send_notification(stu["parent_id"], _t, _b, ntype)
+                    _t2, _b2 = render_templated_notification("appeal_decision_student", _tags, "Appeal Decision", msg, campus_id=campus_id)
+                    send_notification(stu["student_user_id"], _t2, _b2, ntype)
     except Exception as e:
         print("[appeal notify]", e)
 
@@ -791,14 +803,15 @@ def submit_appeal(case_id: int, body: AppealIn, user_id: int = Depends(require_p
     db.commit()
 
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         import main as _main
         cur.execute("SELECT * FROM sp_get_dept_role_users(%s, %s)", ("principal", campus_id))
         rows = cur.fetchall()
         with _main.flask_app.app_context():
+            _t, _b = render_templated_notification("disciplinary_appeal_submitted", {}, "Disciplinary Appeal Submitted",
+                "A parent has submitted an appeal for a disciplinary case.", campus_id=campus_id)
             for row in rows:
-                send_notification(row["user_id"], "Disciplinary Appeal Submitted",
-                    "A parent has submitted an appeal for a disciplinary case.", "warning")
+                send_notification(row["user_id"], _t, _b, "warning")
     except Exception as e:
         print("[discipline notify]", e)
 

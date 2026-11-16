@@ -4,6 +4,7 @@ import client from "../api/client";
 import academicsApi from "../api/academicsApi";
 import { useProcessingToday } from "../hooks/useProcessingToday";
 import DatePicker from "../components/DatePicker";
+import "./TeacherAttendanceReport.css";
 
 const monthStart = () => new Date().toISOString().slice(0,7) + "-01";
 const today = () => new Date().toISOString().split("T")[0];
@@ -40,84 +41,84 @@ export default function TeacherAttendanceReport() {
   const unmarked = report.length - marked;
 
   return (
-    <div style={{padding:24,background:"#f1f5f9",minHeight:"100vh"}}>
-      <div style={{marginBottom:20}}>
-        <div style={{fontSize:22,fontWeight:800,color:"#0f172a",marginBottom:4}}>Teacher-wise Attendance Report</div>
-        <div style={{fontSize:13,color:"#64748b"}}>Track which class incharges have marked attendance</div>
+    <div className="tar-page">
+      <div className="tar-header">
+        <div className="tar-title">Teacher-wise Attendance Report</div>
+        <div className="tar-subtitle">Track which class incharges have marked attendance</div>
       </div>
 
       {/* Filters */}
-      <div style={{background:"#fff",borderRadius:12,padding:"16px 20px",border:"1px solid #e2e8f0",marginBottom:20,display:"flex",gap:12,flexWrap:"wrap",alignItems:"flex-end"}}>
+      <div className="tar-filters-card">
         <div>
-          <label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>Date</label>
-          <DatePicker value={from} onChange={val=>{setFrom(val);setTo(val);}} style={{padding:"8px 12px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:13}} />
+          <label className="tar-field-label">Date</label>
+          <DatePicker value={from} onChange={val=>{setFrom(val);setTo(val);}} style={{padding:"8px 12px",border:"1.5px solid var(--border-color)",borderRadius:8,fontSize:13}} />
         </div>
         <div>
-          <label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>Status</label>
-          <select value={statusF} onChange={e=>setStatusF(e.target.value)} style={{padding:"8px 10px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:13}}>
+          <label className="tar-field-label">Status</label>
+          <select value={statusF} onChange={e=>setStatusF(e.target.value)} className="tar-select">
             <option value="">All</option>
             <option value="marked">Marked</option>
             <option value="unmarked">Not Marked</option>
           </select>
         </div>
         <div>
-          <label style={{display:"block",fontSize:11,fontWeight:600,color:"#374151",marginBottom:4}}>Sort</label>
-          <select value={sortDir} onChange={e=>setSortDir(e.target.value)} style={{padding:"8px 10px",border:"1.5px solid #e2e8f0",borderRadius:8,fontSize:13}}>
+          <label className="tar-field-label">Sort</label>
+          <select value={sortDir} onChange={e=>setSortDir(e.target.value)} className="tar-select">
             <option value="asc">A-Z</option>
             <option value="desc">Z-A</option>
           </select>
         </div>
-        <button disabled={loading} onClick={loadReport} style={{padding:"9px 24px",background:"#0f4c35",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer"}}>
+        <button disabled={loading} onClick={loadReport} className="tar-generate-btn">
           {loading?"Loading...":"Generate"}
         </button>
       </div>
 
       {/* Summary */}
       {report.length>0&&(
-        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:16,marginBottom:20}}>
+        <div className="tar-summary-grid">
           {[
             {l:"Total Classes",  v:report.length,  c:"#2563eb"},
             {l:"Marked Today",   v:marked,          c:"#166534"},
             {l:"Not Marked",     v:unmarked,        c:"#991b1b"},
           ].map((s,i)=>(
-            <div key={i} style={{background:"#fff",borderRadius:12,padding:"20px",border:"1px solid #e2e8f0",textAlign:"center"}}>
-              <div style={{fontSize:30,fontWeight:800,color:s.c}}>{s.v}</div>
-              <div style={{fontSize:12,color:"#64748b",marginTop:4}}>{s.l}</div>
+            <div key={i} className="tar-summary-card">
+              <div className="tar-summary-value" style={{ "--val-color": s.c }}>{s.v}</div>
+              <div className="tar-summary-label">{s.l}</div>
             </div>
           ))}
         </div>
       )}
 
       {/* Table */}
-      {loading&&<div style={{background:"#fff",borderRadius:12,padding:"40px",textAlign:"center",color:"#94a3b8",border:"1px solid #e2e8f0"}}>Loading...</div>}
+      {loading&&<div className="tar-loading-card">Loading...</div>}
       {!loading&&report.length>0&&(
-        <div style={{background:"#fff",borderRadius:12,border:"1px solid #e2e8f0",overflow:"hidden"}}>
-          <div style={{padding:"14px 20px",borderBottom:"1px solid #f1f5f9",fontWeight:700,fontSize:15}}>
+        <div className="tar-table-wrap">
+          <div className="tar-table-header-title">
             Class Incharge Marking Status — {from}
           </div>
-          <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+          <table className="tar-table">
             <thead>
-              <tr style={{background:"#f8fafc"}}>
+              <tr className="tar-th-row">
                 {["Class","Class Incharge","Students","Marked","Present","Absent","Late","On Leave","Status"].map(h=>(
-                  <th key={h} style={{padding:"10px 14px",fontSize:11,fontWeight:700,color:"#94a3b8",textTransform:"uppercase",textAlign:"left",borderBottom:"1px solid #e2e8f0"}}>{h}</th>
+                  <th key={h} className="tar-th">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.sort((a,b)=>a.is_marked===b.is_marked?0:a.is_marked?1:-1).map((cls,i)=>(
-                <tr key={cls.class_id} style={{borderBottom:"1px solid #f8fafc",background:i%2===0?"#fff":"#fafafa"}}>
-                  <td style={{padding:"10px 14px",fontWeight:700}}>{cls.class_name}{cls.section?" ("+cls.section+")":""}</td>
-                  <td style={{padding:"10px 14px",color:"#2563eb",fontWeight:500}}>{cls.incharge_name||"-"}</td>
-                  <td style={{padding:"10px 14px",color:"#64748b"}}>{cls.total_students}</td>
-                  <td style={{padding:"10px 14px",color:"#64748b"}}>{cls.present+cls.absent+cls.late+cls.on_leave}</td>
-                  <td style={{padding:"10px 14px",color:"#166534",fontWeight:600}}>{cls.present}</td>
-                  <td style={{padding:"10px 14px",color:"#991b1b",fontWeight:600}}>{cls.absent}</td>
-                  <td style={{padding:"10px 14px",color:"#854d0e",fontWeight:600}}>{cls.late}</td>
-                  <td style={{padding:"10px 14px",color:"#1e40af",fontWeight:600}}>{cls.on_leave}</td>
-                  <td style={{padding:"10px 14px"}}>
+                <tr key={cls.class_id} className="tar-tr" style={{ "--row-bg": i%2===0?"var(--bg-card)":"var(--bg-hover)" }}>
+                  <td className="tar-td-bold">{cls.class_name}{cls.section?" ("+cls.section+")":""}</td>
+                  <td className="tar-td-incharge">{cls.incharge_name||"-"}</td>
+                  <td className="tar-td-muted">{cls.total_students}</td>
+                  <td className="tar-td-muted">{cls.present+cls.absent+cls.late+cls.on_leave}</td>
+                  <td className="tar-td-present">{cls.present}</td>
+                  <td className="tar-td-absent">{cls.absent}</td>
+                  <td className="tar-td-late">{cls.late}</td>
+                  <td className="tar-td-leave">{cls.on_leave}</td>
+                  <td className="tar-td">
                     {cls.is_marked
-                      ? <span style={{fontSize:11,fontWeight:600,background:"#dcfce7",color:"#166534",padding:"3px 10px",borderRadius:10}}>Marked</span>
-                      : <span style={{fontSize:11,fontWeight:600,background:"#fee2e2",color:"#991b1b",padding:"3px 10px",borderRadius:10}}>Not Marked</span>
+                      ? <span className="tar-status-marked">Marked</span>
+                      : <span className="tar-status-unmarked">Not Marked</span>
                     }
                   </td>
                 </tr>

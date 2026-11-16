@@ -1,0 +1,260 @@
+.ea-page {
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.ea-header {
+  margin-bottom: 20px;
+}
+
+.ea-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-heading);
+}
+
+.ea-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.ea-type-toggle-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.ea-toggle-active {
+  color: #fff;
+}
+
+.ea-export-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.ea-filter-row {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.ea-field-label {
+  font-size: 12px;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.ea-dept-select {
+  font-size: 13px;
+  width: 180px;
+}
+
+.ea-search-input {
+  font-size: 13px;
+  width: 200px;
+}
+
+.ea-month-select {
+  font-size: 13px;
+  width: 150px;
+}
+
+.ea-year-input {
+  font-size: 13px;
+  width: 100px;
+}
+
+.ea-loading-text {
+  padding: 40px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.ea-table-wrap {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.ea-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ea-th-row {
+  background: var(--bg-hover);
+}
+
+.ea-th {
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.ea-tr {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.ea-td-bold {
+  padding: 10px 14px;
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.ea-td-muted {
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.ea-td {
+  padding: 10px 14px;
+}
+
+.ea-view-btn {
+  font-size: 11px;
+}
+
+.ea-empty-row {
+  padding: 30px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.ea-status-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 10px;
+  background: var(--badge-bg);
+  color: var(--badge-color);
+}
+
+.ea-late-badge {
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--bg-danger-soft);
+  color: #dc2626;
+}
+
+.ea-hours-td {
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.ea-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: rgba(15,23,42,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.ea-modal-box {
+  background: var(--bg-card);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 560px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+}
+
+.ea-modal-header {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ea-modal-title {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.ea-modal-body {
+  padding: 20px;
+}
+
+.ea-modal-loading {
+  padding: 30px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.ea-summary-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.ea-summary-chip {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 10px;
+  background: var(--chip-bg);
+  color: var(--chip-color);
+}
+
+.ea-detail-table-wrap {
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.ea-detail-th {
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.ea-detail-td {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
+.ea-detail-status-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: var(--badge-bg);
+  color: var(--badge-color);
+}
+
+.ea-detail-late-text {
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #dc2626;
+}
+
+.ea-detail-sessions-td {
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}

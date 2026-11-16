@@ -1,0 +1,161 @@
+.esr-page {
+  padding: 24px;
+  background: var(--bg-page);
+  min-height: 100vh;
+}
+
+.esr-header {
+  margin-bottom: 20px;
+}
+
+.esr-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-heading);
+  margin-bottom: 4px;
+}
+
+.esr-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.esr-actions-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.esr-filter-card {
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid var(--border-color);
+  margin-bottom: 16px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.esr-field-label {
+  font-size: 11px;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.esr-dept-select {
+  font-size: 13px;
+  width: 180px;
+}
+
+.esr-emp-select {
+  font-size: 13px;
+  width: 200px;
+}
+
+.esr-month-select {
+  font-size: 13px;
+  width: 140px;
+}
+
+.esr-year-input {
+  font-size: 13px;
+  width: 100px;
+}
+
+.esr-apply-btn {
+  color: #fff;
+}
+
+.esr-table-card {
+  background: var(--bg-card);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  overflow: hidden;
+}
+
+.esr-table-header-row {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.esr-record-count {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.esr-total-text {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.esr-loading-text {
+  padding: 40px;
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.esr-table-scroll {
+  overflow-x: auto;
+}
+
+.esr-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.esr-th-row {
+  background: var(--bg-hover);
+}
+
+.esr-th {
+  padding: 10px 14px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.esr-tr {
+  border-bottom: 1px solid var(--border-color);
+  background: var(--row-bg);
+}
+
+.esr-td-name {
+  padding: 10px 14px;
+  font-weight: 600;
+}
+
+.esr-td-code {
+  padding: 10px 14px;
+  color: var(--text-secondary);
+}
+
+.esr-td {
+  padding: 10px 14px;
+}
+
+.esr-td-capitalize {
+  padding: 10px 14px;
+  text-transform: capitalize;
+  color: var(--text-secondary);
+}
+
+.esr-td-red {
+  padding: 10px 14px;
+  color: #dc2626;
+}
+
+.esr-td-bold {
+  padding: 10px 14px;
+  font-weight: 700;
+}

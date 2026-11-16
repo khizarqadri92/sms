@@ -18,7 +18,8 @@ export function setForceGlobalScope(value) {
 
 client.interceptors.request.use((config) => {
   const token = sessionStorage.getItem("access_token");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
+  // a request may bring its own token (e.g. setting a first password with the temporary-login token)
+  if (token && !config.headers.Authorization) config.headers.Authorization = `Bearer ${token}`;
   // Only superadmin (whose own campus_id is NULL) ever sets this - it's
   // how the campus switcher tells the backend which campus's data to
   // operate on. Every other role is scoped to their own fixed campus_id
@@ -37,9 +38,21 @@ client.interceptors.request.use((config) => {
 client.interceptors.response.use(
   (res) => res,
   (err) => {
+    // a session that still needs its temporary password replaced: back to sign-in, which asks for a new one
+    if (err.response?.status === 403 && err.response?.data?.code === "password_change_required") {
+      if (window.location.pathname !== "/login") {
+        sessionStorage.removeItem("access_token");
+        sessionStorage.removeItem("refresh_token");
+        sessionStorage.removeItem("user");
+        sessionStorage.setItem("login_notice", "Please sign in again and set a new password to continue.");
+        window.location.href = "/login";
+      }
+      return Promise.reject(err);
+    }
     if (err.response?.status === 401) {
-      const isLoginPage = window.location.pathname === "/login";
-      if (!isLoginPage) {
+      // public pages (sign-in, online admission form) work without a session - never bounce them to /login
+      const isPublicPage = window.location.pathname === "/login" || window.location.pathname.startsWith("/admissions/apply");
+      if (!isPublicPage) {
         sessionStorage.removeItem("access_token");
         sessionStorage.removeItem("refresh_token");
         sessionStorage.removeItem("user");

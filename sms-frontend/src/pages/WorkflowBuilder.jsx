@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import workflowApi from "../api/workflowApi";
 import { useGovernanceMode } from "../hooks/useGovernanceMode";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
+import "../styles/theme-tokens.css";
 
 const STEP_TYPES     = ["approve","accept","recommend","review","verify","clear","payment","finalize_settlement","finalize_exit","notify","publish","conduct","decide","hearing","assign_committee"];
 const ENTITY_STEP_TYPES = {
@@ -18,10 +19,11 @@ const ENTITY_STEP_TYPES = {
   exam: ["review","approve","publish"],
   announcement: ["approve","publish"],
   book_request: ["approve"],
+  admission_application: ["approve","recommend","review","decide"],
 };
 const APPROVER_TYPES = ["role","specific_user","class_teacher","dept_head","designation","dynamic"];
 const PRIORITIES     = ["low","normal","high","urgent"];
-const MODULES        = ["leaves","procurement","finance","withdrawal","discipline","exams","communication","library","hr"];
+const MODULES        = ["leaves","procurement","finance","withdrawal","discipline","exams","communication","library","hr","admissions"];
 
 const MODULE_ENTITY_TYPES = {
   hr:            [
@@ -39,6 +41,7 @@ const MODULE_ENTITY_TYPES = {
   exams:         [{ value: "exam",                 label: "Exam" }],
   communication: [{ value: "announcement",         label: "Announcement" }],
   library:       [{ value: "book_request",         label: "Book Request" }],
+  admissions:    [{ value: "admission_application", label: "Admission Application" }],
 };
 const ENTITY_STATUS_OPTIONS = {
   payroll_run: ["draft","hr_submitted","pending_approval","approved","released"],
@@ -53,6 +56,7 @@ const ENTITY_STATUS_OPTIONS = {
   exam: ["draft","scheduled","marks_open","submitted","compiled","reviewed","approved","published"],
   announcement: ["draft","published"],
   book_request: ["pending","approved","rejected"],
+  admission_application: ["awaiting_approval","recommended","approved","rejected"],
 };
 const MODULE_DEFAULT_ENTITY = Object.fromEntries(
   Object.entries(MODULE_ENTITY_TYPES).map(([m, list]) => [m, list[0]?.value || ""])
@@ -292,10 +296,10 @@ export default function WorkflowBuilder() {
 
       {flash && <div className={`alert alert-${flash.type}`} style={{marginBottom:16}}>{flash.msg}</div>}
 
-      <div style={{display:"flex",gap:4,marginBottom:20,borderBottom:"2px solid #e2e8f0"}}>
+      <div style={{display:"flex",gap:4,marginBottom:20,borderBottom:"2px solid var(--dm-line)"}}>
         {[{label:"Workflows",value:"workflows"},{label:"Assignments",value:"assignments"},{label:"Monitor",value:"instances"}].map(t=>(
           <button key={t.value} onClick={()=>setTab(t.value)}
-            style={{padding:"8px 20px",border:"none",background:"none",cursor:"pointer",fontSize:14,fontWeight:tab===t.value?700:400,color:tab===t.value?"#2563eb":"var(--color-text-secondary)",borderBottom:tab===t.value?"2px solid #2563eb":"2px solid transparent",marginBottom:-2}}>
+            style={{padding:"8px 20px",border:"none",background:"none",cursor:"pointer",fontSize:14,fontWeight:tab===t.value?700:400,color:tab===t.value?"var(--dm-blue)":"var(--color-text-secondary)",borderBottom:tab===t.value?"2px solid #2563eb":"2px solid transparent",marginBottom:-2}}>
             {t.label}
           </button>
         ))}
@@ -306,7 +310,7 @@ export default function WorkflowBuilder() {
         <div style={{display:"grid",gridTemplateColumns:"300px 1fr",gap:20}}>
           <div>
             {isGlobalLocked && (
-              <div style={{marginBottom:12,padding:"8px 12px",background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,fontSize:12,color:"#92400e"}}>
+              <div style={{marginBottom:12,padding:"8px 12px",background:"var(--dm-tint-amber)",border:"1px solid var(--dm-amber-line)",borderRadius:8,fontSize:12,color:"var(--dm-amber-ink)"}}>
                 Workflows are managed centrally by the superadmin. This list is read-only here.
               </div>
             )}
@@ -338,10 +342,10 @@ export default function WorkflowBuilder() {
               <div>
                 {workflows.map(wf=>(
                   <div key={wf.id} onClick={()=>selectWorkflow(wf)}
-                    style={{padding:"10px 14px",borderRadius:8,marginBottom:6,cursor:"pointer",background:selected?.id===wf.id?"#eff6ff":"#fff",border:selected?.id===wf.id?"1px solid #2563eb":"1px solid #e2e8f0"}}>
+                    style={{padding:"10px 14px",borderRadius:8,marginBottom:6,cursor:"pointer",background:selected?.id===wf.id?"var(--dm-tint-blue)":"var(--dm-surface)",border:selected?.id===wf.id?"1px solid #2563eb":"1px solid var(--dm-line)"}}>
                     <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                       <div style={{fontWeight:600,fontSize:13}}>{wf.name}</div>
-                      <span style={{fontSize:10,padding:"2px 8px",borderRadius:10,background:wf.is_active?"#dcfce7":"#f1f5f9",color:wf.is_active?"#166534":"#64748b",fontWeight:700}}>{wf.is_active?"ACTIVE":"OFF"}</span>
+                      <span style={{fontSize:10,padding:"2px 8px",borderRadius:10,background:wf.is_active?"var(--dm-tint-green)":"var(--dm-surface-3)",color:wf.is_active?"var(--dm-green-ink)":"var(--dm-soft)",fontWeight:700}}>{wf.is_active?"ACTIVE":"OFF"}</span>
                     </div>
                     <div style={{fontSize:11,color:"var(--color-text-secondary)",marginTop:3}}>{wf.module} · {wf.entity_type} · {wf.step_count} step{wf.step_count!==1?"s":""}</div>
                   </div>
@@ -383,7 +387,7 @@ export default function WorkflowBuilder() {
                   </div>
 
                   {showNewStep && (
-                    <div style={{background:"#f8fafc",border:"1px solid #e2e8f0",borderRadius:8,padding:16,marginBottom:16}}>
+                    <div style={{background:"var(--dm-surface-2)",border:"1px solid var(--dm-line)",borderRadius:8,padding:16,marginBottom:16}}>
                       <div style={{fontWeight:600,fontSize:13,marginBottom:12}}>{editStep?"Edit Step":"New Step"}</div>
                       <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:10}}>
                         <div><label style={{fontSize:11,fontWeight:700,display:"block",marginBottom:4}}>Order</label><input type="number" className="form-input" style={{margin:0}} value={stepForm.step_order} onChange={e=>setStepForm(f=>({...f,step_order:parseInt(e.target.value)}))}/></div>
@@ -391,15 +395,15 @@ export default function WorkflowBuilder() {
                         <div><label style={{fontSize:11,fontWeight:700,display:"block",marginBottom:4}}>Step Type</label><select className="form-input" style={{margin:0}} value={stepForm.step_type} onChange={e=>setStepForm(f=>({...f,step_type:e.target.value}))}>{(ENTITY_STEP_TYPES[selected?.entity_type]||STEP_TYPES).map(t=><option key={t} value={t}>{t}</option>)}</select></div>
                         <div><label style={{fontSize:11,fontWeight:700,display:"block",marginBottom:4}}>Approver Type</label><select className="form-input" style={{margin:0}} value={stepForm.approver_type} onChange={e=>setStepForm(f=>({...f,approver_type:e.target.value}))}>{APPROVER_TYPES.map(t=><option key={t} value={t}>{t.replace(/_/g," ")}</option>)}</select></div>
                         {stepForm.approver_type==="role" && (<div><label style={{fontSize:11,fontWeight:700,display:"block",marginBottom:4}}>Role</label><select className="form-input" style={{margin:0}} value={stepForm.approver_role} onChange={e=>setStepForm(f=>({...f,approver_role:e.target.value}))}><option value="">— Select Role —</option>{roles.map(r=><option key={r.id} value={r.name}>{r.name}</option>)}</select></div>)}
-                        {stepForm.approver_type==="dept_head" && (<div style={{padding:"8px 10px",background:"#fefce8",border:"1px solid #fef08a",borderRadius:6,fontSize:12,color:"#854d0e",marginTop:4}}><strong>Dept Head (HOD)</strong> - Automatically routes to Head of Department of the submitter. Ensure HOD is assigned in HR Staff Management.</div>)}
-                        {stepForm.approver_type==="class_teacher" && (<div style={{padding:"8px 10px",background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:6,fontSize:12,color:"#1d4ed8",marginTop:4}}><strong>Class Teacher</strong> - Routes to primary class teacher of the student.</div>)}
+                        {stepForm.approver_type==="dept_head" && (<div style={{padding:"8px 10px",background:"var(--dm-tint-amber)",border:"1px solid #fef08a",borderRadius:6,fontSize:12,color:"var(--dm-amber-ink)",marginTop:4}}><strong>Dept Head (HOD)</strong> - Automatically routes to Head of Department of the submitter. Ensure HOD is assigned in HR Staff Management.</div>)}
+                        {stepForm.approver_type==="class_teacher" && (<div style={{padding:"8px 10px",background:"var(--dm-tint-blue)",border:"1px solid #bfdbfe",borderRadius:6,fontSize:12,color:"var(--dm-blue-ink)",marginTop:4}}><strong>Class Teacher</strong> - Routes to primary class teacher of the student.</div>)}
                         {stepForm.approver_type==="designation" && (<div>
                           <label style={{fontSize:11,fontWeight:700,display:"block",marginBottom:4}}>Designation</label>
                           <select className="form-input" style={{margin:0}} value={stepForm.approver_lookup} onChange={e=>setStepForm(f=>({...f,approver_lookup:e.target.value}))}>
                             <option value="">Select Designation...</option>
                             {designations.map(d=><option key={d.id} value={d.name}>{d.name}</option>)}
                           </select>
-                          <div style={{fontSize:11,color:"#94a3b8",marginTop:4}}>Routes to the active staff member with this designation - useful when several designations (e.g. Accountant, Finance Officer, Finance Manager) share one broad permission role.</div>
+                          <div style={{fontSize:11,color:"var(--dm-faint)",marginTop:4}}>Routes to the active staff member with this designation - useful when several designations (e.g. Accountant, Finance Officer, Finance Manager) share one broad permission role.</div>
                         </div>)}
                         <div><label style={{fontSize:11,fontWeight:700,display:"block",marginBottom:4}}>WQ Priority</label><select className="form-input" style={{margin:0}} value={stepForm.wq_priority} onChange={e=>setStepForm(f=>({...f,wq_priority:e.target.value}))}>{PRIORITIES.map(p=><option key={p} value={p}>{p}</option>)}</select></div>
                         <div><label style={{fontSize:11,fontWeight:700,display:"block",marginBottom:4}}>Action Label</label><input className="form-input" style={{margin:0}} value={stepForm.action_label} onChange={e=>setStepForm(f=>({...f,action_label:e.target.value}))}/></div>
@@ -429,7 +433,7 @@ export default function WorkflowBuilder() {
                             <input className="form-input" style={{margin:0,flex:1}} placeholder={autoLink||"/module?id={entity_id}"} value={stepForm.wq_link_template} onChange={e=>setStepForm(f=>({...f,wq_link_template:e.target.value}))}/>
                             {autoLink&&!stepForm.wq_link_template&&<button type="button" className="btn btn-ghost btn-sm" style={{fontSize:11,whiteSpace:"nowrap"}} onClick={()=>setStepForm(f=>({...f,wq_link_template:autoLink}))}>Use Auto</button>}
                           </div>
-                          <div style={{fontSize:10,color:"#94a3b8",marginTop:2}}>Auto: {autoLink||"(select workflow first)"}</div>
+                          <div style={{fontSize:10,color:"var(--dm-faint)",marginTop:2}}>Auto: {autoLink||"(select workflow first)"}</div>
                         </div>
                         <div><label style={{fontSize:11,fontWeight:700,display:"block",marginBottom:4}}>Notify Title</label><input className="form-input" style={{margin:0}} placeholder="Action Required" value={stepForm.notify_title} onChange={e=>setStepForm(f=>({...f,notify_title:e.target.value}))}/></div>
                         <div style={{gridColumn:"span 2"}}><label style={{fontSize:11,fontWeight:700,display:"block",marginBottom:4}}>Notify Body</label><input className="form-input" style={{margin:0}} placeholder="You have a pending action." value={stepForm.notify_body} onChange={e=>setStepForm(f=>({...f,notify_body:e.target.value}))}/></div>
@@ -444,7 +448,7 @@ export default function WorkflowBuilder() {
                   {(!detail.steps||detail.steps.length===0) ? (
                     <div style={{textAlign:"center",padding:24,color:"var(--color-text-secondary)",fontSize:13}}>No steps yet.</div>
                   ) : detail.steps.map((step,i)=>(
-                    <div key={step.id} style={{display:"flex",alignItems:"flex-start",gap:12,padding:"12px 0",borderBottom:i<detail.steps.length-1?"1px solid #f1f5f9":"none"}}>
+                    <div key={step.id} style={{display:"flex",alignItems:"flex-start",gap:12,padding:"12px 0",borderBottom:i<detail.steps.length-1?"1px solid var(--dm-line)":"none"}}>
                       <div style={{width:32,height:32,borderRadius:"50%",background:STEP_TYPE_COLOR[step.step_type]||"#64748b",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontWeight:800,fontSize:14,flexShrink:0}}>{step.step_order}</div>
                       <div style={{flex:1}}>
                         <div style={{fontWeight:600,fontSize:14}}>{step.step_name}</div>
@@ -456,7 +460,7 @@ export default function WorkflowBuilder() {
                         {step.conditions&&step.conditions.length>0&&(
                           <div style={{marginTop:6,display:"flex",flexWrap:"wrap",gap:4}}>
                             {step.conditions.map(c=>(
-                              <span key={c.id} style={{fontSize:11,background:"#eff6ff",color:"#2563eb",padding:"2px 8px",borderRadius:8,display:"flex",alignItems:"center",gap:4}}>
+                              <span key={c.id} style={{fontSize:11,background:"var(--dm-tint-blue)",color:"var(--dm-blue)",padding:"2px 8px",borderRadius:8,display:"flex",alignItems:"center",gap:4}}>
                                 {c.field} {c.operator} {c.value} → {c.effect?.replace(/_/g," ")}
                                 <button style={{background:"none",border:"none",cursor:"pointer",color:"#ef4444",fontSize:12,padding:"0 2px"}} onClick={()=>deleteCondition(c.id)}>×</button>
                               </span>
@@ -529,7 +533,7 @@ export default function WorkflowBuilder() {
                 </div>
 
                 {newCondRows.length===0 && (
-                  <div style={{fontSize:12,color:"#94a3b8",fontStyle:"italic",padding:"8px 0"}}>No conditions — matches all entities. Use as default fallback.</div>
+                  <div style={{fontSize:12,color:"var(--dm-faint)",fontStyle:"italic",padding:"8px 0"}}>No conditions — matches all entities. Use as default fallback.</div>
                 )}
 
                 {newCondRows.map((row,i)=>(
@@ -583,8 +587,8 @@ export default function WorkflowBuilder() {
                         <div style={{fontSize:11,fontWeight:700,color:"var(--color-text-secondary)",marginBottom:4}}>CONDITIONS (ALL must match):</div>
                         <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
                           {a.conditions.map(c=>(
-                            <div key={c.id} style={{display:"flex",alignItems:"center",gap:6,background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:8,padding:"4px 10px"}}>
-                              <span style={{fontSize:12,color:"#1e40af",fontWeight:500}}>
+                            <div key={c.id} style={{display:"flex",alignItems:"center",gap:6,background:"var(--dm-tint-blue)",border:"1px solid #bfdbfe",borderRadius:8,padding:"4px 10px"}}>
+                              <span style={{fontSize:12,color:"var(--dm-blue-ink)",fontWeight:500}}>
                                 {getCondLabel(c.field)} <strong>{OPERATOR_LABELS[c.operator]||c.operator}</strong> {c.value}
                               </span>
                               <button style={{background:"none",border:"none",cursor:"pointer",color:"#ef4444",fontSize:14,lineHeight:1}} onClick={()=>deleteAssignCond(c.id)}>×</button>
@@ -593,7 +597,7 @@ export default function WorkflowBuilder() {
                         </div>
                       </div>
                     ) : (
-                      <div style={{fontSize:12,color:"#94a3b8",fontStyle:"italic"}}>No conditions — matches all entities</div>
+                      <div style={{fontSize:12,color:"var(--dm-faint)",fontStyle:"italic"}}>No conditions — matches all entities</div>
                     )}
                   </div>
                   {!isGlobalLocked && <button className="btn btn-ghost btn-sm" style={{color:"#ef4444",flexShrink:0}} onClick={()=>deleteAssignment(a.id)}>Remove</button>}

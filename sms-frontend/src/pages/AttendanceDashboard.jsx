@@ -8,6 +8,7 @@ import DateTimePicker from "../components/DateTimePicker";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
 import { useProcessingNow } from "../hooks/useProcessingNow";
 import { useGovernanceMode } from "../hooks/useGovernanceMode";
+import "./AttendanceDashboard.css";
 
 function fmtTime(iso) {
   if (!iso) return "-";
@@ -27,11 +28,11 @@ const STATUS_LABELS = {
 const STATUS_COLORS = {
   present: { bg: "#f0fdf4", color: "#166534" },
   half_day: { bg: "#fff7ed", color: "#c2410c" },
-  weekly_off: { bg: "#f8fafc", color: "#64748b" },
+  weekly_off: { bg: "var(--bg-hover)", color: "var(--text-secondary)" },
   holiday: { bg: "#eff6ff", color: "#1d4ed8" },
-  on_leave: { bg: "#fef3c7", color: "#92400e" },
+  on_leave: { bg: "#fef3c7", color: "var(--text-warning-soft)" },
   absent: { bg: "#fef2f2", color: "#dc2626" },
-  pending: { bg: "#f8fafc", color: "#94a3b8" },
+  pending: { bg: "var(--bg-hover)", color: "var(--text-muted)" },
 };
 function formatDuration(ms) {
   if (ms == null || ms < 0) return "-";
@@ -91,6 +92,7 @@ export default function AttendanceDashboard({ visibleTabs } = {}) {
   const [rfidCards, setRfidCards] = useState([]);
   const [allStaff, setAllStaff] = useState([]);
   const [cardForm, setCardForm] = useState({ staff_id: "", card_uid: "" });
+  const [cardMsg, setCardMsg] = useState(null);
 
   const [autoCloseTime, setAutoCloseTime] = useState("20:00");
   const [settingsMsg, setSettingsMsg] = useState(null);
@@ -235,15 +237,17 @@ export default function AttendanceDashboard({ visibleTabs } = {}) {
   useEffect(() => { if (tab === "settings") loadStatusThresholds(); }, [tab, loadStatusThresholds]);
 
   const assignCard = async () => {
-    if (!cardForm.staff_id || !cardForm.card_uid.trim()) { showFlash("error", "Select staff and enter card UID."); return; }
+    setCardMsg(null);
+    if (!cardForm.staff_id || !cardForm.card_uid.trim()) { setCardMsg({ type: "error", text: "Select staff and enter card UID." }); setTimeout(() => setCardMsg(null), 5000); return; }
     try {
       await attendanceApi.assignRfidCard({ staff_id: Number(cardForm.staff_id), card_uid: cardForm.card_uid.trim() });
-      showFlash("success", "Card assigned.");
+      setCardMsg({ type: "success", text: "Card assigned." });
       setCardForm({ staff_id: "", card_uid: "" });
       loadRfidCards();
     } catch (e) {
-      showFlash("error", e.response?.data?.message || e.response?.data?.detail?.message || "Failed.");
+      setCardMsg({ type: "error", text: e.response?.data?.message || e.response?.data?.detail?.message || "Failed." });
     }
+    setTimeout(() => setCardMsg(null), 5000);
   };
 
   const deactivateCard = async (id) => {
@@ -355,16 +359,16 @@ export default function AttendanceDashboard({ visibleTabs } = {}) {
   };
 
   return (
-    <div style={{ padding: 24, margin: "0 auto" }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 20, color: "#0f172a" }}>Employee Attendance</h1>
+    <div className="ad-page">
+      <h1 className="ad-title">Employee Attendance</h1>
 
-      <div style={{ display: "flex", gap: 4, marginBottom: 20, borderBottom: "1px solid #e2e8f0" }}>
+      <div className="ad-tab-row">
         {(isRestrictedMode ? ["live"] : TABS_SHOWN).map(t => (
           <button key={t} onClick={() => setTab(t)}
+            className="ad-tab-btn"
             style={{
-              padding: "10px 18px", fontSize: 13, fontWeight: 600, border: "none", background: "none", cursor: "pointer",
-              color: tab === t ? "#0f4c35" : "#64748b",
-              borderBottom: "2px solid " + (tab === t ? "#0f4c35" : "transparent")
+              "--tab-color": tab === t ? "#0f4c35" : "var(--text-secondary)",
+              "--tab-border": tab === t ? "#0f4c35" : "transparent"
             }}>
             {TAB_LABELS[t]}
           </button>
@@ -373,22 +377,22 @@ export default function AttendanceDashboard({ visibleTabs } = {}) {
 
       {tab === "live" && (
         <div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
-            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          <div className="ad-filter-row">
+            <div className="ad-filter-group">
               {isRestrictedMode && myDeptIds.length <= 1 ? (
-                <div style={{ padding: "8px 12px", fontSize: 13, fontWeight: 600, color: "#374151", background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8 }}>
+                <div className="ad-dept-label">
                   {departments.find(d => myDeptIds.includes(d.id))?.name || "My Department"}
                 </div>
               ) : (
-                <select className="form-input" style={{ width: 200, fontSize: 13 }} value={deptFilter}
+                <select className="form-input ad-select-sm" value={deptFilter}
                   onChange={e => setDeptFilter(e.target.value)}>
                   {!isRestrictedMode && <option value="">All Departments</option>}
                   {(isRestrictedMode ? departments.filter(d => myDeptIds.includes(d.id)) : departments).map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                 </select>
               )}
-              <input type="text" className="form-input" style={{ fontSize: 13, width: 160 }} placeholder="Search name..."
+              <input type="text" className="form-input ad-input-sm" placeholder="Search name..."
                 value={nameFilter} onChange={e => setNameFilter(e.target.value)} />
-              <select className="form-input" style={{ fontSize: 13, width: 160 }} value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+              <select className="form-input ad-input-sm" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
                 <option value="">All Statuses</option>
                 {isLiveMode ? (
                   <>
@@ -402,10 +406,10 @@ export default function AttendanceDashboard({ visibleTabs } = {}) {
               </select>
               <DatePicker value={viewDate} onChange={setViewDate} max={processingToday || toLocalDateStr(now)} style={{ width: 150 }} />
               {!isLiveMode && (
-                <button className="btn btn-ghost btn-sm" style={{ fontSize: 12 }} onClick={() => setViewDate(processingToday || toLocalDateStr(now))}>Back to Today</button>
+                <button className="btn btn-ghost btn-sm ad-back-today-btn" onClick={() => setViewDate(processingToday || toLocalDateStr(now))}>Back to Today</button>
               )}
             </div>
-            <div style={{ fontSize: 12, color: "#94a3b8" }}>
+            <div className="ad-summary-text">
               {isLiveMode
                 ? dashboard.filter(d => d.open_session_id).length + " of " + dashboard.length + " currently clocked in"
                 : dashboard.filter(d => d.status === "present").length + " present, " +
@@ -426,48 +430,46 @@ export default function AttendanceDashboard({ visibleTabs } = {}) {
               return true;
             });
             return (
-          <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, overflow: "hidden" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <div className="ad-table-wrap">
+            <table className="ad-table">
               <thead>
-                <tr style={{ background: "#f8fafc" }}>
+                <tr className="ad-tr">
                   {(isLiveMode ? ["Name", "Department", "Status", "Since", "Duration", ""] : ["Name", "Department", "Status", ""]).map(h => (
-                    <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "#64748b", borderBottom: "1px solid #e2e8f0" }}>{h}</th>
+                    <th key={h} className="ad-th">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {filteredDashboard.map(s => (
-                  <tr key={s.staff_id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                    <td style={{ padding: "10px 14px", fontWeight: 600, fontSize: 13 }}>{s.first_name} {s.last_name}</td>
-                    <td style={{ padding: "10px 14px", fontSize: 12, color: "#64748b" }}>{s.department_name || "-"}</td>
-                    <td style={{ padding: "10px 14px" }}>
+                  <tr key={s.staff_id} className="ad-tr">
+                    <td className="ad-td-bold">{s.first_name} {s.last_name}</td>
+                    <td className="ad-td-secondary">{s.department_name || "-"}</td>
+                    <td className="ad-td">
                       {isLiveMode ? (
                         <>
-                          <span style={{
-                            fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 10,
-                            background: s.open_session_id ? "#f0fdf4" : "#f8fafc",
-                            color: s.open_session_id ? "#166534" : "#64748b",
-                            border: "1px solid " + (s.open_session_id ? "#bbf7d0" : "#e2e8f0")
+                          <span className="ad-status-badge" style={{
+                            "--badge-bg": s.open_session_id ? "var(--bg-success-soft)" : "var(--bg-hover)",
+                            "--badge-color": s.open_session_id ? "#166534" : "var(--text-secondary)",
+                            "--badge-border": s.open_session_id ? "#bbf7d0" : "var(--border-color)"
                           }}>
                             {s.open_session_id ? "Clocked In" : (s.has_session_today ? "Clocked Out" : "Not Clocked In")}
                           </span>
                           {s.is_late && s.open_session_id && (
-                            <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: "#fef2f2", color: "#dc2626", border: "1px solid #fecaca" }}>
+                            <span className="ad-late-tag">
                               Late
                             </span>
                           )}
                         </>
                       ) : (
                         <>
-                          <span style={{
-                            fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 10,
-                            background: (STATUS_COLORS[s.status] || STATUS_COLORS.pending).bg,
-                            color: (STATUS_COLORS[s.status] || STATUS_COLORS.pending).color,
+                          <span className="ad-status-badge" style={{
+                            "--badge-bg": (STATUS_COLORS[s.status] || STATUS_COLORS.pending).bg,
+                            "--badge-color": (STATUS_COLORS[s.status] || STATUS_COLORS.pending).color,
                           }}>
                             {STATUS_LABELS[s.status] || s.status}
                           </span>
                           {s.is_late && (
-                            <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: "#fef2f2", color: "#dc2626" }}>
+                            <span className="ad-late-tag">
                               Late
                             </span>
                           )}
@@ -476,21 +478,21 @@ export default function AttendanceDashboard({ visibleTabs } = {}) {
                     </td>
                     {isLiveMode && (
                       <>
-                        <td style={{ padding: "10px 14px", fontSize: 12, color: "#475569" }}>{s.current_clock_in ? fmtTime(s.current_clock_in) : "-"}</td>
-                        <td style={{ padding: "10px 14px", fontSize: 12, color: "#475569" }}>
+                        <td className="ad-td-secondary">{s.current_clock_in ? fmtTime(s.current_clock_in) : "-"}</td>
+                        <td className="ad-td-secondary">
                           {s.current_clock_in ? formatDuration(now - new Date(s.current_clock_in)) : "-"}
                         </td>
                       </>
                     )}
-                    <td style={{ padding: "10px 14px" }}>
-                      <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => openStaffSessions(s.staff_id, s.first_name + " " + s.last_name)}>
+                    <td className="ad-td">
+                      <button className="btn btn-ghost btn-sm ad-view-details-btn" onClick={() => openStaffSessions(s.staff_id, s.first_name + " " + s.last_name)}>
                         View Details
                       </button>
                     </td>
                   </tr>
                 ))}
                 {filteredDashboard.length === 0 && (
-                  <tr><td colSpan={isLiveMode ? 6 : 4} style={{ padding: 30, textAlign: "center", color: "#94a3b8", fontSize: 13 }}>No staff found.</td></tr>
+                  <tr><td colSpan={isLiveMode ? 6 : 4} className="ad-empty-row">No staff found.</td></tr>
                 )}
               </tbody>
             </table>
@@ -502,41 +504,48 @@ export default function AttendanceDashboard({ visibleTabs } = {}) {
 
       {tab === "rfid" && (
         <div>
-          <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, padding: 16, marginBottom: 20 }}>
-            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>Assign RFID Card</div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <select className="form-input" style={{ flex: 1, fontSize: 13 }} value={cardForm.staff_id}
+          <div className="ad-card">
+            <div className="ad-card-title">Assign RFID Card</div>
+            <div className="ad-assign-row">
+              <select className="form-input ad-select-flex" value={cardForm.staff_id}
                 onChange={e => setCardForm(p => ({ ...p, staff_id: e.target.value }))}>
                 <option value="">Select staff...</option>
                 {allStaff.map(s => <option key={s.id} value={s.id}>{s.first_name} {s.last_name} {s.employee_code ? "(" + s.employee_code + ")" : ""}</option>)}
               </select>
-              <input className="form-input" style={{ flex: 1, fontSize: 13 }} placeholder="Card UID (scan or type)"
+              <input className="form-input ad-input-flex" placeholder="Card UID (scan or type)"
                 value={cardForm.card_uid} onChange={e => setCardForm(p => ({ ...p, card_uid: e.target.value }))} />
-              <button className="btn btn-primary btn-sm" style={{ color: "#fff", whiteSpace: "nowrap" }} onClick={assignCard}>Assign</button>
+              <button className="btn btn-primary btn-sm ad-assign-btn" onClick={assignCard}>Assign</button>
             </div>
+            {cardMsg && (
+              <div className="ad-msg" style={{
+                "--msg-bg": cardMsg.type === "success" ? "var(--bg-success-soft)" : "var(--bg-danger-soft)",
+                "--msg-color": cardMsg.type === "success" ? "#166534" : "#dc2626"
+              }}>
+                {cardMsg.type === "success" ? "✓ " : "⚠ "}{cardMsg.text}
+              </div>
+            )}
           </div>
 
-          <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, overflow: "hidden" }}>
-            <div style={{ padding: "12px 16px", borderBottom: "1px solid #e2e8f0", fontWeight: 700, fontSize: 14 }}>Assigned Cards</div>
+          <div className="ad-card-flat">
+            <div className="ad-card-header">Assigned Cards</div>
             {rfidCards.length === 0 ? (
-              <div style={{ padding: 30, textAlign: "center", color: "#94a3b8", fontSize: 13 }}>No cards assigned yet.</div>
+              <div className="ad-empty-text">No cards assigned yet.</div>
             ) : (
               rfidCards.map(c => (
-                <div key={c.id} style={{ padding: "10px 16px", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div key={c.id} className="ad-card-row">
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: 13 }}>{c.first_name} {c.last_name}</div>
-                    <div style={{ fontSize: 11, color: "#94a3b8", fontFamily: "monospace" }}>{c.card_uid}</div>
+                    <div className="ad-card-row-name">{c.first_name} {c.last_name}</div>
+                    <div className="ad-card-row-uid">{c.card_uid}</div>
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{
-                      fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 6,
-                      background: c.is_active ? "#f0fdf4" : "#fef2f2",
-                      color: c.is_active ? "#166534" : "#991b1b"
+                  <div className="ad-card-row-right">
+                    <span className="ad-active-badge" style={{
+                      "--badge-bg": c.is_active ? "#f0fdf4" : "#fef2f2",
+                      "--badge-color": c.is_active ? "#166534" : "#991b1b"
                     }}>
                       {c.is_active ? "Active" : "Inactive"}
                     </span>
                     {c.is_active && (
-                      <button className="btn btn-ghost btn-sm" style={{ color: "#dc2626", fontSize: 11 }} onClick={() => deactivateCard(c.id)}>Deactivate</button>
+                      <button className="btn btn-ghost btn-sm ad-deactivate-btn" onClick={() => deactivateCard(c.id)}>Deactivate</button>
                     )}
                   </div>
                 </div>
@@ -547,82 +556,80 @@ export default function AttendanceDashboard({ visibleTabs } = {}) {
       )}
 
       {tab === "settings" && (
-        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, padding: 20, maxWidth: 480 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>Auto Clock-Out Time</div>
+        <div className="ad-settings-card">
+          <div className="ad-settings-title">Auto Clock-Out Time</div>
           {attendanceSettingsLocked && (
-            <div style={{ marginBottom: 12, padding: "8px 12px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, fontSize: 12, color: "#92400e" }}>
+            <div className="ad-readonly-notice">
               Managed centrally by the superadmin. Read-only here.
             </div>
           )}
-          <div style={{ fontSize: 12, color: "#64748b", marginBottom: 14 }}>
+          <div className="ad-settings-desc">
             Every day at this time, any employee still clocked in will be automatically clocked out.
           </div>
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <input type="time" className="form-input" style={{ fontSize: 14, width: 160 }} disabled={attendanceSettingsLocked}
+          <div className="ad-time-row">
+            <input type="time" className="form-input ad-time-input" disabled={attendanceSettingsLocked}
               value={autoCloseTime} onChange={e => { setAutoCloseTime(e.target.value); setSettingsMsg(null); }} />
-            {!attendanceSettingsLocked && <button className="btn btn-primary btn-sm" style={{ color: "#fff" }} onClick={saveAttendanceSettings}>Save</button>}
+            {!attendanceSettingsLocked && <button className="btn btn-primary btn-sm ad-save-btn" onClick={saveAttendanceSettings}>Save</button>}
           </div>
           {settingsMsg && (
-            <div style={{
-              marginTop: 12, padding: "8px 12px", borderRadius: 8, fontSize: 13, fontWeight: 600,
-              background: settingsMsg.type === "success" ? "#dcfce7" : "#fee2e2",
-              color: settingsMsg.type === "success" ? "#166534" : "#dc2626"
+            <div className="ad-msg" style={{
+              "--msg-bg": settingsMsg.type === "success" ? "var(--bg-success-soft)" : "var(--bg-danger-soft)",
+              "--msg-color": settingsMsg.type === "success" ? "#166534" : "#dc2626"
             }}>
               {settingsMsg.type === "success" ? "✓ " : "⚠ "}{settingsMsg.text}
             </div>
           )}
-          <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 12 }}>
+          <div className="ad-help-text">
             Checked every 15 minutes by the background scheduler - changes may take up to 15 minutes to take effect on the next run.
           </div>
         </div>
       )}
 
       {tab === "settings" && (
-        <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, padding: 20, maxWidth: 480, marginTop: 20 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>Attendance Status Thresholds</div>
+        <div className="ad-settings-card-mt">
+          <div className="ad-settings-title">Attendance Status Thresholds</div>
           {thresholdsLocked && (
-            <div style={{ marginBottom: 12, padding: "8px 12px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, fontSize: 12, color: "#92400e" }}>
+            <div className="ad-readonly-notice">
               Managed centrally by the superadmin. Read-only here.
             </div>
           )}
-          <div style={{ fontSize: 12, color: "#64748b", marginBottom: 14 }}>
+          <div className="ad-settings-desc">
             Once saved, changes only apply going forward - already-finalized past days are never reclassified.
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 14 }}>
+          <div className="ad-field-grid">
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Minimum Hours for Present</label>
-              <input type="number" step="0.5" className="form-input" style={{ fontSize: 14, width: 160 }} disabled={thresholdsLocked}
+              <label className="ad-field-label">Minimum Hours for Present</label>
+              <input type="number" step="0.5" className="form-input ad-number-input" disabled={thresholdsLocked}
                 value={statusThresholds.min_present_hours}
                 onChange={e => { setStatusThresholds(p => ({ ...p, min_present_hours: e.target.value })); setThresholdsMsg(null); }} />
             </div>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Minimum Hours for Half Day</label>
-              <input type="number" step="0.5" className="form-input" style={{ fontSize: 14, width: 160 }} disabled={thresholdsLocked}
+              <label className="ad-field-label">Minimum Hours for Half Day</label>
+              <input type="number" step="0.5" className="form-input ad-number-input" disabled={thresholdsLocked}
                 value={statusThresholds.min_half_day_hours}
                 onChange={e => { setStatusThresholds(p => ({ ...p, min_half_day_hours: e.target.value })); setThresholdsMsg(null); }} />
             </div>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Maximum Hours for Absent (at or below this = Absent)</label>
-              <input type="number" step="0.5" className="form-input" style={{ fontSize: 14, width: 160 }} disabled={thresholdsLocked}
+              <label className="ad-field-label">Maximum Hours for Absent (at or below this = Absent)</label>
+              <input type="number" step="0.5" className="form-input ad-number-input" disabled={thresholdsLocked}
                 value={statusThresholds.max_absent_hours}
                 onChange={e => { setStatusThresholds(p => ({ ...p, max_absent_hours: e.target.value })); setThresholdsMsg(null); }} />
             </div>
             <div>
-              <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Minimum Session Duration Before Clock Out (minutes, 0 = disabled)</label>
-              <input type="number" className="form-input" style={{ fontSize: 14, width: 160 }} disabled={thresholdsLocked}
+              <label className="ad-field-label">Minimum Session Duration Before Clock Out (minutes, 0 = disabled)</label>
+              <input type="number" className="form-input ad-number-input" disabled={thresholdsLocked}
                 value={statusThresholds.min_session_minutes}
                 onChange={e => { setStatusThresholds(p => ({ ...p, min_session_minutes: e.target.value })); setThresholdsMsg(null); }} />
             </div>
           </div>
 
-          {!thresholdsLocked && <button className="btn btn-primary btn-sm" style={{ color: "#fff", marginTop: 16 }} onClick={saveStatusThresholds}>Save</button>}
+          {!thresholdsLocked && <button className="btn btn-primary btn-sm ad-save-btn-mt" onClick={saveStatusThresholds}>Save</button>}
 
           {thresholdsMsg && (
-            <div style={{
-              marginTop: 12, padding: "8px 12px", borderRadius: 8, fontSize: 13, fontWeight: 600,
-              background: thresholdsMsg.type === "success" ? "#dcfce7" : "#fee2e2",
-              color: thresholdsMsg.type === "success" ? "#166534" : "#dc2626"
+            <div className="ad-msg" style={{
+              "--msg-bg": thresholdsMsg.type === "success" ? "var(--bg-success-soft)" : "var(--bg-danger-soft)",
+              "--msg-color": thresholdsMsg.type === "success" ? "#166534" : "#dc2626"
             }}>
               {thresholdsMsg.type === "success" ? "\u2713 " : "\u26a0 "}{thresholdsMsg.text}
             </div>
@@ -632,48 +639,47 @@ export default function AttendanceDashboard({ visibleTabs } = {}) {
 
       {tab === "schedule" && (
         <div>
-          <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, padding: 20, marginBottom: 20 }}>
-            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>Attendance Timing Mode</div>
-            <div style={{ display: "flex", gap: 16, marginBottom: 16 }}>
-              <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13, cursor: "pointer" }}>
+          <div className="ad-card">
+            <div className="ad-card-title">Attendance Timing Mode</div>
+            <div className="ad-radio-row">
+              <label className="ad-radio-label">
                 <input type="radio" checked={scheduleSettings.mode === "same_for_all"}
                   onChange={() => setScheduleSettings(p => ({ ...p, mode: "same_for_all" }))}/>
                 Same timing for all departments
               </label>
-              <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13, cursor: "pointer" }}>
+              <label className="ad-radio-label">
                 <input type="radio" checked={scheduleSettings.mode === "per_department"}
                   onChange={() => setScheduleSettings(p => ({ ...p, mode: "per_department" }))}/>
                 Separate timing per department
               </label>
             </div>
 
-            <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8, color: "#374151" }}>
+            <div className="ad-schedule-label">
               {scheduleSettings.mode === "same_for_all" ? "Timing (applies to everyone)" : "Default Timing (fallback for unconfigured departments)"}
             </div>
-            <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
+            <div className="ad-time-group-row">
               <div>
-                <label style={{ fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4 }}>Start Time</label>
-                <input type="time" className="form-input" style={{ fontSize: 13, width: 140 }}
+                <label className="ad-small-field-label">Start Time</label>
+                <input type="time" className="form-input ad-time-group-field-140"
                   value={scheduleSettings.default_start_time} onChange={e => setScheduleSettings(p => ({ ...p, default_start_time: e.target.value }))}/>
               </div>
               <div>
-                <label style={{ fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4 }}>End Time</label>
-                <input type="time" className="form-input" style={{ fontSize: 13, width: 140 }}
+                <label className="ad-small-field-label">End Time</label>
+                <input type="time" className="form-input ad-time-group-field-140"
                   value={scheduleSettings.default_end_time} onChange={e => setScheduleSettings(p => ({ ...p, default_end_time: e.target.value }))}/>
               </div>
               <div>
-                <label style={{ fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4 }}>Grace Period (minutes)</label>
-                <input type="number" className="form-input" style={{ fontSize: 13, width: 140 }}
+                <label className="ad-small-field-label">Grace Period (minutes)</label>
+                <input type="number" className="form-input ad-time-group-field-140"
                   value={scheduleSettings.grace_minutes} onChange={e => setScheduleSettings(p => ({ ...p, grace_minutes: e.target.value }))}/>
               </div>
-              <button className="btn btn-primary btn-sm" style={{ color: "#fff" }} onClick={saveScheduleSettings}>Save</button>
+              <button className="btn btn-primary btn-sm ad-save-btn" onClick={saveScheduleSettings}>Save</button>
             </div>
 
             {scheduleMsg && (
-              <div style={{
-                marginTop: 12, padding: "8px 12px", borderRadius: 8, fontSize: 13, fontWeight: 600,
-                background: scheduleMsg.type === "success" ? "#dcfce7" : "#fee2e2",
-                color: scheduleMsg.type === "success" ? "#166534" : "#dc2626"
+              <div className="ad-msg" style={{
+                "--msg-bg": scheduleMsg.type === "success" ? "var(--bg-success-soft)" : "var(--bg-danger-soft)",
+                "--msg-color": scheduleMsg.type === "success" ? "#166534" : "#dc2626"
               }}>
                 {scheduleMsg.type === "success" ? "\u2713 " : "\u26a0 "}{scheduleMsg.text}
               </div>
@@ -681,50 +687,50 @@ export default function AttendanceDashboard({ visibleTabs } = {}) {
           </div>
 
           {scheduleSettings.mode === "per_department" && (
-            <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, padding: 20 }}>
-              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>Per-Department Timing</div>
-              <div style={{ display: "flex", gap: 10, alignItems: "flex-end", flexWrap: "wrap", marginBottom: 16, padding: 14, background: "#f8fafc", borderRadius: 8 }}>
+            <div className="ad-card">
+              <div className="ad-card-title">Per-Department Timing</div>
+              <div className="ad-dept-schedule-form">
                 <div>
-                  <label style={{ fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4 }}>Department</label>
-                  <select className="form-input" style={{ fontSize: 13, width: 200 }} value={deptScheduleForm.department_id}
+                  <label className="ad-small-field-label">Department</label>
+                  <select className="form-input ad-time-group-field-200" value={deptScheduleForm.department_id}
                     onChange={e => setDeptScheduleForm(p => ({ ...p, department_id: e.target.value }))}>
                     <option value="">Select...</option>
                     {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
                   </select>
                 </div>
                 <div>
-                  <label style={{ fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4 }}>Start</label>
-                  <input type="time" className="form-input" style={{ fontSize: 13, width: 120 }}
+                  <label className="ad-small-field-label">Start</label>
+                  <input type="time" className="form-input ad-time-group-field-120"
                     value={deptScheduleForm.start_time} onChange={e => setDeptScheduleForm(p => ({ ...p, start_time: e.target.value }))}/>
                 </div>
                 <div>
-                  <label style={{ fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4 }}>End</label>
-                  <input type="time" className="form-input" style={{ fontSize: 13, width: 120 }}
+                  <label className="ad-small-field-label">End</label>
+                  <input type="time" className="form-input ad-time-group-field-120"
                     value={deptScheduleForm.end_time} onChange={e => setDeptScheduleForm(p => ({ ...p, end_time: e.target.value }))}/>
                 </div>
                 <div>
-                  <label style={{ fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4 }}>Grace (min)</label>
-                  <input type="number" className="form-input" style={{ fontSize: 13, width: 90 }}
+                  <label className="ad-small-field-label">Grace (min)</label>
+                  <input type="number" className="form-input ad-time-group-field-90"
                     value={deptScheduleForm.grace_minutes} onChange={e => setDeptScheduleForm(p => ({ ...p, grace_minutes: e.target.value }))}/>
                 </div>
-                <button className="btn btn-primary btn-sm" style={{ color: "#fff" }} onClick={saveDeptSchedule}>Save</button>
+                <button className="btn btn-primary btn-sm ad-save-btn" onClick={saveDeptSchedule}>Save</button>
               </div>
 
               {deptSchedules.length === 0 ? (
-                <div style={{ padding: 20, textAlign: "center", color: "#94a3b8", fontSize: 13 }}>No department-specific schedules configured yet - all departments use the default timing above.</div>
+                <div className="ad-dept-schedule-empty">No department-specific schedules configured yet - all departments use the default timing above.</div>
               ) : (
                 deptSchedules.map(ds => (
-                  <div key={ds.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 14px", borderBottom: "1px solid #f1f5f9" }}>
+                  <div key={ds.id} className="ad-dept-schedule-row">
                     <div>
-                      <div style={{ fontWeight: 600, fontSize: 13 }}>{ds.department_name}</div>
-                      <div style={{ fontSize: 12, color: "#64748b" }}>{ds.start_time} - {ds.end_time} (grace: {ds.grace_minutes} min)</div>
+                      <div className="ad-dept-schedule-name">{ds.department_name}</div>
+                      <div className="ad-dept-schedule-meta">{ds.start_time} - {ds.end_time} (grace: {ds.grace_minutes} min)</div>
                     </div>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }}
+                    <div className="ad-dept-schedule-actions">
+                      <button className="btn btn-ghost btn-sm ad-edit-btn"
                         onClick={() => setDeptScheduleForm({ department_id: String(ds.department_id), start_time: ds.start_time, end_time: ds.end_time, grace_minutes: ds.grace_minutes })}>
                         Edit
                       </button>
-                      <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, color: "#dc2626" }} onClick={() => removeDeptSchedule(ds.department_id)}>Remove</button>
+                      <button className="btn btn-ghost btn-sm ad-remove-btn" onClick={() => removeDeptSchedule(ds.department_id)}>Remove</button>
                     </div>
                   </div>
                 ))
@@ -735,96 +741,96 @@ export default function AttendanceDashboard({ visibleTabs } = {}) {
       )}
 
       {selectedStaff && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 9000, background: "rgba(15,23,42,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
+        <div className="ad-modal-overlay"
           onClick={() => setSelectedStaff(null)}>
-          <div style={{ background: "#fff", borderRadius: 12, width: "100%", maxWidth: 700, maxHeight: "85vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}
+          <div className="ad-modal-box"
             onClick={e => e.stopPropagation()}>
-            <div style={{ padding: "14px 20px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>{selectedStaff.name} - Attendance Sessions</div>
+            <div className="ad-modal-header">
+              <div className="ad-modal-title">{selectedStaff.name} - Attendance Sessions</div>
               <button className="btn btn-ghost btn-sm" onClick={() => setSelectedStaff(null)}>Close</button>
             </div>
-            <div style={{ padding: 20 }}>
+            <div className="ad-modal-body">
               {!isRestrictedMode && (
-              <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: 14, marginBottom: 16 }}>
-                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 10 }}>{editingSessionId ? "Edit Session" : "Add Manual Session"}</div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+              <div className="ad-add-session-box">
+                <div className="ad-add-session-title">{editingSessionId ? "Edit Session" : "Add Manual Session"}</div>
+                <div className="ad-datetime-grid">
                   <div>
-                    <label style={{ fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4 }}>Clock In *</label>
+                    <label className="ad-small-field-label">Clock In *</label>
                     <DateTimePicker style={{ width: "100%", fontSize: 12 }}
                       value={sessionForm.clock_in_at} onChange={val => setSessionForm(p => ({ ...p, clock_in_at: val }))} />
                   </div>
                   <div>
-                    <label style={{ fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4 }}>Clock Out</label>
+                    <label className="ad-small-field-label">Clock Out</label>
                     <DateTimePicker style={{ width: "100%", fontSize: 12 }}
                       value={sessionForm.clock_out_at} onChange={val => setSessionForm(p => ({ ...p, clock_out_at: val }))} />
                   </div>
                 </div>
-                <input className="form-input" style={{ width: "100%", fontSize: 12, marginBottom: 10 }} placeholder="Notes (reason for manual entry/correction)"
+                <input className="form-input ad-notes-input" placeholder="Notes (reason for manual entry/correction)"
                   value={sessionForm.notes} onChange={e => setSessionForm(p => ({ ...p, notes: e.target.value }))} />
-                <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+                <div className="ad-form-actions">
                   {editingSessionId && (
                     <button className="btn btn-ghost btn-sm" onClick={() => { setEditingSessionId(null); setSessionForm({ clock_in_at: "", clock_out_at: "", notes: "" }); }}>
                       Cancel Edit
                     </button>
                   )}
-                  <button className="btn btn-primary btn-sm" style={{ color: "#fff" }} onClick={saveSession}>
+                  <button className="btn btn-primary btn-sm ad-save-btn" onClick={saveSession}>
                     {editingSessionId ? "Update Session" : "Add Session"}
                   </button>
                 </div>
               </div>
               )}
 
-              <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 8, marginBottom: 16, overflow: "hidden" }}>
+              <div className="ad-day-summary-card">
                 <div onClick={() => setDayDetailExpanded(!dayDetailExpanded)}
-                  style={{ padding: "12px 14px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", background: "#f8fafc" }}>
+                  className="ad-day-summary-header">
                   <div>
-                    <div style={{ fontWeight: 700, fontSize: 13 }}>{(() => { const d = new Date(targetDateStr + "T00:00:00"); return `${["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][d.getDay()]}, ${formatDate(d)}`; })()}</div>
-                    <div style={{ fontSize: 12, color: "#64748b", marginTop: 3 }}>
+                    <div className="ad-day-summary-title">{(() => { const d = new Date(targetDateStr + "T00:00:00"); return `${["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][d.getDay()]}, ${formatDate(d)}`; })()}</div>
+                    <div className="ad-day-summary-meta">
                       {daySessions.length === 0 ? "No sessions recorded" : (
                         <>First in: <strong>{fmtTime(dayFirstIn.clock_in_at)}</strong> &middot; Last out: <strong>{dayLastOut ? fmtTime(dayLastOut.clock_out_at) : (dayOpenOnes.length ? "Still in" : "-")}</strong> &middot; Total: <strong>{formatDuration(dayTotalMs)}</strong></>
                       )}
                     </div>
                   </div>
-                  <span style={{ fontSize: 12, color: "#94a3b8" }}>{dayDetailExpanded ? "\u25b2 Hide" : "\u25bc " + daySessions.length + " session(s)"}</span>
+                  <span className="ad-expand-toggle">{dayDetailExpanded ? "\u25b2 Hide" : "\u25bc " + daySessions.length + " session(s)"}</span>
                 </div>
               </div>
 
               {dayDetailExpanded && (
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <table className="ad-table">
                 <thead>
-                  <tr style={{ background: "#f8fafc" }}>
+                  <tr className="ad-tr">
                     {(isRestrictedMode ? ["Clock In", "Clock Out", "Duration", "Source"] : ["Clock In", "Clock Out", "Duration", "Source", ""]).map(h => (
-                      <th key={h} style={{ padding: "8px 10px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase" }}>{h}</th>
+                      <th key={h} className="ad-sessions-th">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {daySessions.map(s => (
-                    <tr key={s.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                      <td style={{ padding: "8px 10px", fontSize: 12 }}>
+                    <tr key={s.id} className="ad-tr">
+                      <td className="ad-sessions-td">
                         {fmtTime(s.clock_in_at)}
-                        {s.is_late && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 6, background: "#fef2f2", color: "#dc2626" }}>Late</span>}
+                        {s.is_late && <span className="ad-late-tag-sm">Late</span>}
                       </td>
-                      <td style={{ padding: "8px 10px", fontSize: 12 }}>
-                        {s.clock_out_at ? fmtTime(s.clock_out_at) : <span style={{ color: "#16a34a", fontWeight: 600 }}>Open</span>}
-                        {s.auto_closed && <span style={{ marginLeft: 6, fontSize: 10, color: "#c2410c", fontWeight: 600 }}>Auto-closed</span>}
+                      <td className="ad-sessions-td">
+                        {s.clock_out_at ? fmtTime(s.clock_out_at) : <span className="ad-open-text">Open</span>}
+                        {s.auto_closed && <span className="ad-auto-closed-tag">Auto-closed</span>}
                       </td>
-                      <td style={{ padding: "8px 10px", fontSize: 12, fontWeight: 600 }}>
+                      <td className="ad-sessions-td-bold">
                         {formatDuration((s.clock_out_at ? new Date(s.clock_out_at) : now) - new Date(s.clock_in_at))}
                       </td>
-                      <td style={{ padding: "8px 10px" }}>
-                        <span style={{ fontSize: 10, padding: "2px 6px", borderRadius: 5, background: "#f1f5f9", color: "#475569", textTransform: "uppercase" }}>{s.source}</span>
+                      <td className="ad-sessions-td">
+                        <span className="ad-source-tag">{s.source}</span>
                       </td>
                       {!isRestrictedMode && (
-                      <td style={{ padding: "8px 10px", display: "flex", gap: 6 }}>
-                        <button className="btn btn-ghost btn-sm" style={{ fontSize: 10 }} onClick={() => editSession(s)}>Edit</button>
-                        <button className="btn btn-ghost btn-sm" style={{ fontSize: 10, color: "#dc2626" }} onClick={() => deleteSession(s.id)}>Delete</button>
+                      <td className="ad-actions-cell">
+                        <button className="btn btn-ghost btn-sm ad-edit-btn" onClick={() => editSession(s)}>Edit</button>
+                        <button className="btn btn-ghost btn-sm ad-remove-btn" onClick={() => deleteSession(s.id)}>Delete</button>
                       </td>
                       )}
                     </tr>
                   ))}
                   {daySessions.length === 0 && (
-                    <tr><td colSpan={isRestrictedMode ? 4 : 5} style={{ padding: 20, textAlign: "center", color: "#94a3b8", fontSize: 12 }}>No sessions recorded.</td></tr>
+                    <tr><td colSpan={isRestrictedMode ? 4 : 5} className="ad-empty-row">No sessions recorded.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -835,11 +841,9 @@ export default function AttendanceDashboard({ visibleTabs } = {}) {
       )}
 
       {flash && (
-        <div style={{
-          position: "fixed", bottom: 20, right: 20, zIndex: 9999, padding: "10px 18px", borderRadius: 8,
-          background: flash.type === "success" ? "#dcfce7" : "#fee2e2",
-          color: flash.type === "success" ? "#166534" : "#dc2626",
-          boxShadow: "0 4px 12px rgba(0,0,0,0.15)", fontSize: 14, fontWeight: 600
+        <div className="ad-flash-toast" style={{
+          "--flash-bg": flash.type === "success" ? "var(--bg-success-soft)" : "var(--bg-danger-soft)",
+          "--flash-color": flash.type === "success" ? "#166534" : "#dc2626"
         }}>{flash.msg}</div>
       )}
     </div>

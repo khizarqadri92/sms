@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import authApi from "../api/authApi";
+import client from "../api/client";
 import requestPermissionsApi from "../api/requestPermissionsApi";
 
 const AuthContext = createContext(null);
@@ -33,9 +34,7 @@ export function AuthProvider({ children }) {
     setLoading(false);
   }, []);
 
-  const login = async (email, password) => {
-    const res = await authApi.login({ email, password });
-    const { access_token, refresh_token, user: userData } = res.data.data;
+  const completeLogin = (access_token, refresh_token, userData) => {
     sessionStorage.setItem("access_token",  access_token);
     sessionStorage.setItem("refresh_token", refresh_token);
     sessionStorage.setItem("user",          JSON.stringify(userData));
@@ -55,6 +54,36 @@ export function AuthProvider({ children }) {
     return userData;
   };
 
+  // A temporary password (new parent / student account) must be replaced first: nothing is
+  // stored; the login page asks for a new password and calls setFirstPassword with this token.
+  const finishOrAskNewPassword = ({ access_token, refresh_token, user: userData }) => {
+    if (userData?.must_change_password) {
+      return { must_change_password: true, pending_token: access_token, name: userData.name };
+    }
+    return completeLogin(access_token, refresh_token, userData);
+  };
+
+  const login = async (email, password) => {
+    const res = await authApi.login({ email, password });
+    const data = res.data.data;
+    if (data.requires_2fa) {
+      return { requires_2fa: true, pending_token: data.pending_token };
+    }
+    return finishOrAskNewPassword(data);
+  };
+
+  const verify2FA = async (code, pendingToken) => {
+    const res = await authApi.verify2FALogin(code, pendingToken);
+    return finishOrAskNewPassword(res.data.data);
+  };
+
+  const setFirstPassword = async (newPassword, pendingToken) => {
+    const res = await client.post("/auth/first-password", { new_password: newPassword },
+                                  { headers: { Authorization: "Bearer " + pendingToken } });
+    const { access_token, refresh_token, user: userData } = res.data.data;
+    return completeLogin(access_token, refresh_token, userData);
+  };
+
   const logout = () => {
     sessionStorage.removeItem("access_token");
     sessionStorage.removeItem("refresh_token");
@@ -68,7 +97,7 @@ export function AuthProvider({ children }) {
   const hasRequestAccess = (requestType) => requestScopes.includes(requestType);
 
   return (
-    <AuthContext.Provider value={{ user, permissions, loading, login, logout, can, hasRequestAccess, requestScopesLoading }}>
+    <AuthContext.Provider value={{ user, permissions, loading, login, verify2FA, setFirstPassword, logout, can, hasRequestAccess, requestScopesLoading }}>
       {children}
     </AuthContext.Provider>
   );

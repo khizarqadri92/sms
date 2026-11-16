@@ -26,12 +26,28 @@ def get_settings(db, category):
     return {r["key"]: r["value"] for r in cur.fetchall()}
 
 
+def get_school(db, campus_id=None):
+    """
+    The school's identity as the superadmin configured it: school_name is saved under
+    its own category, the rest under school_info; campus overrides applied.
+    """
+    cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+    try:
+        from app.utils.school_info import get_school_settings
+        return get_school_settings(cur, campus_id)
+    except Exception:
+        db.rollback()
+        st = get_settings(db, "school_info")
+        st.update({k: v for k, v in get_settings(db, "school_name").items() if v})
+        return st
+
+
 def get_invoice_data(db, invoice_id):
     cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
     cur.execute("""
         SELECT fi.*, fi.invoice_no,
                s.first_name || ' ' || s.last_name AS student_name,
-               s.enrollment_no,
+               s.enrollment_no, s.campus_id AS student_campus_id,
                c.name  AS class_name,
                COALESCE(fs.name, 'Monthly Fee') AS structure_name,
                COALESCE(fi.late_fee_type, fs.late_fee_type, 'none') AS late_fee_type,
@@ -139,7 +155,7 @@ def make_copy(title, inv, school, fee_settings, col_w):
     reminder1 = due_date + timedelta(days=r1_days)
     lock_date = due_date + timedelta(days=lock_days)
 
-    school_name  = school.get("school_name",  "School Management System")
+    school_name  = school.get("school_name") or "School"
     school_city  = school.get("school_city",  "")
     school_phone = school.get("school_phone", "")
 
@@ -328,9 +344,9 @@ def generate_invoice_pdf(invoice_id):
     db           = get_db()
     inv          = get_invoice_data(db, invoice_id)
     fee_settings = get_settings(db, "fee_settings")
-    school       = get_settings(db, "school_info")
+    school       = get_school(db, inv.get("student_campus_id"))
 
-    school_name    = school.get("school_name",  "School Management System")
+    school_name    = school.get("school_name") or "School"
     school_city    = school.get("school_city",  "")
     school_phone   = school.get("school_phone", "")
     school_address = school.get("school_address", "")
@@ -384,8 +400,17 @@ def generate_invoice_pdf(invoice_id):
         rows = []
         styles_list = []
 
-        # ── School name centered header ───────────────────────
-        rows.append([pp("<b>%s</b>" % school_name, bold=True, size=9, color=WHITE, align=TA_CENTER), ""])
+        # ── School logo + name header ─────────────────────────
+        _logo = get_logo_image(school, size=8)
+        _name = pp("<b>%s</b>" % school_name, bold=True, size=9 if len(school_name) <= 34 else 7.5, color=WHITE, align=TA_CENTER)
+        if _logo:
+            _hdr = Table([[_logo, _name]], colWidths=[10*mm, col_w - 10*mm - 6])
+            _hdr.setStyle(TableStyle([("VALIGN", (0,0), (-1,-1), "MIDDLE"), ("LEFTPADDING", (0,0), (-1,-1), 0),
+                                      ("RIGHTPADDING", (0,0), (-1,-1), 0), ("TOPPADDING", (0,0), (-1,-1), 0),
+                                      ("BOTTOMPADDING", (0,0), (-1,-1), 0)]))
+            rows.append([_hdr, ""])
+        else:
+            rows.append([_name, ""])
         styles_list += [
             ("SPAN",          (0,0),(1,0)),
             ("BACKGROUND",    (0,0),(1,0), NAVY),
@@ -596,7 +621,7 @@ def generate_payment_receipt_pdf(payment_id):
                fi.invoice_no, fi.amount, fi.net_amount, fi.discount,
                fi.due_date, fi.issued_at,
                s.first_name || ' ' || s.last_name AS student_name,
-               s.enrollment_no,
+               s.enrollment_no, s.campus_id AS student_campus_id,
                c.name  AS class_name,
                fs.name AS structure_name,
                u.first_name || ' ' || u.last_name AS verified_by_name,
@@ -615,8 +640,8 @@ def generate_payment_receipt_pdf(payment_id):
         raise ValueError("Payment not found.")
     pay = dict(pay)
 
-    school = get_settings(db, "school_info")
-    school_name  = school.get("school_name",  "School Management System")
+    school = get_school(db, pay.get("student_campus_id"))
+    school_name  = school.get("school_name") or "School"
     school_city  = school.get("school_city",  "")
     school_phone = school.get("school_phone", "")
     school_logo  = school.get("school_logo",  "")

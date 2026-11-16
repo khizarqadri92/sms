@@ -11,6 +11,7 @@ const TABS = ["ID Formats", "School Info", "Fee Settings", "School Timing", "Att
 
 export default function Settings({ visibleTabs } = {}) {
   const { can } = useAuth();
+  const { isGlobalLocked: idFormatLocked } = useGovernanceMode("id_format");
   const { isGlobalLocked: attendanceConfigLocked } = useGovernanceMode("attendance_config");
   const { isGlobalLocked: schoolTimingLocked } = useGovernanceMode("school_timing");
   const [tab,   setTab]   = useState(visibleTabs ? visibleTabs[0] : "id_formats");
@@ -44,7 +45,7 @@ export default function Settings({ visibleTabs } = {}) {
         </div>
       )}
 
-      {tab === "id_formats" && (!visibleTabs||visibleTabs.includes("id_formats")) && <IdFormatsTab       onSaved={() => showToast("Settings saved successfully.")} canManage={can("settings.manage")} />}
+      {tab === "id_formats" && (!visibleTabs||visibleTabs.includes("id_formats")) && <IdFormatsTab       onSaved={() => showToast("Settings saved successfully.")} canManage={can("settings.manage") && !idFormatLocked} isGlobalLocked={idFormatLocked} />}
       {tab === "attendance_config" && (!visibleTabs||visibleTabs.includes("attendance_config")) && <AttendanceConfigTab onSaved={() => showToast("Settings saved successfully.")} canManage={can("settings.manage") && !attendanceConfigLocked} isGlobalLocked={attendanceConfigLocked} />}
       {tab === "school_info" && (!visibleTabs||visibleTabs.includes("school_info")) && <SchoolInfoTab  onSaved={() => showToast("School info saved.")} canManage={can("settings.manage")} />}
       {tab === "fee_settings" && (!visibleTabs||visibleTabs.includes("fee_settings")) && <FeeSettingsTab   onSaved={() => showToast("Fee settings saved.")} canManage={can("settings.manage")} />}
@@ -55,7 +56,7 @@ export default function Settings({ visibleTabs } = {}) {
   );
 }
 
-function IdFormatsTab({ onSaved, canManage }) {
+function IdFormatsTab({ onSaved, canManage, isGlobalLocked }) {
   const processingToday = useProcessingToday();
   const [settings, setSettings]   = useState({});
   const [loading,  setLoading]    = useState(true);
@@ -93,11 +94,8 @@ function IdFormatsTab({ onSaved, canManage }) {
   const fetchSettings = async () => {
     setLoading(true);
     try {
-      const res = await settingsApi.getAll();
-      const flat = {};
-      Object.values(res.data.data).forEach(group => {
-        group.forEach(item => { flat[item.key] = item.value; });
-      });
+      const res = await settingsApi.getByCategory("id_format");
+      const flat = res.data.data || {};
       setSettings(flat);
       if(flat.id_format_mode) setMode(flat.id_format_mode);
     } catch { setError("Failed to load settings."); }
@@ -120,7 +118,7 @@ function IdFormatsTab({ onSaved, canManage }) {
       Object.keys(settings).forEach(k => {
         if (!k.includes("counter")) idSettings[k] = settings[k];
       });
-      await settingsApi.update(idSettings);
+      await settingsApi.saveByCategory("id_format", idSettings);
       onSaved();
     } catch (err) { setError(err.response?.data?.message || "Failed to save."); }
     finally { setSaving(false); }
@@ -128,12 +126,12 @@ function IdFormatsTab({ onSaved, canManage }) {
 
   const FormatFields = ({ baseKey, label, roleKey }) => {
     const base = roleKey ? (roleKeyMap[roleKey]||null) : baseKey;
-    if(!base) return <div style={{color:"#94a3b8",padding:12,fontSize:12}}>No format key configured for this role.</div>;
+    if(!base) return <div style={{color:"var(--text-muted)",padding:12,fontSize:12}}>No format key configured for this role.</div>;
     const hasYear = roleKey==="student";
     return (
-      <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:8,padding:16,marginBottom:12}}>
+      <div style={{background:"var(--bg-card)",border:"1px solid var(--border-color)",borderRadius:8,padding:16,marginBottom:12}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
-          <div style={{fontWeight:700,fontSize:13,color:"#334155"}}>{label}</div>
+          <div style={{fontWeight:700,fontSize:13,color:"var(--text-primary)"}}>{label}</div>
           <div style={{display:"flex",gap:8,alignItems:"center"}}>
             {previews[base] && <span style={{fontFamily:"monospace",fontSize:12,fontWeight:700,color:"#2563eb",background:"#eff6ff",padding:"2px 8px",borderRadius:6}}>{previews[base]}</span>}
             {roleKey && <button className="btn btn-ghost btn-sm" style={{fontSize:11}} onClick={()=>handlePreview(roleKey)}>Preview</button>}
@@ -173,7 +171,7 @@ function IdFormatsTab({ onSaved, canManage }) {
           </div>
           <div className="form-group">
             <label className="form-label">Example Output</label>
-            <div style={{padding:"9px 13px",background:"#f8fafc",border:"1.5px solid #e2e8f0",borderRadius:8,fontFamily:"monospace",fontSize:13,fontWeight:700,color:"#2563eb"}}>
+            <div style={{padding:"9px 13px",background:"var(--bg-hover)",border:"1.5px solid var(--border-color)",borderRadius:8,fontFamily:"monospace",fontSize:13,fontWeight:700,color:"#2563eb"}}>
               {(() => {
                 const prefix = settings[base+"_prefix"]||"PRE";
                 const sep = settings[base+"_separator"]||"-";
@@ -195,21 +193,26 @@ function IdFormatsTab({ onSaved, canManage }) {
 
   return (
     <div>
+      {isGlobalLocked && (
+        <div className="alert" style={{ background:"var(--bg-warning-soft)", border:"1px solid var(--border-warning-soft)", color:"var(--text-warning-soft)", marginBottom:16 }}>
+          ID Formats are managed centrally by the superadmin. This page is read-only here.
+        </div>
+      )}
       {error && <div className="alert alert-error">{error}</div>}
 
       {/* Mode Toggle */}
-      <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",padding:"16px 20px",marginBottom:20}}>
-        <div style={{fontSize:13,fontWeight:700,color:"#334155",marginBottom:12}}>ID FORMAT CONFIGURATION MODE</div>
+      <div style={{background:"var(--bg-card)",borderRadius:10,border:"1px solid var(--border-color)",padding:"16px 20px",marginBottom:20}}>
+        <div style={{fontSize:13,fontWeight:700,color:"var(--text-primary)",marginBottom:12}}>ID FORMAT CONFIGURATION MODE</div>
         <div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
           {[
             ["per_department","🏢 Per Department","Different format for each department"],
             ["per_staff","👥 Per Staff","Same or designation-based format for all staff"],
           ].map(([val,lbl,desc])=>(
-            <label key={val} style={{display:"flex",gap:10,alignItems:"flex-start",cursor:"pointer",padding:"12px 16px",borderRadius:8,border:"2px solid "+(mode===val?"#2563eb":"#e2e8f0"),background:mode===val?"#eff6ff":"#f8fafc",flex:1,minWidth:200}}>
+            <label key={val} style={{display:"flex",gap:10,alignItems:"flex-start",cursor:"pointer",padding:"12px 16px",borderRadius:8,border:"2px solid "+(mode===val?"#2563eb":"var(--border-color)"),background:mode===val?"var(--bg-info-soft)":"var(--bg-hover)",flex:1,minWidth:200}}>
               <input type="radio" name="mode" value={val} checked={mode===val} onChange={()=>{setMode(val);handleChange("id_format_mode",val);}} style={{accentColor:"#2563eb",marginTop:2}}/>
               <div>
-                <div style={{fontSize:13,fontWeight:700,color:mode===val?"#2563eb":"#475569"}}>{lbl}</div>
-                <div style={{fontSize:11,color:"#94a3b8",marginTop:2}}>{desc}</div>
+                <div style={{fontSize:13,fontWeight:700,color:mode===val?"#2563eb":"var(--text-secondary)"}}>{lbl}</div>
+                <div style={{fontSize:11,color:"var(--text-muted)",marginTop:2}}>{desc}</div>
               </div>
             </label>
           ))}
@@ -219,20 +222,20 @@ function IdFormatsTab({ onSaved, canManage }) {
       {/* PER DEPARTMENT MODE */}
       {mode==="per_department" && (
         <div>
-          <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",padding:16,marginBottom:16}}>
-            <div style={{fontSize:12,fontWeight:700,color:"#334155",marginBottom:8}}>SELECT DEPARTMENT</div>
+          <div style={{background:"var(--bg-card)",borderRadius:10,border:"1px solid var(--border-color)",padding:16,marginBottom:16}}>
+            <div style={{fontSize:12,fontWeight:700,color:"var(--text-primary)",marginBottom:8}}>SELECT DEPARTMENT</div>
             <select className="form-control" style={{maxWidth:320}} value={selectedDept} onChange={e=>setSelectedDept(e.target.value)}>
               <option value="">Choose a department...</option>
               {departments.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
-            {selectedDept && deptRoles.length===0 && <div style={{fontSize:12,color:"#94a3b8",marginTop:8}}>No roles assigned to this department.</div>}
+            {selectedDept && deptRoles.length===0 && <div style={{fontSize:12,color:"var(--text-muted)",marginTop:8}}>No roles assigned to this department.</div>}
           </div>
           {selectedDept && deptRoles.map(r=>(
             <FormatFields key={r.id} roleKey={r.name} label={r.name.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase())}/>
           ))}
           {/* Student & Parent always shown separately */}
-          <div style={{borderTop:"1px solid #e2e8f0",paddingTop:16,marginTop:8}}>
-            <div style={{fontSize:12,fontWeight:700,color:"#94a3b8",marginBottom:12}}>STUDENT & PARENT (Always Separate)</div>
+          <div style={{borderTop:"1px solid var(--border-color)",paddingTop:16,marginTop:8}}>
+            <div style={{fontSize:12,fontWeight:700,color:"var(--text-muted)",marginBottom:12}}>STUDENT & PARENT (Always Separate)</div>
             <FormatFields roleKey="student" label="Student Registration Number"/>
             <FormatFields roleKey="parent" label="Parent ID"/>
           </div>
@@ -243,18 +246,18 @@ function IdFormatsTab({ onSaved, canManage }) {
       {mode==="per_staff" && (
         <div>
           {/* Staff sub-mode */}
-          <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",padding:16,marginBottom:16}}>
-            <div style={{fontSize:12,fontWeight:700,color:"#334155",marginBottom:10}}>STAFF FORMAT TYPE</div>
+          <div style={{background:"var(--bg-card)",borderRadius:10,border:"1px solid var(--border-color)",padding:16,marginBottom:16}}>
+            <div style={{fontSize:12,fontWeight:700,color:"var(--text-primary)",marginBottom:10}}>STAFF FORMAT TYPE</div>
             <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
               {[
                 ["same","Same Format for All Staff","One universal format applied to all staff"],
                 ["designation","By Designation Type","Separate format for Management vs Other Staff"],
               ].map(([val,lbl,desc])=>(
-                <label key={val} style={{display:"flex",gap:10,alignItems:"flex-start",cursor:"pointer",padding:"10px 14px",borderRadius:8,border:"2px solid "+(staffSubMode===val?"#2563eb":"#e2e8f0"),background:staffSubMode===val?"#eff6ff":"#f8fafc",flex:1,minWidth:200}}>
+                <label key={val} style={{display:"flex",gap:10,alignItems:"flex-start",cursor:"pointer",padding:"10px 14px",borderRadius:8,border:"2px solid "+(staffSubMode===val?"#2563eb":"var(--border-color)"),background:staffSubMode===val?"var(--bg-info-soft)":"var(--bg-hover)",flex:1,minWidth:200}}>
                   <input type="radio" name="staffSubMode" value={val} checked={staffSubMode===val} onChange={()=>setStaffSubMode(val)} style={{accentColor:"#2563eb",marginTop:2}}/>
                   <div>
-                    <div style={{fontSize:13,fontWeight:700,color:staffSubMode===val?"#2563eb":"#475569"}}>{lbl}</div>
-                    <div style={{fontSize:11,color:"#94a3b8",marginTop:2}}>{desc}</div>
+                    <div style={{fontSize:13,fontWeight:700,color:staffSubMode===val?"#2563eb":"var(--text-secondary)"}}>{lbl}</div>
+                    <div style={{fontSize:11,color:"var(--text-muted)",marginTop:2}}>{desc}</div>
                   </div>
                 </label>
               ))}
@@ -264,8 +267,8 @@ function IdFormatsTab({ onSaved, canManage }) {
           {staffSubMode==="same" && (
             <div>
               <FormatFields baseKey="all_staff" label="All Staff — Universal Format"/>
-              <div style={{borderTop:"1px solid #e2e8f0",paddingTop:16,marginTop:8}}>
-                <div style={{fontSize:12,fontWeight:700,color:"#94a3b8",marginBottom:12}}>STUDENT & PARENT (Always Separate)</div>
+              <div style={{borderTop:"1px solid var(--border-color)",paddingTop:16,marginTop:8}}>
+                <div style={{fontSize:12,fontWeight:700,color:"var(--text-muted)",marginBottom:12}}>STUDENT & PARENT (Always Separate)</div>
                 <FormatFields roleKey="student" label="Student Registration Number"/>
                 <FormatFields roleKey="parent" label="Parent ID"/>
               </div>
@@ -274,13 +277,13 @@ function IdFormatsTab({ onSaved, canManage }) {
 
           {staffSubMode==="designation" && (
             <div>
-              <div style={{fontSize:12,color:"#64748b",marginBottom:12,padding:"8px 12px",background:"#fefce8",border:"1px solid #fef08a",borderRadius:8}}>
+              <div style={{fontSize:12,color:"var(--text-secondary)",marginBottom:12,padding:"8px 12px",background:"var(--bg-warning-soft)",border:"1px solid var(--border-warning-soft)",borderRadius:8}}>
                 💡 Management includes: Principal, Academic Coordinator, Admin, HR Manager. All others fall under Other Staff.
               </div>
               <FormatFields baseKey="management" label="Management Staff (Principal, Coordinator, Admin, HR)"/>
               <FormatFields baseKey="other_staff" label="Other Staff (Teacher, Finance, Librarian, Procurement)"/>
-              <div style={{borderTop:"1px solid #e2e8f0",paddingTop:16,marginTop:8}}>
-                <div style={{fontSize:12,fontWeight:700,color:"#94a3b8",marginBottom:12}}>STUDENT & PARENT (Always Separate)</div>
+              <div style={{borderTop:"1px solid var(--border-color)",paddingTop:16,marginTop:8}}>
+                <div style={{fontSize:12,fontWeight:700,color:"var(--text-muted)",marginBottom:12}}>STUDENT & PARENT (Always Separate)</div>
                 <FormatFields roleKey="student" label="Student Registration Number"/>
                 <FormatFields roleKey="parent" label="Parent ID"/>
               </div>
@@ -356,9 +359,9 @@ function SchoolInfoTab({ onSaved, canManage }) {
         <div className="section-card-header">
           <span className="section-card-title">School Name</span>
         </div>
-        <div style={{ fontSize:11, color:"#94a3b8", marginBottom:10 }}>Shared across all campuses.</div>
+        <div style={{ fontSize:11, color:"var(--text-muted)", marginBottom:10 }}>Shared across all campuses.</div>
         {schoolNameLocked && (
-          <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:12 }}>
+          <div className="alert" style={{ background:"var(--bg-warning-soft)", border:"1px solid var(--border-warning-soft)", color:"var(--text-warning-soft)", marginBottom:12 }}>
             School Name is managed centrally by the superadmin. This field is read-only here.
           </div>
         )}
@@ -380,7 +383,7 @@ function SchoolInfoTab({ onSaved, canManage }) {
         <div className="section-card-header">
           <span className="section-card-title">School Information</span>
         </div>
-        <div style={{ fontSize:11, color:"#94a3b8", marginBottom:10 }}>Specific to this campus.</div>
+        <div style={{ fontSize:11, color:"var(--text-muted)", marginBottom:10 }}>Specific to this campus.</div>
         <div className="form-grid">
           <div className="form-group">
             <label className="form-label">City</label>
@@ -414,10 +417,10 @@ function SchoolInfoTab({ onSaved, canManage }) {
             <label className="form-label">School Logo</label>
             <div style={{ display:"flex", alignItems:"center", gap:16 }}>
               {form.school_logo && (
-                <img src={form.school_logo} alt="School Logo" style={{ width:64, height:64, objectFit:"contain", border:"1px solid #e2e8f0", borderRadius:8, padding:4 }} />
+                <img src={form.school_logo} alt="School Logo" style={{ width:64, height:64, objectFit:"contain", border:"1px solid var(--border-color)", borderRadius:8, padding:4 }} />
               )}
               {!form.school_logo && (
-                <div style={{ width:64, height:64, border:"2px dashed #e2e8f0", borderRadius:8, display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, color:"#94a3b8" }}>
+                <div style={{ width:64, height:64, border:"2px dashed var(--border-color)", borderRadius:8, display:"flex", alignItems:"center", justifyContent:"center", fontSize:11, color:"var(--text-muted)" }}>
                   No logo
                 </div>
               )}
@@ -444,7 +447,7 @@ function SchoolInfoTab({ onSaved, canManage }) {
                     Remove
                   </button>
                 )}
-                <div style={{ fontSize:11, color:"#94a3b8", marginTop:6 }}>PNG, JPG or SVG. Max 200KB. Will appear on invoice PDF.</div>
+                <div style={{ fontSize:11, color:"var(--text-muted)", marginTop:6 }}>PNG, JPG or SVG. Max 200KB. Will appear on invoice PDF.</div>
               </div>
             </div>
           </div>
@@ -536,7 +539,7 @@ function FeeSettingsTab({ onSaved, canManage }) {
                 onChange={e => setForm({...form, fee_due_day:e.target.value})}
                 style={{ width:100 }}
               />
-              <span style={{ fontSize:13, color:"#64748b" }}>
+              <span style={{ fontSize:13, color:"var(--text-secondary)" }}>
                 Every month fee is due on the <strong>{form.fee_due_day}{form.fee_due_day === "1" ? "st" : form.fee_due_day === "2" ? "nd" : form.fee_due_day === "3" ? "rd" : "th"}</strong>
               </span>
             </div>
@@ -552,7 +555,7 @@ function FeeSettingsTab({ onSaved, canManage }) {
                 onChange={e => setForm({...form, fee_grace_days:e.target.value})}
                 style={{ width:100 }}
               />
-              <span style={{ fontSize:13, color:"#64748b" }}>days after due before late fee applies</span>
+              <span style={{ fontSize:13, color:"var(--text-secondary)" }}>days after due before late fee applies</span>
             </div>
           </div>
         </div>
@@ -608,8 +611,8 @@ function FeeSettingsTab({ onSaved, canManage }) {
           </div>
         </div>
 
-        <div style={{ background:"#f8fafc", border:"1px solid #e2e8f0", borderRadius:10, padding:"16px 20px", marginTop:8 }}>
-          <div style={{ fontSize:12, fontWeight:700, color:"#0f172a", marginBottom:12 }}>Timeline Preview (this month)</div>
+        <div style={{ background:"var(--bg-hover)", border:"1px solid var(--border-color)", borderRadius:10, padding:"16px 20px", marginTop:8 }}>
+          <div style={{ fontSize:12, fontWeight:700, color:"var(--text-heading)", marginBottom:12 }}>Timeline Preview (this month)</div>
           <div style={{ display:"flex", alignItems:"center", gap:0, overflowX:"auto" }}>
             {[
               { label:"Due Date",   date:fmt(exampleDueDate),   color:"#16a34a", bg:"#f0fdf4" },
@@ -623,10 +626,10 @@ function FeeSettingsTab({ onSaved, canManage }) {
                     {item.date.split(" ")[1]}
                   </div>
                   <div style={{ fontSize:10, fontWeight:700, color:item.color }}>{item.label}</div>
-                  <div style={{ fontSize:10, color:"#94a3b8" }}>{item.date}</div>
+                  <div style={{ fontSize:10, color:"var(--text-muted)" }}>{item.date}</div>
                 </div>
                 {i < arr.length - 1 && (
-                  <div style={{ height:2, width:30, background:"#e2e8f0", flexShrink:0 }} />
+                  <div style={{ height:2, width:30, background:"var(--border-color)", flexShrink:0 }} />
                 )}
               </div>
             ))}
@@ -634,9 +637,9 @@ function FeeSettingsTab({ onSaved, canManage }) {
         </div>
       </div>
 
-      {runMsg && <div style={{ background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:8, padding:"10px 14px", marginBottom:12, fontSize:13, color:"#16a34a" }}>{runMsg}</div>}
+      {runMsg && <div style={{ background:"var(--bg-success-soft)", border:"1px solid var(--border-success-soft)", borderRadius:8, padding:"10px 14px", marginBottom:12, fontSize:13, color:"#16a34a" }}>{runMsg}</div>}
 
-      <div style={{ background:"#eff6ff", border:"1px solid #bfdbfe", borderRadius:8, padding:"12px 14px", marginBottom:16 }}>
+      <div style={{ background:"var(--bg-info-soft)", border:"1px solid var(--border-info-soft)", borderRadius:8, padding:"12px 14px", marginBottom:16 }}>
         <div style={{ fontSize:13, fontWeight:600, color:"#1d4ed8", marginBottom:8 }}>Automatic Schedule</div>
         <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:6 }}>
           <input
@@ -650,7 +653,7 @@ function FeeSettingsTab({ onSaved, canManage }) {
           <span style={{ fontSize:12, color:"#3b82f6" }}>Fee reminders, late fees, and account locks run automatically every day at this time.</span>
         </div>
         {form.fee_reminder_last_run && (
-          <div style={{ fontSize:11, color:"#94a3b8" }}>Last ran: {form.fee_reminder_last_run}</div>
+          <div style={{ fontSize:11, color:"var(--text-muted)" }}>Last ran: {form.fee_reminder_last_run}</div>
         )}
       </div>
 
@@ -732,7 +735,7 @@ function SchoolTimingTab({ onSaved, canManage, isGlobalLocked }) {
         <span className="section-card-title">School Timing & Schedule</span>
       </div>
       {isGlobalLocked && (
-        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+        <div className="alert" style={{ background:"var(--bg-warning-soft)", border:"1px solid var(--border-warning-soft)", color:"var(--text-warning-soft)", marginBottom:16 }}>
           School Timing is managed centrally by the superadmin. This section is read-only here.
         </div>
       )}
@@ -740,13 +743,13 @@ function SchoolTimingTab({ onSaved, canManage, isGlobalLocked }) {
       {error && <div className="alert alert-error">{error}</div>}
 
       <div style={{ marginBottom:24 }}>
-        <div style={{ fontSize:13, fontWeight:600, color:"#0f172a", marginBottom:12 }}>Working Days</div>
+        <div style={{ fontSize:13, fontWeight:600, color:"var(--text-heading)", marginBottom:12 }}>Working Days</div>
         <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
           {DAYS.map(d => (
             <label key={d.value} style={{
               display:"flex", alignItems:"center", gap:8, cursor:"pointer",
               padding:"8px 16px", borderRadius:8, border:"1px solid",
-              borderColor: form.working_days.includes(d.value) ? "#2563eb" : "#e2e8f0",
+              borderColor: form.working_days.includes(d.value) ? "#2563eb" : "var(--border-color)",
               background: form.working_days.includes(d.value) ? "#eff6ff" : "var(--color-background-primary)",
               fontSize:13, fontWeight: form.working_days.includes(d.value) ? 600 : 400,
               color: form.working_days.includes(d.value) ? "#1d4ed8" : "var(--color-text-primary)",
@@ -763,7 +766,7 @@ function SchoolTimingTab({ onSaved, canManage, isGlobalLocked }) {
         </div>
       </div>
 
-      <div style={{ fontSize:13, fontWeight:600, color:"#0f172a", marginBottom:12 }}>Daily Schedule</div>
+      <div style={{ fontSize:13, fontWeight:600, color:"var(--text-heading)", marginBottom:12 }}>Daily Schedule</div>
       <div className="form-grid">
         <div className="form-group">
           <label className="form-label">School Start Time</label>
@@ -792,7 +795,7 @@ function SchoolTimingTab({ onSaved, canManage, isGlobalLocked }) {
         </div>
       </div>
 
-      <div style={{ background:"#f8fafc", borderRadius:8, padding:"12px 16px", marginBottom:16, fontSize:12, color:"#64748b" }}>
+      <div style={{ background:"var(--bg-hover)", borderRadius:8, padding:"12px 16px", marginBottom:16, fontSize:12, color:"var(--text-secondary)" }}>
         <strong>Schedule preview:</strong> School runs {form.school_start_time}–{form.school_end_time} with {form.period_duration}-min periods.
         Break at {form.break_start_time} for {form.break_duration} mins.
         Working {form.working_days.length} days/week ({form.working_days.map(d => ["","Mon","Tue","Wed","Thu","Fri","Sat","Sun"][parseInt(d)]).join(", ")}).
@@ -888,7 +891,7 @@ function TimingOverridesSection({ canManage }) {
   return (
     <div style={{ marginTop: 24 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: "#0f172a" }}>Day-Specific Timing Overrides</div>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-heading)" }}>Day-Specific Timing Overrides</div>
         {canManage && (
           <button className="btn btn-secondary" onClick={() => { setForm(EMPTY_FORM); setShowForm(!showForm); setError(""); }}>
             {showForm ? "Cancel" : "+ Add Override"}
@@ -1038,7 +1041,7 @@ function AttendanceConfigTab({ onSaved, canManage, isGlobalLocked }) {
         <span className="section-card-title">Attendance Configuration</span>
       </div>
       {isGlobalLocked && (
-        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+        <div className="alert" style={{ background:"var(--bg-warning-soft)", border:"1px solid var(--border-warning-soft)", color:"var(--text-warning-soft)", marginBottom:16 }}>
           Attendance Configuration is managed centrally by the superadmin. This section is read-only here.
         </div>
       )}
@@ -1046,18 +1049,18 @@ function AttendanceConfigTab({ onSaved, canManage, isGlobalLocked }) {
         <div className="form-group">
           <label className="form-label">Who can mark attendance?</label>
           <div style={{ display:"flex", flexDirection:"column", gap:10, marginTop:8 }}>
-            <label style={{ display:"flex", alignItems:"flex-start", gap:12, padding:"12px 14px", border:"1px solid "+(marker==="incharge_only"?"#2563eb":"#e2e8f0"), borderRadius:8, cursor:"pointer", background:marker==="incharge_only"?"#eff6ff":"#fff" }}>
+            <label style={{ display:"flex", alignItems:"flex-start", gap:12, padding:"12px 14px", border:"1px solid "+(marker==="incharge_only"?"#2563eb":"var(--border-color)"), borderRadius:8, cursor:"pointer", background:marker==="incharge_only"?"var(--bg-info-soft)":"var(--bg-card)" }}>
               <input type="radio" name="marker" value="incharge_only" checked={marker==="incharge_only"} onChange={e=>setMarker(e.target.value)} style={{ marginTop:2 }} />
               <div>
-                <div style={{ fontWeight:600, fontSize:13, color:marker==="incharge_only"?"#1d4ed8":"#1e3a5f" }}>Class Incharge Only</div>
-                <div style={{ fontSize:12, color:"#64748b", marginTop:2 }}>Only the class incharge teacher can mark daily attendance for their class. Subject teachers cannot mark attendance.</div>
+                <div style={{ fontWeight:600, fontSize:13, color:marker==="incharge_only"?"#1d4ed8":"var(--text-heading)" }}>Class Incharge Only</div>
+                <div style={{ fontSize:12, color:"var(--text-secondary)", marginTop:2 }}>Only the class incharge teacher can mark daily attendance for their class. Subject teachers cannot mark attendance.</div>
               </div>
             </label>
-            <label style={{ display:"flex", alignItems:"flex-start", gap:12, padding:"12px 14px", border:"1px solid "+(marker==="all_teachers"?"#2563eb":"#e2e8f0"), borderRadius:8, cursor:"pointer", background:marker==="all_teachers"?"#eff6ff":"#fff" }}>
+            <label style={{ display:"flex", alignItems:"flex-start", gap:12, padding:"12px 14px", border:"1px solid "+(marker==="all_teachers"?"#2563eb":"var(--border-color)"), borderRadius:8, cursor:"pointer", background:marker==="all_teachers"?"var(--bg-info-soft)":"var(--bg-card)" }}>
               <input type="radio" name="marker" value="all_teachers" checked={marker==="all_teachers"} onChange={e=>setMarker(e.target.value)} style={{ marginTop:2 }} />
               <div>
-                <div style={{ fontWeight:600, fontSize:13, color:marker==="all_teachers"?"#1d4ed8":"#1e3a5f" }}>All Subject Teachers</div>
-                <div style={{ fontSize:12, color:"#64748b", marginTop:2 }}>All teachers assigned to a class can mark attendance for their subject periods.</div>
+                <div style={{ fontWeight:600, fontSize:13, color:marker==="all_teachers"?"#1d4ed8":"var(--text-heading)" }}>All Subject Teachers</div>
+                <div style={{ fontSize:12, color:"var(--text-secondary)", marginTop:2 }}>All teachers assigned to a class can mark attendance for their subject periods.</div>
               </div>
             </label>
           </div>
@@ -1186,12 +1189,12 @@ function AccountSettingsTab({ onSaved, canManage }) {
           {advanceMsg && <div style={{ fontSize:13, marginBottom:10, color:advanceMsg.includes("Failed")?"#dc2626":"#166534" }}>{advanceMsg}</div>}
           <div style={{ display:"flex", alignItems:"center", gap:16, flexWrap:"wrap" }}>
             <div>
-              <div style={{ fontSize:12, color:"#64748b" }}>Current Processing Date</div>
+              <div style={{ fontSize:12, color:"var(--text-secondary)" }}>Current Processing Date</div>
               <div style={{ fontSize:20, fontWeight:700 }}>{processingDate?.current_processing_date || "-"}</div>
             </div>
             {processingDate?.previous_processing_date && (
               <div>
-                <div style={{ fontSize:12, color:"#64748b" }}>Previous</div>
+                <div style={{ fontSize:12, color:"var(--text-secondary)" }}>Previous</div>
                 <div style={{ fontSize:14 }}>{processingDate.previous_processing_date}</div>
               </div>
             )}
@@ -1201,7 +1204,7 @@ function AccountSettingsTab({ onSaved, canManage }) {
               </button>
             )}
           </div>
-          <div style={{ fontSize:11, color:"#94a3b8", marginTop:8 }}>
+          <div style={{ fontSize:11, color:"var(--text-muted)", marginTop:8 }}>
             This date drives all system-wide calculations (fee generation, overdue checks, notice periods, etc.) instead of the server clock.
             It advances automatically every midnight; use this button only for manual/testing overrides.
           </div>
@@ -1218,7 +1221,7 @@ function AccountSettingsTab({ onSaved, canManage }) {
             <div style={{ fontFamily:"monospace", fontSize:28, fontWeight:700, letterSpacing:1 }}>
               {liveTime ? liveTime.toLocaleTimeString("en-US", { timeZone: schoolTimezone }) : "--:--:--"}
             </div>
-            <div style={{ fontSize:11, color:"#94a3b8" }}>({schoolTimezone})</div>
+            <div style={{ fontSize:11, color:"var(--text-muted)" }}>({schoolTimezone})</div>
             <span style={{ fontSize:11, fontWeight:700, padding:"3px 10px", borderRadius:12,
               background: timeMode === "auto" ? "#eff6ff" : "#fff7ed", color: timeMode === "auto" ? "#1d4ed8" : "#c2410c" }}>
               {timeMode === "auto" ? "Automatic" : "Manual"}
@@ -1238,7 +1241,7 @@ function AccountSettingsTab({ onSaved, canManage }) {
               </button>
             </div>
           )}
-          <div style={{ fontSize:11, color:"#94a3b8", marginTop:8 }}>
+          <div style={{ fontSize:11, color:"var(--text-muted)", marginTop:8 }}>
             When set manually, the clock keeps ticking forward from the time you set, rather than following the real server clock.
           </div>
         </div>
@@ -1252,17 +1255,17 @@ function AccountSettingsTab({ onSaved, canManage }) {
           <div className="form-group">
             <label className="form-label">Idle Timeout (minutes)</label>
             <input className="form-control" type="number" min="1" value={form.idle_timeout_minutes} onChange={e => setForm({...form, idle_timeout_minutes:e.target.value})} disabled={!canManage} />
-            <div style={{ fontSize:11, color:"#94a3b8", marginTop:4 }}>How long a user can be inactive before the screen locks and asks for their password again.</div>
+            <div style={{ fontSize:11, color:"var(--text-muted)", marginTop:4 }}>How long a user can be inactive before the screen locks and asks for their password again.</div>
           </div>
           <div className="form-group">
             <label className="form-label">Max Failed Login Attempts</label>
             <input className="form-control" type="number" min="1" value={form.max_failed_attempts} onChange={e => setForm({...form, max_failed_attempts:e.target.value})} disabled={!canManage} />
-            <div style={{ fontSize:11, color:"#94a3b8", marginTop:4 }}>Number of incorrect password attempts (login or screen unlock) before the account is temporarily locked.</div>
+            <div style={{ fontSize:11, color:"var(--text-muted)", marginTop:4 }}>Number of incorrect password attempts (login or screen unlock) before the account is temporarily locked.</div>
           </div>
           <div className="form-group">
             <label className="form-label">Lockout Duration (minutes)</label>
             <input className="form-control" type="number" min="1" value={form.lockout_duration_minutes} onChange={e => setForm({...form, lockout_duration_minutes:e.target.value})} disabled={!canManage} />
-            <div style={{ fontSize:11, color:"#94a3b8", marginTop:4 }}>How long the account stays locked after too many failed attempts.</div>
+            <div style={{ fontSize:11, color:"var(--text-muted)", marginTop:4 }}>How long the account stays locked after too many failed attempts.</div>
           </div>
         </div>
         {canManage && (
@@ -1438,8 +1441,8 @@ function RegionalFormatTab({ onSaved, canManage }) {
           </div>
           <div className="form-group">
             <label className="form-label">Currency Symbol</label>
-            <input className="form-control" value={form.currency_symbol} disabled style={{background:"#f1f5f9",color:"#64748b"}} />
-            <div style={{ fontSize:11, color:"#94a3b8", marginTop:4 }}>Auto-set from the Currency Code above.</div>
+            <input className="form-control" value={form.currency_symbol} disabled style={{background:"var(--bg-disabled)",color:"var(--text-secondary)"}} />
+            <div style={{ fontSize:11, color:"var(--text-muted)", marginTop:4 }}>Auto-set from the Currency Code above.</div>
           </div>
           <div className="form-group">
             <label className="form-label">Symbol Position</label>
@@ -1460,8 +1463,8 @@ function RegionalFormatTab({ onSaved, canManage }) {
           </div>
           <div className="form-group">
             <label className="form-label">Region (number formatting)</label>
-            <input className="form-control" value={form.region} disabled style={{background:"#f1f5f9",color:"#64748b"}} />
-            <div style={{ fontSize:11, color:"#94a3b8", marginTop:4 }}>Auto-set from the Country above.</div>
+            <input className="form-control" value={form.region} disabled style={{background:"var(--bg-disabled)",color:"var(--text-secondary)"}} />
+            <div style={{ fontSize:11, color:"var(--text-muted)", marginTop:4 }}>Auto-set from the Country above.</div>
           </div>
           <div className="form-group">
             <label className="form-label">Default Phone Country Code</label>

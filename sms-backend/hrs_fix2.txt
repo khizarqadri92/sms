@@ -1,0 +1,96 @@
+<button className="btn btn-primary btn-sm hrs-add-btn"
+                  onClick={async()=>{
+                    if(!setupDept||!setupRole){showFlash("error","Select both.");return;}
+                    try{ await hrApi.addDeptRole(setupDept,setupRole); setSetupDept(""); setSetupRole(""); loadAll(); showFlash("success","Mapping added."); }
+                    catch(e){showFlash("error",e.response?.data?.detail?.message||"Already exists.");}
+                  }}>Add</button>
+              </div>
+              </>
+            )}
+            <div className="hrs-list-scroll-flex">
+              {setupDeptRoles.map(dr=>(
+                <div key={dr.id} className="hrs-list-item-row">
+                  <div className="hrs-list-item-text"><strong>{dr.department_name}</strong> → {roleLabel(dr.role_name)}</div>
+                  {canManage&&<button className="btn btn-ghost btn-sm hrs-remove-btn"
+                    onClick={async()=>{await hrApi.removeDeptRole(dr.id);loadAll();}}>Remove</button>}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* Designations */}
+        {card("Designations",
+          <>
+            {designationsLocked&&(
+              <div className="hrs-locked-alert">
+                Designations are managed centrally by the superadmin.
+              </div>
+            )}
+            {canManageDesignations&&(
+              <>
+              <div className="hrs-add-row-flex">
+                <input className="form-input hrs-desig-input" placeholder="Designation name *"
+                  value={desigForm.name} onChange={e=>setDesigForm(p=>({...p,name:e.target.value}))}/>
+                <select className="form-input hrs-desig-dept-select" value={desigForm.department_id}
+                  onChange={e=>setDesigForm(p=>({...p,department_id:e.target.value}))}>
+                  <option value="">Dept (opt.)</option>
+                  {departments.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
+                </select>
+                <button className="btn btn-primary btn-sm hrs-add-btn"
+                  onClick={async()=>{
+                    setDesigMsg(null);
+                    if(!desigForm.name.trim()){setDesigMsg({type:"error",text:"Name required."});return;}
+                    try{
+                      await hrApi.createDesignation({name:desigForm.name,department_id:desigForm.department_id||null});
+                      setDesigForm({name:"",department_id:""});
+                      loadAll();
+                      setDesigMsg({type:"success",text:"Designation added."});
+                    } catch(e){
+                      setDesigMsg({type:"error",text: e.response?.data?.message || e.response?.data?.detail?.message || "Failed to add designation."});
+                    }
+                    setTimeout(()=>setDesigMsg(null), 5000);
+                  }}>Add</button>
+              </div>
+              {desigMsg && (
+                <div className="hrs-msg-box" style={{
+                  "--msg-bg": desigMsg.type==="success"?"#dcfce7":"#fee2e2",
+                  "--msg-color": desigMsg.type==="success"?"#166534":"#dc2626"}}>
+                  {desigMsg.type==="success"?"\u2713 ":"\u26a0 "}{desigMsg.text}
+                </div>
+              )}
+              </>
+            )}
+            <div className="hrs-list-scroll">
+              {designations.map(d=>(
+                <div key={d.id} className="hrs-list-item-row">
+                  <div>
+                    <div className="hrs-list-item-name">{d.name}</div>
+                    {d.department_name&&<div className="hrs-list-item-subtext">{d.department_name}</div>}
+                  </div>
+                  {canManageDesignations&&<button className="btn btn-ghost btn-sm hrs-remove-btn"
+                    onClick={async()=>{await hrApi.deleteDesignation(d.id);loadAll();}}>Remove</button>}
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* All System Roles (read-only) */}
+        {card("System Roles",
+          <div className="hrs-list-scroll">
+            {allRoles.map(r=>(
+              <div key={r.id} className="hrs-role-item">
+                {roleLabel(r.name)}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {flash&&<div className="hrs-flash-toast" style={{
+        "--flash-bg": flash.type==="success"?"#dcfce7":"#fee2e2",
+        "--flash-color": flash.type==="success"?"#166534":"#dc2626"}}>{flash.msg}</div>}
+    </div>
+  );
+}

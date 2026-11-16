@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
 import resignationApi from "../api/resignationApi";
+import workflowApi from "../api/workflowApi";
 import DatePicker from "../components/DatePicker";
 import hrApi from "../api/hrApi";
 import { useAuth } from "../auth/AuthContext";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
+import "./Resignations.css";
 
 const STATUS_LABELS = {
   submitted: "Submitted", manager_approved: "Manager Approved", accepted: "Accepted",
@@ -19,16 +21,17 @@ const STATUS_COLORS = {
   settled: { bg: "#fefce8", color: "#854d0e" },
   completed: { bg: "#ecfdf5", color: "#047857" },
   rejected: { bg: "#fff1f2", color: "#881337" },
-  withdrawn: { bg: "#f8fafc", color: "#64748b" },
+  withdrawn: { bg: "var(--bg-hover)", color: "var(--text-secondary)" },
 };
 
 
 export default function Resignations() {
-  const { can } = useAuth();
+  const { user, roles: userRoles = [], can } = useAuth();
   const { formatDate, formatCurrency, formatDateTime, loading: settingsLoading } = useRegionalSettings();
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [viewing, setViewing] = useState(null);
+  const [wfStep, setWfStep] = useState(null);
   const [departments, setDepartments] = useState([]);
   const [deptLabels, setDeptLabels] = useState({});
 
@@ -82,6 +85,22 @@ export default function Resignations() {
         : { pending_salary: false, leave_encashment: false, pf_balance: false, adjustments: [] });
       setNote("");
     }).catch(() => showFlash("error", "Failed to load."));
+    // The Approve/Reject buttons must only appear for whoever the CURRENT
+    // workflow step is actually assigned to - showing them to everyone who
+    // can view this page (including the employee who submitted the
+    // resignation themselves, if they also happen to have hr.view access)
+    // is misleading even though the backend already rejects the action.
+    setWfStep(null);
+    workflowApi.getInstance("hr", "resignation", id).then(wr => {
+      const steps = wr.data.data?.steps || [];
+      const pendingSteps = steps.filter(s => s.status === "pending").sort((a, b) => a.step_order - b.step_order);
+      const currentStep = pendingSteps[0];
+      const isAssignedToMe = currentStep && (
+        currentStep.assigned_to_id === user?.id ||
+        (currentStep.assigned_role && userRoles.some(r => r === currentStep.assigned_role || r?.name === currentStep.assigned_role))
+      );
+      setWfStep(isAssignedToMe ? currentStep : null);
+    }).catch(() => setWfStep(null));
   };
 
   const refreshDetail = () => { if (viewing) openDetail(viewing.id); load(); };
@@ -246,52 +265,50 @@ export default function Resignations() {
   const allCleared = viewing?.clearance_items?.length > 0 && viewing.clearance_items.every(i => i.is_cleared);
 
   return (
-    <div style={{padding:24,background:"#f1f5f9",minHeight:"100vh"}}>
-      <div style={{marginBottom:20}}>
-        <div style={{fontSize:22,fontWeight:800,color:"#0f172a",marginBottom:4}}>Employee Resignations</div>
-        <div style={{fontSize:13,color:"#64748b"}}>Manage resignation requests through approval, clearance, and settlement</div>
+    <div className="res-page">
+      <div className="res-header">
+        <div className="res-title">Employee Resignations</div>
+        <div className="res-subtitle">Manage resignation requests through approval, clearance, and settlement</div>
       </div>
 
       {flash && (
-        <div style={{padding:"10px 14px",borderRadius:8,marginBottom:16,fontSize:13,
-          background:flash.type==="success"?"#f0fdf4":"#fef2f2",color:flash.type==="success"?"#166534":"#991b1b"}}>
+        <div className="res-flash" style={{ "--flash-bg": flash.type==="success"?"var(--bg-success-soft)":"var(--bg-danger-soft)", "--flash-color": flash.type==="success"?"var(--text-success-soft)":"var(--text-danger-soft)" }}>
           {flash.text}
         </div>
       )}
 
-      {(loading || settingsLoading) && <div style={{background:"#fff",borderRadius:12,padding:60,textAlign:"center",color:"#94a3b8",border:"1px solid #e2e8f0"}}>Loading...</div>}
+      {(loading || settingsLoading) && <div className="res-loading">Loading...</div>}
 
       {!loading && !settingsLoading && (
-        <div style={{background:"#fff",borderRadius:12,border:"1px solid #e2e8f0",overflow:"hidden"}}>
-          <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+        <div className="res-table-container">
+          <table className="res-table">
             <thead>
-              <tr style={{background:"#f8fafc"}}>
+              <tr className="res-th-row">
                 {["Employee", "Code", "Department", "Submitted", "Last Working Day", "Status", ""].map(h=>(
-                  <th key={h} style={{padding:"10px 14px",fontSize:11,fontWeight:700,color:"#94a3b8",textTransform:"uppercase",textAlign:"left",borderBottom:"1px solid #e2e8f0"}}>{h}</th>
+                  <th key={h} className="res-th">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {list.map(r=>(
-                <tr key={r.id} style={{borderBottom:"1px solid #f8fafc"}}>
-                  <td style={{padding:"10px 14px",fontWeight:600}}>{r.first_name} {r.last_name}</td>
-                  <td style={{padding:"10px 14px",color:"#64748b"}}>{r.employee_code||"-"}</td>
-                  <td style={{padding:"10px 14px"}}>{r.department_name||"-"}</td>
-                  <td style={{padding:"10px 14px"}}>{formatDate(r.resignation_date)}</td>
-                  <td style={{padding:"10px 14px"}}>{formatDate(r.final_last_working_day||r.system_calculated_last_working_day)||"-"}</td>
-                  <td style={{padding:"10px 14px"}}>
-                    <span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:10,
-                      background:(STATUS_COLORS[r.status]||{}).bg,color:(STATUS_COLORS[r.status]||{}).color}}>
+                <tr key={r.id} className="res-tr">
+                  <td className="res-td-bold">{r.first_name} {r.last_name}</td>
+                  <td className="res-td-secondary">{r.employee_code||"-"}</td>
+                  <td className="res-td">{r.department_name||"-"}</td>
+                  <td className="res-td">{formatDate(r.resignation_date)}</td>
+                  <td className="res-td">{formatDate(r.final_last_working_day||r.system_calculated_last_working_day)||"-"}</td>
+                  <td className="res-td">
+                    <span className="res-status-badge" style={{ "--badge-bg": (STATUS_COLORS[r.status]||{}).bg, "--badge-color": (STATUS_COLORS[r.status]||{}).color }}>
                       {STATUS_LABELS[r.status]||r.status}
                     </span>
                   </td>
-                  <td style={{padding:"10px 14px"}}>
-                    <button className="btn btn-ghost btn-sm" style={{fontSize:11}} onClick={()=>openDetail(r.id)}>View</button>
+                  <td className="res-td">
+                    <button className="btn btn-ghost btn-sm res-view-btn" onClick={()=>openDetail(r.id)}>View</button>
                   </td>
                 </tr>
               ))}
               {list.length===0 && (
-                <tr><td colSpan={7} style={{padding:30,textAlign:"center",color:"#94a3b8"}}>No resignation requests.</td></tr>
+                <tr><td colSpan={7} className="res-empty-row">No resignation requests.</td></tr>
               )}
             </tbody>
           </table>
@@ -299,90 +316,89 @@ export default function Resignations() {
       )}
 
       {viewing && (
-        <div style={{position:"fixed",inset:0,zIndex:9000,background:"rgba(15,23,42,0.6)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}
+        <div className="res-modal-overlay"
           onClick={()=>setViewing(null)}>
-          <div style={{background:"#fff",borderRadius:12,width:"100%",maxWidth:640,maxHeight:"90vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
-            <div style={{padding:"14px 20px",borderBottom:"1px solid #e2e8f0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+          <div className="res-modal-box" onClick={e=>e.stopPropagation()}>
+            <div className="res-modal-header">
               <div>
-                <div style={{fontWeight:700,fontSize:16}}>{viewing.first_name} {viewing.last_name}</div>
-                <div style={{fontSize:12,color:"#64748b"}}>{viewing.department_name} &middot; {viewing.designation_name}</div>
+                <div className="res-modal-name">{viewing.first_name} {viewing.last_name}</div>
+                <div className="res-modal-meta">{viewing.department_name} &middot; {viewing.designation_name}</div>
               </div>
               <button className="btn btn-ghost btn-sm" onClick={()=>setViewing(null)}>Close</button>
             </div>
-            <div style={{padding:20}}>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:16}}>
-                <span style={{fontSize:12,fontWeight:700,padding:"4px 12px",borderRadius:12,
-                  background:(STATUS_COLORS[viewing.status]||{}).bg,color:(STATUS_COLORS[viewing.status]||{}).color}}>
+            <div className="res-modal-body">
+              <div className="res-status-row">
+                <span className="res-status-badge-lg" style={{ "--badge-bg": (STATUS_COLORS[viewing.status]||{}).bg, "--badge-color": (STATUS_COLORS[viewing.status]||{}).color }}>
                   {STATUS_LABELS[viewing.status]||viewing.status}
                 </span>
-                <div style={{fontSize:12,color:"#64748b"}}>
+                <div className="res-lwd-text">
                   Last Working Day: {formatDate(viewing.final_last_working_day||viewing.system_calculated_last_working_day)||"-"}
                   {viewing.cheque_collection_date && <><br/>Cheque Collection Date: {formatDate(viewing.cheque_collection_date)}</>}
                 </div>
               </div>
               {viewing.reason && (
-                <div style={{marginBottom:16,padding:12,background:"#f8fafc",borderRadius:8,fontSize:13}}>
+                <div className="res-reason-box">
                   <strong>Reason: </strong>{viewing.reason}
                 </div>
               )}
               {viewing.requested_last_working_day && (
-                <div style={{marginBottom:16,padding:12,background:"#fff7ed",border:"1px solid #fed7aa",borderRadius:8,fontSize:13}}>
+                <div className="res-warning-box">
                   <strong>Employee requested a different date: </strong>{formatDate(viewing.requested_last_working_day)}
                 </div>
               )}
               {viewing.date_change_reason && (
-                <div style={{marginBottom:16,padding:12,background:"#fff7ed",border:"1px solid #fed7aa",borderRadius:8,fontSize:13}}>
+                <div className="res-warning-box">
                   <strong>Suggested a different last working day: </strong>{viewing.date_change_reason}
                 </div>
               )}
 
-              {["submitted","manager_approved"].includes(viewing.status) && (
-                <div style={{marginBottom:20,padding:16,border:"1px solid #e2e8f0",borderRadius:8}}>
-                  <div style={{fontWeight:700,fontSize:14,marginBottom:10}}>Approval</div>
+              {["submitted","manager_approved"].includes(viewing.status) && wfStep && (
+                <div className="res-section-box">
+                  <div className="res-section-title">Approval</div>
                   {viewing.status === "manager_approved" && (
-                    <div style={{marginBottom:14,padding:12,background:"#f8fafc",borderRadius:8}}>
-                      <div style={{fontSize:12,fontWeight:600,marginBottom:8}}>Choose the final last working day</div>
-                      <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,marginBottom:6,cursor:"pointer"}}>
+                    <div className="res-date-choice-box">
+                      <div className="res-date-choice-label">Choose the final last working day</div>
+                      <label className="res-radio-label">
                         <input type="radio" name="finalDate" checked={finalDateChoice===viewing.system_calculated_last_working_day || !finalDateChoice}
                           onChange={()=>setFinalDateChoice(viewing.system_calculated_last_working_day)} />
                         System Calculated: {formatDate(viewing.system_calculated_last_working_day)}
                       </label>
                       {viewing.requested_last_working_day && (
-                        <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,cursor:"pointer"}}>
+                        <label className="res-radio-label-last">
                           <input type="radio" name="finalDate" checked={finalDateChoice===viewing.requested_last_working_day}
                             onChange={()=>setFinalDateChoice(viewing.requested_last_working_day)} />
                           Employee Requested: {formatDate(viewing.requested_last_working_day)}
                         </label>
                       )}
-                      <div style={{marginTop:10}}>
-                        <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Cheque Collection Date</label>
+                      <div className="res-mt10">
+                        <label className="res-field-label">Cheque Collection Date</label>
                         <DatePicker value={chequeDate} onChange={setChequeDate} style={{width:200}} />
                       </div>
                     </div>
                   )}
-                  <textarea className="form-input" rows={2} style={{width:"100%",marginBottom:10}} placeholder="Note (required for reject)"
+                  <textarea className="form-input res-textarea-full" rows={2} placeholder="Note (required for reject)"
                     value={note} onChange={e=>setNote(e.target.value)} />
-                  <div style={{display:"flex",gap:8}}>
-                    <button className="btn btn-primary btn-sm" style={{color:"#fff"}} disabled={acting} onClick={()=>doAdvance("approve")}>{viewing.status==="manager_approved"?"Accept":"Approve"}</button>
-                    <button className="btn btn-ghost btn-sm" style={{color:"#dc2626"}} disabled={acting} onClick={()=>doAdvance("reject")}>Reject</button>
+                  <div className="res-btn-row">
+                    <button className="btn btn-primary btn-sm res-btn-white" disabled={acting} onClick={()=>doAdvance("approve")}>{viewing.status==="manager_approved"?"Accept":"Approve"}</button>
+                    <button className="btn btn-ghost btn-sm res-reject-btn" disabled={acting} onClick={()=>doAdvance("reject")}>Reject</button>
                   </div>
                 </div>
               )}
 
               {viewing.status === "accepted" && can("hr.edit") && (
-                <div style={{marginBottom:20,padding:16,border:"1px solid #e2e8f0",borderRadius:8}}>
-                  <div style={{fontWeight:700,fontSize:14,marginBottom:10}}>Clearance Checklist</div>
+                <div className="res-section-box">
+                  <div className="res-section-title">Clearance Checklist</div>
                   {(!viewing.clearance_items || viewing.clearance_items.length===0) ? (
                     <div>
-                      <div style={{fontSize:12,color:"#64748b",marginBottom:8}}>Select departments and specify what needs to be cleared:</div>
+                      <div className="res-dept-intro">Select departments and specify what needs to be cleared:</div>
                       {departments.map(d=>(
-                        <div key={d.id} style={{marginBottom:8}}>
-                          <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,cursor:"pointer",marginBottom:4}}>
+                        <div key={d.id} className="res-dept-row">
+                          <label className="res-dept-label">
                             <input type="checkbox" checked={d.id in deptLabels} onChange={()=>toggleDept(d.id)} />
                             {d.name}
                           </label>
                           {d.id in deptLabels && (
-                            <input className="form-input" style={{width:"100%",fontSize:13,marginLeft:24,marginTop:2}}
+                            <input className="form-input res-dept-input"
                               placeholder="What needs to be cleared for this department?"
                               value={deptLabels[d.id]}
                               onChange={e=>setDeptLabels(prev=>({...prev,[d.id]:e.target.value}))} />
@@ -390,12 +406,12 @@ export default function Resignations() {
                         </div>
                       ))}
                       {clearanceError && (
-                        <div style={{padding:"8px 12px",borderRadius:6,marginTop:10,fontSize:12,background:"#fef2f2",color:"#991b1b",fontWeight:600}}>
+                        <div className="res-error-box">
                           {clearanceError}
                         </div>
                       )}
-                      <div style={{display:"flex",gap:8,marginTop:10}}>
-                        <button className="btn btn-primary btn-sm" style={{color:"#fff"}} disabled={acting} onClick={initClearance}>
+                      <div className="res-btn-row-mt">
+                        <button className="btn btn-primary btn-sm res-btn-white" disabled={acting} onClick={initClearance}>
                           Initialize Clearance
                         </button>
                         <button className="btn btn-ghost btn-sm" disabled={acting} onClick={skipClearance}>
@@ -406,36 +422,35 @@ export default function Resignations() {
                   ) : (
                     <>
                       {viewing.clearance_items.map(item=>(
-                        <div key={item.id} style={{padding:"8px 0",borderBottom:"1px solid #f8fafc"}}>
-                          <div style={{display:"flex",alignItems:"center",gap:10}}>
-                            <span style={{fontSize:14,color:item.is_cleared?"#166534":"#94a3b8"}}>{item.is_cleared?"\u2713":"\u25cb"}</span>
-                            <div style={{flex:1,fontSize:13}}>
+                        <div key={item.id} className="res-clearance-item">
+                          <div className="res-clearance-item-top">
+                            <span className="res-clearance-icon" style={{ "--icon-color": item.is_cleared?"#166534":"var(--text-muted)" }}>{item.is_cleared?"\u2713":"\u25cb"}</span>
+                            <div className="res-clearance-content">
                               <strong>{item.department_name}</strong> - {item.item_label}
-                              <div style={{fontSize:11,color:"#94a3b8"}}>
+                              <div className="res-clearance-meta">
                                 Assigned to: {item.assigned_first_name} {item.assigned_last_name}
                                 {item.is_cleared && item.cleared_at && <> &middot; Cleared on {formatDate(item.cleared_at)}</>}
                               </div>
                               {item.remarks && (
-                                <div style={{fontSize:11,color:"#374151",marginTop:2,fontStyle:"italic"}}>"{item.remarks}"</div>
+                                <div className="res-clearance-remarks">"{item.remarks}"</div>
                               )}
                             </div>
-                            <span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:10,
-                              background:item.is_cleared?"#f0fdf4":"#fefce8",color:item.is_cleared?"#166534":"#854d0e"}}>
+                            <span className="res-clearance-status-badge" style={{ "--badge-bg": item.is_cleared?"#f0fdf4":"#fefce8", "--badge-color": item.is_cleared?"#166534":"#854d0e" }}>
                               {item.is_cleared?"Cleared":"Pending"}
                             </span>
                             {!item.is_cleared && (
-                              <button className="btn btn-ghost btn-sm" style={{fontSize:11}} disabled={acting}
+                              <button className="btn btn-ghost btn-sm res-clearance-mark-btn" disabled={acting}
                                 onClick={() => clearItem(item.id)}>
                                 Mark Cleared
                               </button>
                             )}
                           </div>
                           {item.messages && item.messages.length > 0 && (
-                            <div style={{marginLeft:24,marginTop:6,display:"flex",flexDirection:"column",gap:6}}>
+                            <div className="res-messages-wrap">
                               {item.messages.map((m,i)=>(
-                                <div key={i} style={{padding:"6px 10px",background:"#fff7ed",borderRadius:6,border:"1px solid #fed7aa"}}>
-                                  <div style={{fontSize:12,color:"#374151"}}>{m.message}</div>
-                                  <div style={{fontSize:10,color:"#94a3b8",marginTop:2}}>
+                                <div key={i} className="res-message-box">
+                                  <div className="res-message-text">{m.message}</div>
+                                  <div className="res-message-meta">
                                     {m.first_name} {m.last_name} &middot; {formatDateTime(m.sent_at)}
                                   </div>
                                 </div>
@@ -444,8 +459,8 @@ export default function Resignations() {
                           )}
                         </div>
                       ))}
-                      <div style={{marginTop:12}}>
-                        <button className="btn btn-primary btn-sm" style={{color:"#fff"}} disabled={acting || !allCleared} onClick={completeClearance}>
+                      <div className="res-complete-btn-wrap">
+                        <button className="btn btn-primary btn-sm res-btn-white" disabled={acting || !allCleared} onClick={completeClearance}>
                           Mark Clearance Complete
                         </button>
                       </div>
@@ -455,135 +470,139 @@ export default function Resignations() {
               )}
 
               {expLetter && (
-                <div style={{marginBottom:20,padding:16,border:"1px solid #e2e8f0",borderRadius:8}}>
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                    <div style={{fontWeight:700,fontSize:14}}>Experience Letter Details</div>
-                    <span style={{fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:12,
-                      background:expLetter.status==="approved"?"#f0fdf4":expLetter.status.startsWith("rejected")?"#fff1f2":"#fefce8",
-                      color:expLetter.status==="approved"?"#166534":expLetter.status.startsWith("rejected")?"#881337":"#854d0e"}}>
+                <div className="res-section-box">
+                  <div className="res-exp-header">
+                    <div className="res-exp-title">Experience Letter Details</div>
+                    <span className="res-exp-status-badge" style={{ "--badge-bg": expLetter.status==="approved"?"#f0fdf4":expLetter.status.startsWith("rejected")?"#fff1f2":"#fefce8", "--badge-color": expLetter.status==="approved"?"#166534":expLetter.status.startsWith("rejected")?"#881337":"#854d0e" }}>
                       {({pending_hod:"Pending Department Head Review",pending_hr:"Pending HR Final Approval",approved:"Approved",
                          rejected_by_hod:"Changes Requested by Department Head",rejected_by_hr:"Changes Requested by HR"})[expLetter.status] || expLetter.status}
                     </span>
                   </div>
 
-                  <div style={{fontSize:13,color:"#374151",whiteSpace:"pre-wrap",padding:"10px 12px",background:"#f8fafc",borderRadius:8,marginBottom:12}}>
+                  <div className="res-exp-notes">
                     {expLetter.notes}
                   </div>
 
                   {expLetter.status.startsWith("rejected") && (
-                    <div style={{padding:"10px 12px",borderRadius:6,marginBottom:12,fontSize:13,background:"#fff7ed",border:"1px solid #fed7aa",color:"#92400e"}}>
+                    <div className="res-exp-changes-box">
                       <strong>Changes requested:</strong> {expLetter.status==="rejected_by_hod" ? expLetter.hod_comments : expLetter.hr_comments}
                     </div>
                   )}
 
                   {(expLetter.status === "pending_hod" || expLetter.status === "pending_hr") && (
+                    expLetter.can_act ? (
                     <>
-                      <textarea className="form-input" rows={2} style={{width:"100%",marginBottom:8}}
+                      <textarea className="form-input res-exp-textarea" rows={2}
                         placeholder="Comments (required if requesting changes)"
                         value={expLetterReviewComments} onChange={e=>setExpLetterReviewComments(e.target.value)} />
-                      <div style={{display:"flex",gap:10}}>
-                        <button className="btn btn-primary btn-sm" style={{color:"#fff"}} disabled={acting}
+                      <div className="res-exp-btn-row">
+                        <button className="btn btn-primary btn-sm res-btn-white" disabled={acting}
                           onClick={() => advanceExpLetter(true)}>
                           {expLetter.status==="pending_hod" ? "Approve" : "Approve (Final)"}
                         </button>
-                        <button className="btn btn-ghost btn-sm" style={{color:"#dc2626"}} disabled={acting}
+                        <button className="btn btn-ghost btn-sm res-reject-btn" disabled={acting}
                           onClick={() => advanceExpLetter(false)}>
                           Request Changes
                         </button>
                       </div>
                     </>
+                    ) : (
+                      <div className="res-waiting-text">
+                        Waiting on the other reviewer to act.
+                      </div>
+                    )
                   )}
                 </div>
               )}
 
               {viewing.status === "cleared" && can("hr.edit") && (
-                <div style={{marginBottom:20,padding:16,border:"1px solid #e2e8f0",borderRadius:8}}>
-                  <div style={{fontWeight:700,fontSize:14,marginBottom:10}}>Settlement</div>
+                <div className="res-section-box">
+                  <div className="res-section-title">Settlement</div>
                   {!viewing.settlement ? (
-                    <button className="btn btn-primary btn-sm" style={{color:"#fff"}} disabled={acting} onClick={calcSettlement}>
+                    <button className="btn btn-primary btn-sm res-btn-white" disabled={acting} onClick={calcSettlement}>
                       Auto-Calculate Settlement
                     </button>
                   ) : (
                     <>
-                      <div style={{display:"flex",justifyContent:"flex-end",marginBottom:10}}>
-                        <button className="btn btn-ghost btn-sm" style={{fontSize:11}} disabled={acting}
+                      <div className="res-recalc-row">
+                        <button className="btn btn-ghost btn-sm res-recalc-btn" disabled={acting}
                           onClick={() => { if (window.confirm("Recalculate attendance-derived figures (present/absent/leave days, pending salary)? Manually entered dues, deductions, and adjustments will be kept.")) calcSettlement(); }}>
                           Recalculate from Attendance
                         </button>
                       </div>
-                      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:14,padding:10,background:"#f8fafc",borderRadius:8}}>
-                        <div style={{textAlign:"center"}}>
-                          <div style={{fontSize:18,fontWeight:700,color:"#166534"}}>{viewing.settlement.present_days}</div>
-                          <div style={{fontSize:11,color:"#64748b"}}>Present Days</div>
+                      <div className="res-stats-grid">
+                        <div className="res-stat-item">
+                          <div className="res-stat-value" style={{ "--stat-color": "#166534" }}>{viewing.settlement.present_days}</div>
+                          <div className="res-stat-label">Present Days</div>
                         </div>
-                        <div style={{textAlign:"center"}}>
-                          <div style={{fontSize:18,fontWeight:700,color:"#dc2626"}}>{viewing.settlement.absent_days}</div>
-                          <div style={{fontSize:11,color:"#64748b"}}>Absent Days</div>
+                        <div className="res-stat-item">
+                          <div className="res-stat-value" style={{ "--stat-color": "#dc2626" }}>{viewing.settlement.absent_days}</div>
+                          <div className="res-stat-label">Absent Days</div>
                         </div>
-                        <div style={{textAlign:"center"}}>
-                          <div style={{fontSize:18,fontWeight:700,color:"#0369a1"}}>{viewing.settlement.leave_days_taken}</div>
-                          <div style={{fontSize:11,color:"#64748b"}}>Leaves Taken</div>
+                        <div className="res-stat-item">
+                          <div className="res-stat-value" style={{ "--stat-color": "#0369a1" }}>{viewing.settlement.leave_days_taken}</div>
+                          <div className="res-stat-label">Leaves Taken</div>
                         </div>
-                        <div style={{textAlign:"center"}}>
-                          <div style={{fontSize:18,fontWeight:700,color:"#c2410c"}}>{viewing.settlement.excess_leave_days}</div>
-                          <div style={{fontSize:11,color:"#64748b"}}>Excess Leave (treated as absent)</div>
+                        <div className="res-stat-item">
+                          <div className="res-stat-value" style={{ "--stat-color": "#c2410c" }}>{viewing.settlement.excess_leave_days}</div>
+                          <div className="res-stat-label">Excess Leave (treated as absent)</div>
                         </div>
                       </div>
-                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
+                      <div className="res-form-grid">
                         <div>
-                          <label style={{fontSize:11,fontWeight:600,display:"block",marginBottom:3}}>Leave Encashment Days</label>
-                          <input type="number" className="form-input" style={{width:"100%",fontSize:13}}
+                          <label className="res-field-label-sm">Leave Encashment Days</label>
+                          <input type="number" className="form-input res-input-full"
                             value={settlementForm.leave_encashment_days} onChange={e=>setSettlementForm(f=>({...f,leave_encashment_days:e.target.value}))} />
                         </div>
                         <div>
-                          <label style={{fontSize:11,fontWeight:600,display:"block",marginBottom:3}}>Additional Dues / Adjustments (e.g. bonus, reimbursements)</label>
-                          <input type="number" className="form-input" style={{width:"100%",fontSize:13}}
+                          <label className="res-field-label-sm">Additional Dues / Adjustments (e.g. bonus, reimbursements)</label>
+                          <input type="number" className="form-input res-input-full"
                             value={settlementForm.other_dues} onChange={e=>setSettlementForm(f=>({...f,other_dues:e.target.value}))} />
                         </div>
                         <div>
-                          <label style={{fontSize:11,fontWeight:600,display:"block",marginBottom:3}}>Deductions (e.g. unreturned assets, damages)</label>
-                          <input type="number" className="form-input" style={{width:"100%",fontSize:13}}
+                          <label className="res-field-label-sm">Deductions (e.g. unreturned assets, damages)</label>
+                          <input type="number" className="form-input res-input-full"
                             value={settlementForm.other_deductions} onChange={e=>setSettlementForm(f=>({...f,other_deductions:e.target.value}))} />
                         </div>
                       </div>
-                      <textarea className="form-input" rows={2} style={{width:"100%",marginBottom:10}} placeholder="Adjustment notes"
+                      <textarea className="form-input res-textarea-full" rows={2} placeholder="Adjustment notes"
                         value={settlementForm.adjustments_note||""} onChange={e=>setSettlementForm(f=>({...f,adjustments_note:e.target.value}))} />
 
-                      <div style={{marginBottom:14}}>
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                          <label style={{fontSize:12,fontWeight:700}}>Adjustments</label>
-                          <button className="btn btn-ghost btn-sm" style={{fontSize:11}} onClick={addAdjustmentRow}>+ Add Adjustment</button>
+                      <div className="res-adj-wrap">
+                        <div className="res-adj-header">
+                          <label className="res-adj-label">Adjustments</label>
+                          <button className="btn btn-ghost btn-sm res-add-adj-btn" onClick={addAdjustmentRow}>+ Add Adjustment</button>
                         </div>
                         {(settlementForm.adjustments || []).map((adj, idx) => (
-                          <div key={idx} style={{border:"1px solid #e2e8f0",borderRadius:8,padding:10,marginBottom:8}}>
-                            <input placeholder="Description" className="form-input" style={{fontSize:12,width:"100%",marginBottom:8}}
+                          <div key={idx} className="res-adj-row-box">
+                            <input placeholder="Description" className="form-input res-adj-name-input"
                               value={adj.name} onChange={e=>updateAdjustmentRow(idx,"name",e.target.value)} />
-                            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
-                              <select className="form-input" style={{fontSize:12,width:"100%"}}
+                            <div className="res-adj-grid-2col">
+                              <select className="form-input res-adj-select"
                                 value={adj.item_type} onChange={e=>updateAdjustmentRow(idx,"item_type",e.target.value)}>
                                 <option value="earning">Earning</option>
                                 <option value="deduction">Deduction</option>
                               </select>
-                              <select className="form-input" style={{fontSize:12,width:"100%"}}
+                              <select className="form-input res-adj-select"
                                 value={adj.calc_type} onChange={e=>updateAdjustmentRow(idx,"calc_type",e.target.value)}>
                                 <option value="fixed">Fixed Amount</option>
                                 <option value="pct_basic">%age of Basic Salary</option>
                                 <option value="pct_pending">%age of Pending Settlement Salary</option>
                               </select>
                             </div>
-                            <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                              <input type="number" placeholder={adj.calc_type==="fixed"?"Amount":"%"} className="form-input" style={{fontSize:12,flex:1}}
+                            <div className="res-adj-value-row">
+                              <input type="number" placeholder={adj.calc_type==="fixed"?"Amount":"%"} className="form-input res-adj-value-input"
                                 value={adj.value} onChange={e=>updateAdjustmentRow(idx,"value",e.target.value)} />
-                              <button className="btn btn-ghost btn-sm" style={{color:"#dc2626",fontSize:11,whiteSpace:"nowrap"}} onClick={()=>removeAdjustmentRow(idx)}>Remove</button>
+                              <button className="btn btn-ghost btn-sm res-adj-remove-btn" onClick={()=>removeAdjustmentRow(idx)}>Remove</button>
                             </div>
                           </div>
                         ))}
                         {(settlementForm.adjustments || []).length === 0 && (
-                          <div style={{fontSize:12,color:"#94a3b8"}}>No additional adjustments.</div>
+                          <div className="res-no-adj">No additional adjustments.</div>
                         )}
                       </div>
 
-                      <button className="btn btn-primary btn-sm" style={{color:"#fff"}} disabled={acting} onClick={submitReview}>
+                      <button className="btn btn-primary btn-sm res-btn-white" disabled={acting} onClick={submitReview}>
                         Submit Settlement Review
                       </button>
                     </>
@@ -592,105 +611,105 @@ export default function Resignations() {
               )}
 
               {viewing.status === "settlement_reviewed" && viewing.settlement && (
-                <div style={{marginBottom:20,padding:16,border:"1px solid #e2e8f0",borderRadius:8}}>
-                  <div style={{fontWeight:700,fontSize:14,marginBottom:10}}>Finalize Settlement</div>
+                <div className="res-section-box">
+                  <div className="res-section-title">Finalize Settlement</div>
                   {!can("payroll.manage") ? (
-                    <div style={{padding:16,textAlign:"center",color:"#64748b",fontSize:13,background:"#f8fafc",borderRadius:8}}>
+                    <div className="res-not-assigned">
                       This settlement is now with Finance for calculation and finalization.
                     </div>
                   ) : !viewing.settlement.finance_calculated_at ? (
-                    <button className="btn btn-primary btn-sm" style={{color:"#fff"}} disabled={acting} onClick={financeCalculateSettlement}>
+                    <button className="btn btn-primary btn-sm res-btn-white" disabled={acting} onClick={financeCalculateSettlement}>
                       Calculate
                     </button>
                   ) : (
                     <>
-                      <table style={{width:"100%",borderCollapse:"collapse",fontSize:13,marginBottom:14}}>
+                      <table className="res-settlement-table">
                         <thead>
-                          <tr style={{borderBottom:"1px solid #e2e8f0"}}>
-                            <th style={{padding:"4px 0",textAlign:"left",fontSize:11,color:"#94a3b8",fontWeight:600}}>Component</th>
-                            <th style={{padding:"4px 0",textAlign:"right",fontSize:11,color:"#94a3b8",fontWeight:600}}>Amount</th>
-                            <th style={{padding:"4px 0 4px 12px",textAlign:"center",fontSize:11,color:"#94a3b8",fontWeight:600}}>Taxable</th>
+                          <tr className="res-settlement-th-row">
+                            <th className="res-settlement-th-left">Component</th>
+                            <th className="res-settlement-th-right">Amount</th>
+                            <th className="res-settlement-th-center">Taxable</th>
                           </tr>
                         </thead>
                         <tbody>
-                          <tr style={{borderBottom:"1px solid #f1f5f9"}}>
-                            <td style={{padding:"6px 0",color:"#64748b"}}>Salary ({viewing.settlement.total_calendar_days} day(s))</td>
-                            <td style={{padding:"6px 0",textAlign:"right",fontWeight:600}}>{formatCurrency(viewing.settlement.gross_salary_amount)}</td>
+                          <tr className="res-settlement-tr">
+                            <td className="res-settlement-td-label">Salary ({viewing.settlement.total_calendar_days} day(s))</td>
+                            <td className="res-settlement-td-value">{formatCurrency(viewing.settlement.gross_salary_amount)}</td>
                             <td></td>
                           </tr>
                           {Number(viewing.settlement.absence_deduction_amount) > 0 && (
-                            <tr style={{borderBottom:"1px solid #f1f5f9"}}>
-                              <td style={{padding:"6px 0",color:"#64748b"}}>Absent ({viewing.settlement.absent_days} day(s)) Deduction</td>
-                              <td style={{padding:"6px 0",textAlign:"right",fontWeight:600,color:"#dc2626"}}>-{formatCurrency(viewing.settlement.absence_deduction_amount)}</td>
+                            <tr className="res-settlement-tr">
+                              <td className="res-settlement-td-label">Absent ({viewing.settlement.absent_days} day(s)) Deduction</td>
+                              <td className="res-settlement-td-negative">-{formatCurrency(viewing.settlement.absence_deduction_amount)}</td>
                               <td></td>
                             </tr>
                           )}
-                          <tr style={{borderBottom:"1px solid #f1f5f9"}}>
-                            <td style={{padding:"6px 0",color:"#64748b",fontWeight:600}}>Net Pending Salary</td>
-                            <td style={{padding:"6px 0",textAlign:"right",fontWeight:700}}>{formatCurrency(viewing.settlement.pending_salary_amount)}</td>
-                            <td style={{padding:"6px 0 6px 12px",textAlign:"center"}}>
+                          <tr className="res-settlement-tr">
+                            <td className="res-settlement-td-label-bold">Net Pending Salary</td>
+                            <td className="res-settlement-td-value-bold">{formatCurrency(viewing.settlement.pending_salary_amount)}</td>
+                            <td className="res-settlement-td-checkbox">
                               <input type="checkbox" checked={taxableFlags.pending_salary} onChange={e=>setTaxableFlags(f=>({...f,pending_salary:e.target.checked}))} />
                             </td>
                           </tr>
-                          <tr style={{borderBottom:"1px solid #f1f5f9"}}>
-                            <td style={{padding:"6px 0",color:"#64748b"}}>Leave Encashment ({viewing.settlement.leave_encashment_days} day(s))</td>
-                            <td style={{padding:"6px 0",textAlign:"right",fontWeight:600}}>{formatCurrency(viewing.settlement.leave_encashment_amount)}</td>
-                            <td style={{padding:"6px 0 6px 12px",textAlign:"center"}}>
+                          <tr className="res-settlement-tr">
+                            <td className="res-settlement-td-label">Leave Encashment ({viewing.settlement.leave_encashment_days} day(s))</td>
+                            <td className="res-settlement-td-value">{formatCurrency(viewing.settlement.leave_encashment_amount)}</td>
+                            <td className="res-settlement-td-checkbox">
                               <input type="checkbox" checked={taxableFlags.leave_encashment} onChange={e=>setTaxableFlags(f=>({...f,leave_encashment:e.target.checked}))} />
                             </td>
                           </tr>
-                          <tr style={{borderBottom:"1px solid #f1f5f9"}}>
-                            <td style={{padding:"6px 0",color:"#64748b"}}>Provident Fund Balance</td>
-                            <td style={{padding:"6px 0",textAlign:"right",fontWeight:600}}>{formatCurrency(viewing.settlement.pf_balance_amount)}</td>
-                            <td style={{padding:"6px 0 6px 12px",textAlign:"center"}}>
+                          <tr className="res-settlement-tr">
+                            <td className="res-settlement-td-label">Provident Fund Balance</td>
+                            <td className="res-settlement-td-value">{formatCurrency(viewing.settlement.pf_balance_amount)}</td>
+                            <td className="res-settlement-td-checkbox">
                               <input type="checkbox" checked={taxableFlags.pf_balance} onChange={e=>setTaxableFlags(f=>({...f,pf_balance:e.target.checked}))} />
                             </td>
                           </tr>
                           {Number(viewing.settlement.other_dues) > 0 && (
-                            <tr style={{borderBottom:"1px solid #f1f5f9"}}>
-                              <td style={{padding:"6px 0",color:"#64748b"}}>Additional Dues</td>
-                              <td style={{padding:"6px 0",textAlign:"right",fontWeight:600}}>{formatCurrency(viewing.settlement.other_dues)}</td>
+                            <tr className="res-settlement-tr">
+                              <td className="res-settlement-td-label">Additional Dues</td>
+                              <td className="res-settlement-td-value">{formatCurrency(viewing.settlement.other_dues)}</td>
                               <td></td>
                             </tr>
                           )}
                           {Number(viewing.settlement.other_deductions) > 0 && (
-                            <tr style={{borderBottom:"1px solid #f1f5f9"}}>
-                              <td style={{padding:"6px 0",color:"#64748b"}}>Deductions</td>
-                              <td style={{padding:"6px 0",textAlign:"right",fontWeight:600,color:"#dc2626"}}>-{formatCurrency(viewing.settlement.other_deductions)}</td>
+                            <tr className="res-settlement-tr">
+                              <td className="res-settlement-td-label">Deductions</td>
+                              <td className="res-settlement-td-negative">-{formatCurrency(viewing.settlement.other_deductions)}</td>
                               <td></td>
                             </tr>
                           )}
                           {(viewing.settlement.adjustments || []).map((adj, idx) => (
-                            <tr key={idx} style={{borderBottom:"1px solid #f1f5f9"}}>
-                              <td style={{padding:"6px 0",color:"#64748b"}}>{adj.name} ({adj.item_type})</td>
-                              <td style={{padding:"6px 0",textAlign:"right",fontWeight:600,color:adj.item_type==="deduction"?"#dc2626":"inherit"}}>
+                            <tr key={idx} className="res-settlement-tr">
+                              <td className="res-settlement-td-label">{adj.name} ({adj.item_type})</td>
+                              <td style={{ padding: "6px 0", textAlign: "right", fontWeight: 600, color: adj.item_type==="deduction"?"#dc2626":"inherit" }}>
                                 {adj.item_type==="deduction"?"-":""}{formatCurrency(adj.resolved_amount)}
                               </td>
-                              <td style={{padding:"6px 0 6px 12px",textAlign:"center"}}>
+                              <td className="res-settlement-td-checkbox">
                                 <input type="checkbox" checked={!!taxableFlags.adjustments[idx]}
                                   onChange={e=>setTaxableFlags(f=>{ const next=[...(f.adjustments||[])]; next[idx]=e.target.checked; return {...f,adjustments:next}; })} />
                               </td>
                             </tr>
                           ))}
                           {Number(viewing.settlement.income_tax_amount) > 0 && (
-                            <tr style={{borderBottom:"1px solid #f1f5f9"}}>
-                              <td style={{padding:"6px 0",color:"#64748b"}}>Income Tax</td>
-                              <td style={{padding:"6px 0",textAlign:"right",fontWeight:600,color:"#dc2626"}}>-{formatCurrency(viewing.settlement.income_tax_amount)}</td>
+                            <tr className="res-settlement-tr">
+                              <td className="res-settlement-td-label">Income Tax</td>
+                              <td className="res-settlement-td-negative">-{formatCurrency(viewing.settlement.income_tax_amount)}</td>
                               <td></td>
                             </tr>
                           )}
                           <tr>
-                            <td style={{padding:"10px 0 0",fontWeight:700}}>Final Amount</td>
-                            <td style={{padding:"10px 0 0",textAlign:"right",fontWeight:700,fontSize:15}}>{formatCurrency(viewing.settlement.final_amount)}</td>
+                            <td className="res-final-label">Final Amount</td>
+                            <td className="res-final-value">{formatCurrency(viewing.settlement.final_amount)}</td>
                             <td></td>
                           </tr>
                         </tbody>
                       </table>
-                      <div style={{display:"flex",gap:10}}>
+                      <div className="res-btn-row-gap">
                         <button className="btn btn-ghost btn-sm" disabled={acting} onClick={calculateTax}>
                           Calculate Tax
                         </button>
-                        <button className="btn btn-primary btn-sm" style={{color:"#fff"}} disabled={acting} onClick={finalizeSettlement}>
+                        <button className="btn btn-primary btn-sm res-btn-white" disabled={acting} onClick={finalizeSettlement}>
                           Finalize Settlement
                         </button>
                       </div>
@@ -700,16 +719,22 @@ export default function Resignations() {
               )}
 
               {viewing.status === "settled" && (
-                <div style={{marginBottom:20,padding:16,border:"1px solid #e2e8f0",borderRadius:8}}>
-                  <div style={{fontWeight:700,fontSize:14,marginBottom:10}}>Finalize Exit</div>
-                  <button className="btn btn-primary btn-sm" style={{color:"#fff"}} disabled={acting} onClick={completeExit}>
+                can("hr.edit") ? (
+                <div className="res-section-box">
+                  <div className="res-section-title">Finalize Exit</div>
+                  <button className="btn btn-primary btn-sm res-btn-white" disabled={acting} onClick={completeExit}>
                     Finalize Employee Exit
                   </button>
                 </div>
+                ) : (
+                  <div className="res-final-status">
+                    Settlement finalized - awaiting HR to complete the employee exit.
+                  </div>
+                )
               )}
 
               {["completed","rejected","withdrawn"].includes(viewing.status) && (
-                <div style={{padding:16,textAlign:"center",color:"#64748b",fontSize:13}}>
+                <div className="res-final-status">
                   This resignation is <strong>{STATUS_LABELS[viewing.status]}</strong>.
                 </div>
               )}

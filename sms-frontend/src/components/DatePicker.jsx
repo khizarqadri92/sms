@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
 import { useProcessingToday } from "../hooks/useProcessingToday";
+import "./DatePicker.css";
 
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const WEEKDAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
@@ -14,9 +15,18 @@ export default function DatePicker({ value, onChange, disabled, min, max, style,
   const { formatDate, settings } = useRegionalSettings();
   const processingToday = useProcessingToday();
   const [open, setOpen] = useState(false);
-  const [viewDate, setViewDate] = useState(() => (value ? new Date(value) : new Date()));
+  // Month shown when the picker is empty: the processing date, moved inside the
+  // allowed range - so a "to" date whose min is a later "from" date opens on that month.
+  const emptyView = () => {
+    let d = new Date(processingToday || Date.now());
+    if (min && new Date(min) > d) d = new Date(min);
+    if (max && new Date(max) < d) d = new Date(max);
+    return d;
+  };
+  const [viewDate, setViewDate] = useState(() => (value ? new Date(value) : emptyView()));
   const [coords, setCoords] = useState({ top: 0, left: 0 });
-  useEffect(() => { if (!value) setViewDate(new Date(processingToday)); }, [processingToday]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!value) setViewDate(emptyView()); }, [processingToday, min, max, value]);
   const wrapperRef = useRef(null);
   const popupRef = useRef(null);
 
@@ -114,9 +124,9 @@ export default function DatePicker({ value, onChange, disabled, min, max, style,
   for (let y = yearHi; y >= yearLo; y--) yearOptions.push(y);
 
   const popup = open ? (
-    <div ref={popupRef} style={{
-      position: "fixed", zIndex: 99999, top: coords.top, left: coords.left, background: "#fff",
-      border: "1px solid #e2e8f0", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.15)", width: POPUP_WIDTH,
+    <div ref={popupRef} className="dp-popup" style={{
+      position: "fixed", zIndex: 99999, top: coords.top, left: coords.left, background: "var(--bg-card)",
+      border: "1px solid var(--border-color)", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.15)", width: POPUP_WIDTH,
       overflow: "hidden",
     }}>
       {/* Header: theme-colored, shows the currently selected date in the configured format */}
@@ -133,32 +143,34 @@ export default function DatePicker({ value, onChange, disabled, min, max, style,
 
       <div style={{ padding: 12 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 4 }}>
-          <button type="button" onClick={() => setViewDate(new Date(year, month - 1, 1))}
-            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, padding: "2px 6px", flexShrink: 0, color: "#475569" }}>
+          <button type="button" className="dp-nav" onClick={() => setViewDate(new Date(year, month - 1, 1))}
+            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, padding: "2px 6px", flexShrink: 0, color: "var(--text-secondary)" }}>
             &#8249;
           </button>
           <select
+            className="dp-select"
             value={month}
             onChange={(e) => setViewDate(new Date(year, Number(e.target.value), 1))}
-            style={{ fontWeight: 600, fontSize: 12, border: "none", borderRadius: 6, padding: "3px 2px", background: "transparent", cursor: "pointer", flex: 1, minWidth: 0, color: "#0f172a" }}
+            style={{ fontWeight: 600, fontSize: 12, border: "none", borderRadius: 6, padding: "3px 2px", background: "transparent", cursor: "pointer", flex: 1, minWidth: 0, color: "var(--text-heading)" }}
           >
             {MONTH_NAMES.map((m, i) => <option key={i} value={i}>{m}</option>)}
           </select>
           <select
+            className="dp-select"
             value={year}
             onChange={(e) => setViewDate(new Date(Number(e.target.value), month, 1))}
-            style={{ fontWeight: 600, fontSize: 12, border: "none", borderRadius: 6, padding: "3px 2px", background: "transparent", cursor: "pointer", width: 68, flexShrink: 0, color: "#0f172a" }}
+            style={{ fontWeight: 600, fontSize: 12, border: "none", borderRadius: 6, padding: "3px 2px", background: "transparent", cursor: "pointer", width: 68, flexShrink: 0, color: "var(--text-heading)" }}
           >
             {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
-          <button type="button" onClick={() => setViewDate(new Date(year, month + 1, 1))}
-            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, padding: "2px 6px", flexShrink: 0, color: "#475569" }}>
+          <button type="button" className="dp-nav" onClick={() => setViewDate(new Date(year, month + 1, 1))}
+            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, padding: "2px 6px", flexShrink: 0, color: "var(--text-secondary)" }}>
             &#8250;
           </button>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2, marginBottom: 4 }}>
           {weekdayLabels.map((w, i) => (
-            <div key={i} style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", textAlign: "center" }}>{w}</div>
+            <div key={i} style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)", textAlign: "center" }}>{w}</div>
           ))}
         </div>
         {weeks.map((week, wi) => (
@@ -174,7 +186,7 @@ export default function DatePicker({ value, onChange, disabled, min, max, style,
                     padding: "7px 0", fontSize: 12, border: "none", borderRadius: "50%",
                     cursor: d && !disabledDay ? "pointer" : "default",
                     background: selected ? "var(--theme-primary, #2563eb)" : "transparent",
-                    color: !d ? "transparent" : disabledDay ? "#cbd5e1" : selected ? "#fff" : "#0f172a",
+                    color: !d ? "transparent" : disabledDay ? "var(--text-muted)" : selected ? "#fff" : "var(--text-heading)",
                     fontWeight: selected ? 700 : 400,
                   }}>
                   {d || ""}
@@ -194,7 +206,7 @@ export default function DatePicker({ value, onChange, disabled, min, max, style,
         readOnly
         disabled={disabled}
         className="form-input"
-        style={{ width: "100%", fontSize: 13, cursor: disabled ? "default" : "pointer", background: disabled ? "#f1f5f9" : "#fff" }}
+        style={{ width: "100%", fontSize: 13, cursor: disabled ? "default" : "pointer", background: disabled ? "var(--bg-disabled)" : "var(--bg-input)", color: "var(--text-heading)" }}
         value={value ? formatDate(value) : ""}
         placeholder={placeholder || "Select date"}
         onClick={() => !disabled && setOpen((o) => !o)}

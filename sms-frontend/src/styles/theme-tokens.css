@@ -1,0 +1,36 @@
+/* =====================================================================
+   Theme tokens for pages that still use inline styles.
+   Light values are exactly the colours those pages used before, so light
+   mode is unchanged; dark mode swaps in dark equivalents.
+   Used as e.g. style={{ background: "var(--dm-surface)" }}.
+   ===================================================================== */
+:root {
+  --dm-surface:   #ffffff;   /* cards, tables, popups            (was #fff)            */
+  --dm-surface-2: #f8fafc;   /* headers, zebra rows, inputs       (was #f8fafc/#fafafa) */
+  --dm-surface-3: #f1f5f9;   /* page background, chips            (was #f1f5f9)         */
+  --dm-ink:   #0f172a;       /* main text        (was #0f172a / #1e293b / #374151)      */
+  --dm-soft:  #64748b;       /* secondary text   (was #475569 / #64748b)               */
+  --dm-faint: #94a3b8;       /* hints, headers   (was #94a3b8 / #cbd5e1)               */
+  --dm-line:  #e2e8f0;       /* borders          (was #e2e8f0 / #f1f5f9 / #cbd5e1)      */
+
+  --dm-tint-blue:   #eff6ff;  --dm-blue-ink:   #1e40af;  --dm-blue: #2563eb;
+  --dm-tint-green:  #f0fdf4;  --dm-green-ink:  #166534;  --dm-green-line: #bbf7d0;
+  --dm-tint-amber:  #fffbeb;  --dm-amber-ink:  #92400e;  --dm-amber-line: #fde68a;
+  --dm-tint-red:    #fef2f2;  --dm-red-ink:    #991b1b;
+  --dm-tint-purple: #fdf4ff;
+}
+html[data-color-mode="dark"] {
+  --dm-surface:   var(--color-background-primary, #1e293b);
+  --dm-surface-2: var(--color-background-secondary, #0f172a);
+  --dm-surface-3: var(--color-background-tertiary, #0b1220);
+  --dm-ink:   var(--color-text-primary, #e2e8f0);
+  --dm-soft:  var(--color-text-secondary, #94a3b8);
+  --dm-faint: #64748b;
+  --dm-line:  var(--color-border-secondary, #334155);
+
+  --dm-tint-blue:   rgba(59,130,246,.14);  --dm-blue-ink:  #93c5fd;  --dm-blue: #60a5fa;
+  --dm-tint-green:  rgba(34,197,94,.13);   --dm-green-ink: #86efac;  --dm-green-line: rgba(34,197,94,.35);
+  --dm-tint-amber:  rgba(245,158,11,.14);  --dm-amber-ink: #fcd34d;  --dm-amber-line: rgba(245,158,11,.40);
+  --dm-tint-red:    rgba(239,68,68,.14);   --dm-red-ink:   #fca5a5;
+  --dm-tint-purple: rgba(192,132,252,.14);
+}

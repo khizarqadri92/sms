@@ -101,6 +101,8 @@ def get_notice_period_days(user_id: int = Depends(get_current_user_id), db=Depen
 
 @router.post("/submit")
 def submit_resignation(body: ResignationSubmitIn, user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+    if not body.reason or not body.reason.strip():
+        fail("A reason for resignation is required.", 400)
     staff_id = _get_staff_id_for_user(db, user_id)
     if not staff_id:
         fail("No staff record linked to your account.", 400)
@@ -196,7 +198,31 @@ def get_experience_letter(resignation_id: int, user_id: int = Depends(get_curren
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_experience_letter(%s)", (resignation_id,))
     row = cur.fetchone()
-    return ok(data=dict(row) if row else None)
+    data = dict(row) if row else None
+
+    if data:
+        # Whether THIS viewer is the one whose turn it currently is - the
+        # buttons should only render for the assignee of the pending step,
+        # not for whoever already acted on an earlier step (or anyone who
+        # merely has the page open).
+        cur.execute("""
+            SELECT wsi.assigned_to_id, wsi.assigned_role
+            FROM workflow_instances wi
+            JOIN workflow_step_instances wsi ON wsi.instance_id = wi.id AND wsi.status='pending'
+            WHERE wi.module='hr' AND wi.entity_type='resignation_experience_letter' AND wi.entity_id=%s AND wi.status='active'
+            ORDER BY wsi.step_order LIMIT 1
+        """, (resignation_id,))
+        step = cur.fetchone()
+        can_act = False
+        if step:
+            cur.execute("SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=%s AND r.name='superadmin'", (user_id,))
+            can_act = cur.fetchone() is not None or step["assigned_to_id"] == user_id
+            if not can_act and step["assigned_role"]:
+                cur.execute("SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=%s AND r.name=%s", (user_id, step["assigned_role"]))
+                can_act = cur.fetchone() is not None
+        data["can_act"] = can_act
+
+    return ok(data=data)
 
 
 @router.post("/{resignation_id}/experience-letter")
@@ -287,23 +313,30 @@ def advance_experience_letter(resignation_id: int, body: ExperienceLetterAdvance
     cur.execute("SELECT staff_id FROM resignation_requests WHERE id=%s", (resignation_id,))
     req = cur.fetchone()
     staff_user_id = None
+    staff_campus_id = None
     if req:
-        cur.execute("SELECT user_id FROM staff WHERE id=%s", (req["staff_id"],))
+        cur.execute("SELECT user_id, campus_id FROM staff WHERE id=%s", (req["staff_id"],))
         staff_row = cur.fetchone()
         staff_user_id = staff_row["user_id"] if staff_row else None
+        staff_campus_id = staff_row["campus_id"] if staff_row else None
 
     if staff_user_id:
         try:
-            from app.utils.notify import send_notification
+            from app.utils.notify import send_notification, render_templated_notification
             import main as _main
             with _main.flask_app.app_context():
                 if body.action == "reject":
-                    send_notification(staff_user_id, "Experience Letter Details Rejected",
-                        ("Your department head" if is_first_step else "HR") + " requested changes: " + (body.note or ""),
-                        "warning", "/my-resignation")
+                    _reviewer = "Your department head" if is_first_step else "HR"
+                    _note = body.note or ""
+                    _t, _b = render_templated_notification("experience_letter_rejected",
+                        {"reviewer": _reviewer, "note": _note}, "Experience Letter Details Rejected", _reviewer + " requested changes: " + _note,
+                        campus_id=staff_campus_id)
+                    send_notification(staff_user_id, _t, _b, "warning", "/my-resignation")
                 elif result and result.get("status") == "completed":
-                    send_notification(staff_user_id, "Experience Letter Details Approved",
-                        "Your experience letter details have been approved by HR.", "success", "/my-resignation")
+                    _t, _b = render_templated_notification("experience_letter_approved", {},
+                        "Experience Letter Details Approved", "Your experience letter details have been approved by HR.",
+                        campus_id=staff_campus_id)
+                    send_notification(staff_user_id, _t, _b, "success", "/my-resignation")
         except Exception as e:
             print(f"[experience letter notify] {e}")
 
@@ -507,15 +540,21 @@ def clear_item(item_id: int, body: ClearItemIn, user_id: int = Depends(get_curre
 @router.get("/clearance/{item_id}/department-staff")
 def get_department_staff_for_clearance(item_id: int, user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
     cur = get_cur(db)
-    cur.execute("SELECT department_id FROM resignation_clearance_items WHERE id=%s", (item_id,))
+    cur.execute("""
+        SELECT rci.department_id, s.campus_id
+        FROM resignation_clearance_items rci
+        JOIN resignation_requests rr ON rr.id = rci.resignation_id
+        JOIN staff s ON s.id = rr.staff_id
+        WHERE rci.id=%s
+    """, (item_id,))
     row = cur.fetchone()
     if not row or not row["department_id"]:
         return ok(data=[])
     cur.execute("""
         SELECT s.user_id, s.first_name, s.last_name FROM staff s
-        WHERE s.department_id=%s AND s.status=\'active\' AND s.user_id IS NOT NULL
+        WHERE s.department_id=%s AND s.campus_id=%s AND s.status=\'active\' AND s.user_id IS NOT NULL
         ORDER BY s.first_name
-    """, (row["department_id"],))
+    """, (row["department_id"], row["campus_id"]))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
@@ -951,6 +990,20 @@ def finalize_settlement(resignation_id: int, user_id: int = Depends(require_perm
     return ok(message="Settlement finalized.")
 
 
+@router.post("/auto-lock/run-now")
+def run_auto_lock_now(user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db)):
+    try:
+        import main as _main
+        with _main.flask_app.app_context():
+            from app.utils.resignation_auto_lock import run_resignation_auto_lock
+            result = run_resignation_auto_lock(_main.flask_app, force=True)
+    except Exception as e:
+        fail("Test run failed: " + str(e), 500)
+    if result.get("ran"):
+        return ok(message=str(result.get("locked_count")) + " account(s) locked (test run).", data=result)
+    return ok(message="No accounts locked: " + result.get("reason", ""), data=result)
+
+
 @router.post("/{resignation_id}/complete")
 def complete_resignation(resignation_id: int, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db)):
     if not _check_workflow_step_authorized(db, resignation_id, user_id):
@@ -961,6 +1014,15 @@ def complete_resignation(resignation_id: int, user_id: int = Depends(require_per
     if not req:
         fail("Resignation request not found.", 404)
     cur.execute("UPDATE staff SET status=\'resigned\' WHERE id=%s", (req["staff_id"],))
+    cur.execute("SELECT user_id, campus_id FROM staff WHERE id=%s", (req["staff_id"],))
+    staff_user_row = cur.fetchone()
+    if staff_user_row and staff_user_row["user_id"]:
+        cur.execute(
+            "UPDATE users SET is_active=FALSE, lock_reason=\'resigned\' WHERE id=%s",
+            (staff_user_row["user_id"],)
+        )
+        from app.utils.teacher_resignation_cleanup import cleanup_resigned_teacher_assignments
+        cleanup_resigned_teacher_assignments(db, staff_user_row["user_id"], staff_user_row["campus_id"])
     db.commit()
     _advance_resignation_workflow(db, resignation_id, user_id, fallback_status="completed", note="Exit finalized.")
     return ok(message="Employee exit finalized.")

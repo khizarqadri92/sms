@@ -1,0 +1,390 @@
+.wqa-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.wqa-box {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-radius: 12px;
+  padding: 24px;
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.wqa-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.wqa-title {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.wqa-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.wqa-detail-box {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: var(--bg-info-soft);
+  border-radius: 8px;
+  border: 1px solid var(--border-info-soft);
+}
+
+.wqa-detail-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-info-soft);
+  margin-bottom: 6px;
+}
+
+.wqa-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.wqa-detail-full {
+  grid-column: 1 / -1;
+}
+
+.wqa-detail-field-label {
+  color: var(--text-secondary);
+}
+
+.wqa-clock-box {
+  padding: 6px 10px;
+  border-radius: 6px;
+}
+
+.wqa-clock-box-active {
+  background: var(--bg-card);
+  border: 1px solid var(--border-info-soft);
+  opacity: 1;
+}
+
+.wqa-clock-box-inactive {
+  background: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  opacity: 0.5;
+}
+
+.wqa-clock-label {
+  font-size: 10px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.wqa-clock-value {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.wqa-clock-value-active {
+  color: var(--text-heading);
+}
+
+.wqa-clock-value-inactive {
+  color: var(--text-muted);
+}
+
+.wqa-updating-label {
+  color: var(--text-info-soft);
+}
+
+.wqa-close-btn {
+}
+
+.wqa-summary-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: var(--bg-hover);
+  border-radius: 8px;
+}
+
+.wqa-summary-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
+.wqa-summary-value {
+  font-size: 13px;
+}
+
+.wqa-loading {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 16px;
+}
+
+.wqa-timeline-section {
+  margin-bottom: 16px;
+}
+
+.wqa-timeline-title {
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 10px;
+  color: var(--text-primary);
+}
+
+.wqa-timeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.wqa-timeline-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--item-bg, transparent);
+}
+
+.wqa-timeline-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+  background: var(--dot-bg);
+  color: var(--dot-color);
+}
+
+.wqa-timeline-content {
+  flex: 1;
+}
+
+.wqa-timeline-step-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.wqa-timeline-status-badge {
+  margin-left: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 8px;
+  border-radius: 8px;
+  text-transform: capitalize;
+  background: var(--badge-bg);
+  color: var(--badge-color);
+}
+
+.wqa-timeline-assigned {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+.wqa-timeline-actioned {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+.wqa-timeline-note {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+  font-style: italic;
+}
+
+.wqa-section {
+  margin-bottom: 16px;
+}
+
+.wqa-section-title-info {
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 10px;
+  color: var(--text-info-soft);
+}
+
+.wqa-error-text {
+  color: #dc2626;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+
+.wqa-field-label {
+  font-size: 12px;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.wqa-textarea-full {
+  width: 100%;
+  margin-bottom: 10px;
+}
+
+.wqa-actions-row-mb12 {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 12px;
+}
+
+.wqa-btn-white {
+  color: #fff;
+}
+
+.wqa-reassign-box {
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.wqa-flex-gap8 {
+  display: flex;
+  gap: 8px;
+}
+
+.wqa-select-flex {
+  flex: 1;
+  margin: 0;
+}
+
+.wqa-msg-sent-box {
+  padding: 6px 10px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  background: var(--bg-success-soft);
+  color: var(--text-success-soft);
+}
+
+.wqa-flex-end {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.wqa-step-title {
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 10px;
+  color: var(--text-info-soft);
+}
+
+.wqa-step-title-mb8 {
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 8px;
+  color: var(--text-info-soft);
+}
+
+.wqa-step-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.wqa-date-choice-box {
+  margin-bottom: 12px;
+  padding: 10px;
+  background: var(--bg-hover);
+  border-radius: 8px;
+}
+
+.wqa-date-choice-title {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.wqa-radio-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  margin-bottom: 4px;
+  cursor: pointer;
+}
+
+.wqa-radio-label-last {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.wqa-mt10 {
+  margin-top: 10px;
+}
+
+.wqa-mb12 {
+  margin-bottom: 12px;
+}
+
+.wqa-btn-row {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.wqa-reject-btn {
+  color: #dc2626;
+}
+
+.wqa-no-action {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 16px;
+  font-size: 13px;
+}
+
+.wqa-link {
+  color: var(--theme-primary);
+  margin-top: 8px;
+  display: inline-block;
+}
+
+.wqa-final-status {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 8px;
+  font-size: 13px;
+}
+
+.wqa-capitalize {
+  text-transform: capitalize;
+}
+
+.wqa-textarea-full-mb8 {
+  width: 100%;
+  margin-bottom: 8px;
+}
+
+.wqa-textarea-resize {
+  width: 100%;
+  resize: vertical;
+}

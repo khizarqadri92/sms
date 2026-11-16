@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import libraryApi from "../api/libraryApi";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
+import "./LibraryLostBooks.css";
 
 function ResolveModal({ copy, onClose, onSaved }) {
   const [resolution, setResolution] = useState("replace");
@@ -25,12 +26,12 @@ function ResolveModal({ copy, onClose, onSaved }) {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
-      <div style={{ background: "#fff", borderRadius: 12, padding: 24, width: "100%", maxWidth: 420 }} onClick={e => e.stopPropagation()}>
-        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>Resolve Lost Copy</div>
-        <div style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>{copy.book_title} — {copy.accession_no}</div>
+    <div className="lib-lost-modal-overlay" onClick={onClose}>
+      <div className="lib-lost-modal" onClick={e => e.stopPropagation()}>
+        <div className="lib-lost-modal-title">Resolve Lost Copy</div>
+        <div className="lib-lost-modal-subtitle">{copy.book_title} — {copy.accession_no}</div>
 
-        {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}
+        {error && <div className="alert alert-error lib-lost-mb12">{error}</div>}
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
@@ -44,12 +45,12 @@ function ResolveModal({ copy, onClose, onSaved }) {
           <div className="form-group">
             <label className="form-label">Replacement Cost to Charge</label>
             <input className="form-control" type="number" min="0" step="0.01" placeholder="0.00" value={chargeAmount} onChange={e => setChargeAmount(e.target.value)} />
-            <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>
+            <div className="lib-lost-hint">
               {copy.purchase_price ? `Suggested from purchase price: Rs. ${Number(copy.purchase_price).toLocaleString()}. ` : ""}
               {copy.first_name ? `Will be charged to ${copy.first_name} ${copy.last_name}.` : "No member is on file for this loss report."}
             </div>
           </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
+          <div className="lib-lost-modal-footer">
             <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Saving..." : "Resolve"}</button>
           </div>
@@ -84,12 +85,12 @@ export default function LibraryLostBooks() {
 
   return (
     <div>
-      <div className="page-header" style={{ marginBottom: 16 }}>
+      <div className="page-header lib-lost-mb16">
         <h1 className="page-heading">Lost Books</h1>
       </div>
 
-      {success && <div className="alert alert-success" style={{ marginBottom: 16 }}>{success}</div>}
-      {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
+      {success && <div className="alert alert-success lib-lost-mb16">{success}</div>}
+      {error && <div className="alert alert-error lib-lost-mb16">{error}</div>}
 
       {loading ? (
         <div className="loading-state">Loading...</div>
@@ -113,11 +114,11 @@ export default function LibraryLostBooks() {
                 <tr key={c.copy_id}>
                   <td><strong>{c.book_title}</strong></td>
                   <td>{c.accession_no}</td>
-                  <td>{c.first_name ? `${c.first_name} ${c.last_name}` : <span style={{ color: "#94a3b8" }}>Unknown</span>}</td>
-                  <td style={{ fontSize: 12, color: "#64748b" }}>{c.last_returned_at ? formatDate(c.last_returned_at) : "-"}</td>
+                  <td>{c.first_name ? `${c.first_name} ${c.last_name}` : <span className="lib-lost-muted">Unknown</span>}</td>
+                  <td className="lib-lost-date">{c.last_returned_at ? formatDate(c.last_returned_at) : "-"}</td>
                   <td>
                     {Number(c.fine_amount) > 0 ? (
-                      <span style={{ color: c.fine_status === "pending" ? "#dc2626" : "#16a34a", fontWeight: 600 }}>
+                      <span className={c.fine_status === "pending" ? "lib-lost-fine-pending" : "lib-lost-fine-paid"}>
                         Rs. {Number(c.fine_amount).toLocaleString()} ({c.fine_status})
                       </span>
                     ) : "-"}

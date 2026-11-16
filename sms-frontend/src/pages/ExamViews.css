@@ -1,0 +1,286 @@
+/* =====================================================================
+   Exam views: Exam Schedule (DatesheetView), Class Results, Marks History
+   Neutrals come from the shared variables in index.css; the green /
+   red / amber tints are local tokens with a dark set below.
+   ===================================================================== */
+
+.ev-page {
+  --ev-page-bg:     var(--color-background-tertiary, #f1f5f9);
+  --ev-surface:     var(--color-background-primary, #ffffff);
+  --ev-surface-alt: var(--color-background-secondary, #f8fafc);
+  --ev-row-alt:     #fafafa;
+  --ev-ink:         var(--color-text-primary, #0f172a);
+  --ev-ink-mid:     #374151;
+  --ev-ink-soft:    var(--color-text-secondary, #64748b);
+  --ev-ink-faint:   var(--color-text-tertiary, #94a3b8);
+  --ev-line:        var(--color-border-secondary, #e2e8f0);
+  --ev-line-soft:   var(--color-border-tertiary, #f1f5f9);
+  --ev-dash:        #e2e8f0;
+
+  --ev-accent:      #0f4c35;   /* selection bar, headings of highlight boxes */
+  --ev-accent-on:   #ffffff;   /* text on the date badge */
+  --ev-sel-bg:      #f0fdf4;   /* selected row / chip */
+  --ev-green:       #166534;
+  --ev-green-bg:    #dcfce7;
+  --ev-green-line:  #bbf7d0;
+  --ev-done-bar:    #22c55e;
+  --ev-red:         #991b1b;
+  --ev-red-vivid:   #ef4444;
+  --ev-red-bg:      #fee2e2;
+  --ev-absent-row:  #fff8f8;
+  --ev-amber-ink:   #854d0e;
+  --ev-amber-dark:  #92400e;
+  --ev-sum-head:    #fef9c3;
+  --ev-sum-cell:    #fffbeb;
+  --ev-amber-line:  #fde68a;
+
+  padding: 24px;
+  min-height: 100vh;
+  background: var(--ev-page-bg);
+  color: var(--ev-ink);
+}
+
+/* ---------- dark mode ---------- */
+html[data-color-mode="dark"] .ev-page {
+  --ev-page-bg:     var(--color-background-tertiary, #0b1220);
+  --ev-surface:     var(--color-background-primary, #1e293b);
+  --ev-surface-alt: var(--color-background-secondary, #0f172a);
+  --ev-row-alt:     rgba(255, 255, 255, 0.03);
+  --ev-ink:         var(--color-text-primary, #e2e8f0);
+  --ev-ink-mid:     #cbd5e1;
+  --ev-ink-soft:    var(--color-text-secondary, #94a3b8);
+  --ev-ink-faint:   var(--color-text-tertiary, #64748b);
+  --ev-line:        var(--color-border-secondary, #334155);
+  --ev-line-soft:   var(--color-border-tertiary, #273449);
+  --ev-dash:        #475569;
+
+  --ev-accent:      #4ade80;
+  --ev-accent-on:   #052e1c;
+  --ev-sel-bg:      rgba(34, 197, 94, 0.12);
+  --ev-green:       #86efac;
+  --ev-green-bg:    rgba(34, 197, 94, 0.18);
+  --ev-green-line:  rgba(34, 197, 94, 0.35);
+  --ev-done-bar:    #22c55e;
+  --ev-red:         #fca5a5;
+  --ev-red-vivid:   #f87171;
+  --ev-red-bg:      rgba(239, 68, 68, 0.18);
+  --ev-absent-row:  rgba(239, 68, 68, 0.07);
+  --ev-amber-ink:   #fcd34d;
+  --ev-amber-dark:  #fcd34d;
+  --ev-sum-head:    rgba(234, 179, 8, 0.18);
+  --ev-sum-cell:    rgba(234, 179, 8, 0.08);
+  --ev-amber-line:  rgba(234, 179, 8, 0.40);
+}
+
+/* ---------- page heading ---------- */
+.ev-head  { margin-bottom: 20px; }
+.ev-title { font-size: 22px; font-weight: 800; color: var(--ev-ink); margin-bottom: 4px; }
+.ev-sub   { font-size: 13px; color: var(--ev-ink-soft); }
+
+/* ---------- two-column layout + side panels ---------- */
+.ev-layout { display: grid; grid-template-columns: 220px 1fr; gap: 20px; align-items: flex-start; }
+.ev-side   { display: flex; flex-direction: column; gap: 12px; }
+
+.ev-panel {
+  background: var(--ev-surface); border: 1.5px solid var(--ev-line);
+  border-radius: 12px; overflow: hidden;
+}
+.ev-panel-head {
+  padding: 10px 14px; border-bottom: 1px solid var(--ev-line-soft); background: var(--ev-surface-alt);
+  font-size: 12px; font-weight: 700; color: var(--ev-ink-mid); text-transform: uppercase; letter-spacing: .06em;
+}
+.ev-panel-empty { padding: 14px; font-size: 12px; color: var(--ev-ink-faint); }
+
+.ev-item {
+  padding: 10px 14px; cursor: pointer; background: var(--ev-surface); color: var(--ev-ink);
+  border-bottom: 1px solid var(--ev-line-soft); border-left: 3px solid transparent;
+}
+.ev-item:hover      { background: var(--ev-surface-alt); }
+.ev-item--done      { border-left-color: var(--ev-done-bar); }
+.ev-item--on,
+.ev-item--on:hover  { border-left-color: var(--ev-accent); background: var(--ev-sel-bg); }
+.ev-item-name { font-weight: 600; font-size: 13px; }
+.ev-item-meta { font-size: 11px; color: var(--ev-ink-soft); margin-top: 1px; }
+.ev-item-tag  { font-size: 10px; color: var(--ev-green); font-weight: 600; }
+.ev-item-state { font-size: 10px; margin-top: 2px; }
+.ev-state-done    { color: var(--ev-green); font-weight: 600; }
+.ev-state-pending { color: var(--ev-amber-ink); }
+
+/* ---------- placeholder / empty cards ---------- */
+.ev-placeholder {
+  background: var(--ev-surface); border: 1px solid var(--ev-line); border-radius: 12px;
+  padding: 60px; text-align: center; color: var(--ev-ink-faint);
+}
+.ev-placeholder--sm   { padding: 40px; }
+.ev-placeholder-icon  { font-size: 32px; margin-bottom: 12px; }
+.ev-placeholder-title { font-weight: 600; }
+
+/* ---------- result cards ---------- */
+.ev-card {
+  background: var(--ev-surface); border: 1.5px solid var(--ev-line);
+  border-radius: 12px; overflow: hidden; color: var(--ev-ink);
+}
+.ev-card-head { padding: 14px 20px; border-bottom: 1px solid var(--ev-line-soft); background: var(--ev-surface-alt); }
+.ev-card-head--plain { background: var(--ev-surface); }
+.ev-card-head--bar { display: flex; justify-content: space-between; align-items: center; }
+.ev-card-title { font-weight: 700; font-size: 15px; }
+.ev-card-sub   { font-size: 12px; color: var(--ev-ink-soft); margin-top: 2px; }
+.ev-card-loading { padding: 40px; text-align: center; color: var(--ev-ink-faint); }
+.ev-scroll { overflow-x: auto; }
+
+/* ---------- pills + pass/fail text ---------- */
+.ev-pill { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+.ev-pill--lg    { padding: 4px 12px; }
+.ev-pill--green { background: var(--ev-green-bg); color: var(--ev-green); }
+.ev-pill--red   { background: var(--ev-red-bg);   color: var(--ev-red); }
+.ev-dash-text   { font-size: 11px; color: var(--ev-ink-faint); }
+
+.ev-pass   { color: var(--ev-green) !important; }
+.ev-fail   { color: var(--ev-red) !important; }
+.ev-absent { color: var(--ev-red-vivid) !important; }
+.ev-faint  { color: var(--ev-ink-faint) !important; }
+
+/* ---------- Class Results table ---------- */
+.ev-results { width: 100%; border-collapse: collapse; font-size: 12px; }
+.ev-results thead tr { background: var(--ev-surface-alt); }
+.ev-results th {
+  padding: 9px 12px; text-align: center; border-bottom: 1px solid var(--ev-line);
+  font-weight: 700; color: var(--ev-ink-mid);
+}
+.ev-results th.ev-th-left { text-align: left; }
+.ev-results th.ev-th-num  { width: 30px; }
+.ev-results th.ev-th-student { min-width: 130px; }
+.ev-results th.ev-th-subject { padding: 9px 10px; white-space: nowrap; }
+.ev-results th.ev-sum { background: var(--ev-sum-head); }
+.ev-th-max { font-size: 10px; color: var(--ev-ink-faint); font-weight: 400; }
+
+.ev-results tbody tr { border-bottom: 1px solid var(--ev-line-soft); background: var(--ev-surface); }
+.ev-results tbody tr:nth-child(even) { background: var(--ev-row-alt); }
+.ev-results td { padding: 8px 12px; text-align: center; color: var(--ev-ink); }
+.ev-results td.ev-td-left { text-align: left; }
+.ev-results td.ev-td-subject { padding: 8px 10px; }
+.ev-results td.ev-sum { background: var(--ev-sum-cell); font-weight: 700; }
+.ev-td-bold  { font-weight: 700; }
+.ev-td-faint { color: var(--ev-ink-faint) !important; }
+.ev-td-soft  { color: var(--ev-ink-soft) !important; }
+.ev-mark     { font-weight: 600; }
+.ev-mark-absent { font-size: 10px; font-weight: 600; color: var(--ev-red-vivid); }
+.ev-student-name { font-weight: 600; color: var(--ev-ink); }
+.ev-student-no   { font-size: 10px; color: var(--ev-ink-faint); }
+
+/* ---------- Marks History table ---------- */
+.ev-marks { width: 100%; border-collapse: collapse; }
+.ev-marks thead tr { background: var(--ev-surface-alt); }
+.ev-marks th {
+  padding: 10px 16px; font-size: 11px; font-weight: 700; color: var(--ev-ink-faint);
+  text-transform: uppercase; text-align: left; border-bottom: 1px solid var(--ev-line);
+}
+.ev-marks tbody tr { border-bottom: 1px solid var(--ev-line-soft); background: var(--ev-surface); }
+.ev-marks tbody tr:nth-child(even) { background: var(--ev-row-alt); }
+.ev-marks tbody tr.ev-row-absent { background: var(--ev-absent-row); }
+.ev-marks td { padding: 10px 16px; color: var(--ev-ink); }
+.ev-marks .ev-td-index { color: var(--ev-ink-faint); font-size: 12px; }
+.ev-marks .ev-td-mark  { font-size: 14px; font-weight: 700; }
+.ev-marks .ev-td-pct   { font-size: 13px; font-weight: 600; }
+.ev-marks .ev-student-name { font-size: 13px; }
+
+/* ---------- Exam Schedule: child + exam selectors ---------- */
+.ev-childbar {
+  background: var(--ev-surface); border: 1.5px solid var(--ev-line); border-radius: 12px;
+  padding: 14px 20px; margin-bottom: 16px; display: flex; align-items: center; gap: 14px;
+}
+.ev-childbar-label { font-size: 13px; font-weight: 600; color: var(--ev-ink-mid); flex-shrink: 0; }
+.ev-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.ev-child {
+  padding: 7px 16px; border-radius: 20px; border: 1.5px solid var(--ev-line);
+  background: var(--ev-surface-alt); color: var(--ev-ink-mid); cursor: pointer; font-size: 13px;
+  transition: all .15s;
+}
+.ev-child-name  { font-weight: 500; }
+.ev-child-class { font-size: 10px; color: var(--ev-ink-faint); margin-top: 1px; }
+.ev-child--on { border-color: var(--ev-accent); background: var(--ev-sel-bg); color: var(--ev-accent); }
+.ev-child--on .ev-child-name  { font-weight: 700; }
+.ev-child--on .ev-child-class { color: var(--ev-green); }
+
+.ev-exams { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
+.ev-exam {
+  padding: 10px 16px; border-radius: 10px; border: 1.5px solid var(--ev-line);
+  background: var(--ev-surface); cursor: pointer; transition: all .15s;
+}
+.ev-exam--on   { border-color: var(--ev-accent); background: var(--ev-sel-bg); }
+.ev-exam-name  { font-weight: 700; font-size: 13px; color: var(--ev-ink); }
+.ev-exam-meta  { font-size: 11px; color: var(--ev-ink-soft); margin-top: 2px; }
+
+/* ---------- Exam Schedule: highlight box (invigilation / my papers) ---------- */
+.ev-highlight {
+  background: var(--ev-surface); border: 1.5px solid var(--ev-accent); border-radius: 12px;
+  padding: 16px 20px; margin-bottom: 20px;
+}
+.ev-highlight-title { font-weight: 700; font-size: 14px; color: var(--ev-accent); margin-bottom: 12px; }
+.ev-papers { display: flex; flex-direction: column; gap: 8px; }
+.ev-paper {
+  display: flex; align-items: center; gap: 16px; padding: 10px 14px;
+  background: var(--ev-sel-bg); border: 1px solid var(--ev-green-line); border-radius: 8px;
+}
+.ev-date {
+  width: 48px; height: 48px; border-radius: 10px; background: var(--ev-accent); color: var(--ev-accent-on);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.ev-date-mon { font-size: 10px; font-weight: 600; text-transform: uppercase; }
+.ev-date-day { font-size: 18px; font-weight: 900; line-height: 1; }
+.ev-date-wd  { font-size: 9px; opacity: .7; }
+.ev-paper-main  { flex: 1; }
+.ev-paper-subj  { font-weight: 700; font-size: 14px; color: var(--ev-ink); }
+.ev-paper-class { font-size: 12px; color: var(--ev-ink-soft); margin-top: 2px; }
+.ev-paper-side  { text-align: right; }
+.ev-paper-time  { font-size: 13px; font-weight: 600; color: var(--ev-ink); }
+.ev-paper-info  { font-size: 11px; color: var(--ev-ink-soft); }
+.ev-paper-info--gap { margin-top: 2px; }
+
+/* ---------- Exam Schedule: full datesheet grid ---------- */
+.ev-ds { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.ev-ds th {
+  padding: 8px 10px; background: var(--ev-surface-alt);
+  border-right: 1px solid var(--ev-line); border-bottom: 2px solid var(--ev-line);
+  text-align: center; vertical-align: middle;
+}
+.ev-ds th.ev-ds-classhead {
+  padding: 10px 14px; width: 120px; text-align: left;
+  font-size: 11px; font-weight: 700; color: var(--ev-ink-faint); text-transform: uppercase;
+}
+.ev-ds-wd   { font-size: 10px; font-weight: 700; color: var(--ev-ink-soft); text-transform: uppercase; }
+.ev-ds-day  { font-size: 18px; font-weight: 900; color: var(--ev-ink); line-height: 1; }
+.ev-ds-mon  { font-size: 10px; color: var(--ev-ink-soft); }
+
+.ev-ds tbody tr { background: var(--ev-surface); }
+.ev-ds tbody tr.ev-ds-mine { background: var(--ev-sel-bg); }
+
+.ev-ds-class {
+  padding: 8px 12px; background: var(--ev-surface-alt);
+  border-right: 1px solid var(--ev-line); border-bottom: 1px solid var(--ev-line-soft); vertical-align: middle;
+}
+.ev-ds-mine .ev-ds-class { background: var(--ev-green-bg); }
+.ev-ds-classname { font-size: 12px; font-weight: 700; color: var(--ev-ink); }
+.ev-ds-mine .ev-ds-classname { color: var(--ev-green); }
+.ev-ds-section { font-size: 10px; color: var(--ev-ink-faint); }
+.ev-ds-mytag   { font-size: 9px; font-weight: 600; color: var(--ev-green); margin-top: 2px; }
+
+.ev-ds-cell {
+  padding: 6px 8px; border-right: 1px solid var(--ev-line-soft); border-bottom: 1px solid var(--ev-line-soft);
+  vertical-align: middle; text-align: center; background: var(--ev-surface);
+}
+.ev-ds-cell--mine  { background: var(--ev-sel-bg); }
+.ev-ds-cell--invig { background: var(--ev-sum-cell); }
+
+.ev-slot {
+  background: var(--ev-surface-alt); border: 1px solid var(--ev-line);
+  border-radius: 6px; padding: 5px 7px; text-align: left;
+}
+.ev-slot--mine  { background: var(--ev-green-bg); border-color: var(--ev-green-line); }
+.ev-slot--invig { background: var(--ev-sum-head); border-color: var(--ev-amber-line); }
+.ev-slot-subj    { font-size: 12px; font-weight: 700; color: var(--ev-ink); margin-bottom: 2px; }
+.ev-slot-time    { font-size: 10px; color: var(--ev-ink-soft); }
+.ev-slot-venue   { font-size: 10px; color: var(--ev-ink-faint); }
+.ev-slot-teacher { font-size: 10px; color: var(--ev-ink-soft); margin-top: 2px; }
+.ev-slot--invig .ev-slot-teacher { color: var(--ev-amber-dark); font-weight: 700; }
+.ev-ds-none { color: var(--ev-dash); font-size: 16px; }

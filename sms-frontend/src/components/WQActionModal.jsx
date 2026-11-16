@@ -11,6 +11,7 @@ import payrollApi from "../api/payrollApi";
 import resignationApi from "../api/resignationApi";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
 import DatePicker from "./DatePicker";
+import "./WQActionModal.css";
 
 const MODULE_ACT = {
   "leaves/leave_application":          (id, action, note) => leavesApi.actionLeave(id, { action, note }),
@@ -138,24 +139,24 @@ export default function WQActionModal({ item, onClose, onActed }) {
   if (!item) return null;
 
   return (
-    <div style={{ position:"fixed",inset:0,zIndex:2000,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",padding:20 }}
+    <div className="wqa-overlay"
       onClick={e => e.target===e.currentTarget && onClose()}>
-      <div style={{ background:"#fff",borderRadius:12,padding:24,width:"100%",maxWidth:520,maxHeight:"90vh",overflowY:"auto" }}>
-        <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:16 }}>
+      <div className="wqa-box">
+        <div className="wqa-header">
           <div>
-            <div style={{ fontWeight:700,fontSize:16 }}>{item.title}</div>
-            <div style={{ fontSize:13,color:"#64748b",marginTop:4 }}>{item.description}</div>
+            <div className="wqa-title">{item.title}</div>
+            <div className="wqa-desc">{item.description}</div>
           {leaveDetail && (
-            <div style={{marginTop:10,padding:"10px 12px",background:"#eff6ff",borderRadius:8,border:"1px solid #bfdbfe"}}>
-              <div style={{fontSize:12,fontWeight:700,color:"#1d4ed8",marginBottom:6}}>Leave Request Details</div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,fontSize:12}}>
-                <div><span style={{color:"#64748b"}}>Staff: </span><strong>{leaveDetail.staff_name}</strong></div>
-                <div><span style={{color:"#64748b"}}>Leave Type: </span><strong>{leaveDetail.leave_type_name}</strong></div>
-                <div><span style={{color:"#64748b"}}>From: </span><strong>{leaveDetail.from_date}</strong></div>
-                <div><span style={{color:"#64748b"}}>To: </span><strong>{leaveDetail.to_date}</strong></div>
-                <div><span style={{color:"#64748b"}}>Days: </span><strong>{leaveDetail.total_days}</strong></div>
-                <div><span style={{color:"#64748b"}}>Applied: </span><strong>{leaveDetail.applied_at?.slice(0,10)}</strong></div>
-                <div style={{gridColumn:"1/-1"}}><span style={{color:"#64748b"}}>Reason: </span>{leaveDetail.reason}</div>
+            <div className="wqa-detail-box">
+              <div className="wqa-detail-title">Leave Request Details</div>
+              <div className="wqa-detail-grid">
+                <div><span className="wqa-detail-field-label">Staff: </span><strong>{leaveDetail.staff_name}</strong></div>
+                <div><span className="wqa-detail-field-label">Leave Type: </span><strong>{leaveDetail.leave_type_name}</strong></div>
+                <div><span className="wqa-detail-field-label">From: </span><strong>{leaveDetail.from_date}</strong></div>
+                <div><span className="wqa-detail-field-label">To: </span><strong>{leaveDetail.to_date}</strong></div>
+                <div><span className="wqa-detail-field-label">Days: </span><strong>{leaveDetail.total_days}</strong></div>
+                <div><span className="wqa-detail-field-label">Applied: </span><strong>{leaveDetail.applied_at?.slice(0,10)}</strong></div>
+                <div className="wqa-detail-full"><span className="wqa-detail-field-label">Reason: </span>{leaveDetail.reason}</div>
               </div>
             </div>
           )}
@@ -164,34 +165,24 @@ export default function WQActionModal({ item, onClose, onActed }) {
             const hasOut = !!correctionDetail.requested_clock_out;
             const updatingLabel = hasIn && hasOut ? "Clock In & Clock Out" : hasIn ? "Clock In only" : "Clock Out only";
             return (
-            <div style={{marginTop:10,padding:"10px 12px",background:"#eff6ff",borderRadius:8,border:"1px solid #bfdbfe"}}>
-              <div style={{fontSize:12,fontWeight:700,color:"#1d4ed8",marginBottom:6}}>Correction Request Details</div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,fontSize:12}}>
-                <div><span style={{color:"#64748b"}}>Staff: </span><strong>{correctionDetail.first_name} {correctionDetail.last_name}</strong></div>
-                <div><span style={{color:"#64748b"}}>Date: </span><strong>{correctionDetail.request_date}</strong></div>
-                <div style={{gridColumn:"1/-1"}}>
-                  <span style={{color:"#64748b"}}>Requesting to update: </span>
-                  <strong style={{color:"#1d4ed8"}}>{updatingLabel}</strong>
+            <div className="wqa-detail-box">
+              <div className="wqa-detail-title">Correction Request Details</div>
+              <div className="wqa-detail-grid">
+                <div><span className="wqa-detail-field-label">Staff: </span><strong>{correctionDetail.first_name} {correctionDetail.last_name}</strong></div>
+                <div><span className="wqa-detail-field-label">Date: </span><strong>{correctionDetail.request_date}</strong></div>
+                <div className="wqa-detail-full">
+                  <span className="wqa-detail-field-label">Requesting to update: </span>
+                  <strong className="wqa-updating-label">{updatingLabel}</strong>
                 </div>
-                <div style={{
-                  padding:"6px 10px", borderRadius:6,
-                  background: hasIn ? "#fff" : "#f1f5f9",
-                  border: hasIn ? "1px solid #93c5fd" : "1px solid #e2e8f0",
-                  opacity: hasIn ? 1 : 0.5
-                }}>
-                  <div style={{fontSize:10,color:"#64748b",textTransform:"uppercase",fontWeight:700}}>Clock In</div>
-                  <div style={{fontSize:15,fontWeight:700,color: hasIn ? "#0f172a" : "#94a3b8"}}>{hasIn ? correctionDetail.requested_clock_in.slice(0,5) : "Not requested"}</div>
+                <div className={"wqa-clock-box " + (hasIn ? "wqa-clock-box-active" : "wqa-clock-box-inactive")}>
+                  <div className="wqa-clock-label">Clock In</div>
+                  <div className={"wqa-clock-value " + (hasIn ? "wqa-clock-value-active" : "wqa-clock-value-inactive")}>{hasIn ? correctionDetail.requested_clock_in.slice(0,5) : "Not requested"}</div>
                 </div>
-                <div style={{
-                  padding:"6px 10px", borderRadius:6,
-                  background: hasOut ? "#fff" : "#f1f5f9",
-                  border: hasOut ? "1px solid #93c5fd" : "1px solid #e2e8f0",
-                  opacity: hasOut ? 1 : 0.5
-                }}>
-                  <div style={{fontSize:10,color:"#64748b",textTransform:"uppercase",fontWeight:700}}>Clock Out</div>
-                  <div style={{fontSize:15,fontWeight:700,color: hasOut ? "#0f172a" : "#94a3b8"}}>{hasOut ? correctionDetail.requested_clock_out.slice(0,5) : "Not requested"}</div>
+                <div className={"wqa-clock-box " + (hasOut ? "wqa-clock-box-active" : "wqa-clock-box-inactive")}>
+                  <div className="wqa-clock-label">Clock Out</div>
+                  <div className={"wqa-clock-value " + (hasOut ? "wqa-clock-value-active" : "wqa-clock-value-inactive")}>{hasOut ? correctionDetail.requested_clock_out.slice(0,5) : "Not requested"}</div>
                 </div>
-                <div style={{gridColumn:"1/-1"}}><span style={{color:"#64748b"}}>Reason: </span>{correctionDetail.reason}</div>
+                <div className="wqa-detail-full"><span className="wqa-detail-field-label">Reason: </span>{correctionDetail.reason}</div>
               </div>
             </div>
             );
@@ -200,40 +191,40 @@ export default function WQActionModal({ item, onClose, onActed }) {
           <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
         </div>
 
-        <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:16,padding:12,background:"#f8fafc",borderRadius:8 }}>
-          <div><div style={{fontSize:11,color:"#64748b",fontWeight:600}}>REQUEST TYPE</div><div style={{fontSize:13}}>{ENTITY_TYPE_LABELS[item.entity_type] || item.entity_type}</div></div>
-          <div><div style={{fontSize:11,color:"#64748b",fontWeight:600}}>STATUS</div><div style={{fontSize:13,textTransform:"capitalize"}}>{item.entity_status||item.status}</div></div>
-          <div><div style={{fontSize:11,color:"#64748b",fontWeight:600}}>ACTION REQUIRED</div><div style={{fontSize:13}}>{wfStep?.step_name || item.action_required}</div></div>
-          <div><div style={{fontSize:11,color:"#64748b",fontWeight:600}}>PRIORITY</div><div style={{fontSize:13,textTransform:"capitalize"}}>{item.priority}</div></div>
+        <div className="wqa-summary-grid">
+          <div><div className="wqa-summary-label">REQUEST TYPE</div><div className="wqa-summary-value">{ENTITY_TYPE_LABELS[item.entity_type] || item.entity_type}</div></div>
+          <div><div className="wqa-summary-label">STATUS</div><div className="wqa-summary-value wqa-capitalize">{item.entity_status||item.status}</div></div>
+          <div><div className="wqa-summary-label">ACTION REQUIRED</div><div className="wqa-summary-value">{wfStep?.step_name || item.action_required}</div></div>
+          <div><div className="wqa-summary-label">PRIORITY</div><div className="wqa-summary-value wqa-capitalize">{item.priority}</div></div>
         </div>
 
-        {loading && <div style={{textAlign:"center",color:"#64748b",padding:16}}>Loading workflow step...</div>}
+        {loading && <div className="wqa-loading">Loading workflow step...</div>}
 
         {!loading && allSteps.length > 0 && (
-          <div style={{marginBottom:16}}>
-            <div style={{fontWeight:600,fontSize:13,marginBottom:10,color:"#374151"}}>Approval Timeline</div>
-            <div style={{display:"flex",flexDirection:"column",gap:2}}>
+          <div className="wqa-timeline-section">
+            <div className="wqa-timeline-title">Approval Timeline</div>
+            <div className="wqa-timeline-list">
               {allSteps.map((s, i) => {
                 const stColors = {
-                  approved: {bg:"#f0fdf4",color:"#166534",icon:"\u2713"},
-                  rejected: {bg:"#fff1f2",color:"#881337",icon:"\u2715"},
-                  pending:  {bg:"#fefce8",color:"#854d0e",icon:"\u25CF"},
-                  skipped:  {bg:"#f8fafc",color:"#94a3b8",icon:"\u2013"},
+                  approved: {bg:"var(--bg-success-soft)",color:"var(--text-success-soft)",icon:"\u2713"},
+                  rejected: {bg:"var(--bg-danger-soft)",color:"var(--text-danger-soft)",icon:"\u2715"},
+                  pending:  {bg:"var(--bg-warning-soft)",color:"var(--text-warning-soft)",icon:"\u25CF"},
+                  skipped:  {bg:"var(--bg-hover)",color:"var(--text-muted)",icon:"\u2013"},
                 };
                 const sc = stColors[s.status] || stColors.pending;
                 return (
-                  <div key={s.id} style={{display:"flex",gap:10,alignItems:"flex-start",padding:"8px 10px",background:i===allSteps.length-1?"transparent":"#fafafa",borderRadius:6}}>
-                    <div style={{width:22,height:22,borderRadius:"50%",background:sc.bg,color:sc.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,flexShrink:0}}>
+                  <div key={s.id} className="wqa-timeline-item" style={{ "--item-bg": "var(--bg-hover)" }}>
+                    <div className="wqa-timeline-dot" style={{ "--dot-bg": sc.bg, "--dot-color": sc.color }}>
                       {sc.icon}
                     </div>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:12,fontWeight:600,color:"#0f172a"}}>
+                    <div className="wqa-timeline-content">
+                      <div className="wqa-timeline-step-name">
                         {s.step_name}
-                        <span style={{marginLeft:8,fontSize:10,fontWeight:700,padding:"1px 8px",borderRadius:8,background:sc.bg,color:sc.color,textTransform:"capitalize"}}>{s.status}</span>
+                        <span className="wqa-timeline-status-badge" style={{ "--badge-bg": sc.bg, "--badge-color": sc.color }}>{s.status}</span>
                       </div>
-                      {s.assigned_role && <div style={{fontSize:11,color:"#94a3b8",marginTop:1}}>Assigned to: {s.assigned_role.replace(/_/g," ")}</div>}
-                      {s.actioned_at && <div style={{fontSize:11,color:"#64748b",marginTop:2}}>{formatDateTime(s.actioned_at)}</div>}
-                      {s.note && <div style={{fontSize:11,color:"#475569",marginTop:2,fontStyle:"italic"}}>"{s.note}"</div>}
+                      {s.assigned_role && <div className="wqa-timeline-assigned">Assigned to: {s.assigned_role.replace(/_/g," ")}</div>}
+                      {s.actioned_at && <div className="wqa-timeline-actioned">{formatDateTime(s.actioned_at)}</div>}
+                      {s.note && <div className="wqa-timeline-note">"{s.note}"</div>}
                     </div>
                   </div>
                 );
@@ -243,14 +234,14 @@ export default function WQActionModal({ item, onClose, onActed }) {
         )}
 
         {!loading && item.entity_type === "resignation_clearance" && item.status === "pending" && (
-          <div style={{marginBottom:16}}>
-            <div style={{fontWeight:600,fontSize:13,marginBottom:10,color:"#0369a1"}}>Clearance Action</div>
-            {error && <div style={{color:"#dc2626",fontSize:13,marginBottom:8}}>{error}</div>}
-            <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Comments (optional)</label>
-            <textarea className="form-input" rows={2} style={{width:"100%",marginBottom:10}}
+          <div className="wqa-section">
+            <div className="wqa-section-title-info">Clearance Action</div>
+            {error && <div className="wqa-error-text">{error}</div>}
+            <label className="wqa-field-label">Comments (optional)</label>
+            <textarea className="form-input wqa-textarea-full" rows={2}
               value={clearanceRemarks} onChange={e=>setClearanceRemarks(e.target.value)} placeholder="Any notes about this clearance..." />
-            <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
-              <button className="btn btn-primary btn-sm" style={{color:"#fff"}} disabled={clearanceActing}
+            <div className="wqa-actions-row-mb12">
+              <button className="btn btn-primary btn-sm wqa-btn-white" disabled={clearanceActing}
                 onClick={async ()=>{
                   setClearanceActing(true); setError("");
                   try { await resignationApi.clearItem(item.entity_id, { remarks: clearanceRemarks }); if(onActed) onActed(); onClose(); }
@@ -261,10 +252,10 @@ export default function WQActionModal({ item, onClose, onActed }) {
               </button>
             </div>
             {deptStaff.length > 0 && (
-              <div style={{marginBottom:14,paddingBottom:14,borderBottom:"1px solid #f1f5f9"}}>
-                <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Reassign to someone in your department</label>
-                <div style={{display:"flex",gap:8}}>
-                  <select className="form-input" style={{flex:1,margin:0}} value={reassignTo} onChange={e=>setReassignTo(e.target.value)}>
+              <div className="wqa-reassign-box">
+                <label className="wqa-field-label">Reassign to someone in your department</label>
+                <div className="wqa-flex-gap8">
+                  <select className="form-input wqa-select-flex" value={reassignTo} onChange={e=>setReassignTo(e.target.value)}>
                     <option value="">Select staff member...</option>
                     {deptStaff.map(s=><option key={s.user_id} value={s.user_id}>{s.first_name} {s.last_name}</option>)}
                   </select>
@@ -280,15 +271,15 @@ export default function WQActionModal({ item, onClose, onActed }) {
                 </div>
               </div>
             )}
-            <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Send message to employee (if something needs to be cleared first)</label>
+            <label className="wqa-field-label">Send message to employee (if something needs to be cleared first)</label>
             {clearanceMsgSent && (
-              <div style={{padding:"6px 10px",borderRadius:6,marginBottom:8,fontSize:12,background:"#f0fdf4",color:"#166534"}}>
+              <div className="wqa-msg-sent-box">
                 Message sent to the employee.
               </div>
             )}
-            <textarea className="form-input" rows={2} style={{width:"100%",marginBottom:8}}
+            <textarea className="form-input wqa-textarea-full-mb8" rows={2}
               value={clearanceMessage} onChange={e=>{setClearanceMessage(e.target.value); setClearanceMsgSent(false);}} placeholder="e.g. Please return your ID card before we can clear you." />
-            <div style={{display:"flex",justifyContent:"flex-end"}}>
+            <div className="wqa-flex-end">
               <button className="btn btn-ghost btn-sm" disabled={clearanceActing || !clearanceMessage.trim()}
                 onClick={async ()=>{
                   setClearanceActing(true); setError(""); setClearanceMsgSent(false);
@@ -303,18 +294,18 @@ export default function WQActionModal({ item, onClose, onActed }) {
         )}
 
         {!loading && wfStep && item.entity_type === "resignation" && ["clear","review","finalize_settlement"].includes(wfStep.step_type) && (
-          <div style={{marginBottom:16}}>
-            <div style={{fontWeight:600,fontSize:13,marginBottom:10,color:"#0369a1"}}>
+          <div className="wqa-section">
+            <div className="wqa-step-title">
               Current Step: {wfStep.step_name}
             </div>
-            <div style={{fontSize:13,color:"#64748b",marginBottom:12}}>
+            <div className="wqa-step-desc">
               {wfStep.step_type === "review"
                 ? "Review and adjust the settlement amount from the full Resignations page."
                 : wfStep.step_type === "finalize_settlement"
                 ? "Calculate the final payout (including Provident Fund balance) and finalize from the full Resignations page."
                 : "Select departments and monitor clearance progress from the full Resignations page."}
             </div>
-            <button className="btn btn-primary btn-sm" style={{color:"#fff"}}
+            <button className="btn btn-primary btn-sm wqa-btn-white"
               onClick={() => { onClose(); navigate(`/hr/resignations?id=${item.entity_id}`); }}>
               {wfStep.step_type === "review" ? "Open Settlement Review" : wfStep.step_type === "finalize_settlement" ? "Open Settlement Finalization" : "Open Clearance Checklist"}
             </button>
@@ -322,50 +313,50 @@ export default function WQActionModal({ item, onClose, onActed }) {
         )}
 
         {!loading && wfStep && !(item.entity_type === "resignation" && ["clear","review","finalize_settlement"].includes(wfStep.step_type)) && (
-          <div style={{marginBottom:16}}>
-            <div style={{fontWeight:600,fontSize:13,marginBottom:8,color:"#0369a1"}}>
+          <div className="wqa-section">
+            <div className="wqa-step-title-mb8">
               Current Step: {wfStep.step_name}
             </div>
             {item.entity_type === "resignation" && resignationDetail?.status === "manager_approved" && resignationDetail && (
-              <div style={{marginBottom:12,padding:10,background:"#f8fafc",borderRadius:8}}>
-                <div style={{fontSize:12,fontWeight:600,marginBottom:6}}>Choose the final last working day</div>
-                <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,marginBottom:4,cursor:"pointer"}}>
+              <div className="wqa-date-choice-box">
+                <div className="wqa-date-choice-title">Choose the final last working day</div>
+                <label className="wqa-radio-label">
                   <input type="radio" name="wqFinalDate" checked={finalDateChoice===resignationDetail.system_calculated_last_working_day || !finalDateChoice}
                     onChange={()=>setFinalDateChoice(resignationDetail.system_calculated_last_working_day)} />
                   System Calculated: {formatDate(resignationDetail.system_calculated_last_working_day)}
                 </label>
                 {resignationDetail.requested_last_working_day && (
-                  <label style={{display:"flex",alignItems:"center",gap:8,fontSize:13,cursor:"pointer"}}>
+                  <label className="wqa-radio-label-last">
                     <input type="radio" name="wqFinalDate" checked={finalDateChoice===resignationDetail.requested_last_working_day}
                       onChange={()=>setFinalDateChoice(resignationDetail.requested_last_working_day)} />
                     Employee Requested: {formatDate(resignationDetail.requested_last_working_day)}
                   </label>
                 )}
-                <div style={{marginTop:10}}>
-                  <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Cheque Collection Date</label>
+                <div className="wqa-mt10">
+                  <label className="wqa-field-label">Cheque Collection Date</label>
                   <DatePicker value={chequeDate} onChange={setChequeDate} style={{width:200}} />
                 </div>
               </div>
             )}
             {wfStep.can_reject !== false && (
-              <div style={{marginBottom:12}}>
-                <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>
+              <div className="wqa-mb12">
+                <label className="wqa-field-label">
                   Notes {wfStep.reject_label ? `(required for ${wfStep.reject_label})` : "(optional)"}
                 </label>
-                <textarea className="form-input" rows={3} value={note}
+                <textarea className="form-input wqa-textarea-resize" rows={3} value={note}
                   onChange={e=>setNote(e.target.value)}
-                  placeholder="Add a note..." style={{width:"100%",resize:"vertical"}} />
+                  placeholder="Add a note..." />
               </div>
             )}
-            {error && <div style={{color:"#dc2626",fontSize:13,marginBottom:8}}>{error}</div>}
-            <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+            {error && <div className="wqa-error-text">{error}</div>}
+            <div className="wqa-btn-row">
               {wfStep.can_reject !== false && (
-                <button className="btn btn-ghost btn-sm" style={{color:"#dc2626"}} disabled={acting}
+                <button className="btn btn-ghost btn-sm wqa-reject-btn" disabled={acting}
                   onClick={() => act("reject")}>
                   {wfStep.reject_label || "Reject"}
                 </button>
               )}
-              <button className="btn btn-primary btn-sm" style={{ color: "#fff" }} disabled={acting}
+              <button className="btn btn-primary btn-sm wqa-btn-white" disabled={acting}
                 onClick={async () => {
                   if (item.entity_type === "resignation" && resignationDetail?.status === "manager_approved") {
                     setActing(true); setError("");
@@ -388,11 +379,11 @@ export default function WQActionModal({ item, onClose, onActed }) {
         )}
 
         {!loading && item.entity_type === "resignation_experience_letter" && item.status === "pending" && (
-          <div style={{marginBottom:16}}>
-            <div style={{fontSize:13,color:"#64748b",marginBottom:12}}>
+          <div className="wqa-section">
+            <div className="wqa-step-desc">
               Review the employee's experience letter details and approve or request changes from the full Resignations page.
             </div>
-            <button className="btn btn-primary btn-sm" style={{color:"#fff"}}
+            <button className="btn btn-primary btn-sm wqa-btn-white"
               onClick={() => { onClose(); navigate(`/hr/resignations?id=${item.entity_id}`); }}>
               Open Experience Letter Review
             </button>
@@ -400,15 +391,23 @@ export default function WQActionModal({ item, onClose, onActed }) {
         )}
 
         {!loading && !wfStep && item.status === "pending" && item.entity_type !== "resignation_experience_letter" && (
-          <div style={{textAlign:"center",color:"#64748b",padding:16,fontSize:13}}>
+          <div className="wqa-no-action">
             No pending action for your role on this request.
             <br/>
-            <a href="#" onClick={(e) => { e.preventDefault(); onClose(); navigate((item.entity_type==="resignation"&&!can("hr.view"))?"/my-resignation":item.link); }} style={{color:"#2563eb",marginTop:8,display:"inline-block"}}>Open full request →</a>
+            <a href="#" onClick={(e) => { e.preventDefault(); onClose(); navigate(
+              item.entity_type==="resignation" ? `/hr/resignations?id=${item.entity_id}` :
+              // A purchase requisition's default workflow link points to Pending
+              // Approvals (where approvers act on it) - but when the viewer is
+              // the submitter rather than an approver, that page shows nothing
+              // for them, so send submitters to their own requisitions list instead.
+              (item.entity_type==="purchase_requisition" && String(item.submitter_id)===String(user?.id)) ? `/procurement/my-requisitions?id=${item.entity_id}` :
+              item.link
+            ); }} className="wqa-link">Open full request →</a>
           </div>
         )}
 
         {item.status !== "pending" && (
-          <div style={{textAlign:"center",color:"#64748b",padding:8,fontSize:13}}>
+          <div className="wqa-final-status">
             This request is <strong>{item.status}</strong>.
           </div>
         )}

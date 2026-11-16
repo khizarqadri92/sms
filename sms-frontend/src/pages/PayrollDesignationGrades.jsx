@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import payrollApi from "../api/payrollApi";
+import "./PayrollDesignationGrades.css";
 
 export default function PayrollDesignationGrades() {
   const [designations, setDesignations] = useState([]);
@@ -56,58 +57,57 @@ export default function PayrollDesignationGrades() {
     }
   };
 
-  if (loading) return <div style={{ padding: 60, textAlign: "center", color: "#64748b" }}>Loading...</div>;
+  if (loading) return <div className="pdg-loading">Loading...</div>;
 
   return (
-    <div style={{ margin: "0 auto", padding: 24 }}>
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 22, fontWeight: 800, color: "#0f172a" }}>Designation - Grade Mapping</div>
-        <div style={{ fontSize: 13, color: "#64748b" }}>Assign each designation to a payroll grade. A grade can be shared by multiple designations; a designation maps to exactly one grade.</div>
+    <div className="pdg-page">
+      <div className="pdg-header">
+        <div className="pdg-title">Designation - Grade Mapping</div>
+        <div className="pdg-subtitle">Assign each designation to a payroll grade. A grade can be shared by multiple designations; a designation maps to exactly one grade.</div>
       </div>
 
       {flash && (
-        <div style={{
-          marginBottom: 16, padding: "10px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600,
-          background: flash.type === "success" ? "#dcfce7" : "#fee2e2",
-          color: flash.type === "success" ? "#166534" : "#dc2626"
+        <div className="pdg-flash" style={{
+          "--flash-bg": flash.type === "success" ? "#dcfce7" : "#fee2e2",
+          "--flash-color": flash.type === "success" ? "#166534" : "#dc2626"
         }}>
           {flash.type === "success" ? "\u2713 " : "\u26a0 "}{flash.msg}
         </div>
       )}
 
-      <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <div className="pdg-table-wrap">
+        <table className="pdg-table">
           <thead>
-            <tr style={{ background: "#f8fafc" }}>
+            <tr className="pdg-th-row">
               {["Department", "Designation", "Grade", ""].map(h => (
-                <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "#64748b", borderBottom: "1px solid #e2e8f0" }}>{h}</th>
+                <th key={h} className="pdg-th">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {designations.map(d => (
-              <tr key={d.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                <td style={{ padding: "10px 14px", fontSize: 13, color: "#64748b" }}>{d.department_name || "-"}</td>
-                <td style={{ padding: "10px 14px", fontWeight: 600, fontSize: 13 }}>{d.name}</td>
-                <td style={{ padding: "10px 14px" }}>
-                  <select className="form-input" style={{ fontSize: 13, width: 200 }}
+              <tr key={d.id} className="pdg-tr">
+                <td className="pdg-td-dept">{d.department_name || "-"}</td>
+                <td className="pdg-td-name">{d.name}</td>
+                <td className="pdg-td-select">
+                  <select className="form-input pdg-select"
                     value={mappings[d.id] || ""} onChange={e => setGradeFor(d.id, e.target.value)}>
                     <option value="">No grade assigned</option>
                     {grades.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
                   </select>
                 </td>
-                <td style={{ padding: "10px 14px", display: "flex", gap: 6 }}>
-                  <button className="btn btn-primary btn-sm" style={{ color: "#fff", fontSize: 11 }} disabled={savingId === d.id} onClick={() => save(d.id)}>
+                <td className="pdg-td-actions">
+                  <button className="btn btn-primary btn-sm pdg-save-btn" disabled={savingId === d.id} onClick={() => save(d.id)}>
                     {savingId === d.id ? "Saving..." : "Save"}
                   </button>
                   {mappings[d.id] && (
-                    <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, color: "#dc2626" }} onClick={() => remove(d.id)}>Remove</button>
+                    <button className="btn btn-ghost btn-sm pdg-remove-btn" onClick={() => remove(d.id)}>Remove</button>
                   )}
                 </td>
               </tr>
             ))}
             {designations.length === 0 && (
-              <tr><td colSpan={4} style={{ padding: 30, textAlign: "center", color: "#94a3b8", fontSize: 13 }}>No designations found.</td></tr>
+              <tr><td colSpan={4} className="pdg-empty-td">No designations found.</td></tr>
             )}
           </tbody>
         </table>

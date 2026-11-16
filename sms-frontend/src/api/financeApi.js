@@ -45,6 +45,7 @@ const financeApi = {
   updateChargeType:         (id, data) => client.put("/finance/charge-types/" + id, data),
   toggleChargeType:         (id)     => client.put("/finance/charge-types/" + id + "/toggle"),
   verifyPayment:        (id)      => client.put(`/finance/payments/${id}/verify`),
+  rejectPayment:        (id, reason) => client.put(`/finance/payments/${id}/reject`, { reason }),
   getStudentSummary:    (id)      => client.get(`/finance/student/${id}`),
   getLockedAccounts:        (params) => client.get("/finance/locked-accounts", { params }),
   getFeeReportSchool:       (params) => client.get("/finance/reports/fee-report", { params }),

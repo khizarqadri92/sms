@@ -5,6 +5,7 @@ import { useAuth } from "../auth/AuthContext";
 import client from "../api/client";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
 import DatePicker from "./DatePicker";
+import "./DisciplineDetailModal.css";
 
 const SEVERITY_LABELS = {1:"Minor",2:"Moderate",3:"Serious",4:"Severe",5:"Critical"};
 const SEVERITY_COLORS = {1:"#22c55e",2:"#f59e0b",3:"#f97316",4:"#ef4444",5:"#7c3aed"};
@@ -114,67 +115,65 @@ export default function DisciplineDetailModal({ caseId, onClose, onActed, wqItem
   if(!caseId) return null;
 
   return (
-    <div style={{position:"fixed",inset:0,zIndex:9000,background:"rgba(15,23,42,0.6)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}>
-      <div style={{background:"#fff",borderRadius:12,width:"100%",maxWidth:700,maxHeight:"92vh",display:"flex",flexDirection:"column",boxShadow:"0 20px 60px rgba(0,0,0,0.2)",overflow:"hidden"}}>
+    <div className="ddm-overlay">
+      <div className="ddm-box">
         {/* Header */}
-        <div style={{padding:"12px 20px",background:"#fef9f0",borderBottom:"1px solid #fed7aa",display:"flex",justifyContent:"space-between",alignItems:"center",flexShrink:0}}>
+        <div className="ddm-header">
           <div>
             {wfStep ? (<>
-              <span style={{fontWeight:700,fontSize:13}}>Current Step: </span>
-              <span style={{fontSize:13,color:"#c2410c",fontWeight:600}}>{wfStep.step_name}</span>
-              {wfStep.assigned_role&&<span style={{fontSize:12,color:"#64748b",marginLeft:8}}>({wfStep.assigned_role.replace(/_/g," ")})</span>}
-            </>) : <span style={{fontSize:13,color:"#64748b",fontWeight:600}}>{detail?.status?.replace(/_/g," ").toUpperCase()||"CASE DETAIL"}</span>}
+              <span className="ddm-header-label">Current Step: </span>
+              <span className="ddm-header-step">{wfStep.step_name}</span>
+              {wfStep.assigned_role&&<span className="ddm-header-role">({wfStep.assigned_role.replace(/_/g," ")})</span>}
+            </>) : <span className="ddm-header-status">{detail?.status?.replace(/_/g," ").toUpperCase()||"CASE DETAIL"}</span>}
           </div>
           <button className="btn btn-ghost btn-sm" onClick={onClose}>Close</button>
         </div>
 
         {/* Content */}
-        <div style={{padding:20,overflowY:"auto",flex:1}}>
-          {flashMsg&&<div style={{padding:"8px 14px",borderRadius:8,marginBottom:12,fontSize:13,
-            background:flashMsg.type==="success"?"#dcfce7":"#fee2e2",
-            color:flashMsg.type==="success"?"#166534":"#dc2626"}}>{flashMsg.msg}</div>}
+        <div className="ddm-content">
+          {flashMsg&&<div className="ddm-flash" style={{ "--flash-bg": flashMsg.type==="success"?"#dcfce7":"#fee2e2", "--flash-color": flashMsg.type==="success"?"var(--text-success-soft)":"var(--text-danger-soft)" }}>{flashMsg.msg}</div>}
 
-          {loading ? <div style={{textAlign:"center",padding:40,color:"#64748b"}}>Loading...</div> : detail && (<>
+          {loading ? <div className="ddm-loading">Loading...</div> : detail && (<>
             {/* Case Info */}
-            <div style={{marginBottom:16}}>
-              <div style={{fontSize:18,fontWeight:700,color:"#0f172a"}}>{detail.student_name}</div>
-              <div style={{fontSize:13,color:"#64748b",marginTop:2}}>{detail.class_name}{detail.section?" - "+detail.section:""}</div>
-              <div style={{display:"flex",gap:8,marginTop:8,flexWrap:"wrap",alignItems:"center"}}>
-                <span style={{padding:"3px 10px",borderRadius:12,fontSize:12,fontWeight:600,background:"#f1f5f9",color:"#475569"}}>{detail.violation_type}</span>
-                <span style={{padding:"3px 10px",borderRadius:12,fontSize:12,fontWeight:600,
-                  background:SEVERITY_COLORS[detail.severity]||"#94a3b8",color:"#fff"}}>
+            <div className="ddm-case-info">
+              <div className="ddm-student-name">{detail.student_name}</div>
+              <div className="ddm-student-meta">{detail.class_name}{detail.section?" - "+detail.section:""}</div>
+              <div className="ddm-badge-row">
+                <span className="ddm-violation-badge">{detail.violation_type}</span>
+                <span className="ddm-severity-badge" style={{ "--severity-color": SEVERITY_COLORS[detail.severity]||"#94a3b8" }}>
                   Severity: {SEVERITY_LABELS[detail.severity]||detail.severity}
                 </span>
-                <span style={{fontSize:12,color:"#94a3b8"}}>Incident: {detail.incident_date}</span>
+                <span className="ddm-incident-date">Incident: {detail.incident_date}</span>
               </div>
             </div>
 
-            <div style={{marginBottom:16,padding:"10px 14px",background:"#f8fafc",borderRadius:8,fontSize:13,color:"#374151"}}>
-              <div style={{fontWeight:600,fontSize:11,color:"#64748b",marginBottom:4,letterSpacing:"0.05em"}}>DESCRIPTION</div>
+            <div className="ddm-desc-box">
+              <div className="ddm-label">DESCRIPTION</div>
               {detail.description}
             </div>
 
             {/* Evidence Section */}
             {evidence.length>0&&(
-              <div style={{marginBottom:16,padding:"10px 14px",background:"#fafafa",borderRadius:8,border:"1px solid #e2e8f0"}}>
-                <div style={{fontWeight:600,fontSize:11,color:"#64748b",marginBottom:8,letterSpacing:"0.05em"}}>EVIDENCE</div>
+              <div className="ddm-evidence-box">
+                <div className="ddm-evidence-label">EVIDENCE</div>
                 {evidence.map((ev,i)=>(
-                  <div key={i} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6,fontSize:13}}>
-                    <span style={{color:"#2563eb",cursor:"pointer",textDecoration:"underline"}}
+                  <div key={i} className="ddm-evidence-item">
+                    <span className="ddm-evidence-link"
                       onClick={()=>disciplineApi.downloadEvidence(caseId,ev.id)}>
                       📎 {ev.filename||"Evidence "+(i+1)}
                     </span>
-                    <span style={{fontSize:11,color:"#94a3b8"}}>{ev.uploaded_by_name||""}</span>
+                    <span className="ddm-evidence-uploader">{ev.uploaded_by_name||""}</span>
                   </div>
                 ))}
               </div>
             )}
 
             {/* Upload Evidence */}
-            <div style={{marginBottom:16}}>
-              <div style={{display:"flex",gap:8,alignItems:"center"}}>
-                <input type="file" style={{fontSize:12,flex:1}} onChange={e=>setEvidenceFile(e.target.files[0])}/>
-                <button className="btn btn-ghost btn-sm" style={{fontSize:12,whiteSpace:"nowrap"}} disabled={!evidenceFile||uploadingEvidence}
+            {permissions.includes("discipline.report") && (
+            <div className="ddm-upload-wrap">
+              <div className="ddm-upload-row">
+                <input type="file" className="ddm-file-input" onChange={e=>setEvidenceFile(e.target.files[0])}/>
+                <button className="btn btn-ghost btn-sm ddm-upload-btn" disabled={!evidenceFile||uploadingEvidence}
                   onClick={async()=>{
                     if(!evidenceFile)return;
                     setUploadingEvidence(true);
@@ -189,17 +188,18 @@ export default function DisciplineDetailModal({ caseId, onClose, onActed, wqItem
                   }}>{uploadingEvidence?"Uploading...":"Upload Evidence"}</button>
               </div>
             </div>
+            )}
 
             {/* Committee info if assigned */}
             {committeeInfo&&committeeInfo.head&&(
-              <div style={{marginBottom:16,padding:"10px 14px",background:"#f0fdf4",borderRadius:8,border:"1px solid #bbf7d0"}}>
-                <div style={{fontWeight:600,fontSize:11,color:"#166534",marginBottom:6,letterSpacing:"0.05em"}}>HEARING COMMITTEE</div>
-                <div style={{fontSize:13,color:"#374151"}}>
+              <div className="ddm-committee-box">
+                <div className="ddm-committee-label">HEARING COMMITTEE</div>
+                <div className="ddm-committee-body">
                   <strong>Head:</strong> {committeeInfo.head?.name||committeeInfo.head_name}
-                  {detail.hearing_date&&<span style={{marginLeft:12,fontSize:12,color:"#64748b"}}>📅 {formatDate(detail.hearing_date)}</span>}
+                  {detail.hearing_date&&<span className="ddm-hearing-date">📅 {formatDate(detail.hearing_date)}</span>}
                 </div>
                 {committeeInfo.members&&committeeInfo.members.length>0&&(
-                  <div style={{marginTop:6,fontSize:12,color:"#64748b"}}>
+                  <div className="ddm-committee-members">
                     Members: {committeeInfo.members.map(m=>m.name||m.teacher_name).join(", ")}
                   </div>
                 )}
@@ -207,28 +207,25 @@ export default function DisciplineDetailModal({ caseId, onClose, onActed, wqItem
             )}
 
             {/* Progress */}
-            <div style={{marginBottom:16}}>
-              <div style={{fontWeight:600,fontSize:11,color:"#64748b",letterSpacing:"0.05em",marginBottom:12}}>PROGRESS</div>
+            <div className="ddm-section">
+              <div className="ddm-section-label">PROGRESS</div>
               {TIMELINE.map((step,i)=>(
-                <div key={i} style={{display:"flex",gap:12,marginBottom:10,opacity:(!step.done&&!step.current)?0.4:1}}>
-                  <div style={{display:"flex",flexDirection:"column",alignItems:"center"}}>
-                    <div style={{width:26,height:26,borderRadius:"50%",flexShrink:0,
-                      background:step.done?"#22c55e":step.current?"#f97316":"#e2e8f0",
-                      display:"flex",alignItems:"center",justifyContent:"center",
-                      fontSize:11,fontWeight:700,color:(step.done||step.current)?"#fff":"#94a3b8"}}>
+                <div key={i} className="ddm-timeline-row" style={{ "--row-opacity": (!step.done&&!step.current)?0.4:1 }}>
+                  <div className="ddm-timeline-dot-col">
+                    <div className="ddm-timeline-dot" style={{ "--dot-bg": step.done?"#22c55e":step.current?"#f97316":"var(--border-color)", "--dot-color": (step.done||step.current)?"#fff":"var(--text-muted)" }}>
                       {step.done?"✓":i+1}
                     </div>
-                    {i<TIMELINE.length-1&&<div style={{width:2,flex:1,background:step.done?"#22c55e":"#e2e8f0",minHeight:16}}/>}
+                    {i<TIMELINE.length-1&&<div className="ddm-timeline-connector" style={{ "--connector-bg": step.done?"#22c55e":"var(--border-color)" }}/>}
                   </div>
-                  <div style={{paddingBottom:10}}>
-                    <div style={{fontWeight:600,fontSize:14,color:"#0f172a"}}>
+                  <div className="ddm-timeline-content">
+                    <div className="ddm-timeline-label">
                       {step.label}
-                      {step.current&&<span style={{marginLeft:8,fontSize:11,color:"#f97316",fontWeight:700}}>Current</span>}
+                      {step.current&&<span className="ddm-current-tag">Current</span>}
                     </div>
-                    {step.by&&<div style={{fontSize:12,color:"#64748b"}}>{step.by}</div>}
-                    {step.at&&<div style={{fontSize:11,color:"#94a3b8"}}>
+                    {step.by&&<div className="ddm-timeline-by">{step.by}</div>}
+                    {step.at&&<div className="ddm-timeline-at">
                       {formatDate(step.at)}
-                      {step.note&&<span style={{fontStyle:"italic",marginLeft:6}}>"{step.note}"</span>}
+                      {step.note&&<span className="ddm-timeline-note">"{step.note}"</span>}
                     </div>}
                   </div>
                 </div>
@@ -238,23 +235,22 @@ export default function DisciplineDetailModal({ caseId, onClose, onActed, wqItem
             {/* Action Section */}
             {/* Committee Member Remarks Form */}
             {isCommitteeMember && (
-              <div style={{padding:"16px 20px",background:isCommitteeCompleted?"#f0fdf4":"#fef9f0",
-                borderRadius:8,border:"1px solid "+(isCommitteeCompleted?"#bbf7d0":"#fed7aa"),marginBottom:16}}>
-                <div style={{fontWeight:700,fontSize:13,marginBottom:10,color:isCommitteeCompleted?"#166534":"#92400e"}}>
+              <div className="ddm-remarks-box" style={{ "--box-bg": isCommitteeCompleted?"var(--bg-success-soft)":"var(--bg-warning-soft)", "--box-border": isCommitteeCompleted?"var(--border-success-soft)":"var(--border-warning-soft)" }}>
+                <div className="ddm-remarks-title" style={{ "--title-color": isCommitteeCompleted?"var(--text-success-soft)":"var(--text-warning-soft)" }}>
                   {isCommitteeCompleted?"✓ REMARKS SUBMITTED":"SUBMIT YOUR HEARING REMARKS"}
                 </div>
                 {isCommitteeCompleted ? (
-                  <div style={{fontSize:13,color:"#166534"}}>You have already submitted your remarks for this case.</div>
+                  <div className="ddm-remarks-completed">You have already submitted your remarks for this case.</div>
                 ) : (<>
-                  <div style={{marginBottom:10}}>
-                    <div style={{fontSize:12,fontWeight:600,marginBottom:4}}>Your Remarks *</div>
-                    <textarea className="form-input" rows={4} style={{width:"100%",fontSize:13}}
+                  <div className="ddm-field-wrap">
+                    <div className="ddm-field-label">Your Remarks *</div>
+                    <textarea className="form-input ddm-textarea-full" rows={4}
                       value={remarksForm.remarks} onChange={e=>setRemarksForm(p=>({...p,remarks:e.target.value}))}
                       placeholder="Describe your assessment of the case based on the hearing..."/>
                   </div>
-                  <div style={{marginBottom:10}}>
-                    <div style={{fontSize:12,fontWeight:600,marginBottom:4}}>Recommendation</div>
-                    <select className="form-input" style={{width:"100%",fontSize:13}}
+                  <div className="ddm-field-wrap">
+                    <div className="ddm-field-label">Recommendation</div>
+                    <select className="form-input ddm-select-full"
                       value={remarksForm.recommendation} onChange={e=>setRemarksForm(p=>({...p,recommendation:e.target.value}))}>
                       <option value="">Select recommendation...</option>
                       {["warning","suspension","expulsion","dismissed"].map(r=>(
@@ -262,9 +258,9 @@ export default function DisciplineDetailModal({ caseId, onClose, onActed, wqItem
                       ))}
                     </select>
                   </div>
-                  {error&&<div style={{color:"#dc2626",fontSize:12,marginBottom:8}}>{error}</div>}
-                  <div style={{display:"flex",justifyContent:"flex-end"}}>
-                    <button className="btn btn-primary btn-sm" style={{color:"#fff"}} disabled={acting||!remarksForm.remarks.trim()}
+                  {error&&<div className="ddm-error-text">{error}</div>}
+                  <div className="ddm-btn-row-end-single">
+                    <button className="btn btn-primary btn-sm ddm-btn-white" disabled={acting||!remarksForm.remarks.trim()}
                       onClick={async()=>{
                         if(!remarksForm.remarks.trim()){setError("Remarks are required.");return;}
                         setActing(true); setError("");
@@ -282,83 +278,82 @@ export default function DisciplineDetailModal({ caseId, onClose, onActed, wqItem
 
             {/* Committee Summary - visible at hearing and decide steps */}
             {committeeInfo&&committeeInfo.length>0&&wfStep&&(wfStep.step_type==="hearing"||wfStep.step_type==="decide")&&(
-              <div style={{marginBottom:16,padding:"14px 16px",background:"#fff7ed",borderRadius:8,border:"1px solid #fed7aa"}}>
-                <div style={{fontWeight:700,fontSize:11,color:"#92400e",marginBottom:10,letterSpacing:"0.05em"}}>COMMITTEE HEARING REPORTS</div>
+              <div className="ddm-summary-box">
+                <div className="ddm-summary-title-sm">COMMITTEE HEARING REPORTS</div>
                 {committeeInfo.filter(m=>m.is_head).map((m,i)=>(
-                  <div key={"h"+i} style={{marginBottom:10,padding:"8px 12px",background:"#fff",borderRadius:6,border:"1px solid #fed7aa"}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <span style={{fontWeight:700,fontSize:13}}>{m.teacher_name} <span style={{fontSize:11,color:"#f97316",fontWeight:700}}>● Head</span></span>
-                      <span style={{fontSize:11,color:m.submitted_at?"#16a34a":"#f97316",fontWeight:600}}>{m.submitted_at?"✓ Submitted":"Pending"}</span>
+                  <div key={"h"+i} className="ddm-head-card">
+                    <div className="ddm-head-card-row">
+                      <span className="ddm-head-name">{m.teacher_name} <span className="ddm-head-tag">● Head</span></span>
+                      <span className="ddm-head-status" style={{ "--status-color": m.submitted_at?"#16a34a":"#f97316" }}>{m.submitted_at?"✓ Submitted":"Pending"}</span>
                     </div>
-                    {m.recommendation&&<div style={{fontSize:12,marginTop:4}}>Final Recommendation: <strong style={{color:"#c2410c"}}>{m.recommendation}</strong></div>}
-                    {m.remarks&&<div style={{fontSize:12,color:"#374151",fontStyle:"italic",marginTop:2}}>"{m.remarks}"</div>}
+                    {m.recommendation&&<div className="ddm-recommendation">Final Recommendation: <strong className="ddm-recommendation-value">{m.recommendation}</strong></div>}
+                    {m.remarks&&<div className="ddm-remarks-quote">"{m.remarks}"</div>}
                   </div>
                 ))}
                 {committeeInfo.filter(m=>!m.is_head).map((m,i)=>(
-                  <div key={i} style={{marginBottom:6,padding:"8px 12px",background:"#fff",borderRadius:6,border:"1px solid #e2e8f0",
-                    opacity:m.submitted_at?1:0.6}}>
-                    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <span style={{fontWeight:600,fontSize:13}}>{m.teacher_name}</span>
-                      <span style={{fontSize:11,color:m.submitted_at?"#16a34a":"#94a3b8",fontWeight:600}}>{m.submitted_at?"✓":"Pending"}</span>
+                  <div key={i} className="ddm-head-member-row" style={{ "--row-opacity": m.submitted_at?1:0.6 }}>
+                    <div className="ddm-member-row">
+                      <span className="ddm-head-name">{m.teacher_name}</span>
+                      <span className="ddm-member-status" style={{ "--status-color": m.submitted_at?"#16a34a":"var(--text-muted)" }}>{m.submitted_at?"✓":"Pending"}</span>
                     </div>
-                    {m.recommendation&&<div style={{fontSize:11,color:"#6b7280",marginTop:2}}>Recommendation: <strong>{m.recommendation}</strong></div>}
-                    {m.remarks&&<div style={{fontSize:12,color:"#374151",fontStyle:"italic",marginTop:2}}>"{m.remarks}"</div>}
+                    {m.recommendation&&<div className="ddm-member-recommendation">Recommendation: <strong>{m.recommendation}</strong></div>}
+                    {m.remarks&&<div className="ddm-remarks-quote">"{m.remarks}"</div>}
                   </div>
                 ))}
               </div>
             )}
 
             {wfStep && (
-              <div style={{padding:"16px 20px",background:"#f8fafc",borderRadius:8,border:"1px solid #e2e8f0"}}>
+              <div className="ddm-action-box">
 
                 {/* REVIEW */}
                 {wfStep.step_type==="review" && (<>
-                  <div style={{fontWeight:700,fontSize:13,marginBottom:10,color:"#0f172a"}}>REVIEW CASE</div>
-                  <textarea className="form-input" rows={3} style={{width:"100%",fontSize:13,marginBottom:10}} value={note}
+                  <div className="ddm-step-title">REVIEW CASE</div>
+                  <textarea className="form-input ddm-textarea-full" rows={3} value={note}
                     onChange={e=>setNote(e.target.value)} placeholder="Review notes (optional)"/>
-                  {error&&<div style={{color:"#dc2626",fontSize:12,marginBottom:8}}>{error}</div>}
-                  <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
-                    <button className="btn btn-ghost btn-sm" style={{color:"#dc2626"}} disabled={acting}
+                  {error&&<div className="ddm-error-text">{error}</div>}
+                  <div className="ddm-btn-row-end">
+                    <button className="btn btn-ghost btn-sm ddm-reject-btn" disabled={acting}
                       onClick={()=>act("dismiss")}>Dismiss Case</button>
-                    <button className="btn btn-primary btn-sm" style={{color:"#fff"}} disabled={acting}
+                    <button className="btn btn-primary btn-sm ddm-btn-white" disabled={acting}
                       onClick={()=>act("approve")}>{acting?"Processing...":"Approve Case"}</button>
                   </div>
                 </>)}
 
                 {/* ASSIGN COMMITTEE */}
                 {wfStep.step_type==="assign_committee" && (<>
-                  <div style={{fontWeight:700,fontSize:13,marginBottom:10,color:"#0f172a"}}>ASSIGN COMMITTEE & SCHEDULE HEARING</div>
-                  <div style={{marginBottom:10}}>
-                    <div style={{fontSize:12,fontWeight:600,marginBottom:4}}>Hearing Date & Time *</div>
-                    <div style={{display:"flex",gap:8}}>
-                      <div style={{flex:1}}>
+                  <div className="ddm-step-title">ASSIGN COMMITTEE & SCHEDULE HEARING</div>
+                  <div className="ddm-field-wrap">
+                    <div className="ddm-field-label">Hearing Date & Time *</div>
+                    <div className="ddm-datetime-row">
+                      <div className="ddm-flex1">
                         <DatePicker
                           value={committee.hearing_date ? committee.hearing_date.split("T")[0] : ""}
                           onChange={val => setCommittee(p => ({...p, hearing_date: val ? `${val}T${(p.hearing_date && p.hearing_date.split("T")[1]) || "00:00"}` : ""}))}
                         />
                       </div>
-                      <input type="time" className="form-input" style={{width:110,fontSize:13}}
+                      <input type="time" className="form-input ddm-time-input"
                         value={committee.hearing_date ? committee.hearing_date.split("T")[1] || "" : ""}
                         onChange={e => setCommittee(p => ({...p, hearing_date: `${(p.hearing_date && p.hearing_date.split("T")[0]) || ""}T${e.target.value}`}))}/>
                     </div>
                   </div>
-                  <div style={{marginBottom:10}}>
-                    <div style={{fontSize:12,fontWeight:600,marginBottom:4}}>Hearing Location *</div>
-                    <input type="text" className="form-input" style={{width:"100%",fontSize:13}}
+                  <div className="ddm-field-wrap">
+                    <div className="ddm-field-label">Hearing Location *</div>
+                    <input type="text" className="form-input ddm-input-full"
                       placeholder="e.g. Conference Room, Principal Office..."
                       value={committee.hearing_location} onChange={e=>setCommittee(p=>({...p,hearing_location:e.target.value}))}/>
                   </div>
-                  <div style={{marginBottom:10}}>
-                    <div style={{fontSize:12,fontWeight:600,marginBottom:4}}>Committee Members (select multiple)</div>
-                    <select multiple className="form-input" style={{width:"100%",fontSize:13,height:100}}
+                  <div className="ddm-field-wrap">
+                    <div className="ddm-field-label">Committee Members (select multiple)</div>
+                    <select multiple className="form-input ddm-multi-select"
                       onChange={e=>setCommittee(p=>({...p,teacher_ids:Array.from(e.target.selectedOptions,o=>o.value)}))}>
                       {teachers.map(t=><option key={t.id} value={t.id}>{t.first_name} {t.last_name} — {t.subject||t.designation||""}</option>)}
                     </select>
-                    <div style={{fontSize:11,color:"#94a3b8",marginTop:3}}>Hold Ctrl/Cmd to select multiple</div>
+                    <div className="ddm-hint">Hold Ctrl/Cmd to select multiple</div>
                   </div>
-                  <div style={{marginBottom:10}}>
-                    <div style={{fontSize:12,fontWeight:600,marginBottom:4}}>Committee Head</div>
-                    <select className="form-input" style={{width:"100%",fontSize:13}}
+                  <div className="ddm-field-wrap">
+                    <div className="ddm-field-label">Committee Head</div>
+                    <select className="form-input ddm-select-full"
                       value={committee.head_id} onChange={e=>setCommittee(p=>({...p,head_id:e.target.value}))}>
                       <option value="">Select head from members...</option>
                       {committee.teacher_ids.map(id=>{
@@ -367,92 +362,89 @@ export default function DisciplineDetailModal({ caseId, onClose, onActed, wqItem
                       })}
                     </select>
                   </div>
-                  <div style={{marginBottom:10,padding:"10px 12px",background:"#f0f9ff",borderRadius:8,border:"1px solid #bae6fd"}}>
-                    <div style={{fontSize:12,fontWeight:700,color:"#0369a1",marginBottom:8}}>WHO WILL APPEAR BEFORE COMMITTEE</div>
-                    <div style={{fontSize:11,color:"#475569",marginBottom:10}}>Select persons required to appear. They will be notified with the hearing date and time.</div>
+                  <div className="ddm-appearance-box">
+                    <div className="ddm-appearance-title">WHO WILL APPEAR BEFORE COMMITTEE</div>
+                    <div className="ddm-appearance-desc">Select persons required to appear. They will be notified with the hearing date and time.</div>
                     {appearanceCandidates.map((cand,idx)=>(
-                      <div key={idx} style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,padding:"8px 10px",
-                        background:selectedAppearance.includes(cand.user_id)?"#dbeafe":"#f8fafc",
-                        borderRadius:6,border:"1px solid "+(selectedAppearance.includes(cand.user_id)?"#93c5fd":"#e2e8f0"),
-                        cursor:cand.user_id?"pointer":"default",opacity:cand.user_id?1:0.5}}
+                      <div key={idx} className="ddm-candidate-row" style={{
+                        "--row-bg": selectedAppearance.includes(cand.user_id)?"var(--bg-info-soft)":"var(--bg-hover)",
+                        "--row-border": selectedAppearance.includes(cand.user_id)?"var(--border-info-soft)":"var(--border-color)",
+                        "--row-cursor": cand.user_id?"pointer":"default", "--row-opacity": cand.user_id?1:0.5 }}
                         onClick={()=>{
                           if(!cand.user_id) return;
                           setSelectedAppearance(p=>p.includes(cand.user_id)?p.filter(x=>x!==cand.user_id):[...p,cand.user_id]);
                         }}>
-                        <input type="checkbox" readOnly checked={!!selectedAppearance.includes(cand.user_id)} style={{cursor:"pointer"}}/>
+                        <input type="checkbox" readOnly checked={!!selectedAppearance.includes(cand.user_id)} className="ddm-candidate-checkbox"/>
                         <div>
-                          <div style={{fontSize:12,fontWeight:600,color:"#0f172a"}}>{cand.name}</div>
-                          <div style={{fontSize:11,color:"#64748b"}}>{cand.label}</div>
+                          <div className="ddm-candidate-name">{cand.name}</div>
+                          <div className="ddm-candidate-label-text">{cand.label}</div>
                         </div>
-                        {!cand.user_id&&<span style={{fontSize:10,color:"#94a3b8",marginLeft:"auto"}}>No account</span>}
+                        {!cand.user_id&&<span className="ddm-no-account">No account</span>}
                       </div>
                     ))}
                   </div>
-                  {error&&<div style={{color:"#dc2626",fontSize:12,marginBottom:8}}>{error}</div>}
-                  <div style={{display:"flex",justifyContent:"flex-end"}}>
-                    <button className="btn btn-primary btn-sm" style={{color:"#fff"}} disabled={acting}
+                  {error&&<div className="ddm-error-text">{error}</div>}
+                  <div className="ddm-btn-row-end-single">
+                    <button className="btn btn-primary btn-sm ddm-btn-white" disabled={acting}
                       onClick={()=>act("assign_committee")}>{acting?"Assigning...":"Assign Committee & Notify"}</button>
                   </div>
                 </>)}
 
                 {/* HEARING */}
                 {wfStep.step_type==="hearing" && (<>
-                  <div style={{fontWeight:700,fontSize:13,marginBottom:12,color:"#0f172a"}}>COMMITTEE HEARING REPORTS</div>
+                  <div className="ddm-step-title-mb12">COMMITTEE HEARING REPORTS</div>
                   {committeeInfo&&committeeInfo.length>0 ? (<>
                     {/* Committee Head Final Recommendation */}
                     {committeeInfo.filter(m=>m.is_head).map((m,i)=>(
-                      <div key={"head-"+i} style={{marginBottom:12,padding:"12px 14px",borderRadius:8,
-                        background:"#fff7ed",border:"2px solid #fed7aa"}}>
-                        <div style={{fontWeight:700,fontSize:12,color:"#92400e",marginBottom:6,letterSpacing:"0.05em"}}>COMMITTEE HEAD — FINAL RECOMMENDATION</div>
-                        <div style={{fontWeight:600,fontSize:13,color:"#0f172a",marginBottom:4}}>{m.name||m.teacher_name}</div>
+                      <div key={"head-"+i} className="ddm-head-card-final">
+                        <div className="ddm-summary-title-sm">COMMITTEE HEAD — FINAL RECOMMENDATION</div>
+                        <div className="ddm-head-name-mb">{m.name||m.teacher_name}</div>
                         {m.submitted_at ? (<>
-                          {m.recommendation&&<div style={{fontSize:13,color:"#374151",marginBottom:4}}>
-                            <strong>Recommendation:</strong> <span style={{color:"#c2410c",fontWeight:700}}>{m.recommendation}</span>
+                          {m.recommendation&&<div className="ddm-recommendation-mb">
+                            <strong>Recommendation:</strong> <span className="ddm-recommendation-value">{m.recommendation}</span>
                           </div>}
-                          {m.remarks&&<div style={{fontSize:12,color:"#374151",fontStyle:"italic"}}>"{m.remarks}"</div>}
-                        </>) : <div style={{fontSize:12,color:"#f97316",fontWeight:600}}>⏳ Awaiting submission</div>}
+                          {m.remarks&&<div className="ddm-remarks-quote">"{m.remarks}"</div>}
+                        </>) : <div className="ddm-awaiting">⏳ Awaiting submission</div>}
                       </div>
                     ))}
                     {/* Other Members */}
-                    <div style={{fontWeight:600,fontSize:11,color:"#64748b",marginBottom:8,letterSpacing:"0.05em"}}>COMMITTEE MEMBERS</div>
+                    <div className="ddm-members-label">COMMITTEE MEMBERS</div>
                     {committeeInfo.filter(m=>!m.is_head).map((m,i)=>(
-                      <div key={i} style={{marginBottom:8,padding:"10px 12px",borderRadius:8,
-                        background:m.submitted_at?"#f0fdf4":"#fafafa",
-                        border:"1px solid "+(m.submitted_at?"#bbf7d0":"#e2e8f0")}}>
-                        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:m.remarks?6:0}}>
-                          <span style={{fontWeight:600,fontSize:13,color:"#0f172a"}}>{m.name||m.teacher_name}</span>
-                          <span style={{fontSize:11,fontWeight:600,color:m.submitted_at?"#16a34a":"#94a3b8"}}>
+                      <div key={i} className="ddm-member-card" style={{ "--card-bg": m.submitted_at?"var(--bg-success-soft)":"var(--bg-hover)", "--card-border": m.submitted_at?"var(--border-success-soft)":"var(--border-color)" }}>
+                        <div className="ddm-member-row" style={{ marginBottom: m.remarks?6:0 }}>
+                          <span className="ddm-member-name">{m.name||m.teacher_name}</span>
+                          <span className="ddm-member-status" style={{ "--status-color": m.submitted_at?"#16a34a":"var(--text-muted)" }}>
                             {m.submitted_at?"✓ Submitted":"Pending"}
                           </span>
                         </div>
-                        {m.recommendation&&<div style={{fontSize:11,color:"#6b7280",marginBottom:2}}>Recommendation: <strong>{m.recommendation}</strong></div>}
-                        {m.remarks&&<div style={{fontSize:12,color:"#374151",fontStyle:"italic"}}>"{m.remarks}"</div>}
+                        {m.recommendation&&<div className="ddm-member-recommendation">Recommendation: <strong>{m.recommendation}</strong></div>}
+                        {m.remarks&&<div className="ddm-remarks-quote">"{m.remarks}"</div>}
                       </div>
                     ))}
-                  </>) : <div style={{fontSize:13,color:"#94a3b8",marginBottom:12}}>No committee data found.</div>}
-                  <div style={{fontSize:13,color:"#475569",marginBottom:10}}>
+                  </>) : <div className="ddm-no-data">No committee data found.</div>}
+                  <div className="ddm-hearing-hint">
                     After all members have submitted, mark the hearing as complete to proceed to final decision.
                   </div>
-                  <textarea className="form-input" rows={2} style={{width:"100%",fontSize:13,marginBottom:10}} value={note}
+                  <textarea className="form-input ddm-textarea-full" rows={2} value={note}
                     onChange={e=>setNote(e.target.value)} placeholder="Hearing summary notes (optional)"/>
-                  {error&&<div style={{color:"#dc2626",fontSize:12,marginBottom:8}}>{error}</div>}
-                  <div style={{display:"flex",justifyContent:"flex-end"}}>
-                    <button className="btn btn-primary btn-sm" style={{color:"#fff"}} disabled={acting}
+                  {error&&<div className="ddm-error-text">{error}</div>}
+                  <div className="ddm-btn-row-end-single">
+                    <button className="btn btn-primary btn-sm ddm-btn-white" disabled={acting}
                       onClick={()=>act("hearing")}>{acting?"Processing...":"Mark Hearing Complete"}</button>
                   </div>
                 </>)}
 
                 {/* APPEAL REVIEW */}
                 {wfStep.step_type==="appeal_review" && (<>
-                  <div style={{fontWeight:700,fontSize:13,marginBottom:10,color:"#7c3aed"}}>REVIEW APPEAL</div>
-                  <div style={{marginBottom:10,padding:"10px 12px",background:"#faf5ff",borderRadius:6,border:"1px solid #e9d5ff",fontSize:13}}>
+                  <div className="ddm-step-title-purple">REVIEW APPEAL</div>
+                  <div className="ddm-appeal-note-box">
                     <strong>Appeal Note:</strong> {detail?.appeal_note||"No note provided."}
                   </div>
-                  <textarea className="form-input" rows={3} style={{width:"100%",fontSize:13,marginBottom:10}} value={note}
+                  <textarea className="form-input ddm-textarea-full" rows={3} value={note}
                     onChange={e=>setNote(e.target.value)} placeholder="Review notes (optional)"/>
-                  {error&&<div style={{color:"#dc2626",fontSize:12,marginBottom:8}}>{error}</div>}
-                  <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
-                    <button className="btn btn-ghost btn-sm" style={{color:"#dc2626"}} disabled={acting}
+                  {error&&<div className="ddm-error-text">{error}</div>}
+                  <div className="ddm-btn-row-end">
+                    <button className="btn btn-ghost btn-sm ddm-reject-btn" disabled={acting}
                       onClick={async()=>{
                         setActing(true);
                         try{ if(!note.trim()){setError("Please provide rejection reason.");setActing(false);return;}
@@ -461,22 +453,22 @@ export default function DisciplineDetailModal({ caseId, onClose, onActed, wqItem
                         }catch(e){setError(e.response?.data?.message||"Failed.");}
                         finally{setActing(false);}
                       }}>Reject Appeal</button>
-                    <button className="btn btn-primary btn-sm" style={{color:"#fff"}} disabled={acting}
+                    <button className="btn btn-primary btn-sm ddm-btn-white" disabled={acting}
                       onClick={()=>act("appeal_review")}>{acting?"Processing...":"Forward to Principal"}</button>
                   </div>
                 </>)}
 
                 {/* APPEAL DECIDE */}
                 {wfStep.step_type==="appeal_decide" && (<>
-                  <div style={{fontWeight:700,fontSize:13,marginBottom:10,color:"#7c3aed"}}>APPEAL DECISION</div>
-                  <div style={{marginBottom:10,padding:"10px 12px",background:"#faf5ff",borderRadius:6,border:"1px solid #e9d5ff",fontSize:13}}>
+                  <div className="ddm-step-title-purple">APPEAL DECISION</div>
+                  <div className="ddm-appeal-note-box">
                     <strong>Appeal Note:</strong> {detail?.appeal_note||"No note provided."}
                   </div>
-                  <textarea className="form-input" rows={3} style={{width:"100%",fontSize:13,marginBottom:10}} value={note}
+                  <textarea className="form-input ddm-textarea-full" rows={3} value={note}
                     onChange={e=>setNote(e.target.value)} placeholder="Decision reasoning (required)"/>
-                  {error&&<div style={{color:"#dc2626",fontSize:12,marginBottom:8}}>{error}</div>}
-                  <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
-                    <button className="btn btn-ghost btn-sm" style={{color:"#dc2626"}} disabled={acting||!note.trim()}
+                  {error&&<div className="ddm-error-text">{error}</div>}
+                  <div className="ddm-btn-row-end">
+                    <button className="btn btn-ghost btn-sm ddm-reject-btn" disabled={acting||!note.trim()}
                       onClick={async()=>{
                         if(!note.trim()){setError("Please provide reasoning.");return;}
                         setActing(true);
@@ -486,7 +478,7 @@ export default function DisciplineDetailModal({ caseId, onClose, onActed, wqItem
                         }catch(e){setError(e.response?.data?.message||"Failed.");}
                         finally{setActing(false);}
                       }}>Reject Appeal</button>
-                    <button className="btn btn-primary btn-sm" style={{color:"#fff"}} disabled={acting||!note.trim()}
+                    <button className="btn btn-primary btn-sm ddm-btn-white" disabled={acting||!note.trim()}
                       onClick={async()=>{
                         if(!note.trim()){setError("Please provide reasoning.");return;}
                         setActing(true);
@@ -501,10 +493,10 @@ export default function DisciplineDetailModal({ caseId, onClose, onActed, wqItem
 
                 {/* DECIDE */}
                 {wfStep.step_type==="decide" && (<>
-                  <div style={{fontWeight:700,fontSize:13,marginBottom:12,color:"#0f172a"}}>FINAL DECISION</div>
-                  <div style={{marginBottom:10}}>
-                    <div style={{fontSize:12,fontWeight:600,marginBottom:4}}>Decision</div>
-                    <select className="form-input" style={{width:"100%",fontSize:13}} value={decideForm.action_type}
+                  <div className="ddm-step-title-mb12">FINAL DECISION</div>
+                  <div className="ddm-field-wrap">
+                    <div className="ddm-field-label">Decision</div>
+                    <select className="form-input ddm-select-full" value={decideForm.action_type}
                       onChange={e=>setDecideForm(p=>({...p,action_type:e.target.value}))}>
                       {["warning","suspension","expulsion","dismissed"].map(o=>(
                         <option key={o} value={o}>{o.charAt(0).toUpperCase()+o.slice(1)}</option>
@@ -512,29 +504,29 @@ export default function DisciplineDetailModal({ caseId, onClose, onActed, wqItem
                     </select>
                   </div>
                   {decideForm.action_type==="suspension"&&(
-                    <div style={{display:"flex",gap:8,marginBottom:10}}>
-                      <div style={{flex:1}}>
-                        <div style={{fontSize:12,fontWeight:600,marginBottom:4}}>Suspension From</div>
+                    <div className="ddm-suspension-row">
+                      <div className="ddm-flex1">
+                        <div className="ddm-field-label">Suspension From</div>
                         <DatePicker style={{width:"100%",fontSize:13}} value={decideForm.suspension_from}
                           onChange={val=>setDecideForm(p=>({...p,suspension_from:val}))}/>
                       </div>
-                      <div style={{flex:1}}>
-                        <div style={{fontSize:12,fontWeight:600,marginBottom:4}}>Suspension To</div>
+                      <div className="ddm-flex1">
+                        <div className="ddm-field-label">Suspension To</div>
                         <DatePicker style={{width:"100%",fontSize:13}} value={decideForm.suspension_to}
                           onChange={val=>setDecideForm(p=>({...p,suspension_to:val}))}/>
                       </div>
                     </div>
                   )}
-                  <textarea className="form-input" rows={2} style={{width:"100%",fontSize:13,marginBottom:10}}
+                  <textarea className="form-input ddm-textarea-full" rows={2}
                     placeholder="Decision note..." value={decideForm.note}
                     onChange={e=>setDecideForm(p=>({...p,note:e.target.value}))}/>
-                  {error&&<div style={{color:"#dc2626",fontSize:12,marginBottom:8}}>{error}</div>}
-                  <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
-                    <button className="btn btn-ghost btn-sm" style={{color:"#dc2626"}} disabled={acting}
+                  {error&&<div className="ddm-error-text">{error}</div>}
+                  <div className="ddm-btn-row-end">
+                    <button className="btn btn-ghost btn-sm ddm-reject-btn" disabled={acting}
                       onClick={()=>disciplineApi.review(caseId,{action:"dismiss",note:decideForm.note}).then(()=>{flash("success","Case dismissed.");setTimeout(()=>{loadData();onActed&&onActed();},1200);}).catch(e=>setError(e.response?.data?.message||"Failed."))}>
                       Dismiss
                     </button>
-                    <button className="btn btn-primary btn-sm" style={{color:"#fff"}} disabled={acting}
+                    <button className="btn btn-primary btn-sm ddm-btn-white" disabled={acting}
                       onClick={()=>act("decide")}>{acting?"Processing...":"Submit Decision"}</button>
                   </div>
                 </>)}
@@ -544,31 +536,30 @@ export default function DisciplineDetailModal({ caseId, onClose, onActed, wqItem
           </>)}
             {/* Parent Appeal Section */}
             {isParent && detail && ["warning","suspension","expulsion","dismissed"].includes(detail.status) && (
-              <div style={{marginTop:16,padding:"14px 16px",background:detail.appeal_submitted?"#f0fdf4":"#faf5ff",
-                borderRadius:8,border:"1px solid "+(detail.appeal_submitted?"#bbf7d0":"#e9d5ff")}}>
-                <div style={{fontWeight:700,fontSize:12,color:detail.appeal_outcome==="rejected"?"#dc2626":detail.appeal_submitted?"#166534":"#7c3aed",marginBottom:6}}>
+              <div className="ddm-parent-appeal-box" style={{ "--box-bg": detail.appeal_submitted?"var(--bg-success-soft)":"var(--bg-purple-soft)", "--box-border": detail.appeal_submitted?"var(--border-success-soft)":"var(--border-purple-soft)" }}>
+                <div className="ddm-parent-appeal-title" style={{ "--title-color": detail.appeal_outcome==="rejected"?"var(--text-danger-soft)":detail.appeal_submitted?"var(--text-success-soft)":"var(--text-purple-soft)" }}>
                   {detail.appeal_outcome==="rejected"?"✗ APPEAL REJECTED":detail.appeal_outcome==="upheld"?"✓ APPEAL UPHELD":detail.appeal_submitted?"⏳ UNDER REVIEW":"APPEAL DECISION"}
                 </div>
                 {detail.appeal_outcome==="rejected" ? (
-                  <div style={{fontSize:13,color:"#dc2626",padding:"8px",background:"#fff1f2",borderRadius:6}}>Your appeal has been rejected. The original decision stands.</div>
+                  <div className="ddm-rejected-msg">Your appeal has been rejected. The original decision stands.</div>
                 ) : detail.appeal_outcome==="upheld" ? (
-                  <div style={{fontSize:13,color:"#166534",padding:"8px",background:"#f0fdf4",borderRadius:6}}>Your appeal has been upheld. The original decision has been overturned.</div>
+                  <div className="ddm-upheld-msg">Your appeal has been upheld. The original decision has been overturned.</div>
                 ) : detail.appeal_submitted ? (
-                  <div style={{fontSize:13,color:"#166534"}}>Your appeal has been submitted and is under review.</div>
+                  <div className="ddm-under-review-msg">Your appeal has been submitted and is under review.</div>
                 ) : canAppeal ? (<>
-                  {detail.appeal_deadline&&<div style={{fontSize:12,color:"#64748b",marginBottom:8}}>
+                  {detail.appeal_deadline&&<div className="ddm-deadline">
                     Appeal deadline: <strong>{formatDate(detail.appeal_deadline)}</strong>
                   </div>}
                   {!showAppeal ? (
-                    <button className="btn btn-sm" style={{background:"#7c3aed",color:"#fff",fontSize:12}}
+                    <button className="btn btn-sm ddm-purple-btn"
                       onClick={()=>setShowAppeal(true)}>Submit Appeal</button>
                   ) : (<>
-                    <textarea className="form-input" rows={3} style={{width:"100%",fontSize:13,marginBottom:8}}
+                    <textarea className="form-input ddm-appeal-note-textarea" rows={3}
                       value={appealNote} onChange={e=>setAppealNote(e.target.value)}
                       placeholder="Explain why you are appealing this decision..."/>
-                    <div style={{display:"flex",gap:8,justifyContent:"flex-end"}}>
+                    <div className="ddm-btn-row-end">
                       <button className="btn btn-ghost btn-sm" onClick={()=>setShowAppeal(false)}>Cancel</button>
-                      <button className="btn btn-sm" style={{background:"#7c3aed",color:"#fff"}} disabled={appealSubmitting||!appealNote.trim()}
+                      <button className="btn btn-sm ddm-purple-btn-sm" disabled={appealSubmitting||!appealNote.trim()}
                         onClick={async()=>{
                           if(!appealNote.trim()) return;
                           setAppealSubmitting(true);
@@ -582,7 +573,7 @@ export default function DisciplineDetailModal({ caseId, onClose, onActed, wqItem
                     </div>
                   </>)}
                 </>) : (
-                  <div style={{fontSize:13,color:"#64748b"}}>
+                  <div className="ddm-not-available">
                     {detail.status==="dismissed"?"This case was dismissed.":"Appeal period has ended or appeal is not available."}
                   </div>
                 )}

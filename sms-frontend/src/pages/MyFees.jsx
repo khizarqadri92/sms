@@ -5,6 +5,7 @@ import financeApi  from "../api/financeApi";
 import InvoiceTimelineModal from "../components/InvoiceTimelineModal";
 import { useProcessingToday } from "../hooks/useProcessingToday";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
+import "./StudentViews.css";
 
 const fmtInvoiceMonth = (my) => {
   if (!my) return "";
@@ -22,6 +23,18 @@ const downloadInvoice = async (invoiceId) => {
     a.click();
     window.URL.revokeObjectURL(url);
   } catch { alert("Failed to download invoice."); }
+};
+
+const downloadReceipt = async (paymentId) => {
+  try {
+    const res = await financeApi.downloadPaymentReceipt(paymentId);
+    const url = window.URL.createObjectURL(new Blob([res.data], { type:"application/pdf" }));
+    const a   = document.createElement("a");
+    a.href    = url;
+    a.download = "receipt_" + paymentId + ".pdf";
+    a.click();
+    window.URL.revokeObjectURL(url);
+  } catch { alert("The receipt is available once the school has verified the payment."); }
 };
 
 export default function MyFees() {
@@ -65,9 +78,9 @@ export default function MyFees() {
 
   const handlePaymentDone = () => {
     setShowPayment(null);
-    setSuccess("Payment recorded successfully.");
+    setSuccess("Payment submitted. It will be marked paid once the school verifies your receipt.");
     fetchMyFees();
-    setTimeout(() => setSuccess(""), 4000);
+    setTimeout(() => setSuccess(""), 6000);
   };
 
   if (loading) return <div className="loading-state">Loading your fees...</div>;
@@ -85,27 +98,27 @@ export default function MyFees() {
   const paid     = invoices.filter(i => i.status === "paid");
 
   const statusBadge = status => {
-    const map = { paid:"badge-success", unpaid:"badge-danger", partial:"badge-warning", overdue:"badge-purple" };
+    const map = { paid:"badge-success", unpaid:"badge-danger", partial:"badge-warning", overdue:"badge-purple", pending_verification:"badge-warning" };
     return "badge " + (map[status] || "badge-gray");
   };
 
   return (
     <div>
-      <div className="page-header" style={{ marginBottom:16 }}>
+      <div className="page-header sv-gap16">
         <h1 className="page-heading">My Fees</h1>
       </div>
 
       {success && <div className="alert alert-success">{success}</div>}
 
-      <div className="stats-grid" style={{ marginBottom:20 }}>
+      <div className="stats-grid sv-stats">
         {[
-          { label:"Total Billed",     value:"Rs. " + Number(summary.total_billed || 0).toLocaleString(),  color:"#2563eb" },
-          { label:"Total Paid",       value:"Rs. " + Number(summary.total_paid   || 0).toLocaleString(),  color:"#16a34a" },
-          { label:"Balance Due",      value:"Rs. " + Number(summary.total_due    || 0).toLocaleString(),  color: summary.total_due > 0 ? "#dc2626" : "#16a34a" },
-          { label:"Overdue Invoices", value: summary.overdue_count || 0,                                  color: summary.overdue_count > 0 ? "#dc2626" : "#16a34a" },
+          { label:"Total Billed",     value:"Rs. " + Number(summary.total_billed || 0).toLocaleString(),  tone:"" },
+          { label:"Total Paid",       value:"Rs. " + Number(summary.total_paid   || 0).toLocaleString(),  tone:"green" },
+          { label:"Balance Due",      value:"Rs. " + Number(summary.total_due    || 0).toLocaleString(),  tone: summary.total_due > 0 ? "red" : "green" },
+          { label:"Overdue Invoices", value: summary.overdue_count || 0,                                  tone: summary.overdue_count > 0 ? "red" : "green" },
         ].map(s => (
-          <div key={s.label} className="stat-card" style={{ borderTop:"3px solid " + s.color, padding:"16px" }}>
-            <div className="stat-card-value" style={{ fontSize:18, color:s.color }}>{s.value}</div>
+          <div key={s.label} className={"stat-card sv-stat" + (s.tone ? " sv-stat--" + s.tone : "")}>
+            <div className="stat-card-value">{s.value}</div>
             <div className="stat-card-label">{s.label}</div>
           </div>
         ))}
@@ -113,8 +126,8 @@ export default function MyFees() {
 
       {tab === "fees" && (
         <div>
-          <div className="section-card-header" style={{ marginBottom:12 }}>
-            <span className="section-card-title" style={{ fontSize:15, fontWeight:700, color:"#0f172a" }}>
+          <div className="section-card-header sv-sec-head">
+            <span className="section-card-title sv-sec-title">
               Pending Invoices ({unpaid.length})
             </span>
           </div>
@@ -146,26 +159,32 @@ export default function MyFees() {
                       <tr key={inv.id}>
                         <td>
                           <strong>{inv.structure_name || "Invoice"}</strong>
-                          <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                          <div className="sv-fee-month">
                             {fmtInvoiceMonth(inv.month_year)}{inv.class_name ? " — " + inv.class_name + (inv.class_section ? " (" + inv.class_section + ")" : "") : ""}
                           </div>
                         </td>
                         <td>Rs. {Number(inv.amount).toLocaleString()}</td>
-                        <td style={{ color:"#16a34a" }}>{inv.discount > 0 ? "- Rs. " + Number(inv.discount).toLocaleString() : "N/A"}</td>
-                        <td style={{ color: inv.fine > 0 ? "#dc2626" : "#94a3b8" }}>{inv.fine > 0 ? "+ Rs. " + Number(inv.fine).toLocaleString() : "N/A"}</td>
+                        <td className={inv.discount > 0 ? "sv-green" : "sv-na"}>{inv.discount > 0 ? "- Rs. " + Number(inv.discount).toLocaleString() : "N/A"}</td>
+                        <td className={inv.fine > 0 ? "sv-red" : "sv-na"}>{inv.fine > 0 ? "+ Rs. " + Number(inv.fine).toLocaleString() : "N/A"}</td>
                         <td><strong>Rs. {Number(inv.net_amount).toLocaleString()}</strong></td>
-                        <td style={{ color:"#16a34a" }}>Rs. {Number(inv.paid_amount || 0).toLocaleString()}</td>
-                        <td style={{ color:"#dc2626", fontWeight:700 }}>Rs. {Number(balance).toLocaleString()}</td>
-                        <td style={{ fontSize:12, color: isOverdue ? "#dc2626" : "#64748b", fontWeight: isOverdue ? 700 : 400 }}>
+                        <td className="sv-green">Rs. {Number(inv.paid_amount || 0).toLocaleString()}</td>
+                        <td className="sv-red sv-bold">Rs. {Number(balance).toLocaleString()}</td>
+                        <td className={"sv-due" + (isOverdue ? " sv-due--late" : "")}>
                           {inv.due_date ? formatDate(inv.due_date) : "N/A"}
-                          {isOverdue && <div style={{ fontSize:10, color:"#dc2626" }}>Overdue</div>}
+                          {isOverdue && <div className="sv-due-flag">Overdue</div>}
                         </td>
-                        <td><span className={statusBadge(inv.status)} style={{ textTransform:"capitalize" }}>{inv.status}</span></td>
+                        <td><span className={statusBadge(inv.status) + " sv-cap"}>{inv.status === "pending_verification" ? "Pending verification" : inv.status}</span></td>
                         <td>
-                          <div style={{ display:"flex", gap:6, flexDirection:"column" }}>
-                            <button className="btn btn-primary btn-sm" onClick={() => setShowPayment({ ...inv, paid_amount: inv.paid_amount || 0 })}>
-                              Pay Now
-                            </button>
+                          <div className="sv-actions-col">
+                            {inv.status === "pending_verification" ? (
+                              <button className="btn btn-ghost btn-sm" onClick={() => setTimelineInvoiceId(inv.id)} title="Your payment is being checked by the school">
+                                Awaiting verification
+                              </button>
+                            ) : (
+                              <button className="btn btn-primary btn-sm" onClick={() => setShowPayment({ ...inv, paid_amount: inv.paid_amount || 0 })}>
+                                Pay Now
+                              </button>
+                            )}
                             <button className="btn btn-ghost btn-sm" onClick={() => downloadInvoice(inv.id)}>
                               Download PDF
                             </button>
@@ -183,8 +202,8 @@ export default function MyFees() {
 
       {tab === "history" && (
         <div>
-          <div className="section-card-header" style={{ marginBottom:12 }}>
-            <span className="section-card-title" style={{ fontSize:15, fontWeight:700, color:"#0f172a" }}>
+          <div className="section-card-header sv-sec-head">
+            <span className="section-card-title sv-sec-title">
               Payment History ({paid.length})
             </span>
           </div>
@@ -203,18 +222,21 @@ export default function MyFees() {
                 </thead>
                 <tbody>
                   {paid.map(inv => (
-                    <tr key={inv.id} onClick={() => setTimelineInvoiceId(inv.id)} style={{ cursor: "pointer" }}>
+                    <tr key={inv.id} onClick={() => setTimelineInvoiceId(inv.id)} className="sv-click-row">
                       <td>
                         <strong>{inv.structure_name || "Invoice"}</strong>
-                        <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                        <div className="sv-fee-month">
                           {fmtInvoiceMonth(inv.month_year)}{inv.class_name ? " — " + inv.class_name + (inv.class_section ? " (" + inv.class_section + ")" : "") : ""}
                         </div>
                       </td>
-                      <td style={{ color:"#16a34a", fontWeight:700 }}>Rs. {Number(inv.net_amount).toLocaleString()}</td>
-                      <td style={{ fontSize:12, color:"#64748b" }}>{formatDate(inv.issued_at)}</td>
+                      <td className="sv-green sv-bold">Rs. {Number(inv.net_amount).toLocaleString()}</td>
+                      <td className="sv-due">{formatDate(inv.issued_at)}</td>
                       <td>
-                      <div style={{ display:"flex", gap:6, alignItems:"center" }} onClick={e => e.stopPropagation()}>
+                      <div className="sv-actions-row" onClick={e => e.stopPropagation()}>
                         <span className="badge badge-success">Paid</span>
+                        {inv.verified_payment_id && (
+                          <button className="btn btn-success btn-sm" onClick={() => downloadReceipt(inv.verified_payment_id)}>Receipt</button>
+                        )}
                         <button className="btn btn-ghost btn-sm" onClick={() => downloadInvoice(inv.id)}>Download</button>
                       </div>
                     </td>
@@ -237,11 +259,11 @@ export default function MyFees() {
 
       {showPayment && (
         <div className="modal-overlay">
-          <div className="modal">
+          <div className="modal sv-modal-box">
             <div className="modal-header">
               <div>
                 <span className="modal-title">Pay Fee</span>
-                <div style={{ fontSize:12, color:"#64748b", marginTop:2 }}>{showPayment.structure_name || "Invoice"}</div>
+                <div className="sv-fee-month">{showPayment.structure_name || "Invoice"}</div>
               </div>
               <button className="modal-close" onClick={() => setShowPayment(null)}>x</button>
             </div>
@@ -257,12 +279,23 @@ export default function MyFees() {
 
 function PayFeeForm({ invoice, onPaid, onClose }) {
   const balance = Number(invoice.net_amount) - Number(invoice.paid_amount || 0);
-  const [form,   setForm]   = useState({ amount_paid: balance, method:"cash", reference:"", notes:"" });
+  const [form,   setForm]   = useState({ amount_paid: balance, method:"bank_transfer", reference:"", notes:"", receipt_image:"" });
   const [saving, setSaving] = useState(false);
   const [error,  setError]  = useState("");
 
+  const onReceipt = e => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 1500000) { setError("Receipt image is too large (max 1.5 MB)."); return; }
+    const reader = new FileReader();
+    reader.onload = ev => setForm(f => ({ ...f, receipt_image: ev.target.result }));
+    reader.readAsDataURL(file);
+  };
+
   const handleSubmit = async e => {
-    e.preventDefault(); setSaving(true); setError("");
+    e.preventDefault();
+    if (!form.receipt_image) { setError("Please attach a photo or scan of your payment receipt."); return; }
+    setSaving(true); setError("");
     try {
       await financeApi.recordPayment({ ...form, invoice_id: invoice.id });
       onPaid();
@@ -273,18 +306,18 @@ function PayFeeForm({ invoice, onPaid, onClose }) {
 
   return (
     <form onSubmit={handleSubmit}>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:10, marginBottom:16 }}>
-        <div style={{ background:"#f8fafc", borderRadius:8, padding:"10px 12px", textAlign:"center" }}>
-          <div style={{ fontSize:11, color:"#64748b", marginBottom:2 }}>Total</div>
-          <div style={{ fontSize:15, fontWeight:700, color:"#0f172a" }}>Rs. {Number(invoice.net_amount).toLocaleString()}</div>
+      <div className="sv-pay-boxes">
+        <div className="sv-pay-box">
+          <div className="sv-pay-label">Total</div>
+          <div className="sv-pay-value">Rs. {Number(invoice.net_amount).toLocaleString()}</div>
         </div>
-        <div style={{ background:"#f0fdf4", borderRadius:8, padding:"10px 12px", textAlign:"center" }}>
-          <div style={{ fontSize:11, color:"#64748b", marginBottom:2 }}>Already Paid</div>
-          <div style={{ fontSize:15, fontWeight:700, color:"#16a34a" }}>Rs. {Number(invoice.paid_amount || 0).toLocaleString()}</div>
+        <div className="sv-pay-box sv-pay-box--green">
+          <div className="sv-pay-label">Already Paid</div>
+          <div className="sv-pay-value">Rs. {Number(invoice.paid_amount || 0).toLocaleString()}</div>
         </div>
-        <div style={{ background:"#fef2f2", borderRadius:8, padding:"10px 12px", textAlign:"center" }}>
-          <div style={{ fontSize:11, color:"#64748b", marginBottom:2 }}>Balance</div>
-          <div style={{ fontSize:15, fontWeight:700, color:"#dc2626" }}>Rs. {Number(balance).toLocaleString()}</div>
+        <div className="sv-pay-box sv-pay-box--red">
+          <div className="sv-pay-label">Balance</div>
+          <div className="sv-pay-value">Rs. {Number(balance).toLocaleString()}</div>
         </div>
       </div>
       {error && <div className="alert alert-error">{error}</div>}
@@ -295,19 +328,32 @@ function PayFeeForm({ invoice, onPaid, onClose }) {
       <div className="form-group">
         <label className="form-label">Payment Method *</label>
         <select className="form-control" value={form.method} onChange={e => setForm({...form, method:e.target.value})}>
-          <option value="cash">Cash</option>
           <option value="bank_transfer">Bank Transfer</option>
-          <option value="cheque">Cheque</option>
           <option value="online">Online Payment</option>
+          <option value="cheque">Cheque</option>
         </select>
+      </div>
+      <div className="form-group">
+        <label className="form-label">Payment Receipt *</label>
+        <input className="form-control" type="file" accept="image/*" onChange={onReceipt} />
+        {form.receipt_image && (
+          <div className="sv-receipt-prev">
+            <img src={form.receipt_image} alt="receipt" className="sv-thumb" />
+            <button type="button" className="btn btn-danger btn-xs" onClick={() => setForm({ ...form, receipt_image: "" })}>Remove</button>
+          </div>
+        )}
+      </div>
+      <div className="sv-pay-note">
+        Your payment is checked by the school before it counts. The invoice is marked <b>paid</b> and your receipt
+        becomes available once it's verified. Paying in cash? Please pay at the school's finance office.
       </div>
       <div className="form-group">
         <label className="form-label">Reference No.</label>
         <input className="form-control" value={form.reference} onChange={e => setForm({...form, reference:e.target.value})} placeholder="Optional reference number" />
       </div>
-      <div style={{ display:"flex", gap:10, justifyContent:"flex-end", marginTop:8 }}>
+      <div className="sv-pay-actions">
         <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
-        <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Processing..." : "Pay Now"}</button>
+        <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Submitting..." : "Submit Payment"}</button>
       </div>
     </form>
   );

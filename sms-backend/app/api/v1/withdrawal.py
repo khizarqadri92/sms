@@ -324,7 +324,7 @@ def apply_withdrawal(
     db.commit()
 
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         import main as _main
         cur.execute("SELECT campus_id FROM students WHERE id=%s", (student_id,))
         _srow = cur.fetchone()
@@ -332,9 +332,10 @@ def apply_withdrawal(
         cur.execute("SELECT * FROM sp_get_dept_role_users(%s, %s)", ("academic_coordinator", _student_campus_id))
         rows = cur.fetchall()
         with _main.flask_app.app_context():
+            _t, _b = render_templated_notification("withdrawal_new_request", {}, "New Withdrawal Request",
+                "A parent has submitted a student withdrawal request.", campus_id=_student_campus_id)
             for row in rows:
-                send_notification(row["user_id"], title="New Withdrawal Request",
-                    body="A parent has submitted a student withdrawal request.", ntype="info")
+                send_notification(row["user_id"], title=_t, body=_b, ntype="info")
     except Exception as e:
         print("[withdrawal notify]", e)
 
@@ -376,7 +377,7 @@ def review_withdrawal(req_id: int, body: ReviewIn, user_id: int = Depends(get_cu
 
     if body.action == "approve":
         try:
-            from app.utils.notify import send_notification
+            from app.utils.notify import send_notification, render_templated_notification
             import main as _main
             dept_roles = {"finance": "finance_officer", "library": "librarian", "admin": "admin", "hr": "hr", "transport": "transport"}
             notify_rows = []
@@ -387,15 +388,16 @@ def review_withdrawal(req_id: int, body: ReviewIn, user_id: int = Depends(get_cu
                     cur.execute("SELECT * FROM sp_get_dept_role_users(%s, %s)", (role_name, _req_campus_id))
                     notify_rows.extend(cur.fetchall())
             with _main.flask_app.app_context():
+                _t, _b = render_templated_notification("withdrawal_clearance_required", {}, "Withdrawal Clearance Required",
+                    "A student withdrawal requires your department clearance.", campus_id=_req_campus_id)
                 for row in notify_rows:
-                    send_notification(row["user_id"], title="Withdrawal Clearance Required",
-                        body="A student withdrawal requires your department clearance.", ntype="warning")
+                    send_notification(row["user_id"], title=_t, body=_b, ntype="warning")
         except Exception as e:
             print("[withdrawal notify]", e)
 
     if body.action == "reject":
         try:
-            from app.utils.notify import send_notification
+            from app.utils.notify import send_notification, render_templated_notification
             import main as _main
             cur.execute("SELECT * FROM sp_get_withdrawal_requester(%s)", (req_id,))
             row = cur.fetchone()
@@ -403,12 +405,54 @@ def review_withdrawal(req_id: int, body: ReviewIn, user_id: int = Depends(get_cu
                 dept_label = department.replace("_", " ").title()
                 note_preview = (body.note or "")[:120]
                 with _main.flask_app.app_context():
-                    send_notification(row["requested_by"], title="Withdrawal: " + dept_label + " Clearance Issue",
-                        body="Your withdrawal request has an issue with " + dept_label + " clearance. Reason: " + note_preview + ". Please check your withdrawal status.", ntype="warning")
+                    _t, _b = render_templated_notification("withdrawal_clearance_issue", {"dept_label": dept_label, "note": note_preview},
+                        "Withdrawal: " + dept_label + " Clearance Issue",
+                        "Your withdrawal request has an issue with " + dept_label + " clearance. Reason: " + note_preview + ". Please check your withdrawal status.",
+                        campus_id=_get_withdrawal_campus_id(cur, req_id))
+                    send_notification(row["requested_by"], title=_t, body=_b, ntype="warning")
         except Exception as e:
             print("[withdrawal reject notify]", e)
 
     return ok(message="Withdrawal " + body.action + "d.")
+
+
+def _notify_parent_action_required(db, req_id, actioned_by_user_id, note):
+    """Create (or reuse) the parent-facing 'action required' work queue item
+    whenever a department rejects clearance, regardless of which department
+    or code path (engine vs legacy sp_clear_withdrawal) did the rejecting -
+    so the parent always gets a 'Mark as Submitted' option, the same as the
+    dedicated admin 'Require Action from Parent' flow already provides.
+    created_at/updated_at are stamped with the processing time (not the
+    column default of now()) so the row sorts correctly against other rows
+    under sp_get_work_queue's DISTINCT ON (module, entity_id) ... ORDER BY
+    created_at DESC - a real-wall-clock timestamp can otherwise be shadowed
+    by older-looking rows stamped with the simulated processing date.
+    """
+    try:
+        cur = get_cur(db)
+        cur.execute("SELECT requested_by FROM withdrawal_requests WHERE id=%s", (req_id,))
+        wr = cur.fetchone()
+        requested_by = wr["requested_by"] if wr else None
+        if not requested_by:
+            return
+        cur.execute("""
+            SELECT 1 FROM work_queue_items
+            WHERE module='withdrawal' AND entity_id=%s
+              AND action_required='submit' AND status='pending'
+        """, (req_id,))
+        if cur.fetchone():
+            return
+        cur.execute("""
+            INSERT INTO work_queue_items
+                (module, entity_type, entity_id, title, description, action_required,
+                 priority, assigned_user_id, link, metadata, entity_status, created_by, submitter_id,
+                 created_at, updated_at)
+            VALUES ('withdrawal','withdrawal_request',%s,'Action Required',
+                    %s,'submit','high',%s,'/withdrawal?id='||%s::text,'{}','action_required',%s,%s,fn_processing_now(),fn_processing_now())
+        """, (req_id, note, requested_by, req_id, actioned_by_user_id, requested_by))
+        db.commit()
+    except Exception as e:
+        print("[notify_parent_action_required error]", e)
 
 
 @router.post("/{req_id}/clear")
@@ -431,6 +475,8 @@ def clear_withdrawal(req_id: int, body: ActionIn, user_id: int = Depends(get_cur
         _ok, _st = _engine_advance_wr(db, req_id, body.action, user_id, body.note)
         if not _ok: fail("Workflow advance failed", 500)
         db.commit()
+        if body.action == "reject":
+            _notify_parent_action_required(db, req_id, user_id, body.note or "A department rejected clearance and requires your attention.")
         return ok(message="Clearance recorded.")
     roles = claims.get("roles", [])
     role = roles[0] if roles else ""
@@ -442,17 +488,20 @@ def clear_withdrawal(req_id: int, body: ActionIn, user_id: int = Depends(get_cur
     if result["error_msg"]:
         fail(result["error_msg"], 400)
     db.commit()
+    if body.action == "reject":
+        _notify_parent_action_required(db, req_id, user_id, body.note or "A department rejected clearance and requires your attention.")
 
     if result and result.get("all_cleared"):
         try:
-            from app.utils.notify import send_notification
+            from app.utils.notify import send_notification, render_templated_notification
             import main as _main
             cur.execute("SELECT * FROM sp_get_dept_role_users(%s, %s)", ("principal", _get_withdrawal_campus_id(cur, req_id)))
             rows = cur.fetchall()
             with _main.flask_app.app_context():
+                _t, _b = render_templated_notification("withdrawal_ready_final_approval", {}, "Withdrawal Ready for Final Approval",
+                    "All departments have cleared the withdrawal. Your approval is required.", campus_id=_get_withdrawal_campus_id(cur, req_id))
                 for row in rows:
-                    send_notification(row["user_id"], title="Withdrawal Ready for Final Approval",
-                        body="All departments have cleared the withdrawal. Your approval is required.", ntype="info")
+                    send_notification(row["user_id"], title=_t, body=_b, ntype="info")
         except Exception as e:
             print("[withdrawal notify]", e)
 
@@ -477,14 +526,18 @@ def approve_withdrawal(req_id: int, body: ActionIn, user_id: int = Depends(get_c
     db.commit()
 
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         import main as _main
         cur.execute("SELECT * FROM sp_get_withdrawal_requester(%s)", (req_id,))
         row = cur.fetchone()
         if row:
             with _main.flask_app.app_context():
-                send_notification(row["requested_by"], title="Withdrawal Request " + body.action.capitalize() + "d",
-                    body="Your student withdrawal request has been " + body.action + "d by the principal.",
+                _t, _b = render_templated_notification("withdrawal_request_decided", {"action": body.action},
+                    "Withdrawal Request " + body.action.capitalize() + "d",
+                    "Your student withdrawal request has been " + body.action + "d by the principal.",
+                    campus_id=_get_withdrawal_campus_id(cur, req_id))
+                send_notification(row["requested_by"], title=_t,
+                    body=_b,
                     ntype="success" if body.action == "approve" else "warning")
     except Exception as e:
         print("[withdrawal notify]", e)
@@ -534,7 +587,7 @@ def parent_respond(req_id: int, body: RequireActionIn, user_id: int = Depends(ge
     db.commit()
     # Notify: the officer who created the action_required + current workflow step assignee
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         import main as _main
         notify_ids = set(row["created_by"] for row in rows if row["created_by"])
         # Also notify current workflow step assignee
@@ -547,9 +600,10 @@ def parent_respond(req_id: int, body: RequireActionIn, user_id: int = Depends(ge
         """, (req_id,))
         for r in _nc.fetchall(): notify_ids.add(r[0])
         with _main.flask_app.app_context():
+            _t, _b = render_templated_notification("withdrawal_parent_responded", {}, "Parent Responded",
+                "Parent has submitted the required information for withdrawal request.", campus_id=_get_withdrawal_campus_id(cur, req_id))
             for nid in notify_ids:
-                send_notification(nid, "Parent Responded",
-                    "Parent has submitted the required information for withdrawal request.", "info")
+                send_notification(nid, _t, _b, "info")
     except Exception: pass
     return ok(message="Response submitted. Department officer notified.")
 
@@ -568,9 +622,10 @@ def step_require_action(req_id: int, body: RequireActionIn, user_id: int = Depen
     cur.execute("""
         INSERT INTO work_queue_items
             (module, entity_type, entity_id, title, description, action_required,
-             priority, assigned_user_id, link, metadata, entity_status, created_by, submitter_id)
+             priority, assigned_user_id, link, metadata, entity_status, created_by, submitter_id,
+             created_at, updated_at)
         VALUES ('withdrawal','withdrawal_request',%s,'Action Required',
-                %s,'submit','high',%s,'/withdrawal?id='||%s::text,'{}','action_required',%s,%s)
+                %s,'submit','high',%s,'/withdrawal?id='||%s::text,'{}','action_required',%s,%s,fn_processing_now(),fn_processing_now())
     """, (req_id, body.note or "Please provide the required information.",
           wr["requested_by"], req_id, user_id, wr["requested_by"]))
     # Log the action request with the requester's role
@@ -594,6 +649,7 @@ def step_require_action(req_id: int, body: RequireActionIn, user_id: int = Depen
     except Exception: pass
     return ok(message="Action request sent to parent.")
 
+@router.post("/{req_id}/require")
 def require_action(req_id: int, body: RequireActionIn, user_id: int = Depends(require_permission("withdrawal.clear")), claims: dict = Depends(get_jwt_claims), db=Depends(get_db)):
     note = (body.note or "").strip()
     if not note:
@@ -610,14 +666,17 @@ def require_action(req_id: int, body: RequireActionIn, user_id: int = Depends(re
     db.commit()
 
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         import main as _main
         cur.execute("SELECT * FROM sp_get_withdrawal_requester(%s)", (req_id,))
         row = cur.fetchone()
         if row:
             with _main.flask_app.app_context():
-                send_notification(row["requested_by"], title="Action Required for Withdrawal",
-                    body="Your withdrawal request requires action: " + note[:100], ntype="warning")
+                _note100 = note[:100]
+                _t, _b = render_templated_notification("withdrawal_action_required", {"note": _note100},
+                    "Action Required for Withdrawal", "Your withdrawal request requires action: " + _note100,
+                    campus_id=_get_withdrawal_campus_id(cur, req_id))
+                send_notification(row["requested_by"], title=_t, body=_b, ntype="warning")
     except Exception as e:
         print("[withdrawal notify]", e)
 
@@ -657,14 +716,15 @@ def submit_conduct(req_id: int, body: ConductIn, user_id: int = Depends(get_curr
     db.commit()
 
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         import main as _main
         cur.execute("SELECT * FROM sp_get_dept_role_users(%s, %s)", ("principal", _get_withdrawal_campus_id(cur, req_id)))
         rows = cur.fetchall()
         with _main.flask_app.app_context():
+            _t, _b = render_templated_notification("withdrawal_conduct_form_submitted", {}, "Conduct Form Submitted",
+                "Class teacher has submitted the conduct form for a withdrawal request.", campus_id=_get_withdrawal_campus_id(cur, req_id))
             for row in rows:
-                send_notification(row["user_id"], title="Conduct Form Submitted",
-                    body="Class teacher has submitted the conduct form for a withdrawal request.", ntype="info")
+                send_notification(row["user_id"], title=_t, body=_b, ntype="info")
     except Exception as e:
         print("[conduct notify]", e)
 
@@ -700,20 +760,26 @@ def finalize_withdrawal(req_id: int, body: ActionIn, user_id: int = Depends(requ
     db.commit()
 
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         import main as _main
         cur.execute("SELECT * FROM sp_get_withdrawal_requester(%s)", (req_id,))
         row = cur.fetchone()
         if row:
             with _main.flask_app.app_context():
-                send_notification(row["requested_by"], title="Withdrawal " + body.action.capitalize() + "d",
-                    body="Your student withdrawal request has been finalized.",
+                _wd_campus_id = _get_withdrawal_campus_id(cur, req_id)
+                _t, _b = render_templated_notification("withdrawal_finalized", {"action": body.action},
+                    "Withdrawal " + body.action.capitalize() + "d", "Your student withdrawal request has been finalized.",
+                    campus_id=_wd_campus_id)
+                send_notification(row["requested_by"], title=_t,
+                    body=_b,
                     ntype="success" if body.action == "approve" else "warning")
                 if body.action == "approve":
                     cur.execute("SELECT * FROM sp_get_student_teachers_for_notify(%s)", (row["student_id"],))
+                    _t2, _b2 = render_templated_notification("student_withdrawn_teacher_notify", {}, "Student Withdrawn",
+                        "A student in your class has been withdrawn from school.", campus_id=_wd_campus_id)
                     for t in cur.fetchall():
-                        send_notification(t["user_id"], title="Student Withdrawn",
-                            body="A student in your class has been withdrawn from school.", ntype="info")
+                        send_notification(t["user_id"], title=_t2,
+                            body=_b2, ntype="info")
     except Exception as e:
         print("[withdrawal notify]", e)
 
@@ -782,14 +848,15 @@ def request_waiver(req_id: int, body: WaiverRequestIn, user_id: int = Depends(ge
     cur.execute("SELECT sp_set_clearance_waiver_requested(%s,%s)", (req_id, waiver_id))
     db.commit()
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         import main as _main
         cur.execute("SELECT * FROM sp_get_dept_role_users(%s, %s)", ("finance_officer", _get_withdrawal_campus_id(cur, req_id)))
         rows = cur.fetchall()
         with _main.flask_app.app_context():
+            _t, _b = render_templated_notification("fee_waiver_request_submitted", {}, "Fee Waiver Request from Parent",
+                "A parent has submitted a fee waiver request for a withdrawal. Please review and forward to the authority if appropriate.", campus_id=_get_withdrawal_campus_id(cur, req_id))
             for row in rows:
-                send_notification(row["user_id"], title="Fee Waiver Request from Parent",
-                    body="A parent has submitted a fee waiver request for a withdrawal. Please review and forward to the authority if appropriate.", ntype="info")
+                send_notification(row["user_id"], title=_t, body=_b, ntype="info")
     except Exception as e:
         print("[waiver notify]", e)
     return ok(data={"waiver_id": waiver_id}, message="Waiver request submitted. Finance team has been notified.")
@@ -865,14 +932,15 @@ def action_waiver(waiver_id: int, body: WaiverActionIn, user_id: int = Depends(g
         cur.execute("SELECT sp_reject_waiver(%s,%s,%s)", (waiver_id, user_id, body.note or ""))
     db.commit()
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         import main as _main
         cur.execute("SELECT * FROM sp_get_dept_role_users(%s, %s)", ("finance_officer", _get_waiver_campus_id(cur, waiver_id)))
         rows = cur.fetchall()
         with _main.flask_app.app_context():
+            _t, _b = render_templated_notification("fee_waiver_decided", {"action": body.action},
+                "Fee Waiver " + body.action.capitalize() + "d", "The fee waiver request has been " + body.action + "d.", campus_id=_get_waiver_campus_id(cur, waiver_id))
             for row in rows:
-                send_notification(row["user_id"], title="Fee Waiver " + body.action.capitalize() + "d",
-                    body="The fee waiver request has been " + body.action + "d.", ntype="info")
+                send_notification(row["user_id"], title=_t, body=_b, ntype="info")
     except Exception as e:
         print("[waiver notify]", e)
     return ok(message="Waiver " + body.action + "d.")
@@ -889,14 +957,16 @@ def paid_notification(req_id: int, user_id: int = Depends(get_current_user_id), 
     if not wr:
         fail("Withdrawal not found", 404)
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         import main as _main
         cur.execute("SELECT * FROM sp_get_dept_role_users(%s, %s)", ("finance_officer", _get_withdrawal_campus_id(cur, req_id)))
         rows = cur.fetchall()
         with _main.flask_app.app_context():
+            _sname = wr["student_name"] or ""
+            _t, _b = render_templated_notification("fee_waiver_payment_notification", {"student_name": _sname},
+                "Fee Payment Notification", "Parent has notified that outstanding dues for student '" + _sname + "' withdrawal have been paid. Please verify and clear.", campus_id=_get_withdrawal_campus_id(cur, req_id))
             for row in rows:
-                send_notification(row["user_id"], title="Fee Payment Notification",
-                    body="Parent has notified that outstanding dues for student '" + (wr["student_name"] or "") + "' withdrawal have been paid. Please verify and clear.", ntype="info")
+                send_notification(row["user_id"], title=_t, body=_b, ntype="info")
     except Exception as e:
         print("[paid notify]", e)
     return ok(message="Finance team notified.")
@@ -916,16 +986,17 @@ def forward_waiver(waiver_id: int, body: ActionIn, user_id: int = Depends(requir
     cur.execute("SELECT sp_forward_waiver(%s,%s,%s)", (waiver_id, user_id, body.note or ""))
     db.commit()
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         import main as _main
         cur.execute("SELECT sp_get_waiver_authority_role() AS role")
         authority_role = cur.fetchone()["role"] or "principal"
         cur.execute("SELECT * FROM sp_get_dept_role_users(%s, %s)", (authority_role, _get_waiver_campus_id(cur, waiver_id)))
         rows = cur.fetchall()
         with _main.flask_app.app_context():
+            _t, _b = render_templated_notification("fee_waiver_forwarded_for_approval", {}, "Fee Waiver Requires Your Approval",
+                "Finance has reviewed a fee waiver request and forwarded it for your approval.", campus_id=_get_waiver_campus_id(cur, waiver_id))
             for row in rows:
-                send_notification(row["user_id"], title="Fee Waiver Requires Your Approval",
-                    body="Finance has reviewed a fee waiver request and forwarded it for your approval.", ntype="info")
+                send_notification(row["user_id"], title=_t, body=_b, ntype="info")
     except Exception as e:
         print("[waiver forward notify]", e)
     return ok(message="Waiver forwarded to authority for approval.")

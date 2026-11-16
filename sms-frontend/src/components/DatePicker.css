@@ -1,0 +1,32 @@
+/* =====================================================================
+   DatePicker popup: makes the browser-drawn month / year dropdown lists
+   follow light and dark mode. The calendar itself already uses theme
+   variables; the open <select> lists are drawn by the browser, so they
+   need color-scheme plus explicit option colours.
+   ===================================================================== */
+
+.dp-popup { color-scheme: light; }
+html[data-color-mode="dark"] .dp-popup { color-scheme: dark; }
+
+.dp-select { color-scheme: inherit; }
+.dp-select:hover { background: var(--bg-hover, rgba(0, 0, 0, 0.05)) !important; }
+.dp-select:focus-visible { outline: 2px solid var(--theme-primary, #2563eb); outline-offset: 1px; }
+
+/* the list that opens when you click the month or year box */
+.dp-select option {
+  background-color: var(--bg-card, #ffffff);
+  color: var(--text-heading, #0f172a);
+  font-weight: 500;
+}
+.dp-select option:checked {
+  background-color: var(--theme-primary, #2563eb);
+  color: #ffffff;
+}
+
+html[data-color-mode="dark"] .dp-select option {
+  background-color: var(--bg-card, #1e293b);
+  color: var(--text-heading, #e2e8f0);
+}
+
+/* prev / next month arrows */
+.dp-nav:hover { color: var(--text-heading, #0f172a) !important; }

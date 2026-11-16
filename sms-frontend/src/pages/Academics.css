@@ -1,0 +1,44 @@
+.aca-tab-header {
+  margin-bottom: 16px;
+}
+
+.aca-tab-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-heading);
+}
+
+.aca-locked-alert {
+  background: var(--bg-warning-soft);
+  border: 1px solid var(--border-warning-soft);
+  color: var(--text-warning-soft);
+  margin-bottom: 16px;
+}
+
+.aca-form-card {
+  margin-bottom: 16px;
+}
+
+.aca-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.aca-code-badge {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: 12px;
+}
+
+.aca-td-muted {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.aca-td-actions {
+  display: flex;
+  gap: 6px;
+}

@@ -104,7 +104,13 @@ def _get_effective_schedule(db, department_id, campus_id=None):
 def _is_late(clock_in_at, start_time, grace_minutes):
     if clock_in_at is None or start_time is None:
         return False
-    cutoff = datetime.combine(clock_in_at.date(), start_time) + timedelta(minutes=grace_minutes or 0)
+    # clock_in_at may be timezone-aware (e.g. from get_processing_datetime, which
+    # returns UTC-aware datetimes) while start_time is a plain DB time column with
+    # no timezone - datetime.combine() would otherwise build a naive cutoff and
+    # comparing aware-to-naive datetimes raises TypeError. Match cutoff's
+    # awareness to clock_in_at's so the comparison always works.
+    cutoff = datetime.combine(clock_in_at.date(), start_time, tzinfo=clock_in_at.tzinfo)
+    cutoff = cutoff + timedelta(minutes=grace_minutes or 0)
     return clock_in_at > cutoff
 
 

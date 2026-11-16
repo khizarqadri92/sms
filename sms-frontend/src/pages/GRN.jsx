@@ -4,6 +4,7 @@ import { useAutoOpenById } from "../hooks/useAutoOpenById";
 import { useProcessingToday } from "../hooks/useProcessingToday";
 import DatePicker from "../components/DatePicker";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
+import "./GRN.css";
 
 const statusBadge = (s) => ({
   draft:     { cls: "badge-warning",  label: "Draft" },
@@ -148,28 +149,28 @@ export default function GRN() {
   return (
     <div>
       {/* Header */}
-      <div className="page-header" style={{ marginBottom: 20 }}>
+      <div className="page-header grn-page-header">
         <div>
           <h1 className="page-heading">Goods Receipt Notes</h1>
-          <div style={{ fontSize: 13, color: "var(--color-text-secondary)", marginTop: 4 }}>
+          <div className="grn-subtitle">
             Record delivery of goods against Purchase Orders
           </div>
         </div>
-        <button className="btn btn-primary" style={{ color: "#fff" }} onClick={openCreate}>
+        <button className="btn btn-primary grn-new-btn" onClick={openCreate}>
           + New GRN
         </button>
       </div>
 
       {/* Flash */}
       {flash && (
-        <div className={`alert alert-${flash.type}`} style={{ marginBottom: 16 }}>
+        <div className={`alert alert-${flash.type} grn-mb16`}>
           {flash.msg}
         </div>
       )}
 
       {/* Filters */}
-      <div className="section-card" style={{ marginBottom: 16, padding: "12px 16px" }}>
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+      <div className="section-card grn-filter-bar">
+        <div className="grn-filter-row">
           {[
             { label: "All", value: "" },
             { label: "Draft", value: "draft" },
@@ -178,7 +179,6 @@ export default function GRN() {
           ].map(f => (
             <button key={f.value}
               className={`btn btn-sm ${statusFilter === f.value ? "btn-primary" : "btn-ghost"}`}
-              style={statusFilter === f.value ? { color: "#fff" } : {}}
               onClick={() => setStatus(f.value)}>
               {f.label}
             </button>
@@ -188,24 +188,24 @@ export default function GRN() {
 
       {/* GRN List */}
       {loading ? (
-        <div className="section-card" style={{ textAlign: "center", padding: 40, color: "var(--color-text-secondary)" }}>Loading...</div>
+        <div className="section-card grn-loading">Loading...</div>
       ) : error ? (
         <div className="alert alert-error">{error}</div>
       ) : grns.length === 0 ? (
-        <div className="section-card" style={{ textAlign: "center", padding: 48 }}>
-          <div style={{ fontSize: 36, marginBottom: 12 }}>📦</div>
-          <div style={{ fontWeight: 600, marginBottom: 6 }}>No GRNs yet</div>
-          <div style={{ color: "var(--color-text-secondary)", fontSize: 13 }}>
+        <div className="section-card grn-empty">
+          <div className="grn-empty-icon">📦</div>
+          <div className="grn-empty-title">No GRNs yet</div>
+          <div className="grn-empty-subtext">
             Create a GRN when goods arrive against an issued Purchase Order.
           </div>
         </div>
       ) : (
-        <div className="section-card" style={{ padding: 0, overflow: "hidden" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+        <div className="section-card grn-table-wrap">
+          <table className="grn-table">
             <thead>
-              <tr style={{ background: "var(--color-background-secondary)", borderBottom: "1px solid var(--color-border-primary)" }}>
+              <tr className="grn-th-row">
                 {["GRN #", "PO #", "Vendor", "Received Date", "Items", "Status", "Actions"].map(h => (
-                  <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontSize: 12, fontWeight: 600, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: ".05em" }}>{h}</th>
+                  <th key={h} className="grn-th">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -213,14 +213,14 @@ export default function GRN() {
               {grns.map((g, i) => {
                 const { cls, label } = statusBadge(g.status);
                 return (
-                  <tr key={g.id} style={{ borderBottom: "1px solid var(--color-border-primary)", background: i % 2 === 0 ? "transparent" : "var(--color-background-secondary)" }}>
-                    <td style={{ padding: "10px 14px", fontWeight: 600, fontSize: 13 }}>{g.grn_number}</td>
-                    <td style={{ padding: "10px 14px", fontSize: 13 }}>{g.po_number}</td>
-                    <td style={{ padding: "10px 14px", fontSize: 13 }}>{g.vendor_name}</td>
-                    <td style={{ padding: "10px 14px", fontSize: 13 }}>{g.received_date ? formatDate(g.received_date) : "-"}</td>
-                    <td style={{ padding: "10px 14px", fontSize: 13 }}>{g.item_count} item{g.item_count !== 1 ? "s" : ""}</td>
-                    <td style={{ padding: "10px 14px" }}><span className={`badge ${cls}`}>{label}</span></td>
-                    <td style={{ padding: "10px 14px" }}>
+                  <tr key={g.id} className="grn-tr" style={{ "--row-bg": i % 2 === 0 ? "transparent" : "var(--color-background-secondary)" }}>
+                    <td className="grn-td-bold">{g.grn_number}</td>
+                    <td className="grn-td">{g.po_number}</td>
+                    <td className="grn-td">{g.vendor_name}</td>
+                    <td className="grn-td">{g.received_date ? formatDate(g.received_date) : "-"}</td>
+                    <td className="grn-td">{g.item_count} item{g.item_count !== 1 ? "s" : ""}</td>
+                    <td className="grn-td-badge"><span className={`badge ${cls}`}>{label}</span></td>
+                    <td className="grn-td-badge">
                       <button className="btn btn-ghost btn-sm" onClick={() => openDetail(g.id)}>View</button>
                     </td>
                   </tr>
@@ -233,16 +233,16 @@ export default function GRN() {
 
       {/* Create GRN Modal */}
       {showCreate && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 1010, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <div style={{ background: "#fff", borderRadius: 12, width: "100%", maxWidth: 700, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
-            <div style={{ padding: "18px 24px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>Create Goods Receipt Note</div>
-              <button style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "var(--color-text-secondary)" }} onClick={() => setShowCreate(false)}>×</button>
+        <div className="grn-modal-overlay">
+          <div className="grn-modal-box">
+            <div className="grn-modal-header">
+              <div className="grn-modal-title">Create Goods Receipt Note</div>
+              <button className="grn-close-btn" onClick={() => setShowCreate(false)}>×</button>
             </div>
-            <div style={{ padding: "20px 24px" }}>
+            <div className="grn-modal-body">
               {/* Select PO */}
-              <div style={{ marginBottom: 16 }}>
-                <label style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, display: "block" }}>Purchase Order *</label>
+              <div className="grn-field-wrap">
+                <label className="grn-field-label">Purchase Order *</label>
                 <select className="form-input" value={selectedPO?.id || ""} onChange={e => {
                   const po = pos.find(p => p.id === parseInt(e.target.value));
                   if (po) selectPO(po);
@@ -255,13 +255,13 @@ export default function GRN() {
               </div>
 
               {/* Date & Notes */}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12, marginBottom: 16 }}>
+              <div className="grn-date-notes-grid">
                 <div>
-                  <label style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, display: "block" }}>Received Date *</label>
+                  <label className="grn-field-label">Received Date *</label>
                   <DatePicker value={receivedDate} onChange={val => setRecDate(val)} />
                 </div>
                 <div>
-                  <label style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, display: "block" }}>Notes</label>
+                  <label className="grn-field-label">Notes</label>
                   <input className="form-input" placeholder="Delivery notes (optional)" value={notes} onChange={e => setNotes(e.target.value)} />
                 </div>
               </div>
@@ -269,7 +269,7 @@ export default function GRN() {
               {/* PO Items */}
               {selectedPO && poItems.length > 0 && (
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, color: "var(--color-text-secondary)", textTransform: "uppercase", letterSpacing: ".05em" }}>
+                  <div className="grn-items-label">
                     Items to Receive
                   </div>
                   {poItems.map(item => {
@@ -277,23 +277,23 @@ export default function GRN() {
                     const alreadyReceived = parseFloat(item.received_quantity || 0);
                     const remaining = ordered - alreadyReceived;
                     return (
-                      <div key={item.id} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "12px 14px", marginBottom: 10, background: remaining <= 0 ? "#f8fafc" : "#fff" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8 }}>
-                          <div style={{ fontWeight: 600, fontSize: 13 }}>{item.item_description}</div>
-                          <div style={{ fontSize: 12, color: "var(--color-text-secondary)" }}>
-                            Ordered: {ordered} {item.unit} | Received: {alreadyReceived} | Remaining: <strong style={{ color: remaining > 0 ? "#059669" : "#94a3b8" }}>{remaining}</strong>
+                      <div key={item.id} className="grn-item-card" style={{ "--card-bg": remaining <= 0 ? "var(--bg-hover)" : "var(--bg-card)" }}>
+                        <div className="grn-item-top">
+                          <div className="grn-item-name">{item.item_description}</div>
+                          <div className="grn-item-meta">
+                            Ordered: {ordered} {item.unit} | Received: {alreadyReceived} | Remaining: <strong className="grn-remaining-value" style={{ "--remaining-color": remaining > 0 ? "#059669" : "var(--text-muted)" }}>{remaining}</strong>
                           </div>
                         </div>
                         {remaining > 0 ? (
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr", gap: 8 }}>
+                          <div className="grn-item-fields-grid">
                             <div>
-                              <label style={{ fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4, color: "var(--color-text-secondary)" }}>Qty Received</label>
+                              <label className="grn-item-field-label">Qty Received</label>
                               <input type="number" className="form-input" min={0} max={remaining} step="0.01"
                                 value={itemQtys[item.id] ?? ""}
                                 onChange={e => setItemQtys(prev => ({ ...prev, [item.id]: e.target.value }))} />
                             </div>
                             <div>
-                              <label style={{ fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4, color: "var(--color-text-secondary)" }}>Condition</label>
+                              <label className="grn-item-field-label">Condition</label>
                               <select className="form-input" value={itemConds[item.id] || "good"} onChange={e => setItemConds(prev => ({ ...prev, [item.id]: e.target.value }))}>
                                 <option value="good">Good</option>
                                 <option value="partial">Partially Damaged</option>
@@ -301,14 +301,14 @@ export default function GRN() {
                               </select>
                             </div>
                             <div>
-                              <label style={{ fontSize: 11, fontWeight: 600, display: "block", marginBottom: 4, color: "var(--color-text-secondary)" }}>Notes</label>
+                              <label className="grn-item-field-label">Notes</label>
                               <input className="form-input" placeholder="Optional"
                                 value={itemNotes[item.id] || ""}
                                 onChange={e => setItemNotes(prev => ({ ...prev, [item.id]: e.target.value }))} />
                             </div>
                           </div>
                         ) : (
-                          <div style={{ fontSize: 12, color: "#94a3b8", fontStyle: "italic" }}>Fully received</div>
+                          <div className="grn-fully-received">Fully received</div>
                         )}
                       </div>
                     );
@@ -317,15 +317,15 @@ export default function GRN() {
               )}
 
               {selectedPO && poItems.length === 0 && (
-                <div style={{ textAlign: "center", padding: 24, color: "var(--color-text-secondary)", fontSize: 13 }}>
+                <div className="grn-loading-items">
                   Loading PO items...
                 </div>
               )}
             </div>
 
-            <div style={{ padding: "14px 24px", borderTop: "1px solid #e2e8f0", display: "flex", justifyContent: "flex-end", gap: 10, background: "#f8fafc" }}>
+            <div className="grn-modal-footer">
               <button className="btn btn-ghost" onClick={() => setShowCreate(false)}>Cancel</button>
-              <button className="btn btn-primary" style={{ color: "#fff" }} disabled={saving || !selectedPO} onClick={submitGRN}>
+              <button className="btn btn-primary" disabled={saving || !selectedPO} onClick={submitGRN}>
                 {saving ? "Creating..." : "Create GRN"}
               </button>
             </div>
@@ -335,72 +335,72 @@ export default function GRN() {
 
       {/* GRN Detail Modal */}
       {detail && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 1010, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <div style={{ background: "#fff", borderRadius: 12, width: "100%", maxWidth: 680, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
-            <div style={{ padding: "18px 24px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div className="grn-modal-overlay">
+          <div className="grn-modal-box-detail">
+            <div className="grn-detail-header">
               <div>
-                <div style={{ fontWeight: 700, fontSize: 16 }}>{detail.grn_number}</div>
-                <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>
+                <div className="grn-detail-number">{detail.grn_number}</div>
+                <div className="grn-detail-meta">
                   PO: {detail.po_number} | Vendor: {detail.vendor_name}
                 </div>
               </div>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <div className="grn-detail-actions">
                 {detail.status === "draft" && (
                   <>
-                    <button className="btn btn-primary btn-sm" style={{ color: "#fff", background: "#059669" }} onClick={() => confirmGRN(detail.id)}>
+                    <button className="btn btn-primary btn-sm grn-confirm-btn" onClick={() => confirmGRN(detail.id)}>
                       Confirm GRN
                     </button>
-                    <button className="btn btn-ghost btn-sm" style={{ color: "#ef4444" }} onClick={() => cancelGRN(detail.id)}>
+                    <button className="btn btn-ghost btn-sm grn-cancel-btn" onClick={() => cancelGRN(detail.id)}>
                       Cancel
                     </button>
                   </>
                 )}
-                {detail.status==="confirmed"&&(<button className="btn btn-ghost btn-sm" style={{border:"1px solid #2563eb",color:"#2563eb",marginRight:8}} onClick={async()=>{try{const r=await procurementApi.notifyCollection(detail.id);showFlash("success",r.data.message);}catch(e){showFlash("error",e.response?.data?.message||"Failed.");}}}>🔔 Notify for Collection</button>)}<button style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", color: "var(--color-text-secondary)" }} onClick={() => setDetail(null)}>×</button>
+                {detail.status==="confirmed"&&(<button className="btn btn-ghost btn-sm grn-notify-btn" onClick={async()=>{try{const r=await procurementApi.notifyCollection(detail.id);showFlash("success",r.data.message);}catch(e){showFlash("error",e.response?.data?.message||"Failed.");}}}>🔔 Notify for Collection</button>)}<button className="grn-close-btn" onClick={() => setDetail(null)}>×</button>
               </div>
             </div>
 
-            <div style={{ padding: "20px 24px" }}>
+            <div className="grn-detail-body">
               {/* Info row */}
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginBottom: 20 }}>
+              <div className="grn-info-grid">
                 {[
                   { label: "Status", value: <span className={`badge ${statusBadge(detail.status).cls}`}>{statusBadge(detail.status).label}</span> },
                   { label: "Received Date", value: detail.received_date ? formatDate(detail.received_date) : "-" },
                   { label: "Received By", value: detail.received_by_name },
                 ].map(({ label, value }) => (
-                  <div key={label} style={{ background: "#f8fafc", borderRadius: 8, padding: "10px 14px" }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", marginBottom: 4 }}>{label}</div>
-                    <div style={{ fontSize: 13, fontWeight: 500 }}>{value}</div>
+                  <div key={label} className="grn-info-box">
+                    <div className="grn-info-label">{label}</div>
+                    <div className="grn-info-value">{value}</div>
                   </div>
                 ))}
               </div>
 
               {detail.notes && (
-                <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontSize: 13 }}>
+                <div className="grn-notes-box">
                   <strong>Notes:</strong> {detail.notes}
                 </div>
               )}
 
               {/* Items */}
-              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--color-text-secondary)", textTransform: "uppercase", marginBottom: 10 }}>Items Received</div>
+              <div className="grn-items-received-label">Items Received</div>
               {detail.items?.length === 0 ? (
-                <div style={{ textAlign: "center", padding: 24, color: "var(--color-text-secondary)", fontSize: 13 }}>No items recorded.</div>
+                <div className="grn-detail-empty">No items recorded.</div>
               ) : (
                 <div>
                   {detail.items?.map(item => {
                     const { cls, label } = conditionBadge(item.condition);
                     return (
-                      <div key={item.id} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: "12px 14px", marginBottom: 8 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div key={item.id} className="grn-detail-item-card">
+                        <div className="grn-detail-item-top">
                           <div>
-                            <div style={{ fontWeight: 600, fontSize: 13 }}>{item.item_description}</div>
-                            {item.notes && <div style={{ fontSize: 12, color: "var(--color-text-secondary)", marginTop: 2 }}>{item.notes}</div>}
+                            <div className="grn-detail-item-name">{item.item_description}</div>
+                            {item.notes && <div className="grn-detail-item-note">{item.notes}</div>}
                           </div>
-                          <div style={{ textAlign: "right" }}>
-                            <div style={{ fontWeight: 700, fontSize: 15 }}>{item.quantity_received} <span style={{ fontSize: 12, fontWeight: 400 }}>{item.unit}</span></div>
-                            <span className={`badge ${cls}`} style={{ marginTop: 4 }}>{label}</span>
+                          <div className="grn-detail-item-right">
+                            <div className="grn-detail-item-qty">{item.quantity_received} <span className="grn-detail-item-unit">{item.unit}</span></div>
+                            <span className={`badge ${cls} grn-detail-item-badge`}>{label}</span>
                           </div>
                         </div>
-                        <div style={{ fontSize: 11, color: "var(--color-text-secondary)", marginTop: 6 }}>
+                        <div className="grn-detail-item-meta">
                           Ordered: {item.ordered_quantity} | Total Received: {item.total_received}
                         </div>
                       </div>

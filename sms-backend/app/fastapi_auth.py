@@ -48,6 +48,22 @@ def get_current_user_id(authorization: str = Header(None)) -> int:
     payload = _decode_token(authorization)
     if payload.get("type") not in (None, "access"):
         raise HTTPException(status_code=422, detail={"msg": "Only access tokens are allowed"})
+    if payload.get("2fa_pending"):
+        raise HTTPException(status_code=401, detail={"msg": "Two-factor verification required"})
+    if payload.get("pwd_change"):
+        raise HTTPException(status_code=403, detail={"status": "error", "code": "password_change_required",
+                                                     "message": "Please set a new password to continue."})
+    return int(payload["sub"])
+
+
+def get_current_user_id_allow_pwd_change(authorization: str = Header(None)) -> int:
+    """Like get_current_user_id, but also accepts a 'password change required' token - used ONLY by
+    the endpoint where that user sets their new password."""
+    payload = _decode_token(authorization)
+    if payload.get("type") not in (None, "access"):
+        raise HTTPException(status_code=422, detail={"msg": "Only access tokens are allowed"})
+    if payload.get("2fa_pending"):
+        raise HTTPException(status_code=401, detail={"msg": "Two-factor verification required"})
     return int(payload["sub"])
 
 
@@ -68,4 +84,17 @@ def get_current_user_id_from_refresh(authorization: str = Header(None)) -> int:
     payload = _decode_token(authorization)
     if payload.get("type") != "refresh":
         raise HTTPException(status_code=422, detail={"msg": "Only refresh tokens are allowed"})
+    return int(payload["sub"])
+
+
+def get_current_user_id_from_2fa_pending(authorization: str = Header(None)) -> int:
+    """
+    Extracts and verifies a short-lived 2FA-pending token, issued by /auth/login
+    when the account has TOTP enabled. This token carries a "2fa_pending": True
+    claim so get_current_user_id (used everywhere else) explicitly rejects it -
+    it can only be used to complete the second login step at /auth/2fa/verify-login.
+    """
+    payload = _decode_token(authorization)
+    if payload.get("type") not in (None, "access") or not payload.get("2fa_pending"):
+        raise HTTPException(status_code=422, detail={"msg": "A valid 2FA-pending token is required"})
     return int(payload["sub"])

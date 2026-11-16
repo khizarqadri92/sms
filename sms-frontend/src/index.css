@@ -2,13 +2,122 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* -- Neutral (light/dark) CSS variables -- these are what most shared
+   components (cards, tables, inputs, nav) should be styled against, so
+   that switching data-color-mode on <html> re-themes them automatically. */
+:root {
+  --bg-page:        #f1f5f9;
+  --bg-card:        #ffffff;
+  --bg-input:       #ffffff;
+  --bg-hover:       #f8fafc;
+  --bg-disabled:    #f1f5f9;
+  --text-primary:   #374151;
+  --text-secondary: #64748b;
+  --text-heading:   #0f172a;
+  --text-muted:     #94a3b8;
+  --border-color:   #e2e8f0;
+  --border-color-strong: #cbd5e1;
+  --scrollbar-track:#f1f5f9;
+  --scrollbar-thumb:#cbd5e1;
+  --scrollbar-thumb-hover:#94a3b8;
+  --shadow-card:    0 1px 3px rgba(0,0,0,0.06);
+
+  /* -- --color-* aliases: this exact naming convention (--color-text-primary,
+     --color-background-secondary, etc.) is already referenced in ~440 places
+     across existing page components, but was never actually defined anywhere -
+     those elements have been silently rendering with no background/text color
+     at all. Defining them here (mapped onto the same light/dark values as the
+     variables above) fixes all of those existing references for free. */
+  --color-text-primary:        #0f172a;
+  --color-text-secondary:      #64748b;
+  --color-text-danger:         #dc2626;
+  --color-text-info:           #0284c7;
+  --color-background-primary:  #ffffff;
+  --color-background-secondary:#f8fafc;
+  --color-background-tertiary: #f1f5f9;
+  --color-background-info:     #eff6ff;
+  --color-border-primary:      #e2e8f0;
+  --color-border-secondary:    #cbd5e1;
+  --color-border-tertiary:     #f1f5f9;
+  --color-border-info:         #bfdbfe;
+
+  /* -- Soft semantic panels: used for info/success/warning/danger boxes
+     (larger content areas, not small badges) that should visually darken
+     along with the rest of the app in dark mode, unlike small status
+     badges/pills which stay fixed-light for readability. */
+  --bg-success-soft:  #f0fdf4;
+  --border-success-soft: #bbf7d0;
+  --text-success-soft: #166534;
+  --bg-danger-soft:   #fef2f2;
+  --border-danger-soft: #fecaca;
+  --text-danger-soft: #991b1b;
+  --bg-warning-soft:  #fffbeb;
+  --border-warning-soft: #fde68a;
+  --text-warning-soft: #92400e;
+  --bg-info-soft:     #eff6ff;
+  --border-info-soft: #bfdbfe;
+  --text-info-soft:   #1e40af;
+  --bg-purple-soft:   #f5f3ff;
+  --border-purple-soft: #ddd6fe;
+  --text-purple-soft: #5b21b6;
+}
+
+html[data-color-mode="dark"] {
+  --bg-page:        #0f172a;
+  --bg-card:        #1e293b;
+  --bg-input:       #1e293b;
+  --bg-hover:       #334155;
+  --bg-disabled:    #1e293b;
+  --text-primary:   #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-heading:   #f1f5f9;
+  --text-muted:     #64748b;
+  --border-color:   #334155;
+  --border-color-strong: #475569;
+  --scrollbar-track:#1e293b;
+  --scrollbar-thumb:#475569;
+  --scrollbar-thumb-hover:#64748b;
+  --shadow-card:    0 1px 3px rgba(0,0,0,0.3);
+  color-scheme: dark;
+
+  --color-text-primary:        #f1f5f9;
+  --color-text-secondary:      #94a3b8;
+  --color-text-danger:         #f87171;
+  --color-text-info:           #38bdf8;
+  --color-background-primary:  #1e293b;
+  --color-background-secondary:#334155;
+  --color-background-tertiary: #0f172a;
+  --color-background-info:     #0c4a6e;
+  --color-border-primary:      #334155;
+  --color-border-secondary:    #475569;
+  --color-border-tertiary:     #1e293b;
+  --color-border-info:         #075985;
+
+  --bg-success-soft:  #0f2a1a;
+  --border-success-soft: #1e4d30;
+  --text-success-soft: #4ade80;
+  --bg-danger-soft:   #2d1414;
+  --border-danger-soft: #5c2323;
+  --text-danger-soft: #f87171;
+  --bg-warning-soft:  #2b2210;
+  --border-warning-soft: #5c4a1e;
+  --text-warning-soft: #fbbf24;
+  --bg-info-soft:     #10233d;
+  --border-info-soft: #1e4470;
+  --text-info-soft:   #60a5fa;
+  --bg-purple-soft:   #211a38;
+  --border-purple-soft: #3d2f66;
+  --text-purple-soft: #a78bfa;
+}
+
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background: #f1f5f9;
-  color: #374151;
+  background: var(--bg-page);
+  color: var(--text-primary);
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 a { text-decoration: none; color: inherit; }
@@ -16,9 +125,9 @@ button { cursor: pointer; font-family: inherit; }
 input, select, textarea { font-family: inherit; }
 
 ::-webkit-scrollbar { width: 5px; height: 5px; }
-::-webkit-scrollbar-track { background: #f1f5f9; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
 /* ── Theme CSS variables ─────────────────────────────────────── */
 :root {
   --theme-nav:           #1e293b;

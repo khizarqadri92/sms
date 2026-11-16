@@ -9,18 +9,30 @@ _pool = None
 
 
 def init_pool(app):
+    """
+    Creates the process's connection pool once. Calling create_app() again in
+    the same process (e.g. a lazy `import main` inside a background job) must
+    NOT replace the pool: connections already borrowed from the old pool could
+    then never be returned ("trying to put unkeyed connection").
+    ThreadedConnectionPool, because both the API (FastAPI sync endpoints and
+    Flask via a2wsgi run on threads) and APScheduler use threads; the old
+    SimpleConnectionPool is not thread-safe.
+    """
     global _pool
-    _pool = pool.SimpleConnectionPool(
-        minconn=2,
-        maxconn=20,
-        host=app.config["DB_HOST"],
-        port=app.config["DB_PORT"],
-        dbname=app.config["DB_NAME"],
-        user=app.config["DB_USER"],
-        password=app.config["DB_PASSWORD"],
-    )
+    if _pool is None:
+        _pool = pool.ThreadedConnectionPool(
+            minconn=2,
+            maxconn=20,
+            host=app.config["DB_HOST"],
+            port=app.config["DB_PORT"],
+            dbname=app.config["DB_NAME"],
+            user=app.config["DB_USER"],
+            password=app.config["DB_PASSWORD"],
+        )
+        logger.info("DB connection pool initialised.")
+    else:
+        logger.info("DB connection pool already initialised - reusing it.")
     app.teardown_appcontext(close_db)
-    logger.info("DB connection pool initialised.")
 
 
 def get_db():

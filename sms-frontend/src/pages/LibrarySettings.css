@@ -1,0 +1,10 @@
+.lib-settings-mb16 { margin-bottom: 16px; }
+
+.lib-settings-desc {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-bottom: 16px;
+}
+
+.lib-input-90  { width: 90px; }
+.lib-input-100 { width: 100px; }

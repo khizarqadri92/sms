@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect } from "react";
 import settingsApi from "../api/settingsApi";
 import { useAuth } from "../auth/AuthContext";
 import { useProcessingNow } from "../hooks/useProcessingNow";
+import { getPublicRegional } from "../api/publicRegional";
 
 const DEFAULT_SETTINGS = {
   date_format: "DD/MM/YYYY",
@@ -37,7 +38,13 @@ export function RegionalSettingsProvider({ children }) {
     // stuck on DEFAULT_SETTINGS until a full page reload re-mounts
     // everything post-login. Re-running this whenever `user` changes means
     // it fires again right after a successful login.
-    if (!user) { setLoading(false); return; }
+    if (!user) {
+      // before login (e.g. the online admission form): the school's display formats from the public endpoint
+      getPublicRegional()
+        .then(d => { if (d.settings) setSettings(prev => ({ ...prev, ...d.settings })); })
+        .finally(() => setLoading(false));
+      return;
+    }
     setLoading(true);
     settingsApi.getRegionalFormatPublic()
       .then(r => { if (r.data.data) setSettings(prev => ({ ...prev, ...r.data.data })); })

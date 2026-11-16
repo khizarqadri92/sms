@@ -6,6 +6,7 @@ import { useAuth } from "../auth/AuthContext";
 import DatePicker from "../components/DatePicker";
 import { useProcessingToday } from "../hooks/useProcessingToday";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
+import "./VendorInvoices.css";
 
 const statusBadge = (s) => ({
   pending:  { cls: "badge-warning", label: "Pending Verification" },
@@ -163,44 +164,44 @@ export default function VendorInvoices() {
   useAutoOpenById(invoices, (inv) => openDetail(inv.id));
   return (
     <div>
-      <div className="page-header" style={{ marginBottom:20 }}>
+      <div className="page-header vi-page-header">
         <div>
           <h1 className="page-heading">Vendor Invoices</h1>
-          <div style={{ fontSize:13, color:"var(--color-text-secondary)", marginTop:4 }}>
+          <div className="vi-subtitle">
             Track and process vendor invoices against purchase orders
           </div>
         </div>
-        <button className="btn btn-primary" style={{ color:"#fff" }} onClick={openCreate}>+ Record Invoice</button>
+        <button className="btn btn-primary vi-btn-white" onClick={openCreate}>+ Record Invoice</button>
       </div>
 
-      {flash && <div className={`alert alert-${flash.type}`} style={{ marginBottom:16 }}>{flash.msg}</div>}
+      {flash && <div className={`alert alert-${flash.type} vi-mb16`}>{flash.msg}</div>}
 
       {/* Filters */}
-      <div className="section-card" style={{ marginBottom:16, padding:"12px 16px" }}>
-        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+      <div className="section-card vi-filter-bar">
+        <div className="vi-filter-row">
           {[{label:"All",value:""},{label:"Pending",value:"pending"},{label:"Verified",value:"verified"},{label:"Approved",value:"approved"},{label:"Paid",value:"paid"},{label:"Disputed",value:"disputed"}].map(f => (
             <button key={f.value} className={`btn btn-sm ${statusFilter===f.value?"btn-primary":"btn-ghost"}`}
-              style={statusFilter===f.value?{color:"#fff"}:{}} onClick={()=>setStatus(f.value)}>{f.label}</button>
+              onClick={()=>setStatus(f.value)}>{f.label}</button>
           ))}
         </div>
       </div>
 
       {/* Invoices List */}
       {loading ? (
-        <div className="section-card" style={{ textAlign:"center",padding:40,color:"var(--color-text-secondary)" }}>Loading...</div>
+        <div className="section-card vi-loading">Loading...</div>
       ) : invoices.length===0 ? (
-        <div className="section-card" style={{ textAlign:"center",padding:48 }}>
-          <div style={{ fontSize:36,marginBottom:12 }}>🧾</div>
-          <div style={{ fontWeight:600,marginBottom:6 }}>No vendor invoices yet</div>
-          <div style={{ color:"var(--color-text-secondary)",fontSize:13 }}>Record a vendor invoice against an issued Purchase Order.</div>
+        <div className="section-card vi-empty">
+          <div className="vi-empty-icon">🧾</div>
+          <div className="vi-empty-title">No vendor invoices yet</div>
+          <div className="vi-empty-subtext">Record a vendor invoice against an issued Purchase Order.</div>
         </div>
       ) : (
-        <div className="section-card" style={{ padding:0,overflow:"hidden" }}>
-          <table style={{ width:"100%",borderCollapse:"collapse" }}>
+        <div className="section-card vi-table-wrap">
+          <table className="vi-table">
             <thead>
-              <tr style={{ background:"var(--color-background-secondary)",borderBottom:"1px solid var(--color-border-primary)" }}>
+              <tr className="vi-th-row">
                 {["Invoice #","PO #","Vendor","Date","Total","Paid","Balance","Status",""].map(h => (
-                  <th key={h} style={{ padding:"10px 14px",textAlign:"left",fontSize:12,fontWeight:600,color:"var(--color-text-secondary)",textTransform:"uppercase",letterSpacing:".05em" }}>{h}</th>
+                  <th key={h} className="vi-th">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -209,16 +210,16 @@ export default function VendorInvoices() {
                 const {cls,label} = statusBadge(inv.status);
                 const balance = parseFloat(inv.balance||0);
                 return (
-                  <tr key={inv.id} style={{ borderBottom:"1px solid var(--color-border-primary)",background:i%2===0?"transparent":"var(--color-background-secondary)" }}>
-                    <td style={{ padding:"10px 14px",fontWeight:600,fontSize:13 }}>{inv.vendor_invoice_no}</td>
-                    <td style={{ padding:"10px 14px",fontSize:13 }}>{inv.po_number}</td>
-                    <td style={{ padding:"10px 14px",fontSize:13 }}>{inv.vendor_name}</td>
-                    <td style={{ padding:"10px 14px",fontSize:13 }}>{inv.invoice_date ? formatDate(inv.invoice_date) : "-"}</td>
-                    <td style={{ padding:"10px 14px",fontSize:13,fontWeight:600 }}>Rs. {parseFloat(inv.total_amount).toLocaleString()}</td>
-                    <td style={{ padding:"10px 14px",fontSize:13,color:"#059669" }}>Rs. {parseFloat(inv.paid_amount).toLocaleString()}</td>
-                    <td style={{ padding:"10px 14px",fontSize:13,color:balance>0?"#ef4444":"#94a3b8",fontWeight:balance>0?600:400 }}>Rs. {balance.toLocaleString()}</td>
-                    <td style={{ padding:"10px 14px" }}><span className={`badge ${cls}`}>{label}</span></td>
-                    <td style={{ padding:"10px 14px" }}><button className="btn btn-ghost btn-sm" onClick={()=>openDetail(inv.id)}>View</button></td>
+                  <tr key={inv.id} className="vi-tr" style={{ "--row-bg": i%2===0?"transparent":"var(--color-background-secondary)" }}>
+                    <td className="vi-td-bold">{inv.vendor_invoice_no}</td>
+                    <td className="vi-td">{inv.po_number}</td>
+                    <td className="vi-td">{inv.vendor_name}</td>
+                    <td className="vi-td">{inv.invoice_date ? formatDate(inv.invoice_date) : "-"}</td>
+                    <td className="vi-td-total-bold">Rs. {parseFloat(inv.total_amount).toLocaleString()}</td>
+                    <td className="vi-td-paid">Rs. {parseFloat(inv.paid_amount).toLocaleString()}</td>
+                    <td className="vi-td-balance" style={{ "--balance-color": balance>0?"#ef4444":"var(--text-muted)", "--balance-weight": balance>0?600:400 }}>Rs. {balance.toLocaleString()}</td>
+                    <td className="vi-td-badge"><span className={`badge ${cls}`}>{label}</span></td>
+                    <td className="vi-td-badge"><button className="btn btn-ghost btn-sm" onClick={()=>openDetail(inv.id)}>View</button></td>
                   </tr>
                 );
               })}
@@ -229,16 +230,16 @@ export default function VendorInvoices() {
 
       {/* Create Invoice Modal */}
       {showCreate && (
-        <div style={{ position:"fixed",inset:0,zIndex:1010,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",padding:24 }}>
-          <div style={{ background:"#fff",borderRadius:12,width:"100%",maxWidth:780,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.2)" }}>
-            <div style={{ padding:"18px 24px",borderBottom:"1px solid #e2e8f0",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
-              <div style={{ fontWeight:700,fontSize:16 }}>Record Vendor Invoice</div>
-              <button style={{ background:"none",border:"none",fontSize:20,cursor:"pointer" }} onClick={()=>setShowCreate(false)}>×</button>
+        <div className="vi-modal-overlay">
+          <div className="vi-modal-box">
+            <div className="vi-modal-header">
+              <div className="vi-modal-title">Record Vendor Invoice</div>
+              <button className="vi-close-btn" onClick={()=>setShowCreate(false)}>×</button>
             </div>
-            <div style={{ padding:"20px 24px" }}>
+            <div className="vi-modal-body">
               {/* PO Selection */}
-              <div style={{ marginBottom:16 }}>
-                <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6 }}>Purchase Order *</label>
+              <div className="vi-field-wrap">
+                <label className="vi-field-label">Purchase Order *</label>
                 <select className="form-input" value={selectedPO?.id||""} onChange={e=>{const po=pos.find(p=>p.id===parseInt(e.target.value));selectPO(po||null);}}>
                   <option value="">— Select PO —</option>
                   {pos.map(p=><option key={p.id} value={p.id}>{p.po_number} — {p.vendor_name} ({p.status})</option>)}
@@ -247,17 +248,17 @@ export default function VendorInvoices() {
 
               {selectedPO && (
                 <>
-                  <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12,marginBottom:16 }}>
+                  <div className="vi-po-grid">
                     <div>
-                      <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6 }}>Vendor Invoice # *</label>
+                      <label className="vi-field-label">Vendor Invoice # *</label>
                       <input className="form-input" placeholder="e.g. INV-2024-001" value={form.vendor_invoice_no} onChange={e=>setForm(f=>({...f,vendor_invoice_no:e.target.value}))} />
                     </div>
                     <div>
-                      <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6 }}>Invoice Date *</label>
+                      <label className="vi-field-label">Invoice Date *</label>
                       <DatePicker value={form.invoice_date} onChange={val=>setForm(f=>({...f,invoice_date:val}))} />
                     </div>
                     <div>
-                      <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6 }}>Linked GRN</label>
+                      <label className="vi-field-label">Linked GRN</label>
                       <select className="form-input" value={form.grn_id} onChange={e=>setForm(f=>({...f,grn_id:e.target.value}))}>
                         <option value="">— None —</option>
                         {grns.map(g=><option key={g.id} value={g.id}>{g.grn_number} ({g.received_date ? formatDate(g.received_date) : "-"})</option>)}
@@ -266,50 +267,50 @@ export default function VendorInvoices() {
                   </div>
 
                   {/* Line Items */}
-                  <div style={{ marginBottom:16 }}>
-                    <div style={{ display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8 }}>
-                      <div style={{ fontSize:13,fontWeight:700,color:"var(--color-text-secondary)",textTransform:"uppercase",letterSpacing:".05em" }}>Line Items</div>
+                  <div className="vi-line-items-wrap">
+                    <div className="vi-line-items-header">
+                      <div className="vi-line-items-label">Line Items</div>
                       <button className="btn btn-ghost btn-sm" onClick={addItem}>+ Add Row</button>
                     </div>
-                    <table style={{ width:"100%",borderCollapse:"collapse",fontSize:13 }}>
+                    <table className="vi-items-table">
                       <thead>
-                        <tr style={{ background:"#f8fafc" }}>
-                          {["Description","Qty","Unit Price","Tax %","Amount",""].map(h=><th key={h} style={{ padding:"8px 10px",textAlign:"left",fontSize:11,fontWeight:600,color:"var(--color-text-secondary)",textTransform:"uppercase" }}>{h}</th>)}
+                        <tr className="vi-items-th-row">
+                          {["Description","Qty","Unit Price","Tax %","Amount",""].map(h=><th key={h} className="vi-items-th">{h}</th>)}
                         </tr>
                       </thead>
                       <tbody>
                         {items.map((item,idx)=>{
                           const amt = (parseFloat(item.quantity||0)*parseFloat(item.unit_price||0)*(1+parseFloat(item.tax_percent||0)/100)).toFixed(2);
                           return (
-                            <tr key={idx} style={{ borderBottom:"1px solid #f1f5f9" }}>
-                              <td style={{ padding:"6px 4px" }}><input className="form-input" style={{ margin:0 }} value={item.description} onChange={e=>updateItem(idx,"description",e.target.value)} /></td>
-                              <td style={{ padding:"6px 4px",width:70 }}><input type="number" className="form-input" style={{ margin:0 }} value={item.quantity} onChange={e=>updateItem(idx,"quantity",e.target.value)} /></td>
-                              <td style={{ padding:"6px 4px",width:100 }}><input type="number" className="form-input" style={{ margin:0 }} value={item.unit_price} onChange={e=>updateItem(idx,"unit_price",e.target.value)} /></td>
-                              <td style={{ padding:"6px 4px",width:70 }}><input type="number" className="form-input" style={{ margin:0 }} value={item.tax_percent} onChange={e=>updateItem(idx,"tax_percent",e.target.value)} /></td>
-                              <td style={{ padding:"6px 10px",fontWeight:600,color:"#2563eb" }}>Rs. {amt}</td>
-                              <td style={{ padding:"6px 4px" }}>{items.length>1&&<button className="btn btn-ghost btn-sm" style={{ color:"#ef4444" }} onClick={()=>removeItem(idx)}>×</button>}</td>
+                            <tr key={idx} className="vi-items-tr">
+                              <td className="vi-item-cell"><input className="form-input vi-item-input" value={item.description} onChange={e=>updateItem(idx,"description",e.target.value)} /></td>
+                              <td className="vi-item-cell-w70"><input type="number" className="form-input vi-item-input" value={item.quantity} onChange={e=>updateItem(idx,"quantity",e.target.value)} /></td>
+                              <td className="vi-item-cell-w100"><input type="number" className="form-input vi-item-input" value={item.unit_price} onChange={e=>updateItem(idx,"unit_price",e.target.value)} /></td>
+                              <td className="vi-item-cell-w70"><input type="number" className="form-input vi-item-input" value={item.tax_percent} onChange={e=>updateItem(idx,"tax_percent",e.target.value)} /></td>
+                              <td className="vi-item-amount-cell">Rs. {amt}</td>
+                              <td className="vi-item-cell">{items.length>1&&<button className="btn btn-ghost btn-sm vi-remove-btn" onClick={()=>removeItem(idx)}>×</button>}</td>
                             </tr>
                           );
                         })}
                       </tbody>
                     </table>
-                    <div style={{ display:"flex",justifyContent:"flex-end",marginTop:12,gap:16 }}>
-                      <div style={{ fontSize:13,color:"var(--color-text-secondary)" }}>Subtotal: <strong>Rs. {tots.subtotal}</strong></div>
-                      <div style={{ fontSize:13,color:"var(--color-text-secondary)" }}>Tax: <strong>Rs. {tots.tax}</strong></div>
-                      <div style={{ fontSize:15,fontWeight:800,color:"#2563eb" }}>Total: Rs. {tots.total}</div>
+                    <div className="vi-totals-row">
+                      <div className="vi-totals-subtext">Subtotal: <strong>Rs. {tots.subtotal}</strong></div>
+                      <div className="vi-totals-subtext">Tax: <strong>Rs. {tots.tax}</strong></div>
+                      <div className="vi-totals-grand">Total: Rs. {tots.total}</div>
                     </div>
                   </div>
 
                   <div>
-                    <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6 }}>Notes</label>
+                    <label className="vi-field-label">Notes</label>
                     <textarea className="form-input" rows={2} placeholder="Optional" value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} />
                   </div>
                 </>
               )}
             </div>
-            <div style={{ padding:"14px 24px",borderTop:"1px solid #e2e8f0",display:"flex",justifyContent:"flex-end",gap:10,background:"#f8fafc" }}>
+            <div className="vi-modal-footer">
               <button className="btn btn-ghost" onClick={()=>setShowCreate(false)}>Cancel</button>
-              <button className="btn btn-primary" style={{ color:"#fff" }} disabled={saving||!selectedPO} onClick={submitInvoice}>
+              <button className="btn btn-primary vi-btn-white" disabled={saving||!selectedPO} onClick={submitInvoice}>
                 {saving?"Saving...":"Record Invoice"}
               </button>
             </div>
@@ -319,33 +320,33 @@ export default function VendorInvoices() {
 
       {/* Detail Modal */}
       {detail && (
-        <div style={{ position:"fixed",inset:0,zIndex:1010,background:"rgba(0,0,0,0.5)",display:"flex",alignItems:"center",justifyContent:"center",padding:24 }}>
-          <div style={{ background:"#fff",borderRadius:12,width:"100%",maxWidth:720,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 20px 60px rgba(0,0,0,0.2)" }}>
+        <div className="vi-modal-overlay">
+          <div className="vi-detail-modal-box">
             {/* Header */}
-            <div style={{ padding:"16px 24px",borderBottom:"1px solid #e2e8f0" }}>
-              <div style={{ display:"flex",justifyContent:"space-between",alignItems:"flex-start" }}>
+            <div className="vi-detail-header-wrap">
+              <div className="vi-detail-header-top">
                 <div>
-                  <div style={{ fontWeight:700,fontSize:16 }}>{detail.vendor_invoice_no}</div>
-                  <div style={{ fontSize:12,color:"var(--color-text-secondary)",marginTop:2 }}>
+                  <div className="vi-detail-number">{detail.vendor_invoice_no}</div>
+                  <div className="vi-detail-meta">
                     {detail.vendor_name} · PO: {detail.po_number}{detail.grn_number?` · GRN: ${detail.grn_number}`:""}
                   </div>
                 </div>
-                <div style={{ display:"flex",gap:8,alignItems:"center",flexWrap:"wrap",justifyContent:"flex-end" }}>
+                <div className="vi-detail-actions">
                   <span className={`badge ${statusBadge(detail.status).cls}`}>{statusBadge(detail.status).label}</span>
                   {wfStep ? (
                     <>
                       {wfStep.step_type === "payment" ? (
-                        <button className="btn btn-primary btn-sm" style={{ color:"#fff",background:"#2563eb" }} onClick={()=>setPayModal(true)}>
+                        <button className="btn btn-primary btn-sm vi-payment-btn" onClick={()=>setPayModal(true)}>
                           {wfStep.action_label || "Record Payment"}
                         </button>
                       ) : (
-                        <button className="btn btn-primary btn-sm" style={{ color:"#fff" }} disabled={acting}
+                        <button className="btn btn-primary btn-sm vi-btn-white" disabled={acting}
                           onClick={()=>act(wfStep.step_type)}>
                           {wfStep.action_label || wfStep.step_name || wfStep.step_type}
                         </button>
                       )}
                       {wfStep.can_reject !== false && (
-                        <button className="btn btn-sm" style={{ color:"#dc2626",marginLeft:4 }} disabled={acting}
+                        <button className="btn btn-sm vi-dispute-btn-small" disabled={acting}
                           onClick={()=>act("dispute")}>
                           {wfStep.reject_label || "Dispute"}
                         </button>
@@ -353,64 +354,64 @@ export default function VendorInvoices() {
                     </>
                   ) : (
                     <>
-                      {detail.status==="pending"&&<button className="btn btn-primary btn-sm" style={{ color:"#fff" }} disabled={acting} onClick={()=>act("verify")}>Verify</button>}
-                      {detail.status==="verified"&&can("finance.manage")&&<button className="btn btn-primary btn-sm" style={{ color:"#fff",background:"#059669" }} disabled={acting} onClick={()=>act("approve")}>Approve</button>}
+                      {detail.status==="pending"&&<button className="btn btn-primary btn-sm vi-btn-white" disabled={acting} onClick={()=>act("verify")}>Verify</button>}
+                      {detail.status==="verified"&&can("finance.manage")&&<button className="btn btn-primary btn-sm vi-approve-btn" disabled={acting} onClick={()=>act("approve")}>Approve</button>}
                     </>
                   )}
-                  {detail.status==="approved"&&(!wfExists||wfDone)&&can("finance.manage")&&parseFloat(detail.paid_amount||0)<parseFloat(detail.total_amount||0)&&<button className="btn btn-primary btn-sm" style={{ color:"#fff",background:"#2563eb" }} onClick={()=>setPayModal(true)}>Record Payment</button>}
-                  {["pending","verified"].includes(detail.status)&&<button className="btn btn-ghost btn-sm" style={{ color:"#ef4444" }} onClick={()=>setDispute(true)}>Dispute</button>}
-                  {["pending","disputed"].includes(detail.status)&&<button className="btn btn-ghost btn-sm" style={{ color:"#94a3b8" }} disabled={acting} onClick={()=>act("cancel")}>Cancel</button>}
-                  <button style={{ background:"none",border:"none",fontSize:20,cursor:"pointer",marginLeft:4 }} onClick={()=>setDetail(null)}>×</button>
+                  {detail.status==="approved"&&(!wfExists||wfDone)&&can("finance.manage")&&parseFloat(detail.paid_amount||0)<parseFloat(detail.total_amount||0)&&<button className="btn btn-primary btn-sm vi-payment-btn" onClick={()=>setPayModal(true)}>Record Payment</button>}
+                  {["pending","verified"].includes(detail.status)&&<button className="btn btn-ghost btn-sm vi-dispute-btn" onClick={()=>setDispute(true)}>Dispute</button>}
+                  {["pending","disputed"].includes(detail.status)&&<button className="btn btn-ghost btn-sm vi-cancel-btn" disabled={acting} onClick={()=>act("cancel")}>Cancel</button>}
+                  <button className="vi-small-close-btn" onClick={()=>setDetail(null)}>×</button>
                 </div>
               </div>
             </div>
 
-            <div style={{ padding:"20px 24px" }}>
+            <div className="vi-detail-body">
               {/* Info Grid */}
-              <div style={{ display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:20 }}>
+              <div className="vi-info-grid">
                 {[
                   { label:"Invoice Date", value:detail.invoice_date ? formatDate(detail.invoice_date) : "-" },
                   { label:"Received Date", value:detail.received_date ? formatDate(detail.received_date) : "-" },
                   { label:"PO Total", value:`Rs. ${parseFloat(detail.po_total_amount||0).toLocaleString()}` },
                   { label:"Subtotal", value:`Rs. ${parseFloat(detail.subtotal||0).toLocaleString()}` },
                   { label:"Tax", value:`Rs. ${parseFloat(detail.tax_amount||0).toLocaleString()}` },
-                  { label:"Total", value:<span style={{ fontWeight:800,fontSize:15,color:"#2563eb" }}>Rs. {parseFloat(detail.total_amount||0).toLocaleString()}</span> },
-                  { label:"Paid", value:<span style={{ color:"#059669",fontWeight:700 }}>Rs. {parseFloat(detail.paid_amount||0).toLocaleString()}</span> },
-                  { label:"Balance", value:<span style={{ color:parseFloat(detail.balance||0)>0?"#ef4444":"#059669",fontWeight:700 }}>Rs. {parseFloat(detail.balance||0).toLocaleString()}</span> },
+                  { label:"Total", value:<span className="vi-total-value">Rs. {parseFloat(detail.total_amount||0).toLocaleString()}</span> },
+                  { label:"Paid", value:<span className="vi-paid-value">Rs. {parseFloat(detail.paid_amount||0).toLocaleString()}</span> },
+                  { label:"Balance", value:<span className="vi-balance-value" style={{ "--balance-color": parseFloat(detail.balance||0)>0?"#ef4444":"#059669" }}>Rs. {parseFloat(detail.balance||0).toLocaleString()}</span> },
                   { label:"Created By", value:detail.created_by_name },
                 ].map(({label,value})=>(
-                  <div key={label} style={{ background:"#f8fafc",borderRadius:8,padding:"8px 12px" }}>
-                    <div style={{ fontSize:11,fontWeight:700,color:"var(--color-text-secondary)",textTransform:"uppercase",marginBottom:3 }}>{label}</div>
-                    <div style={{ fontSize:13 }}>{value}</div>
+                  <div key={label} className="vi-info-box">
+                    <div className="vi-info-label">{label}</div>
+                    <div className="vi-info-value">{value}</div>
                   </div>
                 ))}
               </div>
 
               {detail.dispute_reason && (
-                <div style={{ background:"#fef2f2",border:"1px solid #fecaca",borderRadius:8,padding:"10px 14px",marginBottom:16 }}>
-                  <div style={{ fontSize:11,fontWeight:700,color:"#991b1b",marginBottom:4 }}>DISPUTE REASON</div>
-                  <div style={{ fontSize:13,color:"#7f1d1d" }}>{detail.dispute_reason}</div>
+                <div className="vi-dispute-reason-box">
+                  <div className="vi-dispute-reason-label">DISPUTE REASON</div>
+                  <div className="vi-dispute-reason-text">{detail.dispute_reason}</div>
                 </div>
               )}
 
               {/* Line Items */}
               {detail.items?.length > 0 && (
-                <div style={{ marginBottom:20 }}>
-                  <div style={{ fontSize:12,fontWeight:700,color:"var(--color-text-secondary)",textTransform:"uppercase",marginBottom:8 }}>Line Items</div>
-                  <table style={{ width:"100%",borderCollapse:"collapse",fontSize:13 }}>
+                <div className="vi-section-mb20">
+                  <div className="vi-items-section-label">Line Items</div>
+                  <table className="vi-items-table">
                     <thead>
-                      <tr style={{ background:"#f8fafc" }}>
-                        {["Description","Qty","Unit Price","Tax","Amount"].map(h=><th key={h} style={{ padding:"8px 12px",textAlign:"left",fontSize:11,fontWeight:600,color:"var(--color-text-secondary)",textTransform:"uppercase" }}>{h}</th>)}
+                      <tr className="vi-items-th-row">
+                        {["Description","Qty","Unit Price","Tax","Amount"].map(h=><th key={h} className="vi-items-th-pad">{h}</th>)}
                       </tr>
                     </thead>
                     <tbody>
                       {detail.items.map(item=>(
-                        <tr key={item.id} style={{ borderBottom:"1px solid #f1f5f9" }}>
-                          <td style={{ padding:"8px 12px" }}>{item.description}</td>
-                          <td style={{ padding:"8px 12px" }}>{item.quantity}</td>
-                          <td style={{ padding:"8px 12px" }}>Rs. {parseFloat(item.unit_price).toLocaleString()}</td>
-                          <td style={{ padding:"8px 12px" }}>{item.tax_percent}%</td>
-                          <td style={{ padding:"8px 12px",fontWeight:600,color:"#2563eb" }}>Rs. {parseFloat(item.amount).toLocaleString()}</td>
+                        <tr key={item.id} className="vi-items-tr">
+                          <td className="vi-item-td-pad">{item.description}</td>
+                          <td className="vi-item-td-pad">{item.quantity}</td>
+                          <td className="vi-item-td-pad">Rs. {parseFloat(item.unit_price).toLocaleString()}</td>
+                          <td className="vi-item-td-pad">{item.tax_percent}%</td>
+                          <td className="vi-item-amount-blue">Rs. {parseFloat(item.amount).toLocaleString()}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -421,14 +422,14 @@ export default function VendorInvoices() {
               {/* Payment History */}
               {detail.payments?.length > 0 && (
                 <div>
-                  <div style={{ fontSize:12,fontWeight:700,color:"var(--color-text-secondary)",textTransform:"uppercase",marginBottom:8 }}>Payment History</div>
+                  <div className="vi-payment-history-label">Payment History</div>
                   {detail.payments.map(p=>(
-                    <div key={p.id} style={{ display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 14px",borderRadius:8,border:"1px solid #e2e8f0",marginBottom:8,background:"#f0fdf4" }}>
+                    <div key={p.id} className="vi-payment-row">
                       <div>
-                        <div style={{ fontWeight:600,fontSize:13 }}>Rs. {parseFloat(p.amount).toLocaleString()}</div>
-                        <div style={{ fontSize:12,color:"var(--color-text-secondary)" }}>{METHOD_LABELS[p.payment_method]||p.payment_method} · {p.payment_date ? formatDate(p.payment_date) : "-"}{p.reference?` · Ref: ${p.reference}`:""}</div>
+                        <div className="vi-payment-amount">Rs. {parseFloat(p.amount).toLocaleString()}</div>
+                        <div className="vi-payment-meta">{METHOD_LABELS[p.payment_method]||p.payment_method} · {p.payment_date ? formatDate(p.payment_date) : "-"}{p.reference?` · Ref: ${p.reference}`:""}</div>
                       </div>
-                      <div style={{ fontSize:12,color:"var(--color-text-secondary)" }}>{p.paid_by_name}</div>
+                      <div className="vi-payment-by">{p.paid_by_name}</div>
                     </div>
                   ))}
                 </div>
@@ -440,29 +441,29 @@ export default function VendorInvoices() {
 
       {/* Record Payment Modal */}
       {showPayModal && detail && (
-        <div style={{ position:"fixed",inset:0,zIndex:1020,background:"rgba(0,0,0,0.6)",display:"flex",alignItems:"center",justifyContent:"center",padding:24 }}>
-          <div style={{ background:"#fff",borderRadius:12,width:"100%",maxWidth:440,boxShadow:"0 20px 60px rgba(0,0,0,0.25)" }}>
-            <div style={{ padding:"16px 24px",borderBottom:"1px solid #e2e8f0",display:"flex",justifyContent:"space-between",alignItems:"center" }}>
-              <div style={{ fontWeight:700,fontSize:15 }}>Record Payment</div>
-              <button style={{ background:"none",border:"none",fontSize:20,cursor:"pointer" }} onClick={()=>setPayModal(false)}>×</button>
+        <div className="vi-modal-overlay-top">
+          <div className="vi-pay-modal-box">
+            <div className="vi-modal-header-sm">
+              <div className="vi-modal-title-sm">Record Payment</div>
+              <button className="vi-close-btn" onClick={()=>setPayModal(false)}>×</button>
             </div>
-            <div style={{ padding:"20px 24px" }}>
-              <div style={{ background:"#eff6ff",borderRadius:8,padding:"10px 14px",marginBottom:16,fontSize:13 }}>
-                Balance due: <strong style={{ color:"#2563eb" }}>Rs. {parseFloat(detail.balance||0).toLocaleString()}</strong>
+            <div className="vi-modal-body">
+              <div className="vi-balance-due-box">
+                Balance due: <strong className="vi-balance-due-value">Rs. {parseFloat(detail.balance||0).toLocaleString()}</strong>
               </div>
-              <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12 }}>
+              <div className="vi-form-grid">
                 <div>
-                  <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6 }}>Amount *</label>
+                  <label className="vi-field-label">Amount *</label>
                   <input type="number" className="form-input" value={payForm.amount} onChange={e=>setPayForm(f=>({...f,amount:e.target.value}))} />
                 </div>
                 <div>
-                  <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6 }}>Payment Date</label>
+                  <label className="vi-field-label">Payment Date</label>
                   <DatePicker value={payForm.payment_date||processingToday} onChange={val=>setPayForm(f=>({...f,payment_date:val}))} />
                 </div>
               </div>
-              <div style={{ display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12 }}>
+              <div className="vi-form-grid">
                 <div>
-                  <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6 }}>Method</label>
+                  <label className="vi-field-label">Method</label>
                   <select className="form-input" value={payForm.payment_method} onChange={e=>setPayForm(f=>({...f,payment_method:e.target.value}))}>
                     <option value="bank_transfer">Bank Transfer</option>
                     <option value="cash">Cash</option>
@@ -471,18 +472,18 @@ export default function VendorInvoices() {
                   </select>
                 </div>
                 <div>
-                  <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6 }}>Reference #</label>
+                  <label className="vi-field-label">Reference #</label>
                   <input className="form-input" placeholder="Transaction ref" value={payForm.reference} onChange={e=>setPayForm(f=>({...f,reference:e.target.value}))} />
                 </div>
               </div>
               <div>
-                <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:6 }}>Notes</label>
+                <label className="vi-field-label">Notes</label>
                 <input className="form-input" value={payForm.notes} onChange={e=>setPayForm(f=>({...f,notes:e.target.value}))} />
               </div>
             </div>
-            <div style={{ padding:"14px 24px",borderTop:"1px solid #e2e8f0",display:"flex",justifyContent:"flex-end",gap:10,background:"#f8fafc" }}>
+            <div className="vi-modal-footer">
               <button className="btn btn-ghost" onClick={()=>setPayModal(false)}>Cancel</button>
-              <button className="btn btn-primary" style={{ color:"#fff" }} disabled={saving} onClick={recordPayment}>{saving?"Saving...":"Record Payment"}</button>
+              <button className="btn btn-primary vi-btn-white" disabled={saving} onClick={recordPayment}>{saving?"Saving...":"Record Payment"}</button>
             </div>
           </div>
         </div>
@@ -490,16 +491,16 @@ export default function VendorInvoices() {
 
       {/* Dispute Modal */}
       {disputeModal && (
-        <div style={{ position:"fixed",inset:0,zIndex:1020,background:"rgba(0,0,0,0.6)",display:"flex",alignItems:"center",justifyContent:"center",padding:24 }}>
-          <div style={{ background:"#fff",borderRadius:12,width:"100%",maxWidth:400,boxShadow:"0 20px 60px rgba(0,0,0,0.25)" }}>
-            <div style={{ padding:"16px 24px",borderBottom:"1px solid #e2e8f0",fontWeight:700,fontSize:15 }}>Dispute Invoice</div>
-            <div style={{ padding:"20px 24px" }}>
-              <label style={{ fontSize:13,fontWeight:600,display:"block",marginBottom:8 }}>Reason for dispute *</label>
+        <div className="vi-modal-overlay-top">
+          <div className="vi-dispute-modal-box">
+            <div className="vi-dispute-modal-header">Dispute Invoice</div>
+            <div className="vi-modal-body">
+              <label className="vi-field-label-mb8">Reason for dispute *</label>
               <textarea className="form-input" rows={4} placeholder="Describe the discrepancy or issue..." value={disputeReason} onChange={e=>setDR(e.target.value)} />
             </div>
-            <div style={{ padding:"14px 24px",borderTop:"1px solid #e2e8f0",display:"flex",justifyContent:"flex-end",gap:10,background:"#f8fafc" }}>
+            <div className="vi-modal-footer">
               <button className="btn btn-ghost" onClick={()=>setDispute(false)}>Cancel</button>
-              <button className="btn btn-primary" style={{ color:"#fff",background:"#ef4444" }} disabled={acting||!disputeReason.trim()} onClick={()=>act("dispute",{reason:disputeReason})}>
+              <button className="btn btn-primary vi-dispute-submit-btn" disabled={acting||!disputeReason.trim()} onClick={()=>act("dispute",{reason:disputeReason})}>
                 {acting?"Submitting...":"Submit Dispute"}
               </button>
             </div>

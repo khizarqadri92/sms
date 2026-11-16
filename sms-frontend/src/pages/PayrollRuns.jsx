@@ -3,6 +3,7 @@ import payrollApi from "../api/payrollApi";
 import { useAuth } from "../auth/AuthContext";
 import { useProcessingToday } from "../hooks/useProcessingToday";
 import DatePicker from "../components/DatePicker";
+import "./PayrollRuns.css";
 
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
@@ -205,57 +206,56 @@ export default function PayrollRuns() {
 
   const totalNet = payslips.reduce((s, p) => s + Number(p.net_pay), 0);
 
-  if (loading) return <div style={{ padding: 60, textAlign: "center", color: "#64748b" }}>Loading...</div>;
+  if (loading) return <div className="pr-loading">Loading...</div>;
 
   return (
-    <div style={{ margin: "0 auto", padding: 24 }}>
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 22, fontWeight: 800, color: "#0f172a" }}>Payroll Runs</div>
-        <div style={{ fontSize: 13, color: "#64748b" }}>Generate, review, and approve monthly payroll</div>
+    <div className="pr-page">
+      <div className="pr-header">
+        <div className="pr-title">Payroll Runs</div>
+        <div className="pr-subtitle">Generate, review, and approve monthly payroll</div>
       </div>
 
       {flash && (
-        <div style={{
-          marginBottom: 16, padding: "10px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600,
-          background: flash.type === "success" ? "#dcfce7" : "#fee2e2",
-          color: flash.type === "success" ? "#166534" : "#dc2626"
+        <div className="pr-flash" style={{
+          "--flash-bg": flash.type === "success" ? "#dcfce7" : "#fee2e2",
+          "--flash-color": flash.type === "success" ? "#166534" : "#dc2626"
         }}>
           {flash.type === "success" ? "\u2713 " : "\u26a0 "}{flash.msg}
         </div>
       )}
 
       {can("payroll.create_run") && (
-        <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "flex-end" }}>
+        <div className="pr-create-row">
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Month</label>
-            <select className="form-input" style={{ fontSize: 13, width: 160 }} value={newMonth} onChange={e => setNewMonth(e.target.value)}>
+            <label className="pr-field-label">Month</label>
+            <select className="form-input pr-month-select" value={newMonth} onChange={e => setNewMonth(e.target.value)}>
               {MONTH_NAMES.map((m, i) => <option key={i} value={i + 1}>{m}</option>)}
             </select>
           </div>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Year</label>
-            <input type="number" className="form-input" style={{ fontSize: 13, width: 100 }} value={newYear} onChange={e => setNewYear(e.target.value)} />
+            <label className="pr-field-label">Year</label>
+            <input type="number" className="form-input pr-year-input" value={newYear} onChange={e => setNewYear(e.target.value)} />
           </div>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>From</label>
+            <label className="pr-field-label">From</label>
             <DatePicker style={{ fontSize: 13, width: 150 }} value={newFromDate} onChange={val => setNewFromDate(val)} />
           </div>
           <div>
-            <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>To</label>
+            <label className="pr-field-label">To</label>
             <DatePicker style={{ fontSize: 13, width: 150 }} value={newToDate} onChange={val => setNewToDate(val)} />
           </div>
-          <button className="btn btn-primary btn-sm" style={{ color: "#fff" }} disabled={creating} onClick={createRun}>
+          <button className="btn btn-primary btn-sm pr-start-btn" disabled={creating} onClick={createRun}>
             {creating ? "Starting..." : "Start Payroll Process"}
           </button>
         </div>
       )}
 
-      <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <div className="pr-table-wrap">
+        <table className="pr-table">
           <thead>
-            <tr style={{ background: "#f8fafc" }}>
+            <tr className="pr-th-row">
               {["Period", "Status", "Employees Ready", "Adjustments Entered", ""].map(h => (
-                <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "#64748b", borderBottom: "1px solid #e2e8f0" }}>{h}</th>
+                <th key={h} className="pr-th">{h}</th>
               ))}
             </tr>
           </thead>
@@ -264,99 +264,98 @@ export default function PayrollRuns() {
               const sc = STATUS_COLORS[r.status] || STATUS_COLORS.draft;
               const allReady = r.total_active_staff > 0 && r.employees_ready >= r.total_active_staff;
               return (
-                <tr key={r.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                  <td style={{ padding: "10px 14px", fontWeight: 600, fontSize: 13 }}>{MONTH_NAMES[r.month - 1]} {r.year}</td>
-                  <td style={{ padding: "10px 14px" }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 10, background: sc.bg, color: sc.color }}>
+                <tr key={r.id} className="pr-tr">
+                  <td className="pr-td-period">{MONTH_NAMES[r.month - 1]} {r.year}</td>
+                  <td className="pr-td-status">
+                    <span className="pr-status-badge" style={{ "--badge-bg": sc.bg, "--badge-color": sc.color }}>
                       {STATUS_LABELS[r.status] || r.status}
                     </span>
                   </td>
-                  <td style={{ padding: "10px 14px", fontSize: 13, color: allReady ? "#166534" : "#dc2626", fontWeight: 600 }}>
+                  <td className="pr-td-ready" style={{ "--ready-color": allReady ? "#166534" : "#dc2626" }}>
                     {r.employees_ready} / {r.total_active_staff}
                   </td>
-                  <td style={{ padding: "10px 14px", fontSize: 13 }}>{r.adjustments_count}</td>
-                  <td style={{ padding: "10px 14px" }}>
+                  <td className="pr-td-adj-count">{r.adjustments_count}</td>
+                  <td className="pr-td-action">
                     {r.status === "draft" && !r.adjustments_done ? (
-                      <button className="btn btn-primary btn-sm" style={{ fontSize: 11, color: "#fff" }} onClick={() => markDone(r.id)}>Adjustment Done</button>
+                      <button className="btn btn-primary btn-sm pr-action-btn" onClick={() => markDone(r.id)}>Adjustment Done</button>
                     ) : (
-                      <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => openRun(r)}>View</button>
+                      <button className="btn btn-ghost btn-sm pr-view-btn" onClick={() => openRun(r)}>View</button>
                     )}
                   </td>
                 </tr>
               );
             })}
             {runs.length === 0 && (
-              <tr><td colSpan={5} style={{ padding: 30, textAlign: "center", color: "#94a3b8", fontSize: 13 }}>No payroll runs yet.</td></tr>
+              <tr><td colSpan={5} className="pr-empty-td">No payroll runs yet.</td></tr>
             )}
           </tbody>
         </table>
       </div>
 
       {viewingRun && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 9000, background: "rgba(15,23,42,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <div style={{ background: "#fff", borderRadius: 12, width: "100%", maxWidth: 820, maxHeight: "88vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
-            <div style={{ padding: "14px 20px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div className="pr-modal-overlay">
+          <div className="pr-modal-box">
+            <div className="pr-modal-header">
               <div>
-                <div style={{ fontWeight: 700, fontSize: 16 }}>{MONTH_NAMES[viewingRun.month - 1]} {viewingRun.year} Payroll</div>
-                <div style={{ fontSize: 12, color: "#64748b" }}>
-                  <span style={{
-                    fontWeight: 700, padding: "2px 8px", borderRadius: 8,
-                    background: (STATUS_COLORS[viewingRun.status] || STATUS_COLORS.draft).bg,
-                    color: (STATUS_COLORS[viewingRun.status] || STATUS_COLORS.draft).color
+                <div className="pr-modal-title">{MONTH_NAMES[viewingRun.month - 1]} {viewingRun.year} Payroll</div>
+                <div className="pr-modal-subtext">
+                  <span className="pr-modal-status-badge" style={{
+                    "--badge-bg": (STATUS_COLORS[viewingRun.status] || STATUS_COLORS.draft).bg,
+                    "--badge-color": (STATUS_COLORS[viewingRun.status] || STATUS_COLORS.draft).color
                   }}>{STATUS_LABELS[viewingRun.status] || viewingRun.status}</span>
                 </div>
               </div>
               <button className="btn btn-ghost btn-sm" onClick={() => setViewingRun(null)}>Close</button>
             </div>
-            <div style={{ padding: 20 }}>
+            <div className="pr-modal-body">
               {viewingRun.status === "draft" && (
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ marginBottom: 10, padding: "10px 14px", background: "#f8fafc", borderRadius: 8, fontSize: 13, color: "#475569" }}>
+                <div className="pr-hr-submit-section">
+                  <div className="pr-hr-submit-note">
                     HR: configure incentives/arrears for this period in Payroll Adjustments, then submit to Finance when done.
                   </div>
-                  <button className="btn btn-primary btn-sm" style={{ color: "#fff" }} disabled={busy} onClick={hrSubmit}>
+                  <button className="btn btn-primary btn-sm pr-download-btn" disabled={busy} onClick={hrSubmit}>
                     Submit to Finance
                   </button>
                 </div>
               )}
               {viewingRun.status === "hr_submitted" && (
-                <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-                  <button className="btn btn-primary btn-sm" style={{ color: "#fff" }} disabled={busy} onClick={generate}>
+                <div className="pr-action-row-gap8">
+                  <button className="btn btn-primary btn-sm pr-download-btn" disabled={busy} onClick={generate}>
                     {busy ? "Working..." : (payslips.length ? "Regenerate Payslips" : "Generate Payslips")}
                   </button>
                   {payslips.length > 0 && (
-                    <button className="btn btn-primary btn-sm" style={{ color: "#fff", background: "#166534" }} disabled={busy} onClick={submit}>
+                    <button className="btn btn-primary btn-sm pr-submit-btn-green" disabled={busy} onClick={submit}>
                       Submit for Approval
                     </button>
                   )}
                 </div>
               )}
               {viewingRun.status === "pending_approval" && (
-                <div style={{ marginBottom: 16, padding: "10px 14px", background: "#fefce8", borderRadius: 8, fontSize: 13, color: "#854d0e" }}>
+                <div className="pr-pending-note">
                   Awaiting Finance Manager approval - check the Work Queue. If rejected, this run returns to HR for reconfiguration.
                 </div>
               )}
               {viewingRun.status === "approved" && (
-                <div style={{ marginBottom: 16 }}>
-                  <div style={{ marginBottom: 10, padding: "10px 14px", background: "#f0fdf4", borderRadius: 8, fontSize: 13, color: "#166534" }}>
+                <div className="pr-approved-section">
+                  <div className="pr-approved-note">
                     Approved by Finance Manager. Release when ready to process salary transfer.
                   </div>
-                  <button className="btn btn-primary btn-sm" style={{ color: "#fff", background: "#047857" }} disabled={busy} onClick={release}>
+                  <button className="btn btn-primary btn-sm pr-release-btn" disabled={busy} onClick={release}>
                     Release for Salary Transfer
                   </button>
                 </div>
               )}
               {viewingRun.status === "released" && (
-                <div style={{ marginBottom: 16, padding: "10px 14px", background: "#ecfdf5", borderRadius: 8, fontSize: 13, color: "#047857", fontWeight: 600, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+                <div className="pr-released-note">
                   <span>Released for salary transfer. This run is now permanently frozen.</span>
-                  <div style={{ display: "flex", gap: 8 }}>
+                  <div className="pr-released-actions">
                     {can("payroll.send_slips") && (
-                      <button className="btn btn-ghost btn-sm" style={{ color: "#0f4c35" }} onClick={() => sendAllSlips(viewingRun.id)}>
+                      <button className="btn btn-ghost btn-sm pr-send-slips-btn" onClick={() => sendAllSlips(viewingRun.id)}>
                         Send Salary Slip to All Employees
                       </button>
                     )}
                     {can("payroll.manage") && (
-                      <button className="btn btn-primary btn-sm" style={{ color: "#fff" }} onClick={() => downloadPayroll(viewingRun.id)}>
+                      <button className="btn btn-primary btn-sm pr-download-btn" onClick={() => downloadPayroll(viewingRun.id)}>
                         Download Payroll
                       </button>
                     )}
@@ -365,45 +364,45 @@ export default function PayrollRuns() {
               )}
 
               {viewingRun.status === "draft" ? (
-                <div style={{ display: "grid", gridTemplateColumns: selectedSummaryStaffId ? "240px 1fr" : "1fr", gap: 16 }}>
-                  <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, overflow: "hidden", maxHeight: 440, overflowY: "auto" }}>
+                <div className="pr-hr-summary-grid" style={{ "--grid-cols": selectedSummaryStaffId ? "240px 1fr" : "1fr" }}>
+                  <div className="pr-staff-list-box">
                     {hrSummary.map(s => (
                       <div key={s.staff_id} onClick={() => setSelectedSummaryStaffId(s.staff_id)}
-                        style={{ padding: "10px 12px", borderBottom: "1px solid #f1f5f9", cursor: "pointer",
-                          background: selectedSummaryStaffId === s.staff_id ? "#eff6ff" : "#fff" }}>
-                        <div style={{ fontWeight: 600, fontSize: 13 }}>{s.staff_name}</div>
-                        <div style={{ fontSize: 11, color: "#94a3b8", textTransform: "capitalize" }}>{s.salary_type.replace("_", " ")}</div>
+                        className="pr-staff-list-item"
+                        style={{ "--item-bg": selectedSummaryStaffId === s.staff_id ? "var(--bg-info-soft)" : "var(--bg-card)" }}>
+                        <div className="pr-staff-name">{s.staff_name}</div>
+                        <div className="pr-staff-type">{s.salary_type.replace("_", " ")}</div>
                       </div>
                     ))}
-                    {hrSummary.length === 0 && <div style={{ padding: 20, textAlign: "center", color: "#94a3b8", fontSize: 12 }}>No employees with a salary profile yet.</div>}
+                    {hrSummary.length === 0 && <div className="pr-empty-list-text">No employees with a salary profile yet.</div>}
                   </div>
                   {selectedSummaryStaffId && (() => {
                     const s = hrSummary.find(x => x.staff_id === selectedSummaryStaffId);
                     if (!s) return null;
                     return (
-                      <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: 16 }}>
-                        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 12 }}>{s.staff_name}</div>
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 14 }}>
+                      <div className="pr-detail-card">
+                        <div className="pr-detail-name">{s.staff_name}</div>
+                        <div className="pr-detail-grid-2col">
                           <div>
-                            <div style={{ fontWeight: 700, fontSize: 11, color: "#166534", marginBottom: 6 }}>INCLUDED IN SALARY</div>
-                            {s.earning_items.map((name, i) => <div key={i} style={{ fontSize: 12, marginBottom: 3 }}>{name}</div>)}
+                            <div className="pr-detail-label-green">INCLUDED IN SALARY</div>
+                            {s.earning_items.map((name, i) => <div key={i} className="pr-detail-line">{name}</div>)}
                           </div>
                           <div>
-                            <div style={{ fontWeight: 700, fontSize: 11, color: "#dc2626", marginBottom: 6 }}>DEDUCTIONS</div>
-                            {s.deduction_items.map((name, i) => <div key={i} style={{ fontSize: 12, marginBottom: 3 }}>{name}</div>)}
+                            <div className="pr-detail-label-red">DEDUCTIONS</div>
+                            {s.deduction_items.map((name, i) => <div key={i} className="pr-detail-line">{name}</div>)}
                           </div>
                         </div>
-                        <div style={{ marginBottom: 14 }}>
-                          <div style={{ fontWeight: 700, fontSize: 11, color: "#1d4ed8", marginBottom: 6 }}>THIS MONTH'S ADJUSTMENTS</div>
-                          {s.adjustments.length === 0 && <div style={{ fontSize: 12, color: "#94a3b8" }}>None configured</div>}
+                        <div className="pr-adj-section">
+                          <div className="pr-adj-label-blue">THIS MONTH'S ADJUSTMENTS</div>
+                          {s.adjustments.length === 0 && <div className="pr-adj-none-text">None configured</div>}
                           {s.adjustments.map((a, i) => (
-                            <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 3 }}>
-                              <span>{a.name} <span style={{ color: a.type === "earning" ? "#166534" : "#dc2626", fontSize: 10 }}>({a.type})</span></span>
+                            <div key={i} className="pr-adj-row">
+                              <span>{a.name} <span className="pr-adj-type" style={{ "--type-color": a.type === "earning" ? "#166534" : "#dc2626" }}>({a.type})</span></span>
                               <span>{a.amount.toLocaleString()}</span>
                             </div>
                           ))}
                         </div>
-                        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", paddingTop: 10, borderTop: "1px solid #e2e8f0", fontSize: 11, color: "#64748b" }}>
+                        <div className="pr-stats-row">
                           <span>Present: {s.days_present}</span>
                           <span>Absent: {s.days_absent}</span>
                           <span>Half Day: {s.days_half_day}</span>
@@ -417,33 +416,33 @@ export default function PayrollRuns() {
               ) : (
                 <>
                   <div style={{ marginBottom: 10, fontSize: 13, color: "#64748b" }}>
-                    {payslips.length} employee(s) &middot; Total Net Pay: <strong style={{ color: "#0f172a" }}>{totalNet.toLocaleString()}</strong>
+                    {payslips.length} employee(s) &middot; Total Net Pay: <strong className="pr-total-net-value">{totalNet.toLocaleString()}</strong>
                   </div>
 
-                  <div style={{ border: "1px solid #e2e8f0", borderRadius: 8, overflow: "hidden" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <div className="pr-payslip-table-wrap">
+                    <table className="pr-payslip-table">
                       <thead>
-                        <tr style={{ background: "#f8fafc" }}>
+                        <tr className="pr-payslip-th-row">
                           {["Employee", "Type", "Gross", "Deductions", "Net Pay", ""].map(h => (
-                            <th key={h} style={{ padding: "8px 10px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase" }}>{h}</th>
+                            <th key={h} className="pr-payslip-th">{h}</th>
                           ))}
                         </tr>
                       </thead>
                       <tbody>
                         {payslips.map(p => (
                           <React.Fragment key={p.id}>
-                            <tr style={{ borderBottom: "1px solid #f1f5f9" }}>
-                              <td style={{ padding: "8px 10px", fontWeight: 600, fontSize: 13 }}>{p.staff_name}</td>
-                              <td style={{ padding: "8px 10px", fontSize: 12, color: "#64748b", textTransform: "capitalize" }}>{p.salary_type.replace("_", " ")}</td>
-                              <td style={{ padding: "8px 10px", fontSize: 13 }}>{Number(p.gross_earnings).toLocaleString()}</td>
-                              <td style={{ padding: "8px 10px", fontSize: 13, color: "#dc2626" }}>{Number(p.total_deductions).toLocaleString()}</td>
-                              <td style={{ padding: "8px 10px", fontSize: 13, fontWeight: 700 }}>{Number(p.net_pay).toLocaleString()}</td>
-                              <td style={{ padding: "8px 10px", display: "flex", gap: 6 }}>
-                                <button className="btn btn-ghost btn-sm" style={{ fontSize: 10 }}
+                            <tr className="pr-payslip-tr">
+                              <td className="pr-payslip-td-name">{p.staff_name}</td>
+                              <td className="pr-payslip-td-type">{p.salary_type.replace("_", " ")}</td>
+                              <td className="pr-payslip-td-gross">{Number(p.gross_earnings).toLocaleString()}</td>
+                              <td className="pr-payslip-td-deduct">{Number(p.total_deductions).toLocaleString()}</td>
+                              <td className="pr-payslip-td-net">{Number(p.net_pay).toLocaleString()}</td>
+                              <td className="pr-payslip-td-actions">
+                                <button className="btn btn-ghost btn-sm pr-details-btn"
                                   onClick={() => setExpandedStaffId(expandedStaffId === p.id ? null : p.id)}>
                                   {expandedStaffId === p.id ? "Hide" : "Details"}
                                 </button>
-                                <button className="btn btn-ghost btn-sm" style={{ fontSize: 10, color: "#0f4c35" }}
+                                <button className="btn btn-ghost btn-sm pr-slip-btn"
                                   onClick={() => downloadSlip(viewingRun.id, p.staff_id, p.staff_name)}>
                                   Salary Slip
                                 </button>
@@ -451,27 +450,27 @@ export default function PayrollRuns() {
                             </tr>
                             {expandedStaffId === p.id && (
                               <tr>
-                                <td colSpan={6} style={{ padding: "10px 16px", background: "#f8fafc" }}>
-                                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                                <td colSpan={6} className="pr-expand-td">
+                                  <div className="pr-expand-grid">
                                     <div>
-                                      <div style={{ fontWeight: 700, fontSize: 11, color: "#166534", marginBottom: 6 }}>EARNINGS</div>
+                                      <div className="pr-detail-label-green">EARNINGS</div>
                                       {(p.earnings_breakdown || []).map((e, i) => (
-                                        <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 3 }}>
+                                        <div key={i} className="pr-expand-line">
                                           <span>{e.name}</span><span>{Number(e.amount).toLocaleString()}</span>
                                         </div>
                                       ))}
                                     </div>
                                     <div>
-                                      <div style={{ fontWeight: 700, fontSize: 11, color: "#dc2626", marginBottom: 6 }}>DEDUCTIONS</div>
+                                      <div className="pr-detail-label-red">DEDUCTIONS</div>
                                       {(p.deductions_breakdown || []).map((d, i) => (
-                                        <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 3 }}>
+                                        <div key={i} className="pr-expand-line">
                                           <span>{d.name}</span><span>{Number(d.amount).toLocaleString()}</span>
                                         </div>
                                       ))}
-                                      {(p.deductions_breakdown || []).length === 0 && <div style={{ fontSize: 12, color: "#94a3b8" }}>None</div>}
+                                      {(p.deductions_breakdown || []).length === 0 && <div className="pr-expand-none-text">None</div>}
                                     </div>
                                   </div>
-                                  <div style={{ display: "flex", gap: 16, marginTop: 10, paddingTop: 10, borderTop: "1px solid #e2e8f0", fontSize: 11, color: "#64748b" }}>
+                                  <div className="pr-expand-stats-row">
                                     <span>Present: {p.days_present}</span>
                                     <span>Absent: {p.days_absent}</span>
                                     <span>Half Day: {p.days_half_day}</span>
@@ -484,7 +483,7 @@ export default function PayrollRuns() {
                           </React.Fragment>
                         ))}
                         {payslips.length === 0 && (
-                          <tr><td colSpan={6} style={{ padding: 20, textAlign: "center", color: "#94a3b8", fontSize: 12 }}>No payslips generated yet.</td></tr>
+                          <tr><td colSpan={6} className="pr-payslip-empty-td">No payslips generated yet.</td></tr>
                         )}
                       </tbody>
                     </table>

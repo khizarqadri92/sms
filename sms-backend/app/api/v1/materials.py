@@ -72,16 +72,25 @@ def upload_material(
     db.commit()
 
     try:
-        from app.utils.notify import send_to_class
+        from app.utils.notify import send_to_class, render_templated_notification
+        import main as _main
         cur.execute("SELECT * FROM sp_get_subject_class_names(%s, %s)", (subject_id, class_id))
         row2 = cur.fetchone()
         subj_name = row2["subject_name"] if row2 else "a subject"
         cls_name = (row2["class_name"] + ((" (" + row2["section"] + ")") if row2 and row2["section"] else "")) if row2 else "your class"
-        send_to_class(
-            int(class_id), title="New Study Material",
-            body="New material '" + title + "' uploaded for " + subj_name + " in " + cls_name + ".",
-            ntype="info", notify_students=True, notify_parents=True, notify_teachers=False
-        )
+        cur.execute("SELECT campus_id FROM classes WHERE id=%s", (class_id,))
+        _cls_campus_row = cur.fetchone()
+        _cls_campus_id = _cls_campus_row["campus_id"] if _cls_campus_row else None
+        with _main.flask_app.app_context():
+            _t, _b = render_templated_notification("new_study_material",
+                {"material_title": title, "subject_name": subj_name, "class_name": cls_name},
+                "New Study Material", "New material '" + title + "' uploaded for " + subj_name + " in " + cls_name + ".",
+                campus_id=_cls_campus_id)
+            send_to_class(
+                int(class_id), title=_t,
+                body=_b,
+                ntype="info", notify_students=True, notify_parents=True, notify_teachers=False
+            )
     except Exception:
         pass
 

@@ -76,16 +76,25 @@ def create_assignment(
     db.commit()
 
     try:
-        from app.utils.notify import send_to_class
+        from app.utils.notify import send_to_class, render_templated_notification
+        import main as _main
         cur.execute("SELECT * FROM sp_get_subject_class_names(%s, %s)", (subject_id, class_id))
         row2 = cur.fetchone()
         sname = row2["subject_name"] if row2 else "a subject"
         cname = (row2["class_name"] + ((" (" + row2["section"] + ")") if row2 and row2["section"] else "")) if row2 else ""
-        send_to_class(
-            int(class_id), title="New Assignment",
-            body="New assignment '" + title + "' for " + sname + " in " + cname + ". Due: " + due_date + ".",
-            ntype="info", notify_students=True, notify_parents=True, notify_teachers=False
-        )
+        cur.execute("SELECT campus_id FROM classes WHERE id=%s", (class_id,))
+        _cls_campus_row = cur.fetchone()
+        _cls_campus_id = _cls_campus_row["campus_id"] if _cls_campus_row else None
+        with _main.flask_app.app_context():
+            _t, _b = render_templated_notification("new_assignment",
+                {"assignment_title": title, "subject_name": sname, "class_name": cname, "due_date": due_date},
+                "New Assignment", "New assignment '" + title + "' for " + sname + " in " + cname + ". Due: " + due_date + ".",
+                campus_id=_cls_campus_id)
+            send_to_class(
+                int(class_id), title=_t,
+                body=_b,
+                ntype="info", notify_students=True, notify_parents=True, notify_teachers=False
+            )
     except Exception:
         pass
 
@@ -201,15 +210,25 @@ def submit_assignment(
     db.commit()
 
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
+        import main as _main
         cur.execute("SELECT * FROM sp_get_teacher_for_submission_notify(%s, %s)", (s["id"], id))
         row = cur.fetchone()
         if row:
-            send_notification(
-                row["teacher_user_id"], "Assignment Submitted",
-                row["first_name"] + " " + row["last_name"] + " submitted '" + asgn["title"] + "'.",
-                "info"
-            )
+            _sname = row["first_name"] + " " + row["last_name"]
+            cur.execute("SELECT campus_id FROM students WHERE id=%s", (s["id"],))
+            _stu_campus_row = cur.fetchone()
+            _stu_campus_id = _stu_campus_row["campus_id"] if _stu_campus_row else None
+            with _main.flask_app.app_context():
+                _t, _b = render_templated_notification("assignment_submitted",
+                    {"student_name": _sname, "assignment_title": asgn["title"]},
+                    "Assignment Submitted", _sname + " submitted '" + asgn["title"] + "'.",
+                    campus_id=_stu_campus_id)
+                send_notification(
+                    row["teacher_user_id"], _t,
+                    _b,
+                    "info"
+                )
     except Exception:
         pass
 
@@ -243,15 +262,24 @@ def grade_submission(sub_id: int, body: GradeIn, user_id: int = Depends(require_
     db.commit()
 
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
+        import main as _main
         cur.execute("SELECT sp_get_student_user_id(%s) AS uid", (sub["student_id"],))
         stu = cur.fetchone()
         if stu and stu["uid"]:
-            send_notification(
-                stu["uid"], "Assignment Graded",
-                "Your assignment '" + sub["title"] + "' has been graded. Marks: " + str(body.marks) + "/" + str(sub["total_marks"]) + ".",
-                "success"
-            )
+            cur.execute("SELECT campus_id FROM students WHERE id=%s", (sub["student_id"],))
+            _grd_campus_row = cur.fetchone()
+            _grd_campus_id = _grd_campus_row["campus_id"] if _grd_campus_row else None
+            with _main.flask_app.app_context():
+                _t, _b = render_templated_notification("assignment_graded",
+                    {"assignment_title": sub["title"], "marks": body.marks, "total_marks": sub["total_marks"]},
+                    "Assignment Graded", "Your assignment '" + sub["title"] + "' has been graded. Marks: " + str(body.marks) + "/" + str(sub["total_marks"]) + ".",
+                    campus_id=_grd_campus_id)
+                send_notification(
+                    stu["uid"], _t,
+                    _b,
+                    "success"
+                )
     except Exception:
         pass
 

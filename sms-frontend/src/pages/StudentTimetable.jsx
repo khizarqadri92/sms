@@ -2,18 +2,11 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthContext";
 import academicsApi from "../api/academicsApi";
 import studentsApi  from "../api/studentsApi";
+import "./StudentViews.css";
 
 const DAYS = { "1":"Monday","2":"Tuesday","3":"Wednesday","4":"Thursday","5":"Friday" };
-const COLOR_PALETTE = [
-  {bg:"#eff6ff",border:"#2563eb",text:"#1e40af"},
-  {bg:"#f0fdf4",border:"#16a34a",text:"#166534"},
-  {bg:"#fef9c3",border:"#ca8a04",text:"#854d0e"},
-  {bg:"#fef2f2",border:"#dc2626",text:"#991b1b"},
-  {bg:"#f5f3ff",border:"#7c3aed",text:"#5b21b6"},
-  {bg:"#fff7ed",border:"#ea580c",text:"#9a3412"},
-  {bg:"#ecfeff",border:"#0891b2",text:"#0e7490"},
-  {bg:"#fdf4ff",border:"#a21caf",text:"#86198f"},
-];
+// Subject colours: sv-c0 ... sv-c7 in StudentViews.css (light + dark)
+const PALETTE_SIZE = 8;
 
 export default function StudentTimetable() {
   const { user } = useAuth();
@@ -37,7 +30,7 @@ export default function StudentTimetable() {
   // Build subject color map
   const subjIds = [...new Set(slots.map(s => s.subject_id))];
   const subjColorMap = {};
-  subjIds.forEach((id, i) => { subjColorMap[id] = COLOR_PALETTE[i % COLOR_PALETTE.length]; });
+  subjIds.forEach((id, i) => { subjColorMap[id] = "sv-c" + (i % PALETTE_SIZE); });
 
   const days = activeDay === "all" ? ["1","2","3","4","5"] : [activeDay];
   const timeSlotsAll = [...new Set(slots.map(s => (s.start_time||"").slice(0,5)))].sort();
@@ -52,23 +45,19 @@ export default function StudentTimetable() {
 
   return (
     <div>
-      <div className="page-header" style={{ marginBottom:16 }}>
+      <div className="page-header sv-gap16">
         <div>
           <h1 className="page-heading">My Timetable</h1>
-          {classInfo && <span style={{ fontSize:13, color:"#64748b" }}>Class: {classInfo.class_name || "—"}{classInfo.section ? " (" + classInfo.section + ")" : ""}</span>}
+          {classInfo && <span className="sv-tt-class">Class: {classInfo.class_name || "—"}{classInfo.section ? " (" + classInfo.section + ")" : ""}</span>}
         </div>
       </div>
 
       {/* Day tabs */}
-      <div style={{ display:"flex", borderBottom:"1px solid #e2e8f0", marginBottom:16 }}>
+      <div className="sv-days">
         {["All Days","Monday","Tuesday","Wednesday","Thursday","Friday"].map((day, i) => (
           <button key={day}
             onClick={() => setActiveDay(i === 0 ? "all" : String(i))}
-            style={{
-              flex:1, padding:"8px 4px", fontSize:12, fontWeight:500, border:"none", cursor:"pointer",
-              background: activeDay === (i === 0 ? "all" : String(i)) ? "#1e3a5f" : "var(--color-background-secondary)",
-              color: activeDay === (i === 0 ? "all" : String(i)) ? "#fff" : "var(--color-text-secondary)",
-            }}
+            className={"sv-day" + (activeDay === (i === 0 ? "all" : String(i)) ? " sv-day--on" : "")}
           >{day}</button>
         ))}
       </div>
@@ -76,36 +65,36 @@ export default function StudentTimetable() {
       {slots.length === 0 ? (
         <div className="empty-state">No timetable available for your class yet.</div>
       ) : (
-        <div style={{ overflowX:"auto" }}>
-          <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+        <div className="sv-scroll">
+          <table className="sv-tt">
             <thead>
               <tr>
-                <th style={{ background:"#1e3a5f", color:"#fff", padding:"8px 10px", width:80, textAlign:"left" }}>Time</th>
+                <th className="sv-tt-timehead">Time</th>
                 {days.map(d => (
-                  <th key={d} style={{ background:"#1e3a5f", color:"#fff", padding:"8px 6px", textAlign:"center" }}>{DAYS[d]}</th>
+                  <th key={d}>{DAYS[d]}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {timeSlotsAll.map(time => (
-                <tr key={time} style={{ borderBottom:"1px solid #f1f5f9" }}>
-                  <td style={{ padding:"8px 10px", fontWeight:600, fontSize:11, color:"#64748b", whiteSpace:"nowrap" }}>
+                <tr key={time}>
+                  <td className="sv-tt-time">
                     {time}
                   </td>
                   {days.map(d => {
                     const s = slots.find(sl => String(sl.day_of_week)===d && (sl.start_time||"").slice(0,5)===time);
-                    const c = s ? (subjColorMap[s.subject_id]||COLOR_PALETTE[0]) : null;
+                    const c = s ? (subjColorMap[s.subject_id] || "sv-c0") : null;
                     return (
-                      <td key={d} style={{ padding:"4px 6px", verticalAlign:"top", border:"0.5px solid #f1f5f9" }}>
+                      <td key={d} className="sv-tt-cell">
                         {s ? (
-                          <div style={{ background:c.bg, borderLeft:"3px solid "+c.border, borderRadius:6, padding:"6px 8px" }}>
-                            <div style={{ fontWeight:700, fontSize:12, color:c.text }}>{s.subject_name}</div>
-                            <div style={{ fontSize:11, color:"#64748b", marginTop:2 }}>{s.teacher_name}</div>
-                            <div style={{ fontSize:10, color:"#94a3b8", marginTop:1 }}>
+                          <div className={"sv-period " + c}>
+                            <div className="sv-period-subj">{s.subject_name}</div>
+                            <div className="sv-period-teach">{s.teacher_name}</div>
+                            <div className="sv-period-time">
                               {(s.start_time||"").slice(0,5)} – {(s.end_time||"").slice(0,5)}
                             </div>
                           </div>
-                        ) : <div style={{ color:"#e2e8f0", textAlign:"center", fontSize:10 }}>—</div>}
+                        ) : <div className="sv-tt-none">—</div>}
                       </td>
                     );
                   })}

@@ -3,6 +3,7 @@ import resignationApi from "../api/resignationApi";
 import hrApi from "../api/hrApi";
 import DatePicker from "../components/DatePicker";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
+import "./MyResignation.css";
 
 const STATUS_LABELS = {
   submitted: "Submitted", manager_approved: "Manager Approved", accepted: "Accepted",
@@ -18,7 +19,7 @@ const STATUS_COLORS = {
   settled: { bg: "#fefce8", color: "#854d0e" },
   completed: { bg: "#ecfdf5", color: "#047857" },
   rejected: { bg: "#fff1f2", color: "#881337" },
-  withdrawn: { bg: "#f8fafc", color: "#64748b" },
+  withdrawn: { bg: "var(--bg-hover)", color: "var(--text-secondary)" },
 };
 
 export default function MyResignation() {
@@ -88,6 +89,10 @@ export default function MyResignation() {
   }, [expLetter?.id]);
 
   const submit = async () => {
+    if (!reason.trim()) {
+      setMsg({ type: "error", text: "Please provide a reason for your resignation." });
+      return;
+    }
     if (suggestedDate && !dateChangeReason.trim()) {
       setMsg({ type: "error", text: "Please provide a reason for requesting a different last working day." });
       return;
@@ -120,82 +125,79 @@ export default function MyResignation() {
   };
 
   return (
-    <div style={{padding:24,background:"#f1f5f9",minHeight:"100vh"}}>
-      <div style={{marginBottom:20}}>
-        <div style={{fontSize:22,fontWeight:800,color:"#0f172a",marginBottom:4}}>My Resignation</div>
-        <div style={{fontSize:13,color:"#64748b"}}>Submit and track your resignation request</div>
+    <div className="mr-page">
+      <div className="mr-header">
+        <div className="mr-title">My Resignation</div>
+        <div className="mr-subtitle">Submit and track your resignation request</div>
       </div>
 
-      {(loading || settingsLoading) && <div style={{background:"#fff",borderRadius:12,padding:60,textAlign:"center",color:"#94a3b8",border:"1px solid #e2e8f0"}}>Loading...</div>}
+      {(loading || settingsLoading) && <div className="mr-loading">Loading...</div>}
 
       {msg && (
-        <div style={{padding:"10px 14px",borderRadius:8,marginBottom:16,fontSize:13,
-          background:msg.type==="success"?"#f0fdf4":"#fef2f2",color:msg.type==="success"?"#166534":"#991b1b"}}>
+        <div className="mr-msg" style={{ "--msg-bg": msg.type==="success"?"var(--bg-success-soft)":"var(--bg-danger-soft)", "--msg-color": msg.type==="success"?"var(--text-success-soft)":"var(--text-danger-soft)" }}>
           {msg.text}
         </div>
       )}
 
       {!loading && !settingsLoading && active && (
-        <div style={{background:"#fff",borderRadius:12,border:"1px solid #e2e8f0",padding:20,marginBottom:20}}>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:12}}>
-            <div style={{cursor:"pointer"}} onClick={()=>openDetail(active.id)}>
-              <div style={{fontWeight:700,fontSize:15,color:"#2563eb"}}>Active Resignation Request</div>
-              <div style={{fontSize:12,color:"#64748b",marginTop:2}}>Submitted {formatDate(active.resignation_date)} &middot; Click for details</div>
+        <div className="mr-card">
+          <div className="mr-card-header">
+            <div className="mr-clickable" onClick={()=>openDetail(active.id)}>
+              <div className="mr-card-title">Active Resignation Request</div>
+              <div className="mr-card-subtext">Submitted {formatDate(active.resignation_date)} &middot; Click for details</div>
             </div>
-            <span style={{fontSize:12,fontWeight:700,padding:"4px 12px",borderRadius:12,
-              background:(STATUS_COLORS[active.status]||{}).bg,color:(STATUS_COLORS[active.status]||{}).color}}>
+            <span className="mr-status-badge" style={{ "--badge-bg": (STATUS_COLORS[active.status]||{}).bg, "--badge-color": (STATUS_COLORS[active.status]||{}).color }}>
               {STATUS_LABELS[active.status] || active.status}
             </span>
           </div>
-          <div style={{fontSize:13,color:"#374151",marginBottom:4}}>
+          <div className="mr-lwd-text">
             Last Working Day: <strong>{formatDate(active.final_last_working_day || active.system_calculated_last_working_day)}</strong>
           </div>
           {active.requested_last_working_day && (
-            <div style={{fontSize:12,color:"#c2410c",marginBottom:12}}>
+            <div className="mr-requested-text">
               You requested: {formatDate(active.requested_last_working_day)} (pending review)
             </div>
           )}
-          <button className="btn btn-ghost btn-sm" style={{color:"#dc2626"}} onClick={()=>withdraw(active.id)}>
+          <button className="btn btn-ghost btn-sm mr-withdraw-btn" onClick={()=>withdraw(active.id)}>
             Withdraw Resignation
           </button>
 
           {!["submitted","manager_approved","rejected","withdrawn"].includes(active.status) && (
-            <div style={{marginTop:16,paddingTop:16,borderTop:"1px solid #f1f5f9"}}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-                <div style={{fontWeight:700,fontSize:14}}>Experience Letter Details</div>
+            <div className="mr-exp-section">
+              <div className="mr-exp-header">
+                <div className="mr-exp-title">Experience Letter Details</div>
                 {expLetter && (
-                  <span style={{fontSize:11,fontWeight:700,padding:"3px 10px",borderRadius:12,
-                    background:expLetter.status==="approved"?"#f0fdf4":expLetter.status.startsWith("rejected")?"#fff1f2":"#fefce8",
-                    color:expLetter.status==="approved"?"#166534":expLetter.status.startsWith("rejected")?"#881337":"#854d0e"}}>
+                  <span className="mr-exp-status-badge" style={{
+                    "--badge-bg": expLetter.status==="approved"?"var(--bg-success-soft)":expLetter.status.startsWith("rejected")?"#fff1f2":"#fefce8",
+                    "--badge-color": expLetter.status==="approved"?"var(--text-success-soft)":expLetter.status.startsWith("rejected")?"#881337":"#854d0e" }}>
                     {EXP_LETTER_STATUS_LABELS[expLetter.status] || expLetter.status}
                   </span>
                 )}
               </div>
 
               {expLetter && expLetter.status.startsWith("rejected") && (
-                <div style={{padding:"10px 12px",borderRadius:6,marginBottom:10,fontSize:13,background:"#fff7ed",border:"1px solid #fed7aa",color:"#92400e"}}>
+                <div className="mr-exp-changes-box">
                   <strong>Changes requested:</strong> {expLetter.status==="rejected_by_hod" ? expLetter.hod_comments : expLetter.hr_comments}
                 </div>
               )}
 
               {expLetter && ["pending_hod","pending_hr","approved"].includes(expLetter.status) ? (
-                <div style={{fontSize:13,color:"#374151",whiteSpace:"pre-wrap",padding:"10px 12px",background:"#f8fafc",borderRadius:8}}>
+                <div className="mr-exp-notes-box">
                   {expLetter.notes}
                 </div>
               ) : (
                 <>
-                  <div style={{fontSize:12,color:"#64748b",marginBottom:8}}>
+                  <div className="mr-exp-intro">
                     Share any details (projects, achievements, role summary) you'd like HR to consider for your experience letter.
                   </div>
                   {expLetterMsg && (
-                    <div style={{padding:"8px 12px",borderRadius:6,marginBottom:8,fontSize:13,
-                      background:expLetterMsg.type==="success"?"#f0fdf4":"#fef2f2",color:expLetterMsg.type==="success"?"#166534":"#991b1b"}}>
+                    <div className="mr-exp-msg" style={{ "--msg-bg": expLetterMsg.type==="success"?"var(--bg-success-soft)":"var(--bg-danger-soft)", "--msg-color": expLetterMsg.type==="success"?"var(--text-success-soft)":"var(--text-danger-soft)" }}>
                       {expLetterMsg.text}
                     </div>
                   )}
-                  <textarea className="form-input" rows={8} style={{width:"100%",resize:"vertical",marginBottom:8}}
+                  <textarea className="form-input mr-exp-textarea" rows={8}
                     value={expLetterNotes} onChange={e=>setExpLetterNotes(e.target.value)} placeholder="Enter details for your experience letter..." />
-                  <button className="btn btn-primary btn-sm" style={{color:"#fff"}} disabled={expLetterSaving} onClick={saveExperienceLetter}>
+                  <button className="btn btn-primary btn-sm mr-save-btn" disabled={expLetterSaving} onClick={saveExperienceLetter}>
                     {expLetterSaving?"Saving...":(expLetter ? "Resubmit" : "Submit for Review")}
                   </button>
                 </>
@@ -206,52 +208,51 @@ export default function MyResignation() {
       )}
 
       {!loading && !settingsLoading && !active && (
-        <div style={{background:"#fff",borderRadius:12,border:"1px solid #e2e8f0",padding:20,marginBottom:20}}>
-          <div style={{fontWeight:700,fontSize:15,marginBottom:14}}>Submit Resignation</div>
-          <div style={{marginBottom:14}}>
-            <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Reason</label>
-            <textarea className="form-input" rows={3} style={{width:"100%",resize:"vertical"}}
+        <div className="mr-card">
+          <div className="mr-submit-title">Submit Resignation</div>
+          <div className="mr-field-wrap">
+            <label className="mr-field-label">Reason</label>
+            <textarea className="form-input mr-textarea-full" rows={3}
               value={reason} onChange={e=>setReason(e.target.value)} placeholder="Reason for resignation..." />
           </div>
-          <div style={{marginBottom:14}}>
-            <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Last Working Day (as per notice period policy)</label>
-            <div className="form-input" style={{width:220,background:"#f1f5f9",color:"#64748b",display:"flex",alignItems:"center"}}>
+          <div className="mr-field-wrap">
+            <label className="mr-field-label">Last Working Day (as per notice period policy)</label>
+            <div className="form-input mr-lwd-readonly">
               {formatDate(lastDay)}
             </div>
           </div>
-          <div style={{marginBottom:14,padding:12,background:"#f8fafc",borderRadius:8,border:"1px solid #e2e8f0"}}>
-            <label style={{fontSize:12,fontWeight:600,display:"block",marginBottom:4}}>Request a different last working day (optional)</label>
+          <div className="mr-suggest-box">
+            <label className="mr-field-label">Request a different last working day (optional)</label>
             <DatePicker value={suggestedDate} onChange={setSuggestedDate} style={{width:220,marginBottom:8}} />
             {suggestedDate && (
-              <textarea className="form-input" rows={2} style={{width:"100%",resize:"vertical"}}
+              <textarea className="form-input mr-textarea-full" rows={2}
                 value={dateChangeReason} onChange={e=>setDateChangeReason(e.target.value)} placeholder="Explain why you're requesting this date instead of the standard notice period..." />
             )}
           </div>
-          <button className="btn btn-primary btn-sm" style={{color:"#fff"}} disabled={submitting} onClick={submit}>
+          <button className="btn btn-primary btn-sm mr-save-btn" disabled={submitting} onClick={submit}>
             {submitting ? "Submitting..." : "Submit Resignation"}
           </button>
         </div>
       )}
 
       {!loading && !settingsLoading && list.length > 0 && (
-        <div style={{background:"#fff",borderRadius:12,border:"1px solid #e2e8f0",overflow:"hidden"}}>
-          <div style={{padding:"14px 20px",borderBottom:"1px solid #f1f5f9",fontWeight:700,fontSize:14}}>History</div>
-          <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+        <div className="mr-history-wrap">
+          <div className="mr-history-header">History</div>
+          <table className="mr-table">
             <thead>
-              <tr style={{background:"#f8fafc"}}>
+              <tr className="mr-th-row">
                 {["Submitted", "Last Working Day", "Status"].map(h=>(
-                  <th key={h} style={{padding:"10px 14px",fontSize:11,fontWeight:700,color:"#94a3b8",textTransform:"uppercase",textAlign:"left",borderBottom:"1px solid #e2e8f0"}}>{h}</th>
+                  <th key={h} className="mr-th">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {list.map(r=>(
-                <tr key={r.id} style={{borderBottom:"1px solid #f8fafc",cursor:"pointer"}} onClick={()=>openDetail(r.id)}>
-                  <td style={{padding:"10px 14px",color:"#2563eb"}}>{formatDate(r.resignation_date)}</td>
-                  <td style={{padding:"10px 14px"}}>{formatDate(r.final_last_working_day || r.system_calculated_last_working_day) || "-"}</td>
-                  <td style={{padding:"10px 14px"}}>
-                    <span style={{fontSize:11,fontWeight:700,padding:"2px 8px",borderRadius:10,
-                      background:(STATUS_COLORS[r.status]||{}).bg,color:(STATUS_COLORS[r.status]||{}).color}}>
+                <tr key={r.id} className="mr-tr" onClick={()=>openDetail(r.id)}>
+                  <td className="mr-td-date">{formatDate(r.resignation_date)}</td>
+                  <td className="mr-td">{formatDate(r.final_last_working_day || r.system_calculated_last_working_day) || "-"}</td>
+                  <td className="mr-td">
+                    <span className="mr-status-badge-sm" style={{ "--badge-bg": (STATUS_COLORS[r.status]||{}).bg, "--badge-color": (STATUS_COLORS[r.status]||{}).color }}>
                       {STATUS_LABELS[r.status] || r.status}
                     </span>
                   </td>
@@ -263,53 +264,52 @@ export default function MyResignation() {
       )}
 
       {viewing && (
-        <div style={{position:"fixed",inset:0,zIndex:9000,background:"rgba(15,23,42,0.6)",display:"flex",alignItems:"center",justifyContent:"center",padding:24}}
+        <div className="mr-modal-overlay"
           onClick={()=>setViewing(null)}>
-          <div style={{background:"#fff",borderRadius:12,width:"100%",maxWidth:560,maxHeight:"85vh",overflowY:"auto"}} onClick={e=>e.stopPropagation()}>
-            <div style={{padding:"14px 20px",borderBottom:"1px solid #e2e8f0",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <div style={{fontWeight:700,fontSize:16}}>Resignation Request</div>
+          <div className="mr-modal-box" onClick={e=>e.stopPropagation()}>
+            <div className="mr-modal-header">
+              <div className="mr-modal-title">Resignation Request</div>
               <button className="btn btn-ghost btn-sm" onClick={()=>setViewing(null)}>Close</button>
             </div>
-            <div style={{padding:20}}>
-              <div style={{display:"flex",justifyContent:"space-between",marginBottom:16}}>
-                <span style={{fontSize:12,fontWeight:700,padding:"4px 12px",borderRadius:12,
-                  background:(STATUS_COLORS[viewing.status]||{}).bg,color:(STATUS_COLORS[viewing.status]||{}).color}}>
+            <div className="mr-modal-body">
+              <div className="mr-status-row">
+                <span className="mr-status-badge" style={{ "--badge-bg": (STATUS_COLORS[viewing.status]||{}).bg, "--badge-color": (STATUS_COLORS[viewing.status]||{}).color }}>
                   {STATUS_LABELS[viewing.status]||viewing.status}
                 </span>
-                <div style={{fontSize:12,color:"#64748b"}}>
+                <div className="mr-lwd-subtext">
               Last Working Day: {formatDate(viewing.final_last_working_day||viewing.system_calculated_last_working_day)||"-"}
               {viewing.cheque_collection_date && <><br/>Cheque Collection Date: {formatDate(viewing.cheque_collection_date)}</>}
             </div>
               </div>
               {viewing.requested_last_working_day && (
-            <div style={{marginBottom:16,padding:12,background:"#fff7ed",border:"1px solid #fed7aa",borderRadius:8,fontSize:13}}>
+            <div className="mr-requested-box">
               <strong>You requested a different date: </strong>{formatDate(viewing.requested_last_working_day)}
-              {viewing.date_change_reason && <div style={{marginTop:4,color:"#64748b"}}>Reason: {viewing.date_change_reason}</div>}
+              {viewing.date_change_reason && <div className="mr-requested-reason">Reason: {viewing.date_change_reason}</div>}
             </div>
           )}
           {viewing.reason && (
-                <div style={{marginBottom:16,padding:12,background:"#f8fafc",borderRadius:8,fontSize:13}}>
+                <div className="mr-reason-box">
                   <strong>Reason: </strong>{viewing.reason}
                 </div>
               )}
               {viewing.clearance_items && viewing.clearance_items.length > 0 && (
-                <div style={{marginBottom:16}}>
-                  <div style={{fontWeight:700,fontSize:14,marginBottom:8}}>Clearance Checklist</div>
+                <div className="mr-clearance-section">
+                  <div className="mr-clearance-title">Clearance Checklist</div>
                   {viewing.clearance_items.map(item=>(
-                    <div key={item.id} style={{padding:"8px 0",borderBottom:"1px solid #f8fafc",fontSize:13}}>
-                      <div style={{display:"flex",alignItems:"center",gap:10}}>
-                        <span style={{color:item.is_cleared?"#166534":"#94a3b8",fontWeight:700}}>{item.is_cleared?"✓":"○"}</span>
+                    <div key={item.id} className="mr-clearance-item">
+                      <div className="mr-clearance-item-top">
+                        <span className="mr-clearance-icon" style={{ "--icon-color": item.is_cleared?"#166534":"var(--text-muted)" }}>{item.is_cleared?"✓":"○"}</span>
                         <div><strong>{item.department_name}</strong> - {item.item_label}</div>
                         {item.remarks && (
-                          <div style={{fontSize:11,color:"#374151",marginTop:2,fontStyle:"italic"}}>"{item.remarks}"</div>
+                          <div className="mr-clearance-remarks">"{item.remarks}"</div>
                         )}
                       </div>
                       {item.messages && item.messages.length > 0 && (
-                        <div style={{marginLeft:24,marginTop:6,display:"flex",flexDirection:"column",gap:6}}>
+                        <div className="mr-messages-wrap">
                           {item.messages.map((m,i)=>(
-                            <div key={i} style={{padding:"6px 10px",background:"#fff7ed",borderRadius:6,border:"1px solid #fed7aa"}}>
-                              <div style={{fontSize:12,color:"#374151"}}>{m.message}</div>
-                              <div style={{fontSize:10,color:"#94a3b8",marginTop:2}}>
+                            <div key={i} className="mr-message-box">
+                              <div className="mr-message-text">{m.message}</div>
+                              <div className="mr-message-meta">
                                 {m.first_name} {m.last_name} &middot; {formatDateTime(m.sent_at)}
                               </div>
                             </div>
@@ -322,8 +322,8 @@ export default function MyResignation() {
               )}
               {viewing.settlement && (
                 <div>
-                  <div style={{fontWeight:700,fontSize:14,marginBottom:8}}>Settlement</div>
-                  <div style={{fontSize:13,color:"#374151"}}>
+                  <div className="mr-settlement-title">Settlement</div>
+                  <div className="mr-settlement-text">
                     Final Amount: <strong>{formatCurrency(viewing.settlement.final_amount)}</strong>
                     {" "}({viewing.settlement.status})
                   </div>

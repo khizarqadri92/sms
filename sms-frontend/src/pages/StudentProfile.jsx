@@ -7,6 +7,7 @@ import DatePicker from "../components/DatePicker";
 import { useProcessingToday } from "../hooks/useProcessingToday";
 import usersApi      from "../api/usersApi";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
+import StudentFamilyDetails from "./StudentFamilyDetails";
 
 const ALL_TABS = [
   { label:"Profile",    perm:null },
@@ -266,7 +267,12 @@ function EditTab({ student, can, onSaved }) {
     setSaving(true);
     setError("");
     try {
-      await studentsApi.update(student.id, { ...form, ...(form.password ? { password: form.password } : {}) });
+      const { father_name, mother_name, father_cnic, father_phone, mother_phone, ...basic } = form;
+      await studentsApi.update(student.id, { ...basic,
+        // family details are edited below; send the student's CURRENT values so nothing is overwritten
+        father_name: student.father_name, mother_name: student.mother_name, father_cnic: student.father_cnic,
+        father_phone: student.father_phone, mother_phone: student.mother_phone,
+        ...(form.password ? { password: form.password } : {}) });
       await onSaved();
     } catch (err) {
       setError(err.response?.data?.message || "Failed to update student.");
@@ -276,6 +282,7 @@ function EditTab({ student, can, onSaved }) {
   };
 
   return (
+    <Fragment>
     <div className="section-card">
       <div className="section-card-header">
         <span className="section-card-title">Edit Student Information</span>
@@ -328,26 +335,6 @@ function EditTab({ student, can, onSaved }) {
             </select>
           </div>
           <div className="form-group">
-            <label className="form-label">Father Name</label>
-            <input className="form-control" name="father_name" value={form.father_name} onChange={handleChange} placeholder="Father's full name" />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Mother Name</label>
-            <input className="form-control" name="mother_name" value={form.mother_name} onChange={handleChange} placeholder="Mother's full name" />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Father CNIC</label>
-            <input className="form-control" name="father_cnic" value={form.father_cnic} onChange={handleChange} placeholder="e.g. 35202-1234567-1" />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Father Phone</label>
-            <input className="form-control" name="father_phone" value={form.father_phone} onChange={handleChange} placeholder="Father contact number" />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Mother Phone</label>
-            <input className="form-control" name="mother_phone" value={form.mother_phone} onChange={handleChange} placeholder="Mother contact number" />
-          </div>
-          <div className="form-group">
             <label className="form-label">Assign Class</label>
             <select className="form-control" name="class_id" value={form.class_id} onChange={handleChange}>
               <option value="">No class</option>
@@ -385,6 +372,8 @@ function EditTab({ student, can, onSaved }) {
         </div>
       </form>
     </div>
+    <StudentFamilyDetails studentId={student.id} canEdit={can("students.edit")} onSaved={onSaved} />
+    </Fragment>
   );
 }
 

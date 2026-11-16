@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthContext";
 import procurementApi from "../api/procurementApi";
 import { useGovernanceMode } from "../hooks/useGovernanceMode";
+import "./ApprovalRules.css";
 
 const APPROVER_ROLES = [
   { value: "department_head", label: "Department Head (of requesting dept.)" },
@@ -72,20 +73,20 @@ function RuleFormModal({ rule, departments, categories, onClose, onSaved }) {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
-      <div style={{ background: "#fff", borderRadius: 12, padding: 24, width: "100%", maxWidth: 560, maxHeight: "90vh", overflow: "auto" }} onClick={e => e.stopPropagation()}>
-        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>{rule ? "Edit Approval Rule" : "Add Approval Rule"}</div>
-        <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 16 }}>
+    <div className="ar-modal-overlay" onClick={onClose}>
+      <div className="ar-modal-box" onClick={e => e.stopPropagation()}>
+        <div className="ar-modal-title">{rule ? "Edit Approval Rule" : "Add Approval Rule"}</div>
+        <div className="ar-modal-subtitle">
           Leave a condition blank to match "any" for that field. When a Purchase Requisition is submitted, the highest-priority rule whose conditions all match is used.
         </div>
-        {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}
+        {error && <div className="alert alert-error ar-mb12">{error}</div>}
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label className="form-label">Rule Name *</label>
             <input className="form-control" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} autoFocus />
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div className="ar-form-grid">
             <div className="form-group">
               <label className="form-label">Min Amount</label>
               <input className="form-control" type="number" min="0" step="0.01" value={form.min_amount} onChange={e => setForm({ ...form, min_amount: e.target.value })} placeholder="No minimum" />
@@ -119,19 +120,19 @@ function RuleFormModal({ rule, departments, categories, onClose, onSaved }) {
             <div className="form-group">
               <label className="form-label">Priority</label>
               <input className="form-control" type="number" value={form.priority} onChange={e => setForm({ ...form, priority: e.target.value })} />
-              <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 4 }}>Higher priority wins when multiple rules match.</div>
+              <div className="ar-hint">Higher priority wins when multiple rules match.</div>
             </div>
           </div>
 
-          <div style={{ marginTop: 8, marginBottom: 8, fontWeight: 700, fontSize: 13 }}>Approval Steps (in order)</div>
-          <div style={{ background: "#f8fafc", borderRadius: 8, padding: 10, marginBottom: 12 }}>
+          <div className="ar-steps-label">Approval Steps (in order)</div>
+          <div className="ar-steps-box">
             {steps.length === 0 ? (
-              <div style={{ fontSize: 12, color: "#94a3b8", padding: "8px 4px" }}>No steps added yet.</div>
+              <div className="ar-no-steps">No steps added yet.</div>
             ) : (
               steps.map((role, idx) => (
-                <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 4px", borderBottom: idx < steps.length - 1 ? "1px solid #e2e8f0" : "none" }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: "#64748b", width: 20 }}>{idx + 1}.</span>
-                  <span style={{ flex: 1, fontSize: 13 }}>{roleLabel(role)}</span>
+                <div key={idx} className="ar-step-row" style={{ "--row-border": idx < steps.length - 1 ? "1px solid var(--border-color)" : "none" }}>
+                  <span className="ar-step-num">{idx + 1}.</span>
+                  <span className="ar-step-name">{roleLabel(role)}</span>
                   <button type="button" className="btn btn-ghost btn-xs" disabled={idx === 0} onClick={() => moveStep(idx, -1)}>↑</button>
                   <button type="button" className="btn btn-ghost btn-xs" disabled={idx === steps.length - 1} onClick={() => moveStep(idx, 1)}>↓</button>
                   <button type="button" className="btn btn-danger btn-xs" onClick={() => removeStep(idx)}>Remove</button>
@@ -139,14 +140,14 @@ function RuleFormModal({ rule, departments, categories, onClose, onSaved }) {
               ))
             )}
           </div>
-          <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+          <div className="ar-add-step-row">
             <select className="form-control" value={newStepRole} onChange={e => setNewStepRole(e.target.value)}>
               {APPROVER_ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
             </select>
             <button type="button" className="btn btn-secondary" onClick={addStep}>+ Add Step</button>
           </div>
 
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+          <div className="ar-btn-row">
             <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Saving..." : rule ? "Update" : "Add"}</button>
           </div>
@@ -219,7 +220,7 @@ export default function ApprovalRules() {
 
   return (
     <div>
-      <div className="page-header" style={{ marginBottom: 16 }}>
+      <div className="page-header ar-page-header">
         <h1 className="page-heading">Approval Rules</h1>
         {canConfigure && (
           <button className="btn btn-primary" onClick={() => { setEditRule(null); setShowForm(true); }}>+ Add Rule</button>
@@ -227,16 +228,16 @@ export default function ApprovalRules() {
       </div>
 
       {isGlobalLocked && (
-        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+        <div className="alert ar-readonly-alert">
           Approval Rules are managed centrally by the superadmin. This list is read-only here.
         </div>
       )}
-      <div style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>
+      <div className="ar-intro-text">
         Configure who must approve a Purchase Requisition based on amount, department, item category, or emergency status. When a PR is submitted, the highest-priority rule whose conditions match is applied.
       </div>
 
-      {success && <div className="alert alert-success" style={{ marginBottom: 16 }}>{success}</div>}
-      {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
+      {success && <div className="alert alert-success ar-mb16">{success}</div>}
+      {error && <div className="alert alert-error ar-mb16">{error}</div>}
 
       {loading ? (
         <div className="loading-state">Loading rules...</div>
@@ -260,10 +261,10 @@ export default function ApprovalRules() {
                 <tr key={r.id}>
                   <td><span className="badge badge-primary">{r.priority}</span></td>
                   <td><strong>{r.name}</strong></td>
-                  <td style={{ fontSize: 12, color: "#64748b" }}>{conditionSummary(r)}</td>
-                  <td style={{ fontSize: 12 }}>
+                  <td className="ar-condition-cell">{conditionSummary(r)}</td>
+                  <td className="ar-chain-cell">
                     {r.steps.length === 0 ? (
-                      <span style={{ color: "#dc2626" }}>No steps configured</span>
+                      <span className="ar-no-steps-warning">No steps configured</span>
                     ) : (
                       r.steps.map(s => roleLabel(s.approver_role)).join(" → ")
                     )}
@@ -271,14 +272,14 @@ export default function ApprovalRules() {
                   <td><span className={"badge " + (r.is_active ? "badge-success" : "badge-gray")}>{r.is_active ? "Active" : "Inactive"}</span></td>
                   <td>
                     {canConfigure ? (
-                      <div style={{ display: "flex", gap: 6, flexWrap: "nowrap" }}>
+                      <div className="ar-actions-cell">
                         <button className="btn btn-ghost btn-xs" onClick={() => { setEditRule(r); setShowForm(true); }}>Edit</button>
                         <button className={"btn btn-xs " + (r.is_active ? "btn-danger" : "btn-secondary")} onClick={() => handleToggleActive(r)}>
                           {r.is_active ? "Deactivate" : "Reactivate"}
                         </button>
                       </div>
                     ) : (
-                      <span style={{ fontSize: 11, color: "#94a3b8" }}>View only</span>
+                      <span className="ar-view-only">View only</span>
                     )}
                   </td>
                 </tr>

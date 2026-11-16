@@ -5,6 +5,7 @@ import academicsApi from "../api/academicsApi";
 import { useProcessingToday } from "../hooks/useProcessingToday";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
 import DatePicker from "../components/DatePicker";
+import "./Diary.css";
 
 const today = () => new Date().toISOString().split("T")[0];
 
@@ -57,9 +58,9 @@ function PrincipalDiary() {
         <DatePicker style={{ maxWidth:180 }} value={selDate} onChange={val => setSelDate(val)} />
       </div>
 
-      {msg && <div style={{ background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:8, padding:"10px 14px", marginBottom:12, fontSize:13, color:"#16a34a" }}>{msg}</div>}
+      {msg && <div className="dia-msg-box">{msg}</div>}
 
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
+      <div className="dia-two-col-grid">
         {/* Pending */}
         <div className="section-card">
           <div className="section-card-header">
@@ -69,17 +70,17 @@ function PrincipalDiary() {
           {loading ? <div className="loading-state">Loading...</div> : pending.length === 0 ? (
             <div className="empty-state">All classes published for this date! 🎉</div>
           ) : (
-            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            <div className="dia-list-stack">
               {pending.map(cls => (
-                <div key={cls.class_id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 12px", background:"#fef9c3", border:"1px solid #fde68a", borderRadius:8 }}>
+                <div key={cls.class_id} className="dia-pending-item">
                   <div>
-                    <div style={{ fontWeight:600, fontSize:13 }}>{cls.name}{cls.section?" ("+cls.section+")":""}</div>
-                    <div style={{ fontSize:11, color:"#64748b", marginTop:2 }}>
+                    <div className="dia-item-name">{cls.name}{cls.section?" ("+cls.section+")":""}</div>
+                    <div className="dia-item-sub">
                       {cls.incharge_name ? "Incharge: "+cls.incharge_name : "No incharge assigned"}
                     </div>
                   </div>
                   {cls.incharge_user_id && (
-                    <button className="btn btn-ghost" style={{ fontSize:11, color:"#dc2626", padding:"4px 10px" }}
+                    <button className="btn btn-ghost dia-remind-btn"
                       disabled={reminding[cls.class_id]}
                       onClick={() => handleRemind(cls)}>
                       {reminding[cls.class_id] ? "Sending..." : "🔔 Remind"}
@@ -100,16 +101,16 @@ function PrincipalDiary() {
           {loading ? <div className="loading-state">Loading...</div> : published.length === 0 ? (
             <div className="empty-state">No classes published yet.</div>
           ) : (
-            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+            <div className="dia-list-stack">
               {published.map(cls => (
-                <div key={cls.class_id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"10px 12px", background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:8 }}>
+                <div key={cls.class_id} className="dia-published-item">
                   <div>
-                    <div style={{ fontWeight:600, fontSize:13 }}>{cls.name}{cls.section?" ("+cls.section+")":""}</div>
-                    <div style={{ fontSize:11, color:"#64748b", marginTop:2 }}>
+                    <div className="dia-item-name">{cls.name}{cls.section?" ("+cls.section+")":""}</div>
+                    <div className="dia-item-sub">
                       {cls.incharge_name ? "Incharge: "+cls.incharge_name : ""}
                     </div>
                   </div>
-                  <span style={{ fontSize:11, color:"#16a34a", fontWeight:600 }}>
+                  <span className="dia-published-time">
                     {cls.published_at ? formatTime(cls.published_at) : ""}
                   </span>
                 </div>
@@ -148,13 +149,13 @@ function TeacherDiary({ role }) {
       </div>
 
       {/* Tab switcher */}
-      <div style={{ display:"flex", borderBottom:"2px solid #e2e8f0", marginBottom:16 }}>
+      <div className="dia-tab-row">
         <button onClick={() => setActiveTab("incharge")}
-          style={{ padding:"10px 20px", fontWeight:600, fontSize:13, border:"none", cursor:"pointer", borderBottom: activeTab==="incharge" ? "2px solid #2563eb" : "none", color: activeTab==="incharge" ? "#2563eb" : "#64748b", background:"transparent", marginBottom:-2 }}>
+          className="dia-tab-btn" style={{ "--tab-border": activeTab==="incharge" ? "#2563eb" : "transparent", "--tab-color": activeTab==="incharge" ? "#2563eb" : "var(--text-secondary)" }}>
           📋 Class Incharge {inchargeClasses.length > 0 ? "("+inchargeClasses.length+")" : ""}
         </button>
         <button onClick={() => setActiveTab("mysubjects")}
-          style={{ padding:"10px 20px", fontWeight:600, fontSize:13, border:"none", cursor:"pointer", borderBottom: activeTab==="mysubjects" ? "2px solid #2563eb" : "none", color: activeTab==="mysubjects" ? "#2563eb" : "#64748b", background:"transparent", marginBottom:-2 }}>
+          className="dia-tab-btn" style={{ "--tab-border": activeTab==="mysubjects" ? "#2563eb" : "transparent", "--tab-color": activeTab==="mysubjects" ? "#2563eb" : "var(--text-secondary)" }}>
           📚 My Subjects {subjectClasses.length > 0 ? "("+subjectClasses.length+" classes)" : ""}
         </button>
       </div>
@@ -222,29 +223,29 @@ function InchargeSection({ cls, date }) {
   };
 
   return (
-    <div style={{ marginBottom:24 }}>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:12 }}>
-        <h3 style={{ fontSize:15, fontWeight:700, color:"#1e3a5f" }}>
-          {cls.name}{cls.section?" ("+cls.section+")":""} <span style={{ fontSize:12, color:"#64748b", fontWeight:400 }}>— Class Incharge</span>
+    <div className="dia-section-wrap">
+      <div className="dia-section-header-row">
+        <h3 className="dia-section-title">
+          {cls.name}{cls.section?" ("+cls.section+")":""} <span className="dia-section-subtitle">— Class Incharge</span>
         </h3>
-        <div style={{ display:"flex", gap:8, alignItems:"center" }}>
-          {msg && <span style={{ fontSize:12, color:"#16a34a" }}>{msg}</span>}
+        <div className="dia-header-actions">
+          {msg && <span className="dia-success-msg-text">{msg}</span>}
           {published ? (
             <span className="badge badge-success">✓ Published</span>
           ) : (
-            <button className="btn btn-primary" style={{ fontSize:12 }} onClick={handlePublish}>
+            <button className="btn btn-primary dia-publish-btn" onClick={handlePublish}>
               📢 Publish Diary
             </button>
           )}
         </div>
       </div>
 
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+      <div className="dia-two-col-grid">
         {/* Status */}
         <div className="section-card">
           <div className="section-card-header">
             <span className="section-card-title">Submission Status</span>
-            <div style={{ display:"flex", gap:6 }}>
+            <div className="dia-status-badge-row">
               <span className="badge badge-success">{status.submitted.length} ✓</span>
               <span className="badge badge-warning">{status.pending.length} ⏳</span>
             </div>
@@ -252,21 +253,21 @@ function InchargeSection({ cls, date }) {
           {loading ? <div className="loading-state">Loading...</div> : (
             <>
               {status.pending.map((p, i) => (
-                <div key={i} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"6px 8px", background:"#fef2f2", borderRadius:6, marginBottom:4 }}>
+                <div key={i} className="dia-pending-row">
                   <div>
-                    <span style={{ fontWeight:600, fontSize:12 }}>{p.teacher_name}</span>
-                    <span style={{ fontSize:11, color:"#64748b", marginLeft:6 }}>— {p.subject_name}</span>
+                    <span className="dia-pending-name">{p.teacher_name}</span>
+                    <span className="dia-pending-subject">— {p.subject_name}</span>
                   </div>
-                  <button className="btn btn-ghost" style={{ fontSize:11, color:"#dc2626", padding:"2px 8px" }}
+                  <button className="btn btn-ghost dia-small-remind-btn"
                     disabled={reminding[p.teacher_id]} onClick={() => handleRemind(p.teacher_id, p.teacher_name)}>
                     {reminding[p.teacher_id] ? "..." : "🔔 Remind"}
                   </button>
                 </div>
               ))}
               {status.submitted.map((s, i) => (
-                <div key={i} style={{ display:"flex", justifyContent:"space-between", padding:"6px 8px", background:"#f0fdf4", borderRadius:6, marginBottom:4, fontSize:12 }}>
+                <div key={i} className="dia-submitted-row">
                   <span style={{ fontWeight:600 }}>{s.teacher_name}</span>
-                  <span style={{ color:"#64748b" }}>{s.subject_name}</span>
+                  <span style={{ color:"var(--text-secondary)" }}>{s.subject_name}</span>
                 </div>
               ))}
               {status.submitted.length===0 && status.pending.length===0 && <div className="empty-state">No timetable data.</div>}
@@ -281,15 +282,15 @@ function InchargeSection({ cls, date }) {
             <span className="badge badge-gray">{entries.length}</span>
           </div>
           {entries.length === 0 ? <div className="empty-state">No entries yet.</div> : (
-            <div style={{ display:"flex", flexDirection:"column", gap:8, maxHeight:300, overflowY:"auto" }}>
+            <div className="dia-entries-scroll">
               {entries.map(e => (
-                <div key={e.id} style={{ border:"1px solid #e2e8f0", borderRadius:8, padding:"8px 10px" }}>
-                  <div style={{ display:"flex", justifyContent:"space-between", marginBottom:4 }}>
-                    <span style={{ fontWeight:700, fontSize:12, color:"#1e3a5f" }}>{e.subject_name}</span>
-                    <span style={{ fontSize:11, color:"#64748b" }}>{e.teacher_name}</span>
+                <div key={e.id} className="dia-entry-card">
+                  <div className="dia-entry-header">
+                    <span className="dia-entry-subject">{e.subject_name}</span>
+                    <span className="dia-entry-teacher">{e.teacher_name}</span>
                   </div>
-                  {e.classwork && <div style={{ fontSize:11, marginBottom:2 }}><b>CW:</b> {e.classwork}</div>}
-                  {e.homework  && <div style={{ fontSize:11, color:"#dc2626" }}><b>HW:</b> {e.homework}</div>}
+                  {e.classwork && <div className="dia-entry-cw"><b>CW:</b> {e.classwork}</div>}
+                  {e.homework  && <div className="dia-entry-hw"><b>HW:</b> {e.homework}</div>}
                 </div>
               ))}
             </div>
@@ -341,17 +342,17 @@ function MySubjectsSection({ classes, date }) {
 
   return (
     <div>
-      <div style={{ display:"flex", gap:10, marginBottom:16 }}>
-        <select className="form-control" style={{ maxWidth:220 }} value={selClass} onChange={e => setSelClass(e.target.value)}>
+      <div className="dia-class-select-row">
+        <select className="form-control dia-class-select" value={selClass} onChange={e => setSelClass(e.target.value)}>
           {allClasses.map(c => <option key={c.id} value={c.id}>{c.name}{c.section?" ("+c.section+")":""}</option>)}
         </select>
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16 }}>
+      <div className="dia-two-col-grid">
         <div className="section-card">
-          <div className="section-card-header"><span className="section-card-title">{form.subject_id && subjects.find(s=>String(s.id)===String(form.subject_id)) ? "Edit: "+subjects.find(s=>String(s.id)===String(form.subject_id)).subject_name : "Add Entry"}</span>{form.subject_id && <button className="btn btn-ghost" style={{fontSize:11}} onClick={() => setForm({subject_id:"",classwork:"",homework:"",notes:""})}>✕ Clear</button>}</div>
-          {published && <div style={{ background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:8, padding:"10px 12px", marginBottom:10, fontSize:12, color:"#16a34a", fontWeight:600 }}>✓ Diary published — editing is locked.</div>}
-          {msg && <div style={{ color:"#16a34a", fontSize:12, marginBottom:8 }}>{msg}</div>}
-          <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+          <div className="section-card-header"><span className="section-card-title">{form.subject_id && subjects.find(s=>String(s.id)===String(form.subject_id)) ? "Edit: "+subjects.find(s=>String(s.id)===String(form.subject_id)).subject_name : "Add Entry"}</span>{form.subject_id && <button className="btn btn-ghost dia-clear-btn" onClick={() => setForm({subject_id:"",classwork:"",homework:"",notes:""})}>✕ Clear</button>}</div>
+          {published && <div className="dia-published-notice">✓ Diary published — editing is locked.</div>}
+          {msg && <div className="dia-info-msg">{msg}</div>}
+          <div className="dia-form-stack">
             <div className="form-group">
               <label className="form-label">Subject</label>
               <select className="form-control" value={form.subject_id} disabled={published} onChange={e => {
@@ -387,21 +388,21 @@ function MySubjectsSection({ classes, date }) {
             <span className="badge badge-gray">{entries.filter(e => subjects.some(s => s.id === e.subject_id)).length} submitted</span>
           </div>
           {subjects.length === 0 ? <div className="empty-state">No subjects assigned for this class.</div> : (
-            <div style={{ display:"flex", flexDirection:"column", gap:6 }}>
+            <div className="dia-subject-list-stack">
               {subjects.map(subj => {
                 const entry = entries.find(e => e.subject_id === subj.id);
                 return (
-                  <div key={subj.id} style={{ padding:"8px 10px", border:"1px solid #e2e8f0", borderRadius:8, borderLeft:"3px solid "+(entry?"#16a34a":"#e2e8f0") }}>
-                    <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                      <span style={{ fontWeight:600, fontSize:12 }}>{subj.subject_name}</span>
-                      <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+                  <div key={subj.id} className="dia-subject-item" style={{ "--border-left-color": entry?"#16a34a":"var(--border-color)" }}>
+                    <div className="dia-subject-item-top">
+                      <span className="dia-subject-name">{subj.subject_name}</span>
+                      <div className="dia-subject-actions">
                         <span className={"badge "+(entry?"badge-success":"badge-warning")} style={{ fontSize:10 }}>
                           {entry ? "✓ Submitted" : "⏳ Pending"}
                         </span>
                         {entry && (
                           <button
-                            className="btn btn-ghost"
-                            style={{ fontSize:11, padding:"2px 8px", color: published?"#94a3b8":"#2563eb" }}
+                            className="btn btn-ghost dia-edit-btn"
+                            style={{ "--edit-color": published?"var(--text-muted)":"#2563eb" }}
                             disabled={published}
                             title={published ? "Diary published - cannot edit" : "Edit entry"}
                             onClick={() => {
@@ -415,8 +416,8 @@ function MySubjectsSection({ classes, date }) {
                         )}
                       </div>
                     </div>
-                    {entry?.classwork && <div style={{ fontSize:11, color:"#64748b", marginTop:3 }}><b>CW:</b> {entry.classwork.slice(0,60)}{entry.classwork.length>60?"...":""}</div>}
-                    {entry?.homework  && <div style={{ fontSize:11, color:"#dc2626" }}><b>HW:</b> {entry.homework.slice(0,60)}</div>}
+                    {entry?.classwork && <div className="dia-subject-cw-text"><b>CW:</b> {entry.classwork.slice(0,60)}{entry.classwork.length>60?"...":""}</div>}
+                    {entry?.homework  && <div className="dia-subject-hw-text"><b>HW:</b> {entry.homework.slice(0,60)}</div>}
                   </div>
                 );
               })}
@@ -463,7 +464,7 @@ function StudentDiary() {
         <h1 className="page-heading">Daily Diary</h1>
         <DatePicker style={{ maxWidth:180 }} value={selDate} onChange={val => setSelDate(val)} />
       </div>
-      {classInfo?.name && <div style={{ fontSize:13, color:"var(--color-text-secondary)", marginBottom:12 }}>
+      {classInfo?.name && <div className="dia-class-info-text">
         Class: {classInfo.name}{classInfo.section ? " ("+classInfo.section+")" : ""}
       </div>}
 
@@ -527,15 +528,15 @@ function ParentDiary() {
     <div>
       <div className="page-header">
         <h1 className="page-heading">Daily Diary</h1>
-        <div style={{ display:"flex", gap:10 }}>
-          <select className="form-control" style={{ maxWidth:180 }} value={selChild} onChange={e => setSelChild(e.target.value)}>
+        <div className="dia-header-select-row">
+          <select className="form-control dia-child-select" value={selChild} onChange={e => setSelChild(e.target.value)}>
             {children.filter(c => c.status !== "withdrawn").map(c => <option key={c.id} value={c.id}>{c.first_name} {c.last_name}</option>)}
           </select>
           <DatePicker style={{ maxWidth:160 }} value={selDate} onChange={val => setSelDate(val)} />
         </div>
       </div>
 
-      {child && <div style={{ fontSize:13, color:"var(--color-text-secondary)", marginBottom:12 }}>
+      {child && <div className="dia-class-info-text">
         Class: {child.class_name}{child.class_section ? " ("+child.class_section+")" : ""}
       </div>}
 
@@ -553,30 +554,27 @@ function ParentDiary() {
 /* ── Shared Diary Panel ───────────────────────────────────────── */
 function DiaryPanel({ entries, selSubj, setSelSubj, active, colorMap }) {
   return (
-    <div style={{ border:"1px solid var(--color-border-tertiary)", borderRadius:12, overflow:"hidden", background:"var(--color-background-primary)" }}>
-      <div style={{ display:"grid", gridTemplateColumns:"220px 1fr", minHeight:400 }}>
+    <div className="dia-panel-wrap">
+      <div className="dia-panel-grid">
 
         {/* Left: subject list */}
-        <div style={{ borderRight:"1px solid var(--color-border-tertiary)", background:"#f8fafc" }}>
-          <div style={{ padding:"14px 16px", borderBottom:"1px solid var(--color-border-tertiary)" }}>
-            <div style={{ fontSize:10, fontWeight:700, color:"var(--color-text-secondary)", textTransform:"uppercase", letterSpacing:"0.08em" }}>Subjects</div>
+        <div className="dia-subject-sidebar">
+          <div className="dia-sidebar-header">
+            <div className="dia-sidebar-header-title">Subjects</div>
           </div>
           {entries.map((e) => {
             const color = colorMap[e.subject_id];
             const isActive = e.subject_id === selSubj;
             return (
               <div key={e.subject_id} onClick={() => setSelSubj(e.subject_id)}
-                style={{ display:"flex", alignItems:"center", gap:12, padding:"13px 16px", cursor:"pointer",
-                  borderLeft: isActive ? "4px solid "+color : "4px solid transparent",
-                  borderBottom:"1px solid var(--color-border-tertiary)",
-                  background: isActive ? "var(--color-background-primary)" : "transparent",
-                  transition:"background 0.15s" }}>
-                <div style={{ width:32, height:32, borderRadius:"50%", background:color+"22", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
-                  <div style={{ width:10, height:10, borderRadius:"50%", background:color }} />
+                className="dia-sidebar-item"
+                style={{ "--border-left": isActive ? "4px solid "+color : "4px solid transparent", "--sidebar-item-bg": isActive ? "var(--color-background-primary)" : "transparent" }}>
+                <div className="dia-sidebar-icon" style={{ "--icon-bg": color+"22" }}>
+                  <div className="dia-sidebar-dot" style={{ "--dot-bg": color }} />
                 </div>
-                <div style={{ overflow:"hidden" }}>
-                  <div style={{ fontSize:13, fontWeight:isActive?700:500, color: isActive ? color : "var(--color-text-primary)", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{e.subject_name}</div>
-                  <div style={{ fontSize:11, color:"var(--color-text-secondary)", marginTop:1, whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>{e.teacher_name}</div>
+                <div className="dia-sidebar-text-wrap">
+                  <div className="dia-sidebar-subject-name" style={{ "--name-weight": isActive?700:500, "--name-color": isActive ? color : "var(--color-text-primary)" }}>{e.subject_name}</div>
+                  <div className="dia-sidebar-teacher-name">{e.teacher_name}</div>
                 </div>
               </div>
             );
@@ -584,47 +582,47 @@ function DiaryPanel({ entries, selSubj, setSelSubj, active, colorMap }) {
         </div>
 
         {/* Right: diary content */}
-        <div style={{ background:"#fff" }}>
+        <div className="dia-content-pane">
           {active ? (
             <>
               {/* Header */}
-              <div style={{ padding:"16px 20px", borderBottom:"1px solid var(--color-border-tertiary)", display:"flex", alignItems:"center", gap:14 }}>
-                <div style={{ width:42, height:42, borderRadius:10, background:colorMap[active.subject_id]+"22", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+              <div className="dia-content-header">
+                <div className="dia-content-icon" style={{ "--icon-bg": colorMap[active.subject_id]+"22" }}>
                   <div style={{ fontSize:18 }}>📖</div>
                 </div>
                 <div>
-                  <div style={{ fontSize:15, fontWeight:700, color:"var(--color-text-primary)" }}>{active.subject_name}</div>
-                  <div style={{ fontSize:12, color:"var(--color-text-secondary)", marginTop:2 }}>Teacher: {active.teacher_name}</div>
+                  <div className="dia-content-title">{active.subject_name}</div>
+                  <div className="dia-content-subtitle">Teacher: {active.teacher_name}</div>
                 </div>
               </div>
 
               {/* Content */}
-              <div style={{ padding:"20px 20px", display:"flex", flexDirection:"column", gap:16 }}>
+              <div className="dia-content-body">
                 {active.classwork && (
                   <div>
-                    <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
-                      <div style={{ width:28, height:28, borderRadius:8, background:"#eff6ff", display:"flex", alignItems:"center", justifyContent:"center", fontSize:14 }}>📚</div>
-                      <div style={{ fontSize:12, fontWeight:700, color:"#1d4ed8", textTransform:"uppercase", letterSpacing:"0.06em" }}>Classwork</div>
+                    <div className="dia-block-label-row">
+                      <div className="dia-block-icon-cw">📚</div>
+                      <div className="dia-block-label-cw">Classwork</div>
                     </div>
-                    <div style={{ background:"#fff", border:"1.5px solid #1d4ed8", borderRadius:8, padding:"12px 16px", fontSize:13, lineHeight:1.7, color:"var(--color-text-primary)" }}>{active.classwork}</div>
+                    <div className="dia-block-text-cw">{active.classwork}</div>
                   </div>
                 )}
                 {active.homework && (
                   <div>
-                    <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
-                      <div style={{ width:28, height:28, borderRadius:8, background:"#fef2f2", display:"flex", alignItems:"center", justifyContent:"center", fontSize:14 }}>✏️</div>
-                      <div style={{ fontSize:12, fontWeight:700, color:"#dc2626", textTransform:"uppercase", letterSpacing:"0.06em" }}>Homework</div>
+                    <div className="dia-block-label-row">
+                      <div className="dia-block-icon-hw">✏️</div>
+                      <div className="dia-block-label-hw">Homework</div>
                     </div>
-                    <div style={{ background:"#fff", border:"1.5px solid #dc2626", borderRadius:8, padding:"12px 16px", fontSize:13, lineHeight:1.7, color:"var(--color-text-primary)" }}>{active.homework}</div>
+                    <div className="dia-block-text-hw">{active.homework}</div>
                   </div>
                 )}
                 {active.notes && (
                   <div>
-                    <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:8 }}>
-                      <div style={{ width:28, height:28, borderRadius:8, background:"#f8fafc", display:"flex", alignItems:"center", justifyContent:"center", fontSize:14 }}>📝</div>
-                      <div style={{ fontSize:12, fontWeight:700, color:"#475569", textTransform:"uppercase", letterSpacing:"0.06em" }}>Notes</div>
+                    <div className="dia-block-label-row">
+                      <div className="dia-block-icon-notes">📝</div>
+                      <div className="dia-block-label-notes">Notes</div>
                     </div>
-                    <div style={{ background:"#fff", border:"1.5px solid #475569", borderRadius:8, padding:"12px 16px", fontSize:13, lineHeight:1.7, color:"var(--color-text-primary)" }}>{active.notes}</div>
+                    <div className="dia-block-text-notes">{active.notes}</div>
                   </div>
                 )}
                 {!active.classwork && !active.homework && !active.notes && (
@@ -633,9 +631,9 @@ function DiaryPanel({ entries, selSubj, setSelSubj, active, colorMap }) {
               </div>
             </>
           ) : (
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100%", padding:40 }}>
-              <div style={{ textAlign:"center", color:"var(--color-text-secondary)" }}>
-                <div style={{ fontSize:32, marginBottom:12 }}>📖</div>
+            <div className="dia-empty-panel">
+              <div className="dia-empty-panel-inner">
+                <div className="dia-empty-panel-icon">📖</div>
                 <div style={{ fontSize:14 }}>Select a subject to view diary</div>
               </div>
             </div>

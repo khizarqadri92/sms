@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import hrApi from "../api/hrApi";
 import { useAuth } from "../auth/AuthContext";
 import { useGovernanceMode } from "../hooks/useGovernanceMode";
+import "./HRSetup.css";
 
 export default function HRSetup() {
   const { permissions = [] } = useAuth();
@@ -22,6 +23,8 @@ export default function HRSetup() {
   const [setupDept, setSetupDept]   = useState("");
   const [setupRole, setSetupRole]   = useState("");
   const [deptForm, setDeptForm]     = useState({name:"",parent_id:null});
+  const [deptMsg, setDeptMsg]       = useState(null);
+  const [mapMsg, setMapMsg]         = useState(null);
 
   const showFlash = (type, msg) => { setFlash({type,msg}); setTimeout(()=>setFlash(null),4000); };
 
@@ -37,77 +40,86 @@ export default function HRSetup() {
   const roleLabel = (name) => name?.replace(/_/g," ").replace(/\b\w/g,c=>c.toUpperCase())||"—";
 
   const card = (title, children) => (
-    <div style={{background:"#fff",borderRadius:10,border:"1px solid #e2e8f0",overflow:"hidden",marginBottom:20,height:"100%",display:"flex",flexDirection:"column"}}>
-      <div style={{padding:"14px 18px",borderBottom:"1px solid #e2e8f0",fontWeight:700,fontSize:15,color:"#0f172a"}}>
+    <div className="hrs-card">
+      <div className="hrs-card-header">
         {title}
       </div>
-      <div style={{padding:16,flex:1,display:"flex",flexDirection:"column",minHeight:0}}>{children}</div>
+      <div className="hrs-card-body">{children}</div>
     </div>
   );
 
   return (
-    <div style={{padding:24,maxWidth:1000,margin:"0 auto"}}>
-      <h1 style={{fontSize:22,fontWeight:700,marginBottom:20,color:"#0f172a"}}>HR Setup</h1>
+    <div className="hrs-page">
+      <h1 className="hrs-title">HR Setup</h1>
 
-      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:20}}>
+      <div className="hrs-grid">
 
         {/* Departments */}
         {card("Departments",
           <>
             {subDeptsLocked&&(
-              <div style={{marginBottom:12,padding:"8px 12px",background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,fontSize:12,color:"#92400e"}}>
+              <div className="hrs-locked-alert">
                 Sub-departments are managed centrally by the superadmin.
               </div>
             )}
             {canManageSubDepts&&(
-              <div style={{marginBottom:12,padding:12,background:"#f8fafc",borderRadius:8,border:"1px solid #e2e8f0"}}>
-                <div style={{fontWeight:600,fontSize:12,marginBottom:8,color:"#334155"}}>Add Sub-Department</div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr auto",gap:8,alignItems:"flex-end"}}>
+              <div className="hrs-add-panel">
+                <div className="hrs-add-panel-title">Add Sub-Department</div>
+                <div className="hrs-add-grid-3col">
                   <div>
-                    <div style={{fontSize:11,fontWeight:600,marginBottom:3}}>Under (Parent) *</div>
-                    <select className="form-input" style={{fontSize:13}} value={deptForm.parent_id||""} onChange={e=>setDeptForm(p=>({...p,parent_id:e.target.value||null}))}>
+                    <div className="hrs-field-label">Under (Parent) *</div>
+                    <select className="form-input hrs-fs13" value={deptForm.parent_id||""} onChange={e=>setDeptForm(p=>({...p,parent_id:e.target.value||null}))}>
                       <option value="">Select parent...</option>
                       {departments.filter(d=>!d.parent_id&&d.is_active).map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
                     </select>
                   </div>
                   <div>
-                    <div style={{fontSize:11,fontWeight:600,marginBottom:3}}>Sub-Department Name *</div>
-                    <input className="form-input" placeholder="e.g. Academic Faculty" style={{fontSize:13}}
+                    <div className="hrs-field-label">Sub-Department Name *</div>
+                    <input className="form-input hrs-fs13" placeholder="e.g. Academic Faculty"
                       value={deptForm.name} onChange={e=>setDeptForm(p=>({...p,name:e.target.value}))}/>
                   </div>
-                  <button className="btn btn-primary btn-sm" style={{color:"#fff",whiteSpace:"nowrap",height:36}}
+                  <button className="btn btn-primary btn-sm hrs-add-btn"
                     onClick={async()=>{
-                      if(!deptForm.name.trim()||!deptForm.parent_id){showFlash("error","Select parent and enter name.");return;}
+                      setDeptMsg(null);
+                      if(!deptForm.name.trim()||!deptForm.parent_id){setDeptMsg({type:"error",text:"Select parent and enter name."});setTimeout(()=>setDeptMsg(null),5000);return;}
                       try{
                         await hrApi.createDepartment({name:deptForm.name,parent_id:Number(deptForm.parent_id),is_parent:false});
                         setDeptForm({name:"",parent_id:null});
-                        loadAll(); showFlash("success","Sub-department added.");
-                      }catch(e){showFlash("error",e.response?.data?.detail?.message||"Failed.");}
+                        loadAll(); setDeptMsg({type:"success",text:"Sub-department added."});
+                      }catch(e){setDeptMsg({type:"error",text:e.response?.data?.detail?.message||"Failed."});}
+                      setTimeout(()=>setDeptMsg(null),5000);
                     }}>+ Add</button>
                 </div>
-                <div style={{fontSize:11,color:"#94a3b8",marginTop:6}}>
+                {deptMsg && (
+                  <div className="hrs-msg-box" style={{
+                    "--msg-bg": deptMsg.type==="success"?"#dcfce7":"#fee2e2",
+                    "--msg-color": deptMsg.type==="success"?"#166534":"#dc2626"}}>
+                    {deptMsg.type==="success"?"\u2713 ":"\u26a0 "}{deptMsg.text}
+                  </div>
+                )}
+                <div className="hrs-help-text">
                   Note: Top-level departments (Academic, Finance, HR, etc.) are fixed and cannot be added manually.
                 </div>
               </div>
             )}
-            <div style={{maxHeight:280,overflowY:"auto"}}>
+            <div className="hrs-list-scroll">
               {departments.filter(d=>!d.parent_id).map(parent=>(
-                <div key={parent.id} style={{marginBottom:8}}>
-                  <div style={{padding:"8px 10px",borderRadius:6,border:"1px solid #e2e8f0",background:"#f1f5f9",fontSize:13,fontWeight:700,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                <div key={parent.id} className="hrs-mb8">
+                  <div className="hrs-parent-row">
                     <span>🏢 {parent.name}</span>
-                    <span style={{fontSize:10,color:"#64748b"}}>{parent.role_count||0} roles</span>
+                    <span className="hrs-parent-role-count">{parent.role_count||0} roles</span>
                   </div>
                   {departments.filter(d=>d.parent_id===parent.id).map(child=>(
-                    <div key={child.id} style={{padding:"6px 10px 6px 24px",borderRadius:6,border:"1px solid #f1f5f9",background:"#f8fafc",fontSize:12,fontWeight:500,marginTop:2,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div key={child.id} className="hrs-child-row">
                       <span>└ {child.name}</span>
-                      <span style={{fontSize:10,color:"#94a3b8"}}>{child.role_count||0} roles</span>
+                      <span className="hrs-child-role-count">{child.role_count||0} roles</span>
                     </div>
                   ))}
                 </div>
               ))}
               {departments.filter(d=>!d.parent_id&&!departments.some(x=>x.parent_id===d.id)&&departments.length>0).length===0&&
                 departments.filter(d=>!d.parent_id).length===0&&
-                <div style={{fontSize:12,color:"#94a3b8",padding:12,textAlign:"center"}}>No departments yet.</div>}
+                <div className="hrs-empty-text">No departments yet.</div>}
             </div>
           </>
         )}
@@ -117,29 +129,38 @@ export default function HRSetup() {
           <>
             {canManage&&(
               <>
-              <div style={{display:"flex",gap:6,marginBottom:12}}>
-                <select className="form-input" style={{flex:1,fontSize:12}} value={setupDept} onChange={e=>setSetupDept(e.target.value)}>
+              <div className="hrs-add-row-flex">
+                <select className="form-input hrs-mapping-select" value={setupDept} onChange={e=>setSetupDept(e.target.value)}>
                   <option value="">Department...</option>
                   {departments.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
                 </select>
-                <select className="form-input" style={{flex:1,fontSize:12}} value={setupRole} onChange={e=>setSetupRole(e.target.value)}>
+                <select className="form-input hrs-mapping-select" value={setupRole} onChange={e=>setSetupRole(e.target.value)}>
                   <option value="">Role...</option>
                   {allRoles.map(r=><option key={r.id} value={r.id}>{roleLabel(r.name)}</option>)}
                 </select>
-                <button className="btn btn-primary btn-sm" style={{color:"#fff",whiteSpace:"nowrap"}}
+                <button className="btn btn-primary btn-sm hrs-add-btn"
                   onClick={async()=>{
-                    if(!setupDept||!setupRole){showFlash("error","Select both.");return;}
-                    try{ await hrApi.addDeptRole(setupDept,setupRole); setSetupDept(""); setSetupRole(""); loadAll(); showFlash("success","Mapping added."); }
-                    catch(e){showFlash("error",e.response?.data?.detail?.message||"Already exists.");}
+                    setMapMsg(null);
+                    if(!setupDept||!setupRole){setMapMsg({type:"error",text:"Select both."});setTimeout(()=>setMapMsg(null),5000);return;}
+                    try{ await hrApi.addDeptRole(setupDept,setupRole); setSetupDept(""); setSetupRole(""); loadAll(); setMapMsg({type:"success",text:"Mapping added."}); }
+                    catch(e){setMapMsg({type:"error",text:e.response?.data?.detail?.message||"Already exists."});}
+                    setTimeout(()=>setMapMsg(null),5000);
                   }}>Add</button>
               </div>
+              {mapMsg && (
+                <div className="hrs-msg-box" style={{
+                  "--msg-bg": mapMsg.type==="success"?"#dcfce7":"#fee2e2",
+                  "--msg-color": mapMsg.type==="success"?"#166534":"#dc2626"}}>
+                  {mapMsg.type==="success"?"\u2713 ":"\u26a0 "}{mapMsg.text}
+                </div>
+              )}
               </>
             )}
-            <div style={{flex:1,minHeight:0,overflowY:"auto"}}>
+            <div className="hrs-list-scroll-flex">
               {setupDeptRoles.map(dr=>(
-                <div key={dr.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 10px",borderRadius:6,border:"1px solid #f1f5f9",marginBottom:4,background:"#f8fafc"}}>
-                  <div style={{fontSize:13}}><strong>{dr.department_name}</strong> → {roleLabel(dr.role_name)}</div>
-                  {canManage&&<button className="btn btn-ghost btn-sm" style={{color:"#dc2626",fontSize:11}}
+                <div key={dr.id} className="hrs-list-item-row">
+                  <div className="hrs-list-item-text"><strong>{dr.department_name}</strong> → {roleLabel(dr.role_name)}</div>
+                  {canManage&&<button className="btn btn-ghost btn-sm hrs-remove-btn"
                     onClick={async()=>{await hrApi.removeDeptRole(dr.id);loadAll();}}>Remove</button>}
                 </div>
               ))}
@@ -151,21 +172,21 @@ export default function HRSetup() {
         {card("Designations",
           <>
             {designationsLocked&&(
-              <div style={{marginBottom:12,padding:"8px 12px",background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,fontSize:12,color:"#92400e"}}>
+              <div className="hrs-locked-alert">
                 Designations are managed centrally by the superadmin.
               </div>
             )}
             {canManageDesignations&&(
               <>
-              <div style={{display:"flex",gap:6,marginBottom:12}}>
-                <input className="form-input" placeholder="Designation name *" style={{flex:1,fontSize:12}}
+              <div className="hrs-add-row-flex">
+                <input className="form-input hrs-desig-input" placeholder="Designation name *"
                   value={desigForm.name} onChange={e=>setDesigForm(p=>({...p,name:e.target.value}))}/>
-                <select className="form-input" style={{fontSize:12,width:140}} value={desigForm.department_id}
+                <select className="form-input hrs-desig-dept-select" value={desigForm.department_id}
                   onChange={e=>setDesigForm(p=>({...p,department_id:e.target.value}))}>
                   <option value="">Dept (opt.)</option>
                   {departments.map(d=><option key={d.id} value={d.id}>{d.name}</option>)}
                 </select>
-                <button className="btn btn-primary btn-sm" style={{color:"#fff",whiteSpace:"nowrap"}}
+                <button className="btn btn-primary btn-sm hrs-add-btn"
                   onClick={async()=>{
                     setDesigMsg(null);
                     if(!desigForm.name.trim()){setDesigMsg({type:"error",text:"Name required."});return;}
@@ -181,22 +202,22 @@ export default function HRSetup() {
                   }}>Add</button>
               </div>
               {desigMsg && (
-                <div style={{marginBottom:12,padding:"8px 12px",borderRadius:8,fontSize:12,fontWeight:600,
-                  background:desigMsg.type==="success"?"#dcfce7":"#fee2e2",
-                  color:desigMsg.type==="success"?"#166534":"#dc2626"}}>
+                <div className="hrs-msg-box" style={{
+                  "--msg-bg": desigMsg.type==="success"?"#dcfce7":"#fee2e2",
+                  "--msg-color": desigMsg.type==="success"?"#166534":"#dc2626"}}>
                   {desigMsg.type==="success"?"\u2713 ":"\u26a0 "}{desigMsg.text}
                 </div>
               )}
               </>
             )}
-            <div style={{maxHeight:200,overflowY:"auto"}}>
+            <div className="hrs-list-scroll">
               {designations.map(d=>(
-                <div key={d.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 10px",borderRadius:6,border:"1px solid #f1f5f9",marginBottom:4,background:"#f8fafc"}}>
+                <div key={d.id} className="hrs-list-item-row">
                   <div>
-                    <div style={{fontSize:13,fontWeight:600}}>{d.name}</div>
-                    {d.department_name&&<div style={{fontSize:11,color:"#64748b"}}>{d.department_name}</div>}
+                    <div className="hrs-list-item-name">{d.name}</div>
+                    {d.department_name&&<div className="hrs-list-item-subtext">{d.department_name}</div>}
                   </div>
-                  {canManageDesignations&&<button className="btn btn-ghost btn-sm" style={{color:"#dc2626",fontSize:11}}
+                  {canManageDesignations&&<button className="btn btn-ghost btn-sm hrs-remove-btn"
                     onClick={async()=>{await hrApi.deleteDesignation(d.id);loadAll();}}>Remove</button>}
                 </div>
               ))}
@@ -206,9 +227,9 @@ export default function HRSetup() {
 
         {/* All System Roles (read-only) */}
         {card("System Roles",
-          <div style={{maxHeight:200,overflowY:"auto"}}>
+          <div className="hrs-list-scroll">
             {allRoles.map(r=>(
-              <div key={r.id} style={{padding:"7px 10px",borderRadius:6,border:"1px solid #f1f5f9",marginBottom:4,background:"#f8fafc",fontSize:13}}>
+              <div key={r.id} className="hrs-role-item">
                 {roleLabel(r.name)}
               </div>
             ))}
@@ -216,9 +237,9 @@ export default function HRSetup() {
         )}
       </div>
 
-      {flash&&<div style={{position:"fixed",bottom:20,right:20,zIndex:9999,padding:"10px 18px",borderRadius:8,
-        background:flash.type==="success"?"#dcfce7":"#fee2e2",color:flash.type==="success"?"#166534":"#dc2626",
-        boxShadow:"0 4px 12px rgba(0,0,0,0.15)",fontSize:14,fontWeight:600}}>{flash.msg}</div>}
+      {flash&&<div className="hrs-flash-toast" style={{
+        "--flash-bg": flash.type==="success"?"#dcfce7":"#fee2e2",
+        "--flash-color": flash.type==="success"?"#166534":"#dc2626"}}>{flash.msg}</div>}
     </div>
   );
 }

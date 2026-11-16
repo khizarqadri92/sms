@@ -1,0 +1,126 @@
+.ann-panel-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.ann-panel-header { padding: 10px 14px 0; flex-shrink: 0; }
+.ann-panel-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.ann-panel-header-left { display: flex; align-items: center; gap: 6px; }
+.ann-panel-title { font-size: 12px; font-weight: 600; color: #fff; }
+.ann-panel-unread-badge { font-size: 10px; background: #ef4444; color: #fff; border-radius: 20px; padding: 1px 7px; font-weight: 600; }
+.ann-panel-add-btn { font-size: 11px; background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.25); border-radius: 6px; padding: 3px 10px; cursor: pointer; color: #fff; font-weight: 500; }
+.ann-panel-tabs { display: flex; gap: 0; }
+.ann-panel-tab { font-size: 10px; font-weight: 500; padding: 5px 12px; border: none; cursor: pointer; background: transparent; margin-bottom: -1px; }
+.ann-panel-tab-badge { margin-left: 4px; font-size: 9px; background: rgba(255,255,255,0.25); border-radius: 10px; padding: 0 5px; }
+
+.ann-panel-list { flex: 1; overflow-y: hidden; }
+.ann-panel-empty { padding: 24px; text-align: center; color: var(--text-muted); font-size: 12px; }
+
+.ann-item { display: flex; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--border-color); cursor: pointer; }
+.ann-item-dot-col { display: flex; flex-direction: column; align-items: center; padding-top: 4px; flex-shrink: 0; }
+.ann-item-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.ann-item-dot-line { width: 1px; flex: 1; background: var(--border-color); margin-top: 4px; }
+.ann-item-content { flex: 1; min-width: 0; padding-bottom: 2px; }
+.ann-item-title-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 6px; }
+.ann-item-title { font-size: 12px; color: var(--text-heading); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.ann-item-body { font-size: 11px; color: var(--text-secondary); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ann-item-meta { font-size: 10px; color: var(--text-muted); margin-top: 4px; display: flex; gap: 6px; align-items: center; }
+.ann-item-new-badge { margin-left: auto; font-size: 9px; color: var(--theme-primary); font-weight: 600; }
+
+.ann-spacer { height: 60px; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid var(--border-color); }
+.ann-spacer-inner { display: flex; align-items: center; gap: 8px; }
+.ann-spacer-line { width: 40px; height: 1px; background: var(--border-color); }
+.ann-spacer-label { font-size: 10px; color: var(--text-muted); font-weight: 500; letter-spacing: 0.08em; }
+
+/* Detail / Create modals */
+.ann-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 20px;
+}
+.ann-modal-overlay-create { z-index: 1001; }
+
+.ann-modal {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 520px;
+  overflow: hidden;
+}
+.ann-modal-plain { overflow: visible; }
+
+.ann-modal-stripe { height: 4px; }
+
+.ann-modal-header {
+  padding: 18px 22px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+.ann-modal-header-center { align-items: center; }
+.ann-modal-header-info { flex: 1; }
+
+.ann-modal-badges-row { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+.ann-modal-audience-badge { font-size: 11px; padding: 2px 8px; border-radius: 20px; background: var(--bg-hover); color: var(--text-secondary); }
+
+.ann-modal-title { font-weight: 700; font-size: 16px; color: var(--text-heading); }
+.ann-modal-title-sm { font-weight: 700; font-size: 15px; color: var(--text-heading); }
+.ann-modal-meta { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+.ann-modal-close-btn {
+  background: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  font-size: 18px;
+  color: var(--text-secondary);
+  flex-shrink: 0;
+}
+
+.ann-modal-body { padding: 16px 22px; max-height: 300px; overflow-y: auto; }
+.ann-modal-body-text { font-size: 14px; color: var(--text-primary); line-height: 1.8; white-space: pre-wrap; }
+.ann-modal-attachment { margin-top: 14px; padding: 10px 14px; background: var(--bg-hover); border: 1px solid var(--border-color); border-radius: 8px; }
+.ann-modal-attachment-link { font-size: 13px; color: var(--theme-primary); font-weight: 600; text-decoration: none; }
+
+.ann-modal-footer { padding: 12px 22px; border-top: 1px solid var(--border-color); display: flex; justify-content: flex-end; }
+.ann-modal-footer-gap { gap: 10px; }
+.ann-modal-delete-btn { padding: 7px 16px; font-size: 12px; font-weight: 600; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; cursor: pointer; color: #dc2626; }
+
+.ann-create-body { padding: 18px 22px; display: flex; flex-direction: column; gap: 14px; }
+.ann-create-error { background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 10px 12px; font-size: 13px; color: #dc2626; }
+
+.ann-create-label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+.ann-create-label-optional { font-weight: 400; color: var(--text-muted); }
+
+.ann-create-input {
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 13px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  outline: none;
+  font-family: inherit;
+  color: var(--text-heading);
+  box-sizing: border-box;
+  background: var(--bg-input);
+}
+.ann-create-textarea { resize: vertical; min-height: 90px; line-height: 1.6; }
+
+.ann-create-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.ann-create-cancel-btn { padding: 8px 18px; font-size: 13px; background: var(--bg-hover); border: 1px solid var(--border-color); border-radius: 8px; cursor: pointer; color: var(--text-secondary); font-weight: 500; }
+.ann-create-publish-btn { padding: 8px 20px; font-size: 13px; font-weight: 600; background: var(--theme-primary); color: #fff; border: none; border-radius: 8px; }

@@ -129,8 +129,8 @@ export default function DateTimePicker({ value, onChange, disabled, min, max, st
 
   const popup = open ? (
     <div ref={popupRef} style={{
-      position: "fixed", zIndex: 99999, top: coords.top, left: coords.left, background: "#fff",
-      border: "1px solid #e2e8f0", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.15)", width: POPUP_WIDTH,
+      position: "fixed", zIndex: 99999, top: coords.top, left: coords.left, background: "var(--bg-card)",
+      border: "1px solid var(--border-color)", borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.15)", width: POPUP_WIDTH,
       overflow: "hidden",
     }}>
       <div style={{
@@ -147,31 +147,31 @@ export default function DateTimePicker({ value, onChange, disabled, min, max, st
       <div style={{ padding: 12 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 4 }}>
           <button type="button" onClick={() => setViewDate(new Date(year, month - 1, 1))}
-            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, padding: "2px 6px", flexShrink: 0, color: "#475569" }}>
+            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, padding: "2px 6px", flexShrink: 0, color: "var(--text-secondary)" }}>
             &#8249;
           </button>
           <select
             value={month}
             onChange={(e) => setViewDate(new Date(year, Number(e.target.value), 1))}
-            style={{ fontWeight: 600, fontSize: 12, border: "none", borderRadius: 6, padding: "3px 2px", background: "transparent", cursor: "pointer", flex: 1, minWidth: 0, color: "#0f172a" }}
+            style={{ fontWeight: 600, fontSize: 12, border: "none", borderRadius: 6, padding: "3px 2px", background: "transparent", cursor: "pointer", flex: 1, minWidth: 0, color: "var(--text-heading)" }}
           >
             {MONTH_NAMES.map((m, i) => <option key={i} value={i}>{m}</option>)}
           </select>
           <select
             value={year}
             onChange={(e) => setViewDate(new Date(Number(e.target.value), month, 1))}
-            style={{ fontWeight: 600, fontSize: 12, border: "none", borderRadius: 6, padding: "3px 2px", background: "transparent", cursor: "pointer", width: 68, flexShrink: 0, color: "#0f172a" }}
+            style={{ fontWeight: 600, fontSize: 12, border: "none", borderRadius: 6, padding: "3px 2px", background: "transparent", cursor: "pointer", width: 68, flexShrink: 0, color: "var(--text-heading)" }}
           >
             {yearOptions.map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
           <button type="button" onClick={() => setViewDate(new Date(year, month + 1, 1))}
-            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, padding: "2px 6px", flexShrink: 0, color: "#475569" }}>
+            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, padding: "2px 6px", flexShrink: 0, color: "var(--text-secondary)" }}>
             &#8250;
           </button>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2, marginBottom: 4 }}>
           {weekdayLabels.map((w, i) => (
-            <div key={i} style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", textAlign: "center" }}>{w}</div>
+            <div key={i} style={{ fontSize: 10, fontWeight: 700, color: "var(--text-muted)", textAlign: "center" }}>{w}</div>
           ))}
         </div>
         {weeks.map((week, wi) => (
@@ -187,7 +187,7 @@ export default function DateTimePicker({ value, onChange, disabled, min, max, st
                     padding: "7px 0", fontSize: 12, border: "none", borderRadius: "50%",
                     cursor: d && !disabledDay ? "pointer" : "default",
                     background: selected ? "var(--theme-primary, #2563eb)" : "transparent",
-                    color: !d ? "transparent" : disabledDay ? "#cbd5e1" : selected ? "#fff" : "#0f172a",
+                    color: !d ? "transparent" : disabledDay ? "var(--text-muted)" : selected ? "#fff" : "var(--text-heading)",
                     fontWeight: selected ? 700 : 400,
                   }}>
                   {d || ""}
@@ -196,8 +196,8 @@ export default function DateTimePicker({ value, onChange, disabled, min, max, st
             })}
           </div>
         ))}
-        <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid #f1f5f9" }}>
-          <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4 }}>Time</label>
+        <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border-color)" }}>
+          <label style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", display: "block", marginBottom: 4 }}>Time</label>
           <input
             type="time"
             className="form-input"
@@ -217,7 +217,7 @@ export default function DateTimePicker({ value, onChange, disabled, min, max, st
         readOnly
         disabled={disabled}
         className="form-input"
-        style={{ width: "100%", fontSize: 13, cursor: disabled ? "default" : "pointer", background: disabled ? "#f1f5f9" : "#fff" }}
+        style={{ width: "100%", fontSize: 13, cursor: disabled ? "default" : "pointer", background: disabled ? "var(--bg-disabled)" : "var(--bg-input)", color: "var(--text-heading)" }}
         value={displayValue}
         placeholder={placeholder || "Select date & time"}
         onClick={() => !disabled && setOpen((o) => !o)}

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import libraryApi from "../api/libraryApi";
 import { useGovernanceMode } from "../hooks/useGovernanceMode";
+import "./LibraryCategories.css";
 
 function CategoryFormModal({ category, categories, onClose, onSaved }) {
   const [form, setForm] = useState({
@@ -32,10 +33,10 @@ function CategoryFormModal({ category, categories, onClose, onSaved }) {
   const otherCategories = categories.filter(c => c.id !== category?.id);
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
-      <div style={{ background: "#fff", borderRadius: 12, padding: 24, width: "100%", maxWidth: 400 }} onClick={e => e.stopPropagation()}>
-        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 16 }}>{category ? "Edit Category" : "Add Category"}</div>
-        {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}
+    <div className="lib-cat-modal-overlay" onClick={onClose}>
+      <div className="lib-cat-modal" onClick={e => e.stopPropagation()}>
+        <div className="lib-cat-modal-title">{category ? "Edit Category" : "Add Category"}</div>
+        {error && <div className="alert alert-error lib-cat-mb12">{error}</div>}
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label className="form-label">Name *</label>
@@ -48,7 +49,7 @@ function CategoryFormModal({ category, categories, onClose, onSaved }) {
               {otherCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
+          <div className="lib-cat-modal-footer">
             <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Saving..." : category ? "Update" : "Add"}</button>
           </div>
@@ -99,18 +100,18 @@ export default function LibraryCategories() {
 
   return (
     <div>
-      <div className="page-header" style={{ marginBottom: 16 }}>
+      <div className="page-header lib-cat-mb16">
         <h1 className="page-heading">Categories</h1>
         {!isGlobalLocked && <button className="btn btn-primary" onClick={() => { setEditCategory(null); setShowForm(true); }}>+ Add Category</button>}
       </div>
 
       {isGlobalLocked && (
-        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+        <div className="alert alert-warning lib-cat-mb16">
           Library Categories are managed centrally by the superadmin. This list is read-only here.
         </div>
       )}
-      {success && <div className="alert alert-success" style={{ marginBottom: 16 }}>{success}</div>}
-      {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
+      {success && <div className="alert alert-success lib-cat-mb16">{success}</div>}
+      {error && <div className="alert alert-error lib-cat-mb16">{error}</div>}
 
       {loading ? (
         <div className="loading-state">Loading categories...</div>
@@ -131,10 +132,10 @@ export default function LibraryCategories() {
               {categories.map(c => (
                 <tr key={c.id}>
                   <td><strong>{c.name}</strong></td>
-                  <td>{c.parent_name || <span style={{ color: "#94a3b8" }}>None</span>}</td>
+                  <td>{c.parent_name || <span className="lib-cat-muted">None</span>}</td>
                   <td><span className={"badge " + (c.is_active ? "badge-success" : "badge-gray")}>{c.is_active ? "Active" : "Inactive"}</span></td>
                   {!isGlobalLocked && (
-                    <td style={{ display: "flex", gap: 6, flexWrap: "nowrap" }}>
+                    <td className="lib-cat-actions">
                       <button className="btn btn-ghost btn-xs" onClick={() => { setEditCategory(c); setShowForm(true); }}>Edit</button>
                       <button className={"btn btn-xs " + (c.is_active ? "btn-danger" : "btn-secondary")} onClick={() => handleToggleActive(c)}>
                         {c.is_active ? "Deactivate" : "Reactivate"}

@@ -1,0 +1,86 @@
+.hrd-subtitle {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-top: 4px;
+}
+
+.hrd-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px,1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.hrd-stat-card {
+  background: var(--color-background-primary);
+  border-radius: 12px;
+  border: 1px solid var(--color-border-primary);
+  border-top: 3px solid var(--stat-color);
+  padding: 18px 20px;
+  cursor: pointer;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  transition: box-shadow .15s;
+}
+
+.hrd-stat-icon {
+  font-size: 28px;
+  margin-bottom: 8px;
+}
+
+.hrd-stat-value {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--stat-color);
+}
+
+.hrd-stat-label {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-top: 4px;
+}
+
+.hrd-quick-actions-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+}
+
+.hrd-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border-secondary);
+  background: var(--color-background-secondary);
+  color: var(--color-text-primary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.hrd-coming-soon-card {
+  margin-top: 16px;
+  text-align: center;
+  padding: 40px 24px;
+}
+
+.hrd-coming-soon-icon {
+  font-size: 40px;
+  margin-bottom: 12px;
+}
+
+.hrd-coming-soon-title {
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--color-text-primary);
+  margin-bottom: 8px;
+}
+
+.hrd-coming-soon-text {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  max-width: 400px;
+  margin: 0 auto;
+}

@@ -8,6 +8,7 @@ import { useProcessingToday } from "../hooks/useProcessingToday";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
 import discountsApi from "../api/discountsApi";
 import { useGovernanceMode } from "../hooks/useGovernanceMode";
+import "./Finance.css";
 
 // eslint-disable-next-line
 const downloadInvoicePdf = async (invoiceId) => {
@@ -32,6 +33,15 @@ const TAB_LABELS = {
 
 export default function Finance({ visibleTabs } = {}) {
   const [tab, setTab] = useState(visibleTabs ? visibleTabs[0] : "dashboard");
+  const tabsKey = (visibleTabs || TABS).join(",");
+
+  // Finance stays mounted when switching between sections (e.g. Management <-> Setup)
+  // that both render this component with a different visibleTabs set, so the tab
+  // state must be reset explicitly here rather than relying on useState's initial value.
+  useEffect(() => {
+    setTab(visibleTabs ? visibleTabs[0] : "dashboard");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tabsKey]);
 
   useEffect(() => {
     const handler = e => {
@@ -44,21 +54,6 @@ export default function Finance({ visibleTabs } = {}) {
 
   return (
     <div>
-      <div style={{ padding: "20px 24px 0" }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, marginBottom: 16, color: "#0f172a" }}>Finance Management</h1>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 4, borderBottom: "1px solid #e2e8f0", paddingBottom: 8 }}>
-          {(visibleTabs || TABS).map(t => (
-            <button key={t} onClick={() => setTab(t)}
-              style={{
-                padding: "7px 14px", fontSize: 13, fontWeight: 600, borderRadius: 6, border: "none", cursor: "pointer",
-                background: tab === t ? "var(--theme-primary, #2563eb)" : "#f1f5f9",
-                color: tab === t ? "#fff" : "#475569",
-              }}>
-              {TAB_LABELS[t] || t}
-            </button>
-          ))}
-        </div>
-      </div>
       {tab === "dashboard"   && <DashboardTab />}
       {tab === "structures"  && <StructuresTab />}
       {tab === "invoices"    && <InvoicesTab />}
@@ -164,78 +159,78 @@ function FeeAutomationTab() {
     : "Never run yet";
 
   return (
-    <div style={{ maxWidth: 640 }}>
-      <div className="section-card" style={{ marginBottom: 20 }}>
-        <h3 style={{ marginTop: 0 }}>Automatic Monthly Invoice Generation</h3>
-        <p style={{ color: "#666", fontSize: 14 }}>
+    <div className="fin-narrow-wrap">
+      <div className="section-card fin-mb20">
+        <h3 className="fin-h3-reset">Automatic Monthly Invoice Generation</h3>
+        <p className="fin-desc-text">
           When enabled, the system automatically generates this month's fee invoices for every active student
           (using the same logic as the manual button below) on the day you choose, once per month.
           Students who already have an invoice for that month are skipped.
         </p>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "16px 0" }}>
+        <div className="fin-checkbox-row">
           <input
             type="checkbox"
             id="auto-gen-toggle"
             checked={enabled}
             onChange={e => setEnabled(e.target.checked)}
-            style={{ width: 18, height: 18 }}
+            className="fin-checkbox-lg"
           />
-          <label htmlFor="auto-gen-toggle" style={{ fontWeight: 600 }}>
+          <label htmlFor="auto-gen-toggle" className="fin-bold-label">
             Enable automatic monthly fee generation
           </label>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-          <label style={{ fontWeight: 600 }}>Generate on day</label>
-          <select value={day} onChange={e => setDay(Number(e.target.value))} disabled={!enabled} style={{ padding: "6px 10px" }}>
+        <div className="fin-inline-row">
+          <label className="fin-bold-label">Generate on day</label>
+          <select value={day} onChange={e => setDay(Number(e.target.value))} disabled={!enabled} className="fin-small-control">
             {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
               <option key={d} value={d}>{d}</option>
             ))}
           </select>
-          <span style={{ color: "#666", fontSize: 13 }}>of each month (31 = last day of any month, including short months)</span>
+          <span className="fin-helper-text">of each month (31 = last day of any month, including short months)</span>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-          <label style={{ fontWeight: 600 }}>At time</label>
+        <div className="fin-inline-row">
+          <label className="fin-bold-label">At time</label>
           <input
             type="time"
             value={time}
             onChange={e => setTime(e.target.value)}
             disabled={!enabled}
-            style={{ padding: "6px 10px" }}
+            className="fin-small-control"
           />
-          <span style={{ color: "#666", fontSize: 13 }}>(checked every 15 minutes, so may run up to ~15 min after this time)</span>
+          <span className="fin-helper-text">(checked every 15 minutes, so may run up to ~15 min after this time)</span>
         </div>
 
-        <div style={{ fontSize: 13, color: "#666", marginBottom: 16 }}>
+        <div className="fin-last-run-text">
           Last auto-run: <strong>{lastRunLabel}</strong>
         </div>
 
         <button className="btn btn-primary" disabled={saving} onClick={save}>
           {saving ? "Saving..." : "Save Settings"}
         </button>
-        {msg && <span style={{ marginLeft: 12, fontSize: 13 }}>{msg}</span>}
-        {testMsg && <div style={{ marginTop: 10, fontSize: 13, color: "#333" }}>{testMsg}</div>}
+        {msg && <span className="fin-msg-inline">{msg}</span>}
+        {testMsg && <div className="fin-test-msg-box">{testMsg}</div>}
       </div>
 
       <div className="section-card">
-        <h3 style={{ marginTop: 0 }}>Generate For a Specific Month</h3>
-        <p style={{ color: "#666", fontSize: 14 }}>
+        <h3 className="fin-h3-reset">Generate For a Specific Month</h3>
+        <p className="fin-desc-text">
           Use this to catch up on past months or generate ahead for a future month. Duplicates are skipped automatically.
         </p>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div className="fin-inline-row-tight">
           <input
             type="month"
             value={manualMonth}
             onChange={e => setManualMonth(e.target.value)}
-            style={{ padding: "6px 10px" }}
+            className="fin-small-control"
           />
           <button className="btn btn-secondary" disabled={generating} onClick={handleManualGenerate}>
             {generating ? "Generating..." : "Generate Invoices"}
           </button>
         </div>
-        {genMsg && <div style={{ marginTop: 10, fontSize: 13 }}>{genMsg}</div>}
+        {genMsg && <div className="fin-gen-msg-box">{genMsg}</div>}
       </div>
     </div>
   );
@@ -279,12 +274,12 @@ function DashboardTab() {
 
   return (
     <div>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
+      <div className="fin-dash-header">
         <div>
-          <h2 style={{ fontSize:16, fontWeight:700, color:"#0f172a" }}>Finance Dashboard</h2>
-          <div style={{ fontSize:12, color:"#64748b" }}>{monthName}</div>
+          <h2 className="fin-dash-title">Finance Dashboard</h2>
+          <div className="fin-dash-subtitle">{monthName}</div>
         </div>
-        <div style={{ display:"flex", gap:10, alignItems:"center" }}>
+        <div className="fin-dash-actions">
           {genMsg && <span className="badge badge-success">{genMsg}</span>}
           <button className="btn btn-primary" onClick={handleGenerateMonthly} disabled={generating}>
             {generating ? "Generating..." : "Generate Monthly Invoices"}
@@ -292,7 +287,7 @@ function DashboardTab() {
         </div>
       </div>
 
-      <div className="stats-grid" style={{ marginBottom:20 }}>
+      <div className="stats-grid fin-stats-grid">
         {[
           { label:"Total Billed",      value:"Rs. " + Number(stats.total_billed).toLocaleString(),    color:"#2563eb" },
           { label:"Total Collected",   value:"Rs. " + Number(stats.total_collected).toLocaleString(), color:"#16a34a" },
@@ -300,14 +295,14 @@ function DashboardTab() {
           { label:"Collected (Month)", value:"Rs. " + Number(stats.collected_month).toLocaleString(), color:"#7c3aed" },
           { label:"Pending Verification", value:"Rs. " + Number(stats.pending_verification_amount).toLocaleString() + " (" + stats.pending_verification_count + ")", color:"#d97706" },
         ].map(s => (
-          <div key={s.label} className="stat-card" style={{ borderTop:"3px solid " + s.color }}>
-            <div className="stat-card-value" style={{ color:s.color, fontSize:18 }}>{s.value}</div>
+          <div key={s.label} className="stat-card fin-stat-card-dyn" style={{ "--stat-color": s.color }}>
+            <div className="stat-card-value fin-stat-value-dyn" style={{ "--stat-color": s.color }}>{s.value}</div>
             <div className="stat-card-label">{s.label}</div>
           </div>
         ))}
       </div>
 
-      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:16, marginBottom:16 }}>
+      <div className="fin-2col-grid">
         <div className="section-card">
           <div className="section-card-header">
             <span className="section-card-title">Invoice Status</span>
@@ -319,9 +314,9 @@ function DashboardTab() {
             { label:"Overdue",   value: stats.overdue_invoices, color:"#7c3aed", bg:"#f5f3ff" },
             { label:"Pending Verification", value: stats.pending_verification_invoices, color:"#0891b2", bg:"#ecfeff" },
           ].map(s => (
-            <div key={s.label} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"9px 0", borderBottom:"1px solid #f1f5f9" }}>
-              <span style={{ fontSize:13, color:"#64748b" }}>{s.label}</span>
-              <span style={{ fontSize:13, fontWeight:700, background:s.bg, color:s.color, padding:"2px 10px", borderRadius:20 }}>{s.value}</span>
+            <div key={s.label} className="fin-status-row">
+              <span className="fin-status-label">{s.label}</span>
+              <span className="fin-status-badge-dyn" style={{ "--badge-bg": s.bg, "--badge-color": s.color }}>{s.value}</span>
             </div>
           ))}
         </div>
@@ -330,15 +325,15 @@ function DashboardTab() {
           <div className="section-card-header">
             <span className="section-card-title">Collection Rate</span>
           </div>
-          <div style={{ textAlign:"center", padding:"16px 0" }}>
-            <div style={{ fontSize:48, fontWeight:800, color: collected_pct >= 80 ? "#16a34a" : collected_pct >= 50 ? "#d97706" : "#dc2626" }}>
+          <div className="fin-collection-wrap">
+            <div className="fin-collection-pct" style={{ "--pct-color": collected_pct >= 80 ? "#16a34a" : collected_pct >= 50 ? "#d97706" : "#dc2626" }}>
               {collected_pct}%
             </div>
-            <div style={{ fontSize:13, color:"#64748b", marginTop:4 }}>of total billed amount collected</div>
-            <div style={{ height:10, background:"#f1f5f9", borderRadius:5, marginTop:16, overflow:"hidden" }}>
-              <div style={{ height:"100%", width:collected_pct + "%", background: collected_pct >= 80 ? "#16a34a" : collected_pct >= 50 ? "#d97706" : "#dc2626", borderRadius:5, transition:"width 0.5s" }} />
+            <div className="fin-collection-subtext">of total billed amount collected</div>
+            <div className="fin-progress-track">
+              <div className="fin-progress-fill" style={{ "--fill-width": collected_pct + "%", "--fill-color": collected_pct >= 80 ? "#16a34a" : collected_pct >= 50 ? "#d97706" : "#dc2626" }} />
             </div>
-            <div style={{ display:"flex", justifyContent:"space-between", marginTop:6, fontSize:11, color:"#94a3b8" }}>
+            <div className="fin-progress-labels">
               <span>Rs. 0</span>
               <span>Rs. {Number(stats.total_billed).toLocaleString()}</span>
             </div>
@@ -406,12 +401,12 @@ function StructuresTab() {
   return (
     <div>
       {isGlobalLocked && (
-        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+        <div className="alert fin-readonly-alert">
           Fee Structures are managed centrally by the superadmin. This list is read-only here.
         </div>
       )}
-      <div className="page-header" style={{ marginBottom:16 }}>
-        <h2 style={{ fontSize:16, fontWeight:700, color:"#0f172a" }}>Fee Structures</h2>
+      <div className="page-header fin-page-header-mb16">
+        <h2 className="fin-section-h2">Fee Structures</h2>
         {canManage && <button className="btn btn-primary" onClick={openCreate}>+ New Structure</button>}
       </div>
 
@@ -419,7 +414,7 @@ function StructuresTab() {
       {error   && <div className="alert alert-error">{error}</div>}
 
       {showForm && (
-        <div className="section-card" style={{ marginBottom:16 }}>
+        <div className="section-card fin-mb16">
           <div className="section-card-header">
             <span className="section-card-title">{editItem ? "Edit" : "Create"} Fee Structure</span>
           </div>
@@ -483,7 +478,7 @@ function StructuresTab() {
                 </div>
               )}
             </div>
-            <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
+            <div className="fin-btn-row">
               <button type="button" className="btn btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
               <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Saving..." : editItem ? "Update" : "Create"}</button>
             </div>
@@ -510,14 +505,14 @@ function StructuresTab() {
             <tbody>
               {structures.map(s => (
                 <tr key={s.id}>
-                  <td><strong>{s.name}</strong>{s.description && <div style={{ fontSize:11, color:"#94a3b8" }}>{s.description}</div>}</td>
-                  <td>{s.category_name || <span style={{ color:"#94a3b8" }}>N/A</span>}</td>
-                  <td><strong style={{ color:"#16a34a" }}>Rs. {Number(s.amount).toLocaleString()}</strong></td>
-                  <td><span className="badge badge-primary" style={{ textTransform:"capitalize" }}>{s.frequency}</span></td>
-                  <td>{s.class_name || <span style={{ color:"#94a3b8" }}>All classes</span>}</td>
-                  <td>{s.year_name  || <span style={{ color:"#94a3b8" }}>N/A</span>}</td>
+                  <td><strong>{s.name}</strong>{s.description && <div className="fin-desc-subtext">{s.description}</div>}</td>
+                  <td>{s.category_name || <span className="fin-none-text">N/A</span>}</td>
+                  <td><strong className="fin-amount-green">Rs. {Number(s.amount).toLocaleString()}</strong></td>
+                  <td><span className="badge badge-primary fin-capitalize">{s.frequency}</span></td>
+                  <td>{s.class_name || <span className="fin-none-text">All classes</span>}</td>
+                  <td>{s.year_name  || <span className="fin-none-text">N/A</span>}</td>
                   {canManage && (
-                    <td style={{ display:"flex", gap:6 }}>
+                    <td className="fin-actions-cell">
                       <button className="btn btn-ghost btn-xs" onClick={() => openEdit(s)}>Edit</button>
                       <button className="btn btn-danger btn-xs" onClick={() => handleDelete(s.id)}>Deactivate</button>
                     </td>
@@ -614,9 +609,9 @@ function InvoicesTab() {
 
   return (
     <div>
-      <div className="page-header" style={{ marginBottom:16 }}>
+      <div className="page-header fin-page-header-mb16">
         <div className="header-left">
-          <h2 style={{ fontSize:16, fontWeight:700, color:"#0f172a" }}>Invoices</h2>
+          <h2 className="fin-section-h2">Invoices</h2>
           <select className="filter-select" value={statusFilter} onChange={e => setStatus(e.target.value)}>
             <option value="">All statuses</option>
             <option value="unpaid">Unpaid</option>
@@ -625,31 +620,31 @@ function InvoicesTab() {
             <option value="overdue">Overdue</option>
           </select>
         </div>
-        <div style={{ display:"flex", gap:8 }}>
+        <div className="fin-header-actions">
           {can("finance.bulk") && <button className="btn btn-secondary" onClick={() => { setShowBulk(!showBulk); setShowForm(false); setShowSmartGen(false); }}>Bulk Generate</button>}
-          {can("finance.bulk") && <button className="btn btn-primary" style={{ background:"#16a34a", borderColor:"#16a34a" }} onClick={() => { setShowSmartGen(!showSmartGen); setShowBulk(false); setShowForm(false); }}>Smart Monthly</button>}
+          {can("finance.bulk") && <button className="btn btn-primary fin-btn-green" onClick={() => { setShowSmartGen(!showSmartGen); setShowBulk(false); setShowForm(false); }}>Smart Monthly</button>}
           {can("finance.invoice") && <button className="btn btn-primary" onClick={() => { setShowForm(!showForm); setShowBulk(false); }}>+ New Invoice</button>}
         </div>
       </div>
 
-      <div className="section-card" style={{ marginBottom:16 }}>
-        <div style={{ display:"flex", gap:10, alignItems:"flex-end", flexWrap:"wrap" }}>
-          <div className="form-group" style={{ flex:1, minWidth:180, marginBottom:0 }}>
+      <div className="section-card fin-mb16">
+        <div className="fin-form-row">
+          <div className="form-group fin-flex1-180">
             <label className="form-label">Student / Registration No.</label>
             <input className="form-control" placeholder="Name or enrollment no." value={filters.registration_no} onChange={e => setFilters({...filters, registration_no:e.target.value})} onKeyDown={e => e.key === "Enter" && applyFilters()} />
           </div>
-          <div className="form-group" style={{ flex:1, minWidth:150, marginBottom:0 }}>
+          <div className="form-group fin-flex1-150">
             <label className="form-label">Invoice No.</label>
             <input className="form-control" placeholder="INV-2026-0001" value={filters.invoice_no} onChange={e => setFilters({...filters, invoice_no:e.target.value})} onKeyDown={e => e.key === "Enter" && applyFilters()} />
           </div>
           <button className="btn btn-primary" onClick={applyFilters}>Filter</button>
-          <button className="btn btn-ghost" onClick={() => setInvAdvancedOpen(!invAdvancedOpen)} style={{ color:"#2563eb", fontSize:13 }}>
+          <button className="btn btn-ghost fin-advanced-toggle" onClick={() => setInvAdvancedOpen(!invAdvancedOpen)}>
             {invAdvancedOpen ? "Hide Advanced Search \u25b4" : "Advanced Search \u25be"}
           </button>
         </div>
 
         {invAdvancedOpen && (
-          <div style={{ marginTop:16, paddingTop:16, borderTop:"1px solid #e2e8f0" }}>
+          <div className="fin-advanced-panel">
             <div className="form-grid">
               <div className="form-group">
                 <label className="form-label">Session (Academic Year)</label>
@@ -674,7 +669,7 @@ function InvoicesTab() {
                 <input className="form-control" type="month" value={filters.month} onChange={e => setFilters({...filters, month:e.target.value})} />
               </div>
             </div>
-            <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
+            <div className="fin-btn-row">
               <button className="btn btn-secondary" onClick={clearFilters}>Clear</button>
               <button className="btn btn-primary" onClick={applyFilters}>Apply Filters</button>
             </div>
@@ -686,11 +681,11 @@ function InvoicesTab() {
       {error   && <div className="alert alert-error">{error}</div>}
 
       {showBulk && (
-        <div className="section-card" style={{ marginBottom:16 }}>
+        <div className="section-card fin-mb16">
           <div className="section-card-header">
             <span className="section-card-title">Bulk Generate Invoices</span>
           </div>
-          <p style={{ fontSize:13, color:"#64748b", marginBottom:14 }}>
+          <p className="fin-desc-text fin-mb14">
             Generate invoices for all active students in a class at once.
           </p>
           <form onSubmit={handleBulk}>
@@ -714,7 +709,7 @@ function InvoicesTab() {
                 <DatePicker value={bulkForm.due_date} onChange={val => setBulkForm({...bulkForm, due_date:val})} />
               </div>
             </div>
-            <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
+            <div className="fin-btn-row">
               <button type="button" className="btn btn-secondary" onClick={() => setShowBulk(false)}>Cancel</button>
               <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Generating..." : "Generate Invoices"}</button>
             </div>
@@ -728,9 +723,9 @@ function InvoicesTab() {
           onClose={() => setShowSmartGen(false)}
         />
       )}
-      {smartResult && <div className="alert alert-success" style={{ marginBottom:12 }}>{smartResult}</div>}
+      {smartResult && <div className="alert alert-success fin-mb12">{smartResult}</div>}
       {showForm && (
-        <div className="section-card" style={{ marginBottom:16 }}>
+        <div className="section-card fin-mb16">
           <div className="section-card-header">
             <span className="section-card-title">Create Invoice</span>
           </div>
@@ -771,7 +766,7 @@ function InvoicesTab() {
                 <input className="form-control" value={form.notes} onChange={e => setForm({...form, notes:e.target.value})} placeholder="Optional notes" />
               </div>
             </div>
-            <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
+            <div className="fin-btn-row">
               <button type="button" className="btn btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
               <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Creating..." : "Create Invoice"}</button>
             </div>
@@ -800,26 +795,26 @@ function InvoicesTab() {
               {invoices.map(inv => (
                 <tr key={inv.id}>
                   <td>
-                    <div style={{ fontWeight:600, color:"#0f172a" }}>{inv.student_name}</div>
-                    <div style={{ fontSize:11, color:"#94a3b8" }}>{inv.enrollment_no}</div>
+                    <div className="fin-student-name">{inv.student_name}</div>
+                    <div className="fin-desc-subtext">{inv.enrollment_no}</div>
                   </td>
-                  <td style={{ fontSize:12, color:"#64748b" }}>{inv.structure_name || "Manual"}</td>
+                  <td className="fin-structure-text">{inv.structure_name || "Manual"}</td>
                   <td>Rs. {Number(inv.amount).toLocaleString()}</td>
-                  <td><strong style={{ color:"#0f172a" }}>Rs. {Number(inv.net_amount).toLocaleString()}</strong></td>
-                  <td style={{ color:"#16a34a", fontWeight:600 }}>Rs. {Number(inv.paid_amount || 0).toLocaleString()}</td>
-                  <td style={{ fontSize:12, color: inv.due_date && new Date(inv.due_date) < new Date(processingToday) && inv.status !== "paid" ? "#dc2626" : "#64748b" }}>
+                  <td><strong className="fin-net-amount">Rs. {Number(inv.net_amount).toLocaleString()}</strong></td>
+                  <td className="fin-paid-amount">Rs. {Number(inv.paid_amount || 0).toLocaleString()}</td>
+                  <td className="fin-due-date" style={{ "--due-color": inv.due_date && new Date(inv.due_date) < new Date(processingToday) && inv.status !== "paid" ? "#dc2626" : "var(--text-secondary)" }}>
                     {inv.due_date ? formatDate(inv.due_date) : "N/A"}
                   </td>
-                  <td><span className={statusBadge(inv.status)} style={{ textTransform:"capitalize" }}>{inv.status}</span></td>
+                  <td><span className={statusBadge(inv.status) + " fin-capitalize"}>{inv.status}</span></td>
                   <td>
-                    <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                    <div className="fin-actions-cell-wrap">
                       {inv.status !== "paid" && can("finance.collect") && (
                         <button className="btn btn-primary btn-xs" onClick={() => setShowPayment(inv)}>
                           Record Payment
                         </button>
                       )}
                       {inv.status === "paid" && (
-                        <span style={{ fontSize:11, color:"#16a34a", fontWeight:600 }}>Paid</span>
+                        <span className="fin-paid-tag">Paid</span>
                       )}
                       <button className="btn btn-ghost btn-xs" onClick={() => downloadInvoicePdf(inv.id)}>
                         PDF
@@ -867,25 +862,25 @@ function PaymentModal({ invoice, onPaid, onClose }) {
         <div className="modal-header">
           <div>
             <span className="modal-title">Record Payment</span>
-            <div style={{ fontSize:12, color:"#64748b", marginTop:2 }}>
+            <div className="fin-modal-subtext">
               {invoice.student_name} â€” {invoice.enrollment_no}
             </div>
           </div>
           <button className="modal-close" onClick={onClose}>x</button>
         </div>
         <div className="modal-body">
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:12, marginBottom:20 }}>
-            <div style={{ background:"#f8fafc", borderRadius:8, padding:"10px 14px", textAlign:"center" }}>
-              <div style={{ fontSize:11, color:"#64748b", marginBottom:2 }}>Total Amount</div>
-              <div style={{ fontSize:16, fontWeight:700, color:"#0f172a" }}>Rs. {Number(invoice.net_amount).toLocaleString()}</div>
+          <div className="fin-3col-summary">
+            <div className="fin-summary-box" style={{ "--box-bg": "var(--bg-hover)" }}>
+              <div className="fin-summary-label">Total Amount</div>
+              <div className="fin-summary-value" style={{ "--value-color": "var(--text-heading)" }}>Rs. {Number(invoice.net_amount).toLocaleString()}</div>
             </div>
-            <div style={{ background:"#f0fdf4", borderRadius:8, padding:"10px 14px", textAlign:"center" }}>
-              <div style={{ fontSize:11, color:"#64748b", marginBottom:2 }}>Already Paid</div>
-              <div style={{ fontSize:16, fontWeight:700, color:"#16a34a" }}>Rs. {Number(invoice.paid_amount || 0).toLocaleString()}</div>
+            <div className="fin-summary-box" style={{ "--box-bg": "var(--bg-success-soft)" }}>
+              <div className="fin-summary-label">Already Paid</div>
+              <div className="fin-summary-value" style={{ "--value-color": "#16a34a" }}>Rs. {Number(invoice.paid_amount || 0).toLocaleString()}</div>
             </div>
-            <div style={{ background:"#fef2f2", borderRadius:8, padding:"10px 14px", textAlign:"center" }}>
-              <div style={{ fontSize:11, color:"#64748b", marginBottom:2 }}>Balance Due</div>
-              <div style={{ fontSize:16, fontWeight:700, color:"#dc2626" }}>Rs. {Number(balance).toLocaleString()}</div>
+            <div className="fin-summary-box" style={{ "--box-bg": "var(--bg-danger-soft)" }}>
+              <div className="fin-summary-label">Balance Due</div>
+              <div className="fin-summary-value" style={{ "--value-color": "#dc2626" }}>Rs. {Number(balance).toLocaleString()}</div>
             </div>
           </div>
 
@@ -913,7 +908,7 @@ function PaymentModal({ invoice, onPaid, onClose }) {
               <label className="form-label">Notes</label>
               <input className="form-control" value={form.notes} onChange={e => setForm({...form, notes:e.target.value})} placeholder="Optional notes" />
             </div>
-            <div className="modal-footer" style={{ padding:0, marginTop:16, border:"none" }}>
+            <div className="modal-footer fin-modal-footer-flat">
               <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
               <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Recording..." : "Record Payment"}</button>
             </div>
@@ -929,13 +924,13 @@ function ReceiptModal({ receiptSrc, onClose }) {
   const isPdf = typeof receiptSrc === "string" && receiptSrc.toLowerCase().includes("pdf");
 
   return (
-    <div style={{ position:"fixed", inset:0, zIndex:1000, background:"rgba(0,0,0,0.6)", display:"flex", alignItems:"center", justifyContent:"center", padding:24 }} onClick={onClose}>
-      <div style={{ background:"#fff", borderRadius:12, maxWidth:"90vw", maxHeight:"90vh", overflow:"auto", padding:16, position:"relative" }} onClick={e => e.stopPropagation()}>
-        <button onClick={onClose} className="btn btn-secondary btn-sm" style={{ position:"absolute", top:10, right:10, zIndex:1 }}>Close</button>
+    <div className="fin-receipt-overlay" onClick={onClose}>
+      <div className="fin-receipt-box" onClick={e => e.stopPropagation()}>
+        <button onClick={onClose} className="btn btn-secondary btn-sm fin-receipt-close-btn">Close</button>
         {isPdf ? (
-          <iframe src={receiptSrc} title="receipt" style={{ width:"70vw", height:"80vh", border:"none", marginTop:30 }} />
+          <iframe src={receiptSrc} title="receipt" className="fin-receipt-iframe" />
         ) : (
-          <img src={receiptSrc} alt="receipt" style={{ maxWidth:"100%", maxHeight:"80vh", display:"block", marginTop:30 }} />
+          <img src={receiptSrc} alt="receipt" className="fin-receipt-img" />
         )}
       </div>
     </div>
@@ -956,41 +951,41 @@ function InvoiceSettlementModal({ invoiceId, onClose }) {
   }, [invoiceId]);
 
   return (
-    <div style={{ position:"fixed", inset:0, zIndex:1000, background:"rgba(0,0,0,0.45)", display:"flex", alignItems:"center", justifyContent:"center", padding:24 }}>
-      <div style={{ background:"#fff", borderRadius:12, width:"100%", maxWidth:560, maxHeight:"85vh", overflowY:"auto", boxShadow:"0 20px 60px rgba(0,0,0,0.18)" }}>
-        <div style={{ padding:"16px 24px", borderBottom:"1px solid #e2e8f0", display:"flex", justifyContent:"space-between", alignItems:"center", background:"#f8fafc", borderRadius:"12px 12px 0 0" }}>
-          <span style={{ fontWeight:700, fontSize:16, color:"#0f172a" }}>Invoice Settlement</span>
+    <div className="fin-settlement-overlay">
+      <div className="fin-settlement-box">
+        <div className="fin-settlement-header">
+          <span className="fin-section-h2">Invoice Settlement</span>
           <button className="btn btn-secondary btn-sm" onClick={onClose}>Close</button>
         </div>
-        <div style={{ padding:"20px 24px" }}>
+        <div className="fin-settlement-body">
           {loading && <div className="loading-state">Loading...</div>}
           {error && <div className="alert alert-error">{error}</div>}
           {data && (
             <>
-              <div style={{ marginBottom:18 }}>
-                <div style={{ fontWeight:700, fontSize:15, color:"#0f172a" }}>{data.invoice.invoice_no}</div>
-                <div style={{ fontSize:13, color:"#64748b" }}>{data.invoice.student_name} ({data.invoice.enrollment_no}) &middot; {data.invoice.month_year}</div>
+              <div className="fin-mb18">
+                <div className="fin-invoice-no">{data.invoice.invoice_no}</div>
+                <div className="fin-desc-text">{data.invoice.student_name} ({data.invoice.enrollment_no}) &middot; {data.invoice.month_year}</div>
               </div>
-              <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10, marginBottom:18, fontSize:13 }}>
+              <div className="fin-summary-grid-2col">
                 <div>Amount: <strong>Rs. {Number(data.invoice.amount).toLocaleString()}</strong></div>
                 <div>Discount: <strong>Rs. {Number(data.invoice.discount || 0).toLocaleString()}</strong></div>
                 <div>Fine: <strong>Rs. {Number(data.invoice.fine || 0).toLocaleString()}</strong></div>
                 <div>Net Amount: <strong>Rs. {Number(data.invoice.net_amount).toLocaleString()}</strong></div>
-                <div>Total Paid: <strong style={{ color:"#16a34a" }}>Rs. {Number(data.invoice.total_paid).toLocaleString()}</strong></div>
-                <div>Balance: <strong style={{ color: data.invoice.balance > 0 ? "#dc2626" : "#16a34a" }}>Rs. {Number(data.invoice.balance).toLocaleString()}</strong></div>
+                <div>Total Paid: <strong className="fin-amount-green">Rs. {Number(data.invoice.total_paid).toLocaleString()}</strong></div>
+                <div>Balance: <strong className="fin-balance-value" style={{ "--bal-color": data.invoice.balance > 0 ? "#dc2626" : "#16a34a" }}>Rs. {Number(data.invoice.balance).toLocaleString()}</strong></div>
               </div>
-              <div style={{ fontSize:12, fontWeight:700, color:"#64748b", textTransform:"uppercase", letterSpacing:".05em", marginBottom:10 }}>
+              <div className="fin-uppercase-label">
                 Invoice Breakdown
               </div>
               {(!data.items || data.items.length === 0) ? (
-                <div className="empty-state" style={{ marginBottom:18 }}>No line items recorded for this invoice.</div>
+                <div className="empty-state fin-empty-mb18">No line items recorded for this invoice.</div>
               ) : (
-                <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13, marginBottom:18 }}>
+                <table className="fin-settlement-table">
                   <thead>
-                    <tr style={{ background:"#f8fafc", borderBottom:"1px solid #e2e8f0" }}>
-                      <th style={{ padding:"8px", textAlign:"left" }}>Type</th>
-                      <th style={{ padding:"8px", textAlign:"left" }}>Label</th>
-                      <th style={{ padding:"8px", textAlign:"right" }}>Amount</th>
+                    <tr className="fin-settlement-th-row">
+                      <th className="fin-th-left">Type</th>
+                      <th className="fin-th-left">Label</th>
+                      <th className="fin-th-right">Amount</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1003,10 +998,10 @@ function InvoiceSettlementModal({ invoiceId, onClose }) {
                       }[it.item_type] || { text:it.item_type, cls:"badge-gray" };
                       const isDiscount = it.item_type === "discount";
                       return (
-                        <tr key={it.id} style={{ borderBottom:"1px solid #f1f5f9" }}>
-                          <td style={{ padding:"8px" }}><span className={`badge ${typeBadge.cls}`}>{typeBadge.text}</span></td>
-                          <td style={{ padding:"8px" }}>{it.label}</td>
-                          <td style={{ padding:"8px", textAlign:"right", fontWeight:600, color: isDiscount ? "#16a34a" : "#0f172a" }}>
+                        <tr key={it.id} className="fin-settlement-tr">
+                          <td className="fin-td-pad8"><span className={`badge ${typeBadge.cls}`}>{typeBadge.text}</span></td>
+                          <td className="fin-td-pad8">{it.label}</td>
+                          <td className="fin-td-amount-dyn" style={{ "--amt-color": isDiscount ? "#16a34a" : "var(--text-heading)" }}>
                             {isDiscount ? "\u2212" : ""}Rs. {Number(it.amount).toLocaleString()}
                           </td>
                         </tr>
@@ -1016,30 +1011,30 @@ function InvoiceSettlementModal({ invoiceId, onClose }) {
                 </table>
               )}
 
-              <div style={{ fontSize:12, fontWeight:700, color:"#64748b", textTransform:"uppercase", letterSpacing:".05em", marginBottom:10 }}>
+              <div className="fin-uppercase-label">
                 Payments Settled Against This Invoice
               </div>
               {data.payments.length === 0 ? (
                 <div className="empty-state">No payments recorded yet.</div>
               ) : (
-                <table style={{ width:"100%", borderCollapse:"collapse", fontSize:13 }}>
+                <table className="fin-settlement-table-tight">
                   <thead>
-                    <tr style={{ background:"#f8fafc", borderBottom:"1px solid #e2e8f0" }}>
-                      <th style={{ padding:"8px", textAlign:"left" }}>Amount</th>
-                      <th style={{ padding:"8px", textAlign:"left" }}>Method</th>
-                      <th style={{ padding:"8px", textAlign:"left" }}>Reference</th>
-                      <th style={{ padding:"8px", textAlign:"left" }}>Date</th>
-                      <th style={{ padding:"8px", textAlign:"left" }}>Status</th>
+                    <tr className="fin-settlement-th-row">
+                      <th className="fin-th-left">Amount</th>
+                      <th className="fin-th-left">Method</th>
+                      <th className="fin-th-left">Reference</th>
+                      <th className="fin-th-left">Date</th>
+                      <th className="fin-th-left">Status</th>
                     </tr>
                   </thead>
                   <tbody>
                     {data.payments.map(p => (
-                      <tr key={p.id} style={{ borderBottom:"1px solid #f1f5f9" }}>
-                        <td style={{ padding:"8px", fontWeight:600 }}>Rs. {Number(p.amount_paid).toLocaleString()}</td>
-                        <td style={{ padding:"8px", textTransform:"capitalize" }}>{p.method?.replace("_"," ")}</td>
-                        <td style={{ padding:"8px" }}>{p.reference || "N/A"}</td>
-                        <td style={{ padding:"8px" }}>{formatDate(p.paid_at)}</td>
-                        <td style={{ padding:"8px" }}>{p.is_verified ? <span className="badge badge-success">Verified</span> : <span className="badge badge-warning">Pending</span>}</td>
+                      <tr key={p.id} className="fin-settlement-tr">
+                        <td className="fin-td-pad8-bold">Rs. {Number(p.amount_paid).toLocaleString()}</td>
+                        <td className="fin-td-pad8 fin-capitalize">{p.method?.replace("_"," ")}</td>
+                        <td className="fin-td-pad8">{p.reference || "N/A"}</td>
+                        <td className="fin-td-pad8">{formatDate(p.paid_at)}</td>
+                        <td className="fin-td-pad8">{p.is_verified ? <span className="badge badge-success">Verified</span> : <span className="badge badge-warning">Pending</span>}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1090,40 +1085,53 @@ function PaymentsTab() {
   const handleVerify = async (id) => {
     try {
       await financeApi.verifyPayment(id);
-      setSuccess("Payment verified successfully.");
+      setSuccess("Payment verified - the invoice and receipt are updated for the parent / student.");
       fetchPayments();
-      setTimeout(() => setSuccess(""), 3000);
-    } catch { alert("Failed to verify payment."); }
+      setTimeout(() => setSuccess(""), 4000);
+    } catch (e) { alert(e?.response?.data?.message || "Failed to verify payment."); }
   };
-
-  const pendingCount = payments.filter(p => !p.is_verified && p.receipt_image).length;
+  const handleReject = async (id) => {
+    const reason = window.prompt("Why can't this payment be verified? (The parent / student will see this.)",
+                                 "Receipt doesn't match the amount");
+    if (reason === null) return;
+    if (!reason.trim()) { alert("Please give a reason."); return; }
+    try {
+      await financeApi.rejectPayment(id, reason.trim());
+      setSuccess("Payment rejected. The parent / student has been told the reason.");
+      fetchPayments();
+      setTimeout(() => setSuccess(""), 4000);
+    } catch (e) { alert(e?.response?.data?.message || "Failed to reject payment."); }
+  };
+  // review_status: pending | verified | rejected (older rows: fall back to is_verified)
+  const reviewOf = p => p.review_status || (p.is_verified ? "verified" : "pending");
+  const pendingCount = payments.filter(p => reviewOf(p) === "pending").length;
 
   return (
     <div>
       {success && <div className="alert alert-success">{success}</div>}
-      <div className="page-header" style={{ marginBottom:16 }}>
-        <h2 style={{ fontSize:16, fontWeight:700, color:"#0f172a" }}>Payment History</h2>
+      <div className="page-header fin-page-header-mb16">
+        <h2 className="fin-section-h2">Payment History</h2>
         <span className="badge badge-primary">{payments.length} records</span>
       </div>
 
-      <div className="section-card" style={{ marginBottom:16 }}>
-        <div style={{ display:"flex", gap:10, alignItems:"flex-end", flexWrap:"wrap" }}>
-          <div className="form-group" style={{ flex:1, minWidth:180, marginBottom:0 }}>
+      <div className="section-card fin-mb16">
+        <div className="fin-form-row">
+          <div className="form-group fin-flex1-180">
             <label className="form-label">Student</label>
             <input className="form-control" placeholder="Name or enrollment no." value={filters.student} onChange={e => setFilters({...filters, student:e.target.value})} onKeyDown={e => e.key === "Enter" && applyFilters()} />
           </div>
-          <div className="form-group" style={{ flex:1, minWidth:180, marginBottom:0 }}>
+          <div className="form-group fin-flex1-180">
             <label className="form-label">Receipt No.</label>
             <input className="form-control" placeholder="Reference" value={filters.reference} onChange={e => setFilters({...filters, reference:e.target.value})} onKeyDown={e => e.key === "Enter" && applyFilters()} />
           </div>
           <button className="btn btn-primary" onClick={applyFilters}>Filter</button>
-          <button className="btn btn-ghost" onClick={() => setAdvancedOpen(!advancedOpen)} style={{ color:"#2563eb", fontSize:13 }}>
+          <button className="btn btn-ghost fin-advanced-toggle" onClick={() => setAdvancedOpen(!advancedOpen)}>
             {advancedOpen ? "Hide Advanced Search \u25b4" : "Advanced Search \u25be"}
           </button>
         </div>
 
         {advancedOpen && (
-          <div style={{ marginTop:16, paddingTop:16, borderTop:"1px solid #e2e8f0" }}>
+          <div className="fin-advanced-panel">
             <div className="form-grid">
               <div className="form-group">
                 <label className="form-label">Class</label>
@@ -1147,7 +1155,7 @@ function PaymentsTab() {
                 <DatePicker value={filters.to_date} onChange={val => setFilters({...filters, to_date:val})} />
               </div>
             </div>
-            <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
+            <div className="fin-btn-row">
               <button className="btn btn-secondary" onClick={clearFilters}>Clear</button>
               <button className="btn btn-primary" onClick={applyFilters}>Apply Filters</button>
             </div>
@@ -1174,41 +1182,49 @@ function PaymentsTab() {
               <th>Receipt</th>
               <th>Invoice Status</th>
               <th>Date & Time</th>
-              <th>Verify</th>
+              <th>Verification</th>
             </tr>
           </thead>
           <tbody>
             {payments.map(p => (
               <tr key={p.id}>
                 <td>
-                  <div style={{ fontWeight:600, color:"#0f172a" }}>{p.student_name}</div>
-                  <div style={{ fontSize:11, color:"#94a3b8" }}>{p.enrollment_no}</div>
+                  <div className="fin-student-name">{p.student_name}</div>
+                  <div className="fin-desc-subtext">{p.enrollment_no}</div>
                 </td>
-                <td style={{ fontSize:12, color:"#64748b" }}>{p.class_name ? p.class_name + (p.class_section ? " (" + p.class_section + ")" : "") : "-"}</td>
-                <td style={{ fontSize:12, color:"#64748b" }}>{p.month_year || "-"}</td>
+                <td className="fin-structure-text">{p.class_name ? p.class_name + (p.class_section ? " (" + p.class_section + ")" : "") : "-"}</td>
+                <td className="fin-structure-text">{p.month_year || "-"}</td>
                 <td>
-                  <button onClick={() => setViewInvoiceId(p.invoice_id)} style={{ background:"none", border:"none", color:"#2563eb", textDecoration:"underline", cursor:"pointer", fontSize:13, padding:0 }}>
+                  <button onClick={() => setViewInvoiceId(p.invoice_id)} className="fin-link-btn">
                     {p.invoice_no || "-"}
                   </button>
                 </td>
-                <td><strong style={{ color:"#16a34a" }}>Rs. {Number(p.amount_paid).toLocaleString()}</strong></td>
-                <td><span className="badge badge-gray" style={{ textTransform:"capitalize" }}>{p.method?.replace("_"," ")}</span></td>
-                <td style={{ fontSize:12, color:"#64748b" }}>{p.reference || "N/A"}</td>
+                <td><strong className="fin-amount-green">Rs. {Number(p.amount_paid).toLocaleString()}</strong></td>
+                <td><span className="badge badge-gray fin-capitalize">{p.method?.replace("_"," ")}</span></td>
+                <td className="fin-structure-text">{p.reference || "N/A"}</td>
                 <td>
                   {p.receipt_image ? (
-                    <button onClick={() => setViewReceiptSrc(p.receipt_image)} style={{ background:"none", border:"none", padding:0, cursor:"pointer" }}>
-                      <img src={p.receipt_image} alt="receipt" style={{ width:36, height:36, objectFit:"cover", borderRadius:4, border:"1px solid #e2e8f0" }} onError={e => { e.target.style.opacity = 0.3; }} />
+                    <button onClick={() => setViewReceiptSrc(p.receipt_image)} className="fin-img-btn">
+                      <img src={p.receipt_image} alt="receipt" className="fin-img-thumb" onError={e => { e.target.style.opacity = 0.3; }} />
                     </button>
-                  ) : <span style={{ fontSize:11, color:"#94a3b8" }}>None</span>}
+                  ) : <span className="fin-desc-subtext">None</span>}
                 </td>
-                <td><span className={`badge ${p.invoice_status === "paid" ? "badge-success" : "badge-warning"}`} style={{ textTransform:"capitalize" }}>{p.invoice_status}</span></td>
-                <td style={{ fontSize:12, color:"#64748b" }}>{formatDateTime(p.paid_at)}</td>
+                <td><span className={`badge ${p.invoice_status === "paid" ? "badge-success" : "badge-warning"} fin-capitalize`}>{(p.invoice_status || "").replace("_", " ")}</span></td>
+                <td className="fin-structure-text">{formatDateTime(p.paid_at)}</td>
                 <td>
-                  {p.receipt_image && !p.is_verified && (
-                    <button className="btn btn-primary btn-xs" onClick={() => handleVerify(p.id)}>Verify</button>
+                  {reviewOf(p) === "pending" && (
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <button className="btn btn-primary btn-xs" onClick={() => handleVerify(p.id)}>Verify</button>
+                      <button className="btn btn-danger btn-xs" onClick={() => handleReject(p.id)}>Reject</button>
+                    </div>
                   )}
-                  {p.is_verified && <span className="badge badge-success">Verified</span>}
-                  {!p.receipt_image && <span style={{ fontSize:11, color:"#94a3b8" }}>-</span>}
+                  {reviewOf(p) === "verified" && <span className="badge badge-success">Verified</span>}
+                  {reviewOf(p) === "rejected" && (
+                    <div>
+                      <span className="badge badge-danger">Rejected</span>
+                      {p.rejected_reason && <div className="fin-desc-subtext" title={p.rejected_reason}>{p.rejected_reason}</div>}
+                    </div>
+                  )}
                 </td>
               </tr>
             ))}
@@ -1279,25 +1295,25 @@ function LockedAccountsTab() {
 
   return (
     <div>
-      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:16 }}>
-        <h2 style={{ fontSize:16, fontWeight:700, color:"#0f172a" }}>Locked Accounts (Unpaid Fees)</h2>
+      <div className="fin-header-row-sb">
+        <h2 className="fin-section-h2">Locked Accounts (Unpaid Fees)</h2>
         <span className="badge badge-danger">{rows.length} locked</span>
       </div>
 
-      <div className="section-card" style={{ marginBottom:16 }}>
-        <div style={{ display:"flex", gap:10, alignItems:"flex-end", flexWrap:"wrap" }}>
-          <div className="form-group" style={{ flex:1, minWidth:200, marginBottom:0 }}>
+      <div className="section-card fin-mb16">
+        <div className="fin-form-row">
+          <div className="form-group fin-flex1-200">
             <label className="form-label">Student</label>
             <input className="form-control" placeholder="Name or enrollment no." value={filters.student} onChange={e => setFilters({...filters, student:e.target.value})} onKeyDown={e => e.key === "Enter" && applyFilters()} />
           </div>
           <button className="btn btn-primary" onClick={applyFilters}>Filter</button>
-          <button className="btn btn-ghost" onClick={() => setAdvancedOpen(!advancedOpen)} style={{ color:"#2563eb", fontSize:13 }}>
+          <button className="btn btn-ghost fin-advanced-toggle" onClick={() => setAdvancedOpen(!advancedOpen)}>
             {advancedOpen ? "Hide Advanced Search \u25b4" : "Advanced Search \u25be"}
           </button>
         </div>
 
         {advancedOpen && (
-          <div style={{ marginTop:16, paddingTop:16, borderTop:"1px solid #e2e8f0" }}>
+          <div className="fin-advanced-panel">
             <div className="form-grid">
               <div className="form-group">
                 <label className="form-label">Class</label>
@@ -1317,7 +1333,7 @@ function LockedAccountsTab() {
                 <DatePicker value={filters.to_date} onChange={val => setFilters({...filters, to_date:val})} />
               </div>
             </div>
-            <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
+            <div className="fin-btn-row">
               <button className="btn btn-secondary" onClick={clearFilters}>Clear</button>
               <button className="btn btn-primary" onClick={applyFilters}>Apply Filters</button>
             </div>
@@ -1349,7 +1365,7 @@ function LockedAccountsTab() {
             <tbody>
               {rows.map(r => (
                 <tr key={r.user_id}>
-                  <td style={{ fontWeight:600 }}>{r.first_name} {r.last_name}</td>
+                  <td className="fin-bold-label">{r.first_name} {r.last_name}</td>
                   <td>{r.enrollment_no}</td>
                   <td>{r.class_name ? r.class_name + (r.class_section ? " (" + r.class_section + ")" : "") : "-"}</td>
                   <td>{r.invoice_no || "-"}</td>
@@ -1417,19 +1433,19 @@ function SiblingTiersConfig() {
         <span className="section-card-title">Sibling Discount Tiers</span>
       </div>
       {success && <div className="alert alert-success">{success}</div>}
-      <p style={{ fontSize:13, color:"#64748b", marginBottom:12 }}>
+      <p className="fin-desc-text fin-mb12">
         Configure the discount percentage for the 2nd child, 3rd child, etc. The 1st child (by ranking method) never gets a sibling discount.
       </p>
       {tiers.map((t, i) => (
-        <div key={i} style={{ display:"flex", gap:10, alignItems:"center", marginBottom:8 }}>
-          <span style={{ fontSize:13, minWidth:90 }}>Child #</span>
-          <input className="form-control" type="number" min="2" value={t.child_no} onChange={e => updateTier(i, "child_no", parseInt(e.target.value)||2)} style={{ maxWidth:90 }} />
-          <input className="form-control" type="number" min="0" max="100" value={t.percentage} onChange={e => updateTier(i, "percentage", parseFloat(e.target.value)||0)} style={{ maxWidth:100 }} />
-          <span style={{ fontSize:13, color:"#64748b" }}>%</span>
-          <button className="btn btn-ghost btn-sm" onClick={() => removeTier(i)} style={{ color:"#dc2626" }}>Remove</button>
+        <div key={i} className="fin-tier-row">
+          <span className="fin-tier-label">Child #</span>
+          <input className="form-control fin-tier-input-90" type="number" min="2" value={t.child_no} onChange={e => updateTier(i, "child_no", parseInt(e.target.value)||2)} />
+          <input className="form-control fin-tier-input-100" type="number" min="0" max="100" value={t.percentage} onChange={e => updateTier(i, "percentage", parseFloat(e.target.value)||0)} />
+          <span className="fin-structure-text">%</span>
+          <button className="btn btn-ghost btn-sm fin-remove-btn-red" onClick={() => removeTier(i)}>Remove</button>
         </div>
       ))}
-      <div style={{ display:"flex", justifyContent:"space-between", marginTop:12 }}>
+      <div className="fin-footer-row-sb">
         <button className="btn btn-secondary btn-sm" onClick={addTier}>+ Add Tier</button>
         <button className="btn btn-primary" onClick={handleSave} disabled={saving}>{saving ? "Saving..." : "Save Tiers"}</button>
       </div>
@@ -1498,19 +1514,19 @@ function DiscountsTab() {
   return (
     <div>
       {isGlobalLocked && (
-        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+        <div className="alert fin-readonly-alert">
           Discount Types are managed centrally by the superadmin. This list is read-only here.
         </div>
       )}
-      <div className="page-header" style={{ marginBottom:16 }}>
-        <h2 style={{ fontSize:16, fontWeight:700, color:"#0f172a" }}>Discount Types</h2>
+      <div className="page-header fin-page-header-mb16">
+        <h2 className="fin-section-h2">Discount Types</h2>
         {canManage && (
           <button className="btn btn-primary" onClick={openCreate}>+ Add Discount Type</button>
         )}
       </div>
 
       {showForm && (
-        <form onSubmit={handleSave} className="section-card" style={{ marginBottom:16 }}>
+        <form onSubmit={handleSave} className="section-card fin-mb16">
           {error && <div className="alert alert-error">{error}</div>}
           <div className="form-grid">
             <div className="form-group">
@@ -1533,7 +1549,7 @@ function DiscountsTab() {
               <input className="form-control" type="number" min="0" value={form.value} onChange={e => setForm({...form, value:e.target.value})} />
             </div>
           </div>
-          <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
+          <div className="fin-btn-row">
             <button type="button" className="btn btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
             <button className="btn btn-primary" disabled={saving}>{saving ? "Saving..." : "Save"}</button>
           </div>
@@ -1543,7 +1559,7 @@ function DiscountsTab() {
       {allTypes.length === 0 ? (
         <div className="empty-state">No discount types defined yet.</div>
       ) : (
-        <div className="table-container" style={{ marginBottom:24 }}>
+        <div className="table-container fin-mb24">
           <table className="table">
             <thead>
               <tr>
@@ -1558,13 +1574,13 @@ function DiscountsTab() {
             <tbody>
               {allTypes.map(t => (
                 <tr key={t.id}>
-                  <td style={{ fontWeight:600 }}>{t.name}{t.is_sibling && <span className="badge badge-gray" style={{ marginLeft:6 }}>Auto</span>}</td>
-                  <td style={{ fontSize:12, color:"#64748b" }}>{t.description || "-"}</td>
-                  <td style={{ textTransform:"capitalize" }}>{t.type}</td>
+                  <td className="fin-td-bold">{t.name}{t.is_sibling && <span className="badge badge-gray fin-badge-ml6">Auto</span>}</td>
+                  <td className="fin-structure-text">{t.description || "-"}</td>
+                  <td className="fin-capitalize">{t.type}</td>
                   <td>{t.is_sibling ? "Auto-calculated" : (t.type === "percentage" ? t.value + "%" : "Rs. " + t.value)}</td>
                   <td>{t.is_active ? <span className="badge badge-success">Active</span> : <span className="badge badge-gray">Inactive</span>}</td>
                   {canManage && (
-                    <td style={{ display:"flex", gap:6 }}>
+                    <td className="fin-actions-cell">
                       <button className="btn btn-secondary btn-xs" onClick={() => openEdit(t)}>Edit</button>
                       <button className="btn btn-ghost btn-xs" onClick={() => handleToggle(t)}>{t.is_active ? "Deactivate" : "Activate"}</button>
                     </td>
@@ -1644,15 +1660,15 @@ function ChargeTypesTab() {
 
   return (
     <div>
-      <div className="page-header" style={{ marginBottom:16 }}>
-        <h2 style={{ fontSize:16, fontWeight:700, color:"#0f172a" }}>Charge Types</h2>
+      <div className="page-header fin-page-header-mb16">
+        <h2 className="fin-section-h2">Charge Types</h2>
         {can("finance.manage") && (
           <button className="btn btn-primary" onClick={openCreate}>+ Add Charge Type</button>
         )}
       </div>
 
       {showForm && (
-        <form onSubmit={handleSave} className="section-card" style={{ marginBottom:16 }}>
+        <form onSubmit={handleSave} className="section-card fin-mb16">
           {error && <div className="alert alert-error">{error}</div>}
           <div className="form-group">
             <label className="form-label">Name *</label>
@@ -1660,12 +1676,12 @@ function ChargeTypesTab() {
           </div>
           <div className="form-group">
             <label className="form-label">Recurrence</label>
-            <div style={{ display:"flex", gap:16 }}>
-              <label style={{ display:"flex", alignItems:"center", gap:6, fontSize:13 }}>
+            <div className="fin-radio-row-gap16">
+              <label className="fin-radio-label-sm">
                 <input type="radio" name="recurrence" value="interval" checked={form.recurrence==="interval"} onChange={e => setForm({...form, recurrence:e.target.value})} />
                 Interval (repeats every N months)
               </label>
-              <label style={{ display:"flex", alignItems:"center", gap:6, fontSize:13 }}>
+              <label className="fin-radio-label-sm">
                 <input type="radio" name="recurrence" value="fixed" checked={form.recurrence==="fixed"} onChange={e => setForm({...form, recurrence:e.target.value})} />
                 Fixed (applies to a single chosen month, set per-charge)
               </label>
@@ -1674,11 +1690,11 @@ function ChargeTypesTab() {
           {form.recurrence === "interval" && (
             <div className="form-group">
               <label className="form-label">Interval (months)</label>
-              <input className="form-control" type="number" min="1" value={form.interval_months} onChange={e => setForm({...form, interval_months:e.target.value})} style={{ maxWidth:120 }} />
-              <div style={{ fontSize:11, color:"#94a3b8", marginTop:4 }}>1 = monthly, 3 = termly, 12 = yearly, etc. Counted from the active academic year's start date.</div>
+              <input className="form-control fin-maxwidth-120" type="number" min="1" value={form.interval_months} onChange={e => setForm({...form, interval_months:e.target.value})} />
+              <div className="fin-help-text-mt4">1 = monthly, 3 = termly, 12 = yearly, etc. Counted from the active academic year's start date.</div>
             </div>
           )}
-          <div style={{ display:"flex", justifyContent:"flex-end", gap:10 }}>
+          <div className="fin-btn-row">
             <button type="button" className="btn btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
             <button className="btn btn-primary" disabled={saving}>{saving ? "Saving..." : "Save"}</button>
           </div>
@@ -1702,12 +1718,12 @@ function ChargeTypesTab() {
             <tbody>
               {types.map(t => (
                 <tr key={t.id}>
-                  <td style={{ fontWeight:600 }}>{t.name}</td>
-                  <td style={{ textTransform:"capitalize" }}>{t.recurrence}</td>
+                  <td className="fin-td-bold">{t.name}</td>
+                  <td className="fin-capitalize">{t.recurrence}</td>
                   <td>{t.recurrence === "interval" ? (t.interval_months + " month" + (t.interval_months !== 1 ? "s" : "")) : "-"}</td>
                   <td>{t.is_active ? <span className="badge badge-success">Active</span> : <span className="badge badge-gray">Inactive</span>}</td>
                   {can("finance.manage") && (
-                    <td style={{ display:"flex", gap:6 }}>
+                    <td className="fin-actions-cell">
                       <button className="btn btn-secondary btn-xs" onClick={() => openEdit(t)}>Edit</button>
                       <button className="btn btn-ghost btn-xs" onClick={() => handleToggle(t.id)}>{t.is_active ? "Deactivate" : "Activate"}</button>
                     </td>
@@ -1762,23 +1778,23 @@ function ChargeSettlementTab() {
 
   return (
     <div>
-      <div className="page-header" style={{ marginBottom:16 }}>
-        <h2 style={{ fontSize:16, fontWeight:700, color:"#0f172a" }}>Charge Settlement</h2>
+      <div className="page-header fin-page-header-mb16">
+        <h2 className="fin-section-h2">Charge Settlement</h2>
       </div>
 
-      <div className="section-card" style={{ marginBottom:16 }}>
-        <div style={{ display:"flex", gap:10, alignItems:"flex-end", flexWrap:"wrap" }}>
-          <div className="form-group" style={{ flex:1, minWidth:200, marginBottom:0 }}>
+      <div className="section-card fin-mb16">
+        <div className="fin-form-row">
+          <div className="form-group fin-flex1-200">
             <label className="form-label">Registration No.</label>
             <input className="form-control" placeholder="e.g. SMS/2026/0101" value={regNo} onChange={e => setRegNo(e.target.value)} onKeyDown={e => e.key === "Enter" && handleSearch()} />
           </div>
-          <div className="form-group" style={{ flex:1, minWidth:200, marginBottom:0 }}>
+          <div className="form-group fin-flex1-200">
             <label className="form-label">Receipt No.</label>
             <input className="form-control" placeholder="Receipt / reference no." value={receipt} onChange={e => setReceipt(e.target.value)} onKeyDown={e => e.key === "Enter" && handleSearch()} />
           </div>
           <button className="btn btn-primary" onClick={handleSearch} disabled={loading}>{loading ? "Searching..." : "Search"}</button>
         </div>
-        {error && <div className="alert alert-error" style={{ marginTop:12 }}>{error}</div>}
+        {error && <div className="alert alert-error fin-error-mt12">{error}</div>}
       </div>
 
       {!searched ? (
@@ -1810,20 +1826,20 @@ function ChargeSettlementTab() {
                 const isLocked = isPaid || row.invoice_status === "cancelled" || row.is_waived;
                 return (
                   <tr key={row.item_id}>
-                    <td style={{ fontWeight:600 }}>{row.label}</td>
+                    <td className="fin-td-bold">{row.label}</td>
                     <td>
                       <div>{row.first_name} {row.last_name}</div>
-                      <div style={{ fontSize:11, color:"#94a3b8" }}>{row.enrollment_no}</div>
+                      <div className="fin-desc-subtext">{row.enrollment_no}</div>
                     </td>
                     <td>{row.invoice_no}</td>
-                    <td><span className={"badge " + (isPaid ? "badge-success" : row.invoice_status === "cancelled" ? "badge-gray" : "badge-warning")} style={{ textTransform:"capitalize" }}>{row.invoice_status}</span></td>
+                    <td><span className={"badge fin-capitalize " + (isPaid ? "badge-success" : row.invoice_status === "cancelled" ? "badge-gray" : "badge-warning")}>{row.invoice_status}</span></td>
                     <td>Rs. {Number(row.amount).toLocaleString()}</td>
                     <td>{fmtDate(row.issued_at)}</td>
                     <td>{fmtDate(row.paid_at)}</td>
                     <td><input type="checkbox" checked={isPaid} disabled readOnly /></td>
                     <td>
                       {waivingId === row.item_id ? (
-                        <span style={{ fontSize:12, color:"#64748b" }}>Processing...</span>
+                        <span className="fin-processing-text">Processing...</span>
                       ) : (
                         <input type="checkbox" checked={row.is_waived} disabled={isLocked} onChange={() => !isLocked && handleWaive(row)} />
                       )}
@@ -1938,19 +1954,19 @@ function ChargesTab() {
   return (
     <div>
       {isGlobalLocked && (
-        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+        <div className="alert fin-readonly-alert">
           Extra Charges are managed centrally by the superadmin. This list is read-only here.
         </div>
       )}
       {success && <div className="alert alert-success">{success}</div>}
       {error   && <div className="alert alert-error">{error}</div>}
-      <div className="page-header" style={{ marginBottom:16 }}>
-        <h2 style={{ fontSize:16, fontWeight:700 }}>Extra Charges</h2>
+      <div className="page-header fin-page-header-mb16">
+        <h2 className="fin-section-h2">Extra Charges</h2>
         {canManage && <button className="btn btn-primary" onClick={openCreate}>+ Add Charge</button>}
       </div>
 
       {showForm && (
-        <div className="section-card" style={{ marginBottom:16 }}>
+        <div className="section-card fin-mb16">
           <div className="section-card-header"><span className="section-card-title">{editItem ? "Edit Charge" : "New Charge"}</span></div>
           <form onSubmit={handleSave}>
             <div className="form-grid">
@@ -1990,13 +2006,13 @@ function ChargesTab() {
               )}
               <div className="form-group">
                 <label className="form-label">Applies To *</label>
-                <div style={{ display:"flex", gap:16, marginBottom:10 }}>
+                <div className="fin-radio-row-gap16-mb10">
                   {[
                     { v:"whole_school", l:"Whole School" },
                     { v:"classes",      l:"Specific Class" },
                     { v:"students",     l:"Specific Student" },
                   ].map(opt => (
-                    <label key={opt.v} style={{ display:"flex", alignItems:"center", gap:6, cursor:"pointer" }}>
+                    <label key={opt.v} className="fin-radio-label-6">
                       <input type="radio" name="target_type" value={opt.v} checked={form.target_type===opt.v}
                         onChange={e => setForm({...form, target_type:e.target.value, class_ids: e.target.value==="classes" ? form.class_ids : [], student_ids: e.target.value==="students" ? form.student_ids : []})} />
                       {opt.l}
@@ -2004,11 +2020,11 @@ function ChargesTab() {
                   ))}
                 </div>
                 {form.target_type === "classes" && (
-                  <div style={{ border:"1px solid #e2e8f0", borderRadius:8, padding:"10px 12px", maxHeight:160, overflowY:"auto" }}>
+                  <div className="fin-checkbox-list-box">
                     {classes.map(c => {
                       const checked = form.class_ids.map(String).includes(String(c.id));
                       return (
-                        <label key={c.id} style={{ display:"flex", alignItems:"center", gap:8, padding:"4px 0", cursor:"pointer", fontSize:13 }}>
+                        <label key={c.id} className="fin-checkbox-list-item">
                           <input type="checkbox" checked={checked} onChange={e => {
                             if (e.target.checked) setForm({...form, class_ids:[...form.class_ids, c.id]});
                             else setForm({...form, class_ids:form.class_ids.filter(id => String(id)!==String(c.id))});
@@ -2021,23 +2037,23 @@ function ChargesTab() {
                 )}
                 {form.target_type === "students" && (
                   <div>
-                    <input className="form-control" placeholder="Search student by name or enrollment no..." value={studentSearch}
-                      onChange={e => setStudentSearch(e.target.value)} style={{ marginBottom:8 }} />
+                    <input className="form-control fin-search-input-mb8" placeholder="Search student by name or enrollment no..." value={studentSearch}
+                      onChange={e => setStudentSearch(e.target.value)} />
                     {form.student_ids.length > 0 && (
-                      <div style={{ display:"flex", flexWrap:"wrap", gap:6, marginBottom:8 }}>
+                      <div className="fin-chip-row-mb8">
                         {selectedStudents.map(s => (
-                          <span key={s.id} style={{ display:"flex", alignItems:"center", gap:4, background:"#eff6ff", color:"#1d4ed8", padding:"3px 8px", borderRadius:14, fontSize:12 }}>
+                          <span key={s.id} className="fin-student-chip">
                             {s.first_name} {s.last_name}
                             <button type="button" onClick={() => {
                               setForm({...form, student_ids: form.student_ids.filter(id => String(id)!==String(s.id))});
                               setSelectedStudents(selectedStudents.filter(x => String(x.id)!==String(s.id)));
-                            }} style={{ border:"none", background:"none", cursor:"pointer", color:"#1d4ed8", fontWeight:700, padding:0 }}>×</button>
+                            }} className="fin-chip-remove-btn">×</button>
                           </span>
                         ))}
                       </div>
                     )}
                     {studentResults.length > 0 && (
-                      <div style={{ border:"1px solid #e2e8f0", borderRadius:8, maxHeight:180, overflowY:"auto" }}>
+                      <div className="fin-results-list-box">
                         {studentResults.map(s => {
                           const already = form.student_ids.map(String).includes(String(s.id));
                           return (
@@ -2045,7 +2061,7 @@ function ChargesTab() {
                               if (already) return;
                               setForm({...form, student_ids:[...form.student_ids, s.id]});
                               setSelectedStudents([...selectedStudents, s]);
-                            }} style={{ padding:"8px 12px", cursor: already ? "default" : "pointer", fontSize:13, borderBottom:"1px solid #f1f5f9", opacity: already ? 0.5 : 1, background: already ? "#f8fafc" : "#fff" }}>
+                            }} className="fin-result-item" style={{ "--cursor": already ? "default" : "pointer", "--opacity": already ? 0.5 : 1, "--bg": already ? "var(--bg-hover)" : "var(--bg-card)" }}>
                               {s.first_name} {s.last_name} ({s.enrollment_no}){s.class_name ? " - " + s.class_name + (s.section ? " (" + s.section + ")" : "") : ""}{already ? " ✓" : ""}
                             </div>
                           );
@@ -2060,7 +2076,7 @@ function ChargesTab() {
                 <input className="form-control" value={form.description} onChange={e => setForm({...form, description:e.target.value})} placeholder="Optional description" />
               </div>
             </div>
-            <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+            <div className="fin-btn-row">
               <button type="button" className="btn btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
               <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Saving..." : editItem ? "Update" : "Create"}</button>
             </div>
@@ -2077,19 +2093,19 @@ function ChargesTab() {
                 <tr key={c.id}>
                   <td>
                     <strong>{c.name}</strong>
-                    {!c.is_active && <span className="badge badge-gray" style={{ marginLeft:6 }}>Inactive</span>}
-                    {c.description && <div style={{ fontSize:11, color:"#94a3b8" }}>{c.description}</div>}
+                    {!c.is_active && <span className="badge badge-gray fin-badge-ml6">Inactive</span>}
+                    {c.description && <div className="fin-desc-subtext">{c.description}</div>}
                   </td>
                   <td>Rs. {Number(c.amount).toLocaleString()}</td>
                   <td>
-                    <span className={`badge ${c.recurrence === "interval" && c.interval_months === 1 ? "badge-primary" : c.recurrence === "fixed" ? "badge-warning" : "badge-gray"}`} style={{ textTransform:"capitalize" }}>
+                    <span className={`badge fin-capitalize ${c.recurrence === "interval" && c.interval_months === 1 ? "badge-primary" : c.recurrence === "fixed" ? "badge-warning" : "badge-gray"}`}>
                       {c.recurrence === "fixed" ? `${c.charge_type_name} - ${MONTHS[(c.apply_month||1)-1]} ${c.apply_year||""}` : c.charge_type_name}
                     </span>
                   </td>
-                  <td style={{ fontSize:12 }}>{c.target_type==="classes" ? (c.class_labels||[]).join(", ") : c.target_type==="students" ? (c.student_labels||[]).join(", ") || "Specific Students" : "All Classes"}</td>
+                  <td className="fin-structure-text">{c.target_type==="classes" ? (c.class_labels||[]).join(", ") : c.target_type==="students" ? (c.student_labels||[]).join(", ") || "Specific Students" : "All Classes"}</td>
                   <td><span className={`badge ${c.is_active ? "badge-success" : "badge-gray"}`}>{c.is_active ? "Active" : "Inactive"}</span></td>
                   {canManage && (
-                    <td style={{ display:"flex", gap:5 }}>
+                    <td className="fin-actions-cell">
                       <button className="btn btn-ghost btn-xs" onClick={() => openEdit(c)}>Edit</button>
                       <button className="btn btn-danger btn-xs" onClick={() => handleDelete(c.id)}>Delete</button>
                     </td>
@@ -2124,12 +2140,12 @@ function SmartMonthlyForm({ onGenerated, onClose }) {
   };
 
   return (
-    <div className="section-card" style={{ marginBottom:16 }}>
+    <div className="section-card fin-mb16">
       <div className="section-card-header">
         <span className="section-card-title">Smart Monthly Invoice Generation</span>
         <button className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
       </div>
-      <p style={{ fontSize:13, color:"#64748b", marginBottom:14 }}>
+      <p className="fin-desc-text fin-mb14">
         Generates invoices for all active students based on their class tuition fee + applicable extra charges + discounts.
         Skips students who already have an invoice for the selected month.
       </p>
@@ -2151,12 +2167,12 @@ function SmartMonthlyForm({ onGenerated, onClose }) {
             <input className="form-control" type="number" value={dueDay} onChange={e => setDueDay(Number(e.target.value))} min="1" max="28" />
           </div>
         </div>
-        <div style={{ background:"#eff6ff", border:"1px solid #bfdbfe", borderRadius:8, padding:"10px 14px", marginBottom:14, fontSize:13, color:"#1d4ed8" }}>
+        <div className="fin-info-box">
           Will generate invoices for <strong>{MONTHS[month-1]} {year}</strong> with due date on <strong>{dueDay}th {MONTHS[month-1]}</strong>.
         </div>
-        <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+        <div className="fin-btn-row">
           <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button type="submit" className="btn btn-primary" disabled={saving} style={{ background:"#16a34a", borderColor:"#16a34a" }}>
+          <button type="submit" className="btn btn-primary fin-btn-green" disabled={saving}>
             {saving ? "Generating..." : `Generate ${MONTHS[month-1]} ${year} Invoices`}
           </button>
         </div>
@@ -2210,19 +2226,19 @@ function FeeTypesTab() {
   return (
     <div>
       {isGlobalLocked && (
-        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+        <div className="alert fin-readonly-alert">
           Fee Types are managed centrally by the superadmin. This list is read-only here.
         </div>
       )}
       {success && <div className="alert alert-success">{success}</div>}
       {error   && <div className="alert alert-error">{error}</div>}
-      <div className="page-header" style={{ marginBottom:16 }}>
-        <h2 style={{ fontSize:16, fontWeight:700 }}>Fee Types</h2>
+      <div className="page-header fin-page-header-mb16">
+        <h2 className="fin-section-h2">Fee Types</h2>
         {canManage && <button className="btn btn-primary" onClick={openCreate}>+ New Fee Type</button>}
       </div>
 
       {showForm && (
-        <div className="section-card" style={{ marginBottom:16 }}>
+        <div className="section-card fin-mb16">
           <div className="section-card-header"><span className="section-card-title">{editItem ? "Edit Fee Type" : "New Fee Type"}</span></div>
           <form onSubmit={handleSave}>
             <div className="form-grid">
@@ -2235,7 +2251,7 @@ function FeeTypesTab() {
                 <input className="form-control" value={form.description} onChange={e => setForm({...form, description:e.target.value})} placeholder="Optional" />
               </div>
             </div>
-            <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+            <div className="fin-btn-row">
               <button type="button" className="btn btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
               <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? "Saving..." : editItem ? "Update" : "Create"}</button>
             </div>
@@ -2250,10 +2266,10 @@ function FeeTypesTab() {
             {types.map(t => (
               <tr key={t.id}>
                 <td><strong>{t.name}</strong></td>
-                <td style={{ fontSize:12, color:"#64748b" }}>{t.description || "—"}</td>
+                <td className="fin-structure-text">{t.description || "—"}</td>
                 <td><span className={`badge ${t.is_active ? "badge-success" : "badge-gray"}`}>{t.is_active ? "Active" : "Inactive"}</span></td>
                 {canManage && (
-                  <td style={{ display:"flex", gap:5 }}>
+                  <td className="fin-actions-cell">
                     <button className="btn btn-ghost btn-xs" onClick={() => openEdit(t)}>Edit</button>
                     <button className="btn btn-danger btn-xs" onClick={() => handleDelete(t.id)}>Delete</button>
                   </td>
@@ -2306,12 +2322,12 @@ function LateFeeConfigCard({ classId, academicYearId, canManage, isGlobalLocked 
   if (loading) return null;
 
   return (
-    <div className="section-card" style={{ marginBottom:16 }}>
+    <div className="section-card fin-mb16">
       <div className="section-card-header">
         <span className="section-card-title">Late Fee Configuration</span>
       </div>
       {isGlobalLocked && (
-        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:12 }}>
+        <div className="alert fin-readonly-alert-mb12">
           This is managed centrally by the superadmin. Read-only here.
         </div>
       )}
@@ -2334,13 +2350,13 @@ function LateFeeConfigCard({ classId, academicYearId, canManage, isGlobalLocked 
             </label>
             <input className="form-control" type="number" value={form.late_fee_amount} onChange={e => setForm({...form, late_fee_amount:e.target.value})} min="0" step="0.01" disabled={!canManage} />
             {form.late_fee_type === "per_day" && (
-              <div style={{ fontSize:11, color:"#94a3b8", marginTop:4 }}>Charged for each day overdue, starting after the grace period configured in Fee Settings.</div>
+              <div className="fin-help-text-mt4">Charged for each day overdue, starting after the grace period configured in Fee Settings.</div>
             )}
           </div>
         )}
       </div>
       {canManage && (
-        <div style={{ display:"flex", justifyContent:"flex-end" }}>
+        <div className="fin-footer-row-right">
           <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
             {saving ? "Saving..." : "Save Late Fee Config"}
           </button>
@@ -2418,14 +2434,14 @@ function ClassFeesTab() {
   return (
     <div>
       {feesLocked && (
-        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+        <div className="alert fin-readonly-alert">
           Class Fees are managed centrally by the superadmin. This list is read-only here.
         </div>
       )}
       {success && <div className="alert alert-success">{success}</div>}
       {error   && <div className="alert alert-error">{error}</div>}
 
-      <div className="section-card" style={{ marginBottom:16 }}>
+      <div className="section-card fin-mb16">
         <div className="section-card-header"><span className="section-card-title">Select Class & Year</span></div>
         <div className="form-grid">
           <div className="form-group">
@@ -2454,17 +2470,17 @@ function ClassFeesTab() {
           <div className="section-card-header">
             <span className="section-card-title">
               Fees for {(() => { const sc = classes.find(c => String(c.id) === String(selClass)); return sc ? sc.name + (sc.section ? " (" + sc.section + ")" : "") : ""; })()}
-              {classFees.length > 0 && <span className="badge badge-primary" style={{ marginLeft:8 }}>Total: Rs. {totalFees.toLocaleString()}</span>}
+              {classFees.length > 0 && <span className="badge badge-primary fin-badge-ml">Total: Rs. {totalFees.toLocaleString()}</span>}
             </span>
             {canManage && availableTypes.length > 0 && (
-              <button className="btn btn-primary btn-sm" style={{color:"#fff"}} onClick={() => { setForm({ fee_type_id:"", amount:"" }); setShowForm(!showForm); }}>
+              <button className="btn btn-primary btn-sm fin-add-fee-btn" onClick={() => { setForm({ fee_type_id:"", amount:"" }); setShowForm(!showForm); }}>
                 + Add Fee
               </button>
             )}
           </div>
 
           {showForm && (
-            <form onSubmit={handleSave} style={{ padding:"12px 0", borderBottom:"1px solid #f1f5f9" }}>
+            <form onSubmit={handleSave} className="fin-form-row-bordered">
               <div className="form-grid">
                 <div className="form-group">
                   <label className="form-label">Fee Type *</label>
@@ -2478,9 +2494,9 @@ function ClassFeesTab() {
                   <input className="form-control" type="number" value={form.amount} onChange={e => setForm({...form, amount:e.target.value})} required min="0" />
                 </div>
               </div>
-              <div style={{ display:"flex", gap:10, justifyContent:"flex-end" }}>
+              <div className="fin-btn-row">
                 <button type="button" className="btn btn-secondary btn-sm" onClick={() => setShowForm(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary btn-sm" style={{color:"#fff"}} disabled={saving}>{saving ? "Saving..." : "Add Fee"}</button>
+                <button type="submit" className="btn btn-primary btn-sm fin-add-fee-btn" disabled={saving}>{saving ? "Saving..." : "Add Fee"}</button>
               </div>
             </form>
           )}
@@ -2494,15 +2510,15 @@ function ClassFeesTab() {
                 {classFees.map(f => (
                   <tr key={f.id}>
                     <td><strong>{f.fee_type_name}</strong></td>
-                    <td><strong style={{ color:"#2563eb" }}>Rs. {Number(f.amount).toLocaleString()}</strong></td>
+                    <td><strong className="fin-amount-blue">Rs. {Number(f.amount).toLocaleString()}</strong></td>
                     {canManage && (
                       <td><button className="btn btn-danger btn-xs" onClick={() => handleDelete(f.id)}>Remove</button></td>
                     )}
                   </tr>
                 ))}
-                <tr style={{ background:"#f8fafc" }}>
+                <tr className="fin-total-row">
                   <td><strong>Total Monthly Fee</strong></td>
-                  <td><strong style={{ color:"#16a34a", fontSize:14 }}>Rs. {totalFees.toLocaleString()}</strong></td>
+                  <td><strong className="fin-total-value">Rs. {totalFees.toLocaleString()}</strong></td>
                   {canManage && <td></td>}
                 </tr>
               </tbody>
@@ -2559,11 +2575,11 @@ function DiscountConfigTab() {
         <span className="section-card-title">Discount Application Configuration</span>
       </div>
       {isGlobalLocked && (
-        <div className="alert" style={{ background:"#fffbeb", border:"1px solid #fde68a", color:"#92400e", marginBottom:16 }}>
+        <div className="alert fin-readonly-alert">
           This configuration is managed centrally by the superadmin. It is read-only here.
         </div>
       )}
-      <p style={{ fontSize:13, color:"#64748b", marginBottom:16 }}>
+      <p className="fin-desc-text fin-mb16">
         Configure which fee types the discount applies to. Charges are never discounted.
         When a student qualifies for multiple discounts, the highest value discount is applied.
       </p>
@@ -2571,36 +2587,36 @@ function DiscountConfigTab() {
       {success && <div className="alert alert-success">{success}</div>}
       {error   && <div className="alert alert-error">{error}</div>}
 
-      <div style={{ marginBottom:20 }}>
-        <label style={{ display:"flex", alignItems:"center", gap:10, cursor:"pointer", padding:"12px 16px", background: config.on_all ? "#eff6ff" : "#f8fafc", border:"1px solid", borderColor: config.on_all ? "#2563eb" : "#e2e8f0", borderRadius:8, marginBottom:8 }}>
+      <div className="fin-section-mb20">
+        <label className="fin-option-box" style={{ "--box-bg": config.on_all ? "var(--bg-info-soft)" : "var(--bg-hover)", "--box-border": config.on_all ? "#2563eb" : "var(--border-color)" }}>
           <input
             type="checkbox"
             checked={config.on_all}
             onChange={e => setConfig({ ...config, on_all: e.target.checked, fee_type_ids: e.target.checked ? [] : config.fee_type_ids })}
-            style={{ width:18, height:18 }}
+            className="fin-option-checkbox-lg"
             disabled={!canManage}
           />
           <div>
-            <div style={{ fontWeight:700, fontSize:14, color: config.on_all ? "#2563eb" : "#0f172a" }}>Apply on All Fee Types</div>
-            <div style={{ fontSize:12, color:"#64748b" }}>Discount will apply on the total of all configured fee types</div>
+            <div className="fin-option-title" style={{ "--title-color": config.on_all ? "#2563eb" : "var(--text-heading)" }}>Apply on All Fee Types</div>
+            <div className="fin-option-subtext">Discount will apply on the total of all configured fee types</div>
           </div>
         </label>
 
         {!config.on_all && (
-          <div style={{ marginTop:12 }}>
-            <div style={{ fontSize:13, fontWeight:600, color:"#0f172a", marginBottom:10 }}>Or select specific fee types:</div>
+          <div className="fin-mt12">
+            <div className="fin-subsection-label">Or select specific fee types:</div>
             {feeTypes.filter(ft => ft.is_active).map(ft => (
-              <label key={ft.id} style={{ display:"flex", alignItems:"center", gap:10, cursor:"pointer", padding:"10px 16px", background: config.fee_type_ids.includes(ft.id) ? "#eff6ff" : "#fff", border:"1px solid", borderColor: config.fee_type_ids.includes(ft.id) ? "#2563eb" : "#e2e8f0", borderRadius:8, marginBottom:6 }}>
+              <label key={ft.id} className="fin-option-box-sm" style={{ "--box-bg": config.fee_type_ids.includes(ft.id) ? "var(--bg-info-soft)" : "var(--bg-card)", "--box-border": config.fee_type_ids.includes(ft.id) ? "#2563eb" : "var(--border-color)" }}>
                 <input
                   type="checkbox"
                   checked={config.fee_type_ids.includes(ft.id)}
                   onChange={() => toggleFeeType(ft.id)}
-                  style={{ width:16, height:16 }}
+                  className="fin-option-checkbox-sm"
                   disabled={!canManage}
                 />
                 <div>
-                  <div style={{ fontWeight:600, fontSize:13 }}>{ft.name}</div>
-                  {ft.description && <div style={{ fontSize:11, color:"#94a3b8" }}>{ft.description}</div>}
+                  <div className="fin-chip-title">{ft.name}</div>
+                  {ft.description && <div className="fin-chip-desc">{ft.description}</div>}
                 </div>
               </label>
             ))}
@@ -2608,13 +2624,13 @@ function DiscountConfigTab() {
         )}
       </div>
 
-      <div style={{ background:"#fffbeb", border:"1px solid #fde68a", borderRadius:8, padding:"10px 14px", marginBottom:16, fontSize:13, color:"#92400e" }}>
+      <div className="fin-note-box">
         <strong>Note:</strong> Discount applies to fee types only. Extra charges (Sports Day, Trip fees, etc.) are never discounted.
       </div>
 
-      <div style={{ marginBottom:20 }}>
-        <div style={{ fontSize:13, fontWeight:600, color:"#0f172a", marginBottom:10 }}>Sibling Ranking Method</div>
-        <p style={{ fontSize:12, color:"#64748b", marginBottom:10 }}>
+      <div className="fin-section-mb20">
+        <div className="fin-subsection-label">Sibling Ranking Method</div>
+        <p className="fin-desc-text fin-mb10">
           Determines which child in a family is treated as 1st, 2nd, 3rd, etc. when applying sibling discount tiers.
         </p>
         {[
@@ -2622,18 +2638,18 @@ function DiscountConfigTab() {
           { value:"registration_no", label:"Registration-wise", hint:"Earliest registration number = 1st child." },
           { value:"dob",             label:"Date of Birth-wise",hint:"Oldest date of birth = 1st child." },
         ].map(opt => (
-          <label key={opt.value} style={{ display:"flex", alignItems:"flex-start", gap:10, cursor:"pointer", padding:"10px 16px", background: config.sibling_rank_method === opt.value ? "#eff6ff" : "#fff", border:"1px solid", borderColor: config.sibling_rank_method === opt.value ? "#2563eb" : "#e2e8f0", borderRadius:8, marginBottom:6 }}>
+          <label key={opt.value} className="fin-radio-option-box" style={{ "--box-bg": config.sibling_rank_method === opt.value ? "var(--bg-info-soft)" : "var(--bg-card)", "--box-border": config.sibling_rank_method === opt.value ? "#2563eb" : "var(--border-color)" }}>
             <input
               type="radio"
               name="sibling_rank_method"
               checked={config.sibling_rank_method === opt.value}
               onChange={() => setConfig({ ...config, sibling_rank_method: opt.value })}
-              style={{ width:16, height:16, marginTop:2 }}
+              className="fin-radio-mt2"
               disabled={!canManage}
             />
             <div>
-              <div style={{ fontWeight:600, fontSize:13 }}>{opt.label}</div>
-              <div style={{ fontSize:11, color:"#94a3b8" }}>{opt.hint}</div>
+              <div className="fin-chip-title">{opt.label}</div>
+              <div className="fin-chip-desc">{opt.hint}</div>
             </div>
           </label>
         ))}

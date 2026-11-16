@@ -1,0 +1,100 @@
+/* =====================================================================
+   Attendance Report (teacher: classes they are incharge of)
+   Neutrals come from the shared variables in index.css; status colours
+   are local tokens with a dark set below.
+   ===================================================================== */
+
+.mar-page {
+  --mar-page-bg:     var(--color-background-tertiary, #f1f5f9);
+  --mar-surface:     var(--color-background-primary, #ffffff);
+  --mar-surface-alt: var(--color-background-secondary, #f8fafc);
+  --mar-row-hover:   #f8fafc;
+  --mar-ink:         var(--color-text-primary, #0f172a);
+  --mar-ink-soft:    var(--color-text-secondary, #64748b);
+  --mar-ink-faint:   var(--color-text-tertiary, #94a3b8);
+  --mar-line:        var(--color-border-secondary, #e2e8f0);
+  --mar-line-soft:   var(--color-border-tertiary, #f1f5f9);
+
+  --mar-present:     #166534;
+  --mar-absent:      #dc2626;
+  --mar-late:        #c2410c;
+  --mar-leave:       #0369a1;
+
+  --mar-note-bg:     #fff7ed;
+  --mar-note-line:   #fed7aa;
+  --mar-note-ink:    #92400e;
+
+  padding: 24px;
+  min-height: 100vh;
+  background: var(--mar-page-bg);
+  color: var(--mar-ink);
+}
+
+/* ---------- dark mode ---------- */
+html[data-color-mode="dark"] .mar-page {
+  --mar-page-bg:     var(--color-background-tertiary, #0b1220);
+  --mar-surface:     var(--color-background-primary, #1e293b);
+  --mar-surface-alt: var(--color-background-secondary, #0f172a);
+  --mar-row-hover:   rgba(255, 255, 255, 0.04);
+  --mar-ink:         var(--color-text-primary, #e2e8f0);
+  --mar-ink-soft:    var(--color-text-secondary, #94a3b8);
+  --mar-ink-faint:   var(--color-text-tertiary, #64748b);
+  --mar-line:        var(--color-border-secondary, #334155);
+  --mar-line-soft:   var(--color-border-tertiary, #273449);
+
+  --mar-present:     #4ade80;
+  --mar-absent:      #f87171;
+  --mar-late:        #fb923c;
+  --mar-leave:       #38bdf8;
+
+  --mar-note-bg:     rgba(249, 115, 22, 0.12);
+  --mar-note-line:   rgba(249, 115, 22, 0.35);
+  --mar-note-ink:    #fdba74;
+}
+
+/* ---------- heading + filters ---------- */
+.mar-head  { margin-bottom: 20px; }
+.mar-title { font-size: 22px; font-weight: 800; color: var(--mar-ink); margin-bottom: 4px; }
+.mar-sub   { font-size: 13px; color: var(--mar-ink-soft); }
+
+.mar-filters { display: flex; gap: 10px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; }
+.mar-label   { font-size: 11px; font-weight: 600; display: block; margin-bottom: 4px; color: var(--mar-ink); }
+
+/* ---------- loading / empty ---------- */
+.mar-placeholder {
+  background: var(--mar-surface); border: 1px solid var(--mar-line); border-radius: 12px;
+  padding: 60px; text-align: center; color: var(--mar-ink-faint);
+}
+
+/* ---------- one card per class ---------- */
+.mar-card {
+  background: var(--mar-surface); border: 1px solid var(--mar-line); border-radius: 12px;
+  overflow: hidden; margin-bottom: 20px; color: var(--mar-ink);
+}
+.mar-card-head { padding: 14px 20px; border-bottom: 1px solid var(--mar-line); font-weight: 700; font-size: 15px; }
+.mar-scroll { overflow-x: auto; }
+
+.mar-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.mar-table thead tr { background: var(--mar-surface-alt); }
+.mar-table th {
+  padding: 10px 14px; font-size: 11px; font-weight: 700; color: var(--mar-ink-faint);
+  text-transform: uppercase; text-align: left; border-bottom: 1px solid var(--mar-line); white-space: nowrap;
+}
+.mar-table tbody tr { border-bottom: 1px solid var(--mar-line-soft); }
+.mar-table tbody tr:hover { background: var(--mar-row-hover); }
+.mar-table td { padding: 10px 14px; color: var(--mar-ink); }
+
+.mar-name    { font-weight: 600; }
+.mar-soft    { color: var(--mar-ink-soft) !important; }
+.mar-present { color: var(--mar-present) !important; }
+.mar-absent  { color: var(--mar-absent) !important; }
+.mar-late    { color: var(--mar-late) !important; }
+.mar-leave   { color: var(--mar-leave) !important; }
+.mar-pct     { font-weight: 700; }
+.mar-table td.mar-empty { padding: 20px; text-align: center; color: var(--mar-ink-faint); }
+
+/* ---------- withdrawn-students note ---------- */
+.mar-note {
+  background: var(--mar-note-bg); border: 1px solid var(--mar-note-line); border-radius: 12px;
+  padding: 16px; font-size: 13px; color: var(--mar-note-ink);
+}

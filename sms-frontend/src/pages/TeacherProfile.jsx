@@ -4,6 +4,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import teachersApi from "../api/teachersApi";
 import DatePicker from "../components/DatePicker";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
+import "./TeacherProfile.css";
 
 const ALL_TABS = [
   { label:"Profile",   perm:null },
@@ -78,11 +79,11 @@ export default function TeacherProfile() {
         Back to Teachers
       </button>
 
-      {toast && <div className="alert alert-success" style={{ marginBottom:16 }}>{toast}</div>}
+      {toast && <div className="alert alert-success tp-toast">{toast}</div>}
 
       <div className="profile-layout">
         <div className="profile-card">
-          <div className="profile-avatar" style={{ background:"linear-gradient(135deg, #059669, #34d399)" }}>
+          <div className="profile-avatar tp-avatar-gradient">
             {initials.toUpperCase()}
           </div>
           <div className="profile-name">{teacher.first_name} {teacher.last_name}</div>
@@ -90,7 +91,7 @@ export default function TeacherProfile() {
           <span className={"badge " + (teacher.status === "active" ? "badge-success" : "badge-danger")}>
             {teacher.status}
           </span>
-          <div style={{ marginTop:20 }}>
+          <div className="tp-detail-rows-wrap">
             {profileRows.map(([label, value]) => (
               <div key={label} className="profile-detail">
                 <span className="profile-detail-label">{label}</span>
@@ -129,7 +130,7 @@ function ProfileTab({ teacher }) {
   const { can } = useAuth();
   return (
     <div>
-      <div className="section-card" style={{ marginBottom:16 }}>
+      <div className="section-card tp-section-card-spaced">
         <div className="section-card-header">
           <span className="section-card-title">Teacher Information</span>
         </div>
@@ -146,7 +147,7 @@ function ProfileTab({ teacher }) {
         ].map(([label, value]) => (
           <div key={label} className="profile-detail">
             <span className="profile-detail-label">{label}</span>
-            <span className="profile-detail-value" style={{ textTransform:"capitalize" }}>{value}</span>
+            <span className="profile-detail-value tp-detail-value-cap">{value}</span>
           </div>
         ))}
       </div>
@@ -250,7 +251,7 @@ function EditTab({ teacher, onSaved }) {
             <input className="form-control" name="specialization" value={form.specialization} onChange={handleChange} placeholder="e.g. Mathematics, Physics" />
           </div>
         </div>
-        <div style={{ display:"flex", justifyContent:"flex-end", marginTop:8 }}>
+        <div className="tp-form-actions">
           <button type="submit" className="btn btn-primary" disabled={saving}>
             {saving ? "Saving..." : "Save Changes"}
           </button>
@@ -320,17 +321,17 @@ function SubjectsTab({ teacherId, onRefresh }) {
         {assigned.length === 0 ? (
           <div className="empty-state">No subjects assigned yet.</div>
         ) : (
-          <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:20 }}>
+          <div className="tp-chip-row">
             {assigned.map(s => (
               <div
                 key={s.id}
-                style={{ display:"flex", alignItems:"center", gap:6, background:"#f0fdf4", border:"1px solid #bbf7d0", borderRadius:8, padding:"6px 12px" }}
+                className="tp-subject-chip"
               >
-                <span style={{ fontSize:13, fontWeight:600, color:"#166534" }}>{s.name}</span>
-                <span style={{ fontSize:11, color:"#94a3b8" }}>({s.code})</span>
+                <span className="tp-chip-name">{s.name}</span>
+                <span className="tp-chip-code">({s.code})</span>
                 <button
                   onClick={() => { setSelected(String(s.id)); }}
-                  style={{ background:"none", border:"none", color:"#dc2626", cursor:"pointer", fontSize:14, lineHeight:1, marginLeft:4 }}
+                  className="tp-chip-remove-btn"
                 >
                   x
                 </button>
@@ -339,14 +340,13 @@ function SubjectsTab({ teacherId, onRefresh }) {
           </div>
         )}
 
-        <div className="section-card-header" style={{ marginTop:16 }}>
+        <div className="section-card-header tp-section-header-spaced">
           <span className="section-card-title">Assign or Remove Subject</span>
         </div>
 
-        <div style={{ display:"flex", gap:10, alignItems:"center", flexWrap:"wrap" }}>
+        <div className="tp-assign-row">
           <select
-            className="form-control"
-            style={{ flex:1, minWidth:200 }}
+            className="form-control tp-assign-select"
             value={selected}
             onChange={e => setSelected(e.target.value)}
           >
@@ -411,30 +411,30 @@ function TimetableTab({ teacherId }) {
         <span className="section-card-title">Weekly Timetable</span>
         <span className="badge badge-gray">{timetable.length} periods</span>
       </div>
-      <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:12 }}>
+      <div className="tp-timetable-grid">
         {DAYS.map(day => (
           <div
             key={day}
-            style={{ background:"#f8fafc", borderRadius:8, padding:12, border:"1px solid #e2e8f0" }}
+            className="tp-day-card"
           >
-            <div style={{ fontSize:11, fontWeight:700, color:"#2563eb", textTransform:"uppercase", letterSpacing:"0.06em", marginBottom:8 }}>
+            <div className="tp-day-label">
               {day}
             </div>
             {byDay[day].length === 0 ? (
-              <div style={{ fontSize:11, color:"#cbd5e1", textAlign:"center", padding:"8px 0" }}>Free</div>
+              <div className="tp-free-slot">Free</div>
             ) : (
               byDay[day].map((slot, i) => (
                 <div
                   key={i}
-                  style={{ background:"#fff", border:"1px solid #e2e8f0", borderRadius:6, padding:"8px 10px", marginBottom:6 }}
+                  className="tp-slot-card"
                 >
-                  <div style={{ fontSize:12, fontWeight:700, color:"#0f172a" }}>{slot.subject_name}</div>
-                  <div style={{ fontSize:11, color:"#64748b" }}>{slot.class_name}{slot.section ? " ("+slot.section+")" : ""}</div>
-                  <div style={{ fontSize:11, color:"#2563eb", fontWeight:600, marginTop:2 }}>
+                  <div className="tp-slot-subject">{slot.subject_name}</div>
+                  <div className="tp-slot-class">{slot.class_name}{slot.section ? " ("+slot.section+")" : ""}</div>
+                  <div className="tp-slot-time">
                     {slot.start_time ? slot.start_time.slice(0,5) : ""} - {slot.end_time ? slot.end_time.slice(0,5) : ""}
                   </div>
                   {slot.room_number && (
-                    <div style={{ fontSize:10, color:"#94a3b8" }}>Room: {slot.room_number}</div>
+                    <div className="tp-slot-room">Room: {slot.room_number}</div>
                   )}
                 </div>
               ))
@@ -462,16 +462,16 @@ function ClassesTab({ teacher }) {
             <div
               key={c.id}
               className="stat-card"
-              style={{ borderTop: c.is_primary ? "3px solid #2563eb" : "3px solid #e2e8f0", padding:"16px" }}
+              className="tp-class-card" style={{ "--card-accent": c.is_primary ? "#2563eb" : "var(--border-color)" }}
             >
-              <div className="stat-card-value" style={{ fontSize:20 }}>{c.name}{c.section ? " (" + c.section + ")" : ""}</div>
+              <div className="stat-card-value tp-class-name">{c.name}{c.section ? " (" + c.section + ")" : ""}</div>
               <div className="stat-card-label">{c.student_count} students</div>
               {c.subject_names && (
-                <div style={{ fontSize:11, color:"#16a34a", fontWeight:500, marginTop:4 }}>{c.subject_names}</div>
+                <div className="tp-class-subjects">{c.subject_names}</div>
               )}
               {c.is_primary && (
-                <div style={{ marginTop:6 }}>
-                  <span className="badge badge-primary" style={{ fontSize:10 }}>Class Teacher</span>
+                <div className="tp-class-teacher-badge-wrap">
+                  <span className="badge badge-primary tp-class-teacher-badge">Class Teacher</span>
                 </div>
               )}
             </div>

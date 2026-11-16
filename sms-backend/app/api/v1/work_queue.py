@@ -44,6 +44,16 @@ def get_my_queue(
     cur.execute("SELECT * FROM sp_get_work_queue(%s, %s::varchar[], %s, %s, %s)",
                 (user_id, roles, module, priority, status or "pending"))
     rows = [dict(r) for r in cur.fetchall()]
+    # sp_get_work_queue (this overload) doesn't return submitter_id, but the
+    # frontend needs it to tell "I'm the submitter viewing my own item" apart
+    # from "I'm the approver" when routing a Work Queue item's "Open full
+    # request" link - fetch it directly from work_queue_items instead.
+    ids = [r["id"] for r in rows]
+    if ids:
+        cur.execute("SELECT id, submitter_id FROM work_queue_items WHERE id = ANY(%s)", (ids,))
+        submitter_by_id = {row["id"]: row["submitter_id"] for row in cur.fetchall()}
+        for r in rows:
+            r["submitter_id"] = submitter_by_id.get(r["id"])
     for r in rows:
         if r.get("created_at"): r["created_at"] = str(r["created_at"])
         if r.get("due_date"):   r["due_date"]   = str(r["due_date"])

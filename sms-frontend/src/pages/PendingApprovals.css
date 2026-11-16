@@ -1,0 +1,16 @@
+.pending-approvals-header {
+  margin-bottom: 16px;
+}
+
+.pending-approvals-alert {
+  margin-bottom: 16px;
+}
+
+.pending-approvals-priority {
+  text-transform: capitalize;
+}
+
+.pending-approvals-step {
+  font-size: 12px;
+  color: var(--text-secondary);
+}

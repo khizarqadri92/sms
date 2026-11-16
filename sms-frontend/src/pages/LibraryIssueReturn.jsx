@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import libraryApi from "../api/libraryApi";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
+import "./LibraryIssueReturn.css";
 
 function IssueBookModal({ onClose, onSaved }) {
   const [memberQuery, setMemberQuery] = useState("");
@@ -59,39 +60,39 @@ function IssueBookModal({ onClose, onSaved }) {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
-      <div style={{ background: "#fff", borderRadius: 12, padding: 24, width: "100%", maxWidth: 700, maxHeight: "88vh", overflow: "auto" }} onClick={e => e.stopPropagation()}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <span style={{ fontWeight: 700, fontSize: 16 }}>Issue a Book</span>
+    <div className="lir-modal-overlay" onClick={onClose}>
+      <div className="lir-modal-box-lg" onClick={e => e.stopPropagation()}>
+        <div className="lir-modal-header">
+          <span className="lir-modal-title">Issue a Book</span>
           <button className="btn btn-ghost btn-sm" onClick={onClose}>Close</button>
         </div>
 
-        {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}
+        {error && <div className="alert alert-error lir-mb12">{error}</div>}
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div className="lir-two-col">
           <div>
-            <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>1. Select Member</div>
-            <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+            <div className="lir-step-label">1. Select Member</div>
+            <div className="lir-search-row">
               <input className="form-control" placeholder="Name or card no." value={memberQuery} onChange={e => setMemberQuery(e.target.value)} onKeyDown={e => e.key === "Enter" && searchMembers()} />
               <button className="btn btn-secondary btn-sm" onClick={searchMembers}>Go</button>
             </div>
             {selectedMember ? (
-              <div style={{ padding: 10, borderRadius: 8, background: "#f0fdf4", border: "1px solid #bbf7d0" }}>
+              <div className="lir-selected-member-box">
                 <strong>{selectedMember.first_name} {selectedMember.last_name}</strong>
-                <div style={{ fontSize: 12, color: "#64748b" }}>{selectedMember.library_card_no} · {selectedMember.books_currently_issued}/{selectedMember.max_books} books issued</div>
+                <div className="lir-subtext">{selectedMember.library_card_no} · {selectedMember.books_currently_issued}/{selectedMember.max_books} books issued</div>
                 {Number(selectedMember.pending_fine) > 0 && (
-                  <div style={{ fontSize: 12, color: "#dc2626", marginTop: 4 }}>Pending fine: Rs. {Number(selectedMember.pending_fine).toLocaleString()}</div>
+                  <div className="lir-fine-warn">Pending fine: Rs. {Number(selectedMember.pending_fine).toLocaleString()}</div>
                 )}
-                <button className="btn btn-ghost btn-xs" style={{ marginTop: 6 }} onClick={() => setSelectedMember(null)}>Change</button>
+                <button className="btn btn-ghost btn-xs lir-mt6" onClick={() => setSelectedMember(null)}>Change</button>
               </div>
             ) : searchingMembers ? (
               <div className="loading-state">Searching...</div>
             ) : (
-              <div style={{ maxHeight: 200, overflow: "auto" }}>
+              <div className="lir-search-results">
                 {members.map(m => (
-                  <div key={m.member_id} onClick={() => setSelectedMember(m)} style={{ padding: 8, borderBottom: "1px solid #f1f5f9", cursor: "pointer" }}>
-                    <div style={{ fontSize: 13 }}>{m.first_name} {m.last_name}</div>
-                    <div style={{ fontSize: 11, color: "#94a3b8" }}>{m.library_card_no} · {m.member_type}</div>
+                  <div key={m.member_id} onClick={() => setSelectedMember(m)} className="lir-search-row-item">
+                    <div className="lir-item-name">{m.first_name} {m.last_name}</div>
+                    <div className="lir-item-subtext">{m.library_card_no} · {m.member_type}</div>
                   </div>
                 ))}
               </div>
@@ -99,36 +100,36 @@ function IssueBookModal({ onClose, onSaved }) {
           </div>
 
           <div>
-            <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>2. Select Book</div>
-            <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+            <div className="lir-step-label">2. Select Book</div>
+            <div className="lir-search-row">
               <input className="form-control" placeholder="Title, ISBN, or author" value={bookQuery} onChange={e => setBookQuery(e.target.value)} onKeyDown={e => e.key === "Enter" && searchBooks()} />
               <button className="btn btn-secondary btn-sm" onClick={searchBooks}>Go</button>
             </div>
             {selectedBook ? (
-              <div style={{ padding: 10, borderRadius: 8, background: "#eff6ff", border: "1px solid #bfdbfe" }}>
+              <div className="lir-selected-book-box">
                 <strong>{selectedBook.title}</strong>
-                <div style={{ fontSize: 12, color: "#64748b" }}>{selectedBook.author_name || "Unknown author"}</div>
+                <div className="lir-subtext">{selectedBook.author_name || "Unknown author"}</div>
                 {availableCopy ? (
-                  <div style={{ fontSize: 12, color: "#16a34a", marginTop: 4 }}>Copy: {availableCopy.accession_no}</div>
+                  <div className="lir-copy-ok">Copy: {availableCopy.accession_no}</div>
                 ) : (
-                  <div style={{ fontSize: 12, color: "#dc2626", marginTop: 4 }}>No available copy found.</div>
+                  <div className="lir-fine-warn">No available copy found.</div>
                 )}
-                <button className="btn btn-ghost btn-xs" style={{ marginTop: 6 }} onClick={() => { setSelectedBook(null); setAvailableCopy(null); }}>Change</button>
+                <button className="btn btn-ghost btn-xs lir-mt6" onClick={() => { setSelectedBook(null); setAvailableCopy(null); }}>Change</button>
               </div>
             ) : searchingBooks ? (
               <div className="loading-state">Searching...</div>
             ) : (
-              <div style={{ maxHeight: 200, overflow: "auto" }}>
+              <div className="lir-search-results">
                 {books.map(b => {
                   const isAvailable = b.available_copies > 0;
                   return (
                     <div
                       key={b.id}
                       onClick={() => isAvailable && selectBook(b)}
-                      style={{ padding: 8, borderBottom: "1px solid #f1f5f9", cursor: isAvailable ? "pointer" : "not-allowed", opacity: isAvailable ? 1 : 0.6 }}
+                      className={isAvailable ? "lir-search-row-item" : "lir-search-row-item-unavailable"}
                     >
-                      <div style={{ fontSize: 13 }}>{b.title}</div>
-                      <div style={{ fontSize: 11, color: isAvailable ? "#94a3b8" : "#dc2626" }}>
+                      <div className="lir-item-name">{b.title}</div>
+                      <div className={isAvailable ? "lir-item-subtext" : "lir-item-subtext-unavailable"}>
                         {b.author_name || "Unknown"} · {isAvailable ? b.available_copies + " available" : "Not available right now"}
                       </div>
                     </div>
@@ -139,7 +140,7 @@ function IssueBookModal({ onClose, onSaved }) {
           </div>
         </div>
 
-        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
+        <div className="lir-modal-footer">
           <button className="btn btn-primary" disabled={!selectedMember || !availableCopy || issuing} onClick={handleIssue}>
             {issuing ? "Issuing..." : "Issue Book"}
           </button>
@@ -195,12 +196,12 @@ function ReturnModal({ issue, onClose, onSaved }) {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
-      <div style={{ background: "#fff", borderRadius: 12, padding: 24, width: "100%", maxWidth: 420 }} onClick={e => e.stopPropagation()}>
-        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>Return Book</div>
-        <div style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>{issue.book_title} · {issue.first_name} {issue.last_name}</div>
+    <div className="lir-modal-overlay" onClick={onClose}>
+      <div className="lir-modal-box-sm" onClick={e => e.stopPropagation()}>
+        <div className="lir-return-title">Return Book</div>
+        <div className="lir-return-subtitle">{issue.book_title} · {issue.first_name} {issue.last_name}</div>
 
-        {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}
+        {error && <div className="alert alert-error lir-mb12">{error}</div>}
 
         {!result ? (
           <>
@@ -213,32 +214,32 @@ function ReturnModal({ issue, onClose, onSaved }) {
                 <option value="lost">Lost</option>
               </select>
             </div>
-            <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+            <div className="lir-btn-row">
               <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
               <button className="btn btn-primary" disabled={returning} onClick={handleReturn}>{returning ? "Processing..." : "Confirm Return"}</button>
             </div>
           </>
         ) : (
           <>
-            <div className="alert alert-success" style={{ marginBottom: 12 }}>
+            <div className="alert alert-success lir-mb12">
               Book returned{result.days_overdue > 0 ? ` (${result.days_overdue} day(s) overdue)` : ""}.
             </div>
             {result.fine_amount > 0 ? (
               <>
-                <div style={{ marginBottom: 12, fontSize: 14 }}>
-                  Fine due: <strong style={{ color: "#dc2626" }}>Rs. {Number(result.fine_amount).toLocaleString()}</strong>
+                <div className="lir-fine-due">
+                  Fine due: <strong className="lir-red-text">Rs. {Number(result.fine_amount).toLocaleString()}</strong>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Amount to Collect</label>
                   <input className="form-control" type="number" value={payAmount} onChange={e => setPayAmount(e.target.value)} placeholder={String(result.fine_amount)} />
                 </div>
-                <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+                <div className="lir-btn-row">
                   <button className="btn btn-secondary" disabled={paying} onClick={handleWaive}>Waive Fine</button>
                   <button className="btn btn-primary" disabled={paying} onClick={handlePay}>{paying ? "Recording..." : "Collect Payment"}</button>
                 </div>
               </>
             ) : (
-              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <div className="lir-flex-end">
                 <button className="btn btn-primary" onClick={onSaved}>Done</button>
               </div>
             )}
@@ -355,24 +356,24 @@ export default function LibraryIssueReturn() {
 
   return (
     <div>
-      <div className="page-header" style={{ marginBottom: 16 }}>
+      <div className="page-header lir-mb16">
         <h1 className="page-heading">Issue / Return</h1>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div className="lir-flex-gap8">
           <button className={"btn " + (viewMode === "issues" ? "btn-primary" : "btn-secondary")} onClick={() => setViewMode("issues")}>Issued Books</button>
           <button className={"btn " + (viewMode === "reservations" ? "btn-primary" : "btn-secondary")} onClick={() => setViewMode("reservations")}>
-            Reservations {reservations.length > 0 && <span className="badge badge-warning" style={{ marginLeft: 4 }}>{reservations.length}</span>}
+            Reservations {reservations.length > 0 && <span className="badge badge-warning lir-ml4">{reservations.length}</span>}
           </button>
           <button className="btn btn-primary" onClick={() => setShowIssueModal(true)}>+ Issue Book</button>
         </div>
       </div>
 
-      {success && <div className="alert alert-success" style={{ marginBottom: 16 }}>{success}</div>}
-      {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
+      {success && <div className="alert alert-success lir-mb16">{success}</div>}
+      {error && <div className="alert alert-error lir-mb16">{error}</div>}
 
       {viewMode === "issues" ? (
         <>
-          <div className="section-card" style={{ marginBottom: 16 }}>
-            <div style={{ display: "flex", gap: 8 }}>
+          <div className="section-card lir-mb16">
+            <div className="lir-flex-gap8">
               {[
                 { label: "All", value: "" },
                 { label: "Issued", value: "issued" },
@@ -415,20 +416,20 @@ export default function LibraryIssueReturn() {
                       <td><strong>{i.book_title}</strong></td>
                       <td>
                         <div>{i.first_name} {i.last_name}</div>
-                        <div style={{ fontSize: 11, color: "#94a3b8" }}>{i.library_card_no}</div>
+                        <div className="lir-item-subtext">{i.library_card_no}</div>
                       </td>
                       <td>{i.accession_no}</td>
-                      <td style={{ fontSize: 12, color: "#64748b" }}>{formatDate(i.issued_at)}</td>
+                      <td className="lir-subtext">{formatDate(i.issued_at)}</td>
                       <td>{formatDate(i.due_date)}</td>
-                      <td><span className={"badge " + (statusBadge[i.current_status] || "badge-gray")} style={{ textTransform: "capitalize" }}>{i.current_status}</span></td>
+                      <td><span className={"badge lir-capitalize " + (statusBadge[i.current_status] || "badge-gray")}>{i.current_status}</span></td>
                       <td>
                         {Number(i.fine_amount) > 0 ? (
-                          <span style={{ color: i.fine_status === "pending" ? "#dc2626" : "#16a34a", fontWeight: 600 }}>
+                          <span className={i.fine_status === "pending" ? "lir-fine-pending" : "lir-fine-settled"}>
                             Rs. {Number(i.fine_amount).toLocaleString()} ({i.fine_status})
                           </span>
                         ) : "-"}
                       </td>
-                      <td style={{ display: "flex", gap: 6, flexWrap: "nowrap" }}>
+                      <td className="lir-actions-cell">
                         {i.current_status !== "returned" && (
                           <>
                             <button className="btn btn-primary btn-xs" onClick={() => setReturnIssue(i)}>Return</button>
@@ -474,9 +475,9 @@ export default function LibraryIssueReturn() {
                       <td><strong>{r.book_title}</strong></td>
                       <td>
                         <div>{r.first_name} {r.last_name}</div>
-                        <div style={{ fontSize: 11, color: "#94a3b8" }}>{r.library_card_no} \u00b7 {r.member_type}</div>
+                        <div className="lir-item-subtext">{r.library_card_no} \u00b7 {r.member_type}</div>
                       </td>
-                      <td style={{ fontSize: 12, color: "#64748b" }}>{formatDate(r.requested_at)}</td>
+                      <td className="lir-subtext">{formatDate(r.requested_at)}</td>
                       <td>
                         {r.status === "available" ? (
                           <span className="badge badge-success">Ready for Pickup</span>
@@ -484,7 +485,7 @@ export default function LibraryIssueReturn() {
                           <span className="badge badge-warning">Waiting</span>
                         )}
                       </td>
-                      <td style={{ display: "flex", gap: 6, flexWrap: "nowrap" }}>
+                      <td className="lir-actions-cell">
                         {r.status === "available" && (
                           <button className="btn btn-primary btn-xs" disabled={issuingResId === r.id} onClick={() => handleIssueToMember(r)}>
                             {issuingResId === r.id ? "Issuing..." : "Issue to Member"}

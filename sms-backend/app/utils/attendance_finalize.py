@@ -13,6 +13,7 @@ already-finalized days (matches how the late-arrival flag is snapshotted).
 """
 import psycopg2.extras
 from datetime import datetime as _dt, timedelta as _td
+from zoneinfo import ZoneInfo
 from app.db.connection import get_db
 from app.utils.processing_date import get_processing_datetime
 
@@ -42,8 +43,15 @@ def run_attendance_finalize_scheduled(app, force=False):
                 target_hour, target_minute = [int(p) for p in target_time_str.split(":")]
             except ValueError:
                 target_hour, target_minute = 0, 30
+            cur.execute("SELECT value FROM system_settings WHERE key = \'timezone\'")
+            tz_row = cur.fetchone()
+            school_tz = tz_row["value"] if tz_row and tz_row["value"] else "UTC"
+            try:
+                now_local = now.astimezone(ZoneInfo(school_tz))
+            except Exception:
+                now_local = now
             target_total_minutes = target_hour * 60 + target_minute
-            now_total_minutes = now.hour * 60 + now.minute
+            now_total_minutes = now_local.hour * 60 + now_local.minute
             if now_total_minutes < target_total_minutes or now_total_minutes >= target_total_minutes + 15:
                 return {"ran": False, "reason": "Not within the configured time window yet."}
 

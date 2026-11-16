@@ -3,6 +3,7 @@ import { useAuth } from "../auth/AuthContext";
 import { useSearchParams } from "react-router-dom";
 import { examsApi } from "../api/examsApi";
 import client from "../api/client";
+import "./ExamMarks.css";
 
 export default function ExamMarks() {
   const { user, can } = useAuth();
@@ -141,43 +142,45 @@ export default function ExamMarks() {
   const totalStudents = marksData?.students?.length||0;
 
   return (
-    <div style={{padding:24,background:"#f1f5f9",minHeight:"100vh"}}>
-      <div style={{marginBottom:20}}>
-        <div style={{fontSize:22,fontWeight:800,color:"#0f172a",marginBottom:4}}>Exam Marks Entry</div>
-        <div style={{fontSize:13,color:"#64748b"}}>Select an exam, then a class to enter marks</div>
+    <div className="em-page">
+      <div className="em-header">
+        <div className="em-title">Exam Marks Entry</div>
+        <div className="em-subtitle">Select an exam, then a class to enter marks</div>
       </div>
 
-      {flash.msg&&<div style={{padding:"10px 16px",borderRadius:8,marginBottom:16,background:flash.type==="error"?"#fef2f2":"#f0fdf4",border:"1px solid "+(flash.type==="error"?"#fecaca":"#bbf7d0"),color:flash.type==="error"?"#991b1b":"#166534",fontSize:13}}>{flash.msg}</div>}
+      {flash.msg&&<div className="em-flash" style={{ "--flash-bg": flash.type==="error"?"var(--bg-danger-soft)":"var(--bg-success-soft)", "--flash-border": flash.type==="error"?"#fecaca":"#bbf7d0", "--flash-color": flash.type==="error"?"#991b1b":"#166534" }}>{flash.msg}</div>}
 
-      <div style={{display:"grid",gridTemplateColumns:"220px 1fr",gap:20,alignItems:"flex-start"}}>
+      <div className="em-main-grid">
 
         {/* LEFT SIDEBAR */}
-        <div style={{display:"flex",flexDirection:"column",gap:12}}>
+        <div className="em-sidebar">
 
           {/* Exam List */}
-          <div style={{background:"#fff",border:"1.5px solid #e2e8f0",borderRadius:12,overflow:"hidden"}}>
-            <div style={{padding:"10px 14px",borderBottom:"1px solid #f1f5f9",background:"#f8fafc",fontSize:12,fontWeight:700,color:"#374151",textTransform:"uppercase",letterSpacing:".06em"}}>Exams</div>
-            {exams.length===0&&<div style={{padding:"14px",fontSize:12,color:"#94a3b8"}}>No open exams.</div>}
+          <div className="em-side-card">
+            <div className="em-side-card-header">Exams</div>
+            {exams.length===0&&<div className="em-side-empty">No open exams.</div>}
             {exams.map(e=>(
-              <div key={e.id} onClick={()=>pickExam(e)} style={{padding:"10px 14px",cursor:"pointer",borderBottom:"1px solid #f8fafc",borderLeft:"3px solid "+(selectedExam?.id===e.id?"#0f4c35":"transparent"),background:selectedExam?.id===e.id?"#f0fdf4":"#fff",transition:"all .1s"}}>
-                <div style={{fontWeight:600,fontSize:13,color:"#0f172a"}}>{e.name}</div>
-                <div style={{fontSize:11,color:"#64748b",marginTop:1}}>{e.exam_type_name}</div>
+              <div key={e.id} onClick={()=>pickExam(e)} className="em-side-item"
+                style={{ "--item-border": selectedExam?.id===e.id?"#0f4c35":"transparent", "--item-bg": selectedExam?.id===e.id?"var(--bg-success-soft)":"var(--bg-card)" }}>
+                <div className="em-side-item-name">{e.name}</div>
+                <div className="em-side-item-sub">{e.exam_type_name}</div>
               </div>
             ))}
           </div>
 
           {/* Class List */}
           {selectedExam&&(
-            <div style={{background:"#fff",border:"1.5px solid #e2e8f0",borderRadius:12,overflow:"hidden"}}>
-              <div style={{padding:"10px 14px",borderBottom:"1px solid #f1f5f9",background:"#f8fafc",fontSize:12,fontWeight:700,color:"#374151",textTransform:"uppercase",letterSpacing:".06em"}}>Classes</div>
-              {myClasses.length===0&&<div style={{padding:"14px",fontSize:12,color:"#94a3b8"}}>No classes assigned.</div>}
+            <div className="em-side-card">
+              <div className="em-side-card-header">Classes</div>
+              {myClasses.length===0&&<div className="em-side-empty">No classes assigned.</div>}
               {myClasses.map(c=>(
-                <div key={c.id} onClick={()=>pickClass(c)} style={{padding:"10px 14px",cursor:"pointer",borderBottom:"1px solid #f8fafc",borderLeft:"3px solid "+(selectedClass?.id===c.id?"#0f4c35":"transparent"),background:selectedClass?.id===c.id?"#f0fdf4":"#fff",transition:"all .1s",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                <div key={c.id} onClick={()=>pickClass(c)} className="em-side-item-row"
+                  style={{ "--item-border": selectedClass?.id===c.id?"#0f4c35":"transparent", "--item-bg": selectedClass?.id===c.id?"var(--bg-success-soft)":"var(--bg-card)" }}>
                   <div>
-                    <div style={{fontWeight:600,fontSize:13,color:"#0f172a"}}>{c.name}{c.section?" ("+c.section+")":""}</div>
-                    {c.is_primary&&<div style={{fontSize:10,color:"#166534",fontWeight:600}}>Incharge</div>}
+                    <div className="em-side-item-name">{c.name}{c.section?" ("+c.section+")":""}</div>
+                    {c.is_primary&&<div className="em-side-item-incharge">Incharge</div>}
                   </div>
-                  {selectedClass?.id===c.id&&loadingSubs&&<div style={{width:14,height:14,border:"2px solid #e2e8f0",borderTop:"2px solid #0f4c35",borderRadius:"50%",animation:"spin .6s linear infinite"}} />}
+                  {selectedClass?.id===c.id&&loadingSubs&&<div className="em-spinner" />}
                 </div>
               ))}
             </div>
@@ -187,52 +190,52 @@ export default function ExamMarks() {
         {/* RIGHT CONTENT */}
         <div>
           {!selectedExam&&(
-            <div style={{background:"#fff",borderRadius:12,padding:"60px",textAlign:"center",color:"#94a3b8",border:"1px solid #e2e8f0"}}>
-              <div style={{fontSize:40,marginBottom:12}}>📋</div>
-              <div style={{fontWeight:600,fontSize:15}}>Select an exam to start</div>
+            <div className="em-placeholder">
+              <div className="em-placeholder-icon">📋</div>
+              <div className="em-placeholder-text">Select an exam to start</div>
             </div>
           )}
 
           {selectedExam&&!selectedClass&&(
-            <div style={{background:"#fff",borderRadius:12,padding:"60px",textAlign:"center",color:"#94a3b8",border:"1px solid #e2e8f0"}}>
-              <div style={{fontSize:40,marginBottom:12}}>🏫</div>
-              <div style={{fontWeight:600,fontSize:15}}>Select a class from the left</div>
+            <div className="em-placeholder">
+              <div className="em-placeholder-icon">🏫</div>
+              <div className="em-placeholder-text">Select a class from the left</div>
             </div>
           )}
 
           {/* Class detail panel - always visible when class selected */}
           {selectedClass&&(
-            <div style={{display:"flex",flexDirection:"column",gap:16}}>
+            <div className="em-detail-stack">
 
               {/* Class header */}
-              <div style={{background:"#fff",borderRadius:12,padding:"16px 20px",border:"1.5px solid #e2e8f0",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+              <div className="em-class-header">
                 <div>
-                  <div style={{fontWeight:700,fontSize:16,color:"#0f172a"}}>{selectedClass.name}{selectedClass.section?" ("+selectedClass.section+")":""}</div>
-                  <div style={{fontSize:12,color:"#64748b",marginTop:2}}>{selectedExam.name} · {subjects.length} subject{subjects.length!==1?"s":""}</div>
+                  <div className="em-class-name">{selectedClass.name}{selectedClass.section?" ("+selectedClass.section+")":""}</div>
+                  <div className="em-class-meta">{selectedExam.name} · {subjects.length} subject{subjects.length!==1?"s":""}</div>
                 </div>
                 {summary?.compiled?(
-                  <div style={{display:"flex",alignItems:"center",gap:8,background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"8px 14px"}}>
-                    <span style={{fontSize:16,color:"#166534"}}>&#10003;</span>
+                  <div className="em-compiled-badge">
+                    <span className="em-compiled-check">&#10003;</span>
                     <div>
-                      <div style={{fontSize:13,fontWeight:700,color:"#166534"}}>Results Compiled</div>
-                      <div style={{fontSize:11,color:"#64748b"}}>by {summary.compiled.compiled_by_name||"Class Incharge"}</div>
+                      <div className="em-compiled-title">Results Compiled</div>
+                      <div className="em-compiled-by">by {summary.compiled.compiled_by_name||"Class Incharge"}</div>
                     </div>
                   </div>
                 ):summary?.all_submitted&&canCompile&&(isCoordinator||myClasses.find(c=>c.id===selectedClass?.id&&c.is_primary))?(
-                  <button disabled={saving} onClick={compileResults} style={{padding:"8px 18px",background:"#0f4c35",color:"#fff",border:"none",borderRadius:8,fontSize:13,fontWeight:700,cursor:"pointer"}}>{saving?"Compiling...":"Compile Results"}</button>
+                  <button disabled={saving} onClick={compileResults} className="em-compile-btn">{saving?"Compiling...":"Compile Results"}</button>
                 ):summary?.all_submitted&&!canCompile?(
-                  <div style={{fontSize:12,color:"#166534",background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:"8px 14px",fontWeight:600}}>All marks submitted ? awaiting class incharge to compile</div>
+                  <div className="em-awaiting-text">All marks submitted — awaiting class incharge to compile</div>
                 ):null}
               </div>
 
               {/* Subjects grid + marks side by side */}
-              <div style={{display:"grid",gridTemplateColumns:selectedSub?"1fr 1fr":"1fr",gap:16}}>
+              <div className="em-content-grid" style={{ "--content-cols": selectedSub?"1fr 1fr":"1fr" }}>
 
                 {/* Subjects table */}
-                <div style={{background:"#fff",borderRadius:12,border:"1.5px solid #e2e8f0",overflow:"hidden"}}>
-                  <div style={{padding:"12px 16px",borderBottom:"1px solid #f1f5f9",background:"#f8fafc",fontWeight:700,fontSize:13}}>Subjects</div>
-                  {loadingSubs?<div style={{padding:24,textAlign:"center",color:"#94a3b8",fontSize:13}}>Loading...</div>:
-                  subjects.length===0?<div style={{padding:24,textAlign:"center",color:"#94a3b8",fontSize:13}}>No subjects in datesheet for this class.</div>:(
+                <div className="em-subjects-card">
+                  <div className="em-subjects-header">Subjects</div>
+                  {loadingSubs?<div className="em-subjects-loading">Loading...</div>:
+                  subjects.length===0?<div className="em-subjects-loading">No subjects in datesheet for this class.</div>:(
                     <div>
                       {subjects.map((s,i)=>{
                         const sm = summary?.subjects?.find(x=>x.subject_id===s.subject_id);
@@ -241,26 +244,27 @@ export default function ExamMarks() {
                         const entered = sm?.marks_entered||0;
                         const total = sm?.total_students||0;
                         return (
-                          <div key={i} style={{padding:"12px 16px",borderBottom:"1px solid #f8fafc",background:isSelected?"#f0fdf4":s.marks_submitted?"#f8fffe":!canEdit?"#fafafa":"#fff",borderLeft:"3px solid "+(isSelected?"#0f4c35":s.marks_submitted?"#22c55e":"transparent"),transition:"all .1s"}}>
-                            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
+                          <div key={i} className="em-subject-row"
+                            style={{ "--row-bg": isSelected?"var(--bg-success-soft)":s.marks_submitted?"var(--bg-success-soft)":!canEdit?"var(--color-background-secondary)":"var(--bg-card)", "--row-border-left": isSelected?"#0f4c35":s.marks_submitted?"#22c55e":"transparent" }}>
+                            <div className="em-subject-top-row">
                               <div>
-                                <div style={{fontWeight:600,fontSize:13,color:"#0f172a"}}>{s.subject_name}</div>
-                                <div style={{fontSize:11,color:"#64748b",marginTop:2}}>Date: {s.exam_date||"-"} · Max: {s.total_marks}</div>
-                                {(s.subject_teacher_name||s.teacher_name)&&<div style={{fontSize:11,color:"#2563eb",marginTop:2,fontWeight:500}}>Subject Teacher: {s.subject_teacher_name||s.teacher_name}</div>}
+                                <div className="em-subject-name">{s.subject_name}</div>
+                                <div className="em-subject-meta">Date: {s.exam_date||"-"} · Max: {s.total_marks}</div>
+                                {(s.subject_teacher_name||s.teacher_name)&&<div className="em-subject-teacher">Subject Teacher: {s.subject_teacher_name||s.teacher_name}</div>}
                               </div>
                               {s.marks_submitted
-                                ? <span style={{fontSize:10,fontWeight:600,background:"#dcfce7",color:"#166534",padding:"2px 8px",borderRadius:8,flexShrink:0}}>Submitted</span>
-                                : <span style={{fontSize:10,fontWeight:600,background:"#fef9c3",color:"#854d0e",padding:"2px 8px",borderRadius:8,flexShrink:0}}>Pending</span>
+                                ? <span className="em-submitted-tag">Submitted</span>
+                                : <span className="em-pending-tag">Pending</span>
                               }
                             </div>
-                            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-                              <div style={{fontSize:11,color:"#64748b"}}>Entered: <strong style={{color:entered===total&&total>0?"#166534":"#0f172a"}}>{entered}/{total}</strong></div>
-                              <div style={{display:"flex",gap:6}}>
+                            <div className="em-subject-bottom-row">
+                              <div className="em-entered-text">Entered: <strong style={{color: entered===total&&total>0?"#166534":"var(--text-heading)"}}>{entered}/{total}</strong></div>
+                              <div className="em-subject-actions">
                                 {(s.marks_submitted||entered>0)&&(
-                                  <button onClick={()=>pickSubject(s)} style={{padding:"3px 10px",background:"#eff6ff",border:"1px solid #bfdbfe",borderRadius:6,fontSize:11,fontWeight:600,color:"#2563eb",cursor:"pointer"}}>View</button>
+                                  <button onClick={()=>pickSubject(s)} className="em-view-btn">View</button>
                                 )}
                                 {canEdit&&!s.marks_submitted&&(
-                                  <button onClick={()=>pickSubject(s)} style={{padding:"3px 10px",background:"#0f4c35",border:"none",borderRadius:6,fontSize:11,fontWeight:600,color:"#fff",cursor:"pointer"}}>{entered>0?"Edit":"Enter"}</button>
+                                  <button onClick={()=>pickSubject(s)} className="em-edit-btn">{entered>0?"Edit":"Enter"}</button>
                                 )}
                               </div>
                             </div>
@@ -269,42 +273,42 @@ export default function ExamMarks() {
                       })}
                     </div>
                   )}
-                  {summary&&!summary.all_submitted&&<div style={{padding:"8px 14px",fontSize:11,color:"#854d0e",background:"#fffbeb",borderTop:"1px solid #fde68a"}}>Submit all subjects to compile results.</div>}
+                  {summary&&!summary.all_submitted&&<div className="em-submit-all-note">Submit all subjects to compile results.</div>}
                 </div>
 
                 {/* Marks Entry Panel */}
                 {selectedSub&&(
-                  <div style={{background:"#fff",borderRadius:12,border:"1.5px solid #0f4c35",overflow:"hidden"}}>
-                    <div style={{padding:"12px 16px",borderBottom:"1px solid #f1f5f9",background:"#f0fdf4",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                  <div className="em-marks-panel">
+                    <div className="em-marks-header">
                       <div>
-                        <div style={{fontWeight:700,fontSize:13,color:"#0f172a"}}>{selectedSub.subject_name}</div>
-                        <div style={{fontSize:11,color:"#64748b",marginTop:1}}>Max: {totalMarks} · Pass: {marksData?.passing_marks||40} · {enteredCount}/{totalStudents} entered</div>
+                        <div className="em-marks-subject-name">{selectedSub.subject_name}</div>
+                        <div className="em-marks-meta">Max: {totalMarks} · Pass: {marksData?.passing_marks||40} · {enteredCount}/{totalStudents} entered</div>
                       </div>
                       {!selectedSub?.marks_submitted&&(
-                        <div style={{display:"flex",gap:6}}>
-                          <button disabled={saving} onClick={saveMarks} style={{padding:"5px 12px",background:"#2563eb",color:"#fff",border:"none",borderRadius:7,fontSize:11,fontWeight:600,cursor:"pointer"}}>Save</button>
-                          <button disabled={saving} onClick={submitMarks} style={{padding:"5px 12px",background:"#0f4c35",color:"#fff",border:"none",borderRadius:7,fontSize:11,fontWeight:700,cursor:"pointer"}}>Submit</button>
+                        <div className="em-marks-actions">
+                          <button disabled={saving} onClick={saveMarks} className="em-save-btn">Save</button>
+                          <button disabled={saving} onClick={submitMarks} className="em-submit-btn">Submit</button>
                         </div>
                       )}
-                      {selectedSub?.marks_submitted&&<span style={{fontSize:11,fontWeight:600,color:"#166534",background:"#dcfce7",padding:"4px 10px",borderRadius:8}}>Submitted - View Only</span>}
+                      {selectedSub?.marks_submitted&&<span className="em-viewonly-badge">Submitted - View Only</span>}
                     </div>
 
                     {/* Progress */}
-                    <div style={{padding:"6px 14px",borderBottom:"1px solid #f8fafc",background:"#fafafa"}}>
-                      <div style={{height:5,borderRadius:5,background:"#e2e8f0",overflow:"hidden"}}>
-                        <div style={{height:"100%",borderRadius:5,background:"#0f4c35",width:(totalStudents>0?enteredCount/totalStudents*100:0)+"%",transition:"width .2s"}} />
+                    <div className="em-progress-wrap">
+                      <div className="em-progress-track">
+                        <div className="em-progress-fill" style={{ "--fill-width": (totalStudents>0?enteredCount/totalStudents*100:0)+"%" }} />
                       </div>
                     </div>
 
-                    {loadingMarks?<div style={{padding:24,textAlign:"center",color:"#94a3b8",fontSize:13}}>Loading students...</div>:(
-                      <div style={{maxHeight:500,overflowY:"auto"}}>
-                        <table style={{width:"100%",borderCollapse:"collapse"}}>
-                          <thead style={{position:"sticky",top:0,zIndex:1}}>
-                            <tr style={{background:"#f8fafc"}}>
-                              <th style={{padding:"8px 10px",fontSize:10,fontWeight:700,color:"#94a3b8",textTransform:"uppercase",textAlign:"left",borderBottom:"1px solid #e2e8f0"}}>#</th>
-                              <th style={{padding:"8px 10px",fontSize:10,fontWeight:700,color:"#94a3b8",textTransform:"uppercase",textAlign:"left",borderBottom:"1px solid #e2e8f0"}}>Student</th>
-                              <th style={{padding:"8px 10px",fontSize:10,fontWeight:700,color:"#94a3b8",textTransform:"uppercase",textAlign:"center",borderBottom:"1px solid #e2e8f0"}}>Absent</th>
-                              <th style={{padding:"8px 10px",fontSize:10,fontWeight:700,color:"#94a3b8",textTransform:"uppercase",textAlign:"center",borderBottom:"1px solid #e2e8f0"}}>Marks</th>
+                    {loadingMarks?<div className="em-marks-loading">Loading students...</div>:(
+                      <div className="em-marks-table-wrap">
+                        <table className="em-marks-table">
+                          <thead className="em-marks-thead">
+                            <tr className="em-marks-th-row">
+                              <th className="em-marks-th">#</th>
+                              <th className="em-marks-th">Student</th>
+                              <th className="em-marks-th-center">Absent</th>
+                              <th className="em-marks-th-center">Marks</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -313,22 +317,23 @@ export default function ExamMarks() {
                               const pct=m.marks_obtained!==""&&!m.is_absent?Math.round(Number(m.marks_obtained)/totalMarks*100):null;
                               const pass=marksData?.passing_marks||40;
                               return (
-                                <tr key={s.id} style={{borderBottom:"1px solid #f8fafc",background:m.is_absent?"#fff8f8":i%2===0?"#fff":"#fafafa"}}>
-                                  <td style={{padding:"7px 10px",fontSize:11,color:"#94a3b8",textAlign:"center"}}>{i+1}</td>
-                                  <td style={{padding:"7px 10px"}}>
-                                    <div style={{fontWeight:600,fontSize:12}}>{s.first_name} {s.last_name}</div>
-                                    {pct!==null&&<div style={{fontSize:10,fontWeight:700,color:pct>=pass?"#166534":"#991b1b"}}>{pct}%</div>}
+                                <tr key={s.id} className="em-marks-tr" style={{ "--tr-bg": m.is_absent?"var(--bg-danger-soft)":i%2===0?"var(--bg-card)":"var(--color-background-secondary)" }}>
+                                  <td className="em-marks-td-index">{i+1}</td>
+                                  <td className="em-marks-td">
+                                    <div className="em-student-name">{s.first_name} {s.last_name}</div>
+                                    {pct!==null&&<div className="em-student-pct" style={{ "--pct-color": pct>=pass?"#166534":"#991b1b" }}>{pct}%</div>}
                                   </td>
-                                  <td style={{padding:"7px 10px",textAlign:"center"}}>
+                                  <td className="em-marks-td-center">
                                     <input type="checkbox" checked={m.is_absent} disabled={!!selectedSub?.marks_submitted} onChange={e=>!selectedSub?.marks_submitted&&setMarks(p=>({...p,[s.id]:{...p[s.id],is_absent:e.target.checked,marks_obtained:e.target.checked?"":p[s.id]?.marks_obtained||""}}))} style={{cursor:selectedSub?.marks_submitted?"not-allowed":"pointer",accentColor:"#ef4444",opacity:selectedSub?.marks_submitted?0.6:1}} />
                                   </td>
-                                  <td style={{padding:"7px 10px",textAlign:"center"}}>
-                                    {m.is_absent?<span style={{fontSize:11,color:"#ef4444",fontWeight:600}}>Absent</span>:
+                                  <td className="em-marks-td-center">
+                                    {m.is_absent?<span className="em-absent-text">Absent</span>:
                                     <input type="number" min={0} max={totalMarks} value={m.marks_obtained}
                                       onChange={e=>!selectedSub?.marks_submitted&&setMarks(p=>({...p,[s.id]:{...p[s.id],marks_obtained:e.target.value}}))}
                                       readOnly={!!selectedSub?.marks_submitted}
                                       disabled={!!selectedSub?.marks_submitted}
-                                      style={{width:65,padding:"5px 8px",border:"1.5px solid",borderColor:m.marks_obtained!==""?(Number(m.marks_obtained)>=pass?"#22c55e":"#ef4444"):"#e2e8f0",borderRadius:7,fontSize:13,textAlign:"center",fontWeight:700,color:m.marks_obtained!==""?(Number(m.marks_obtained)>=pass?"#166534":"#991b1b"):"#0f172a",background:selectedSub?.marks_submitted?"#f8fafc":"#fff"}} />}
+                                      className="em-marks-input"
+                                      style={{ "--marks-border": m.marks_obtained!==""?(Number(m.marks_obtained)>=pass?"#22c55e":"#ef4444"):"var(--border-color)", "--marks-color": m.marks_obtained!==""?(Number(m.marks_obtained)>=pass?"#166534":"#991b1b"):"var(--text-heading)", "--marks-bg": selectedSub?.marks_submitted?"var(--bg-hover)":"var(--bg-card)" }} />}
                                   </td>
                                 </tr>
                               );
@@ -344,7 +349,6 @@ export default function ExamMarks() {
           )}
         </div>
       </div>
-      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 }

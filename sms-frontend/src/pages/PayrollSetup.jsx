@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import payrollApi from "../api/payrollApi";
 import { useGovernanceMode } from "../hooks/useGovernanceMode";
+import "./PayrollSetup.css";
 
 const CALC_LABELS = {
   fixed: "Fixed Amount",
@@ -89,129 +90,126 @@ export default function PayrollSetup() {
     }
   };
 
-  if (loading) return <div style={{ padding: 60, textAlign: "center", color: "#64748b" }}>Loading...</div>;
+  if (loading) return <div className="pst-loading">Loading...</div>;
 
   return (
-    <div style={{ margin: "0 auto", padding: 24 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+    <div className="pst-page">
+      <div className="pst-header">
         <div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: "#0f172a" }}>Payroll Setup</div>
-          <div style={{ fontSize: 13, color: "#64748b" }}>Define earning and deduction components used across salary structures</div>
+          <div className="pst-title">Payroll Setup</div>
+          <div className="pst-subtitle">Define earning and deduction components used across salary structures</div>
         </div>
-        {!isGlobalLocked && <button className="btn btn-primary btn-sm" style={{ color: "#fff" }} onClick={openAdd}>+ Add Component</button>}
+        {!isGlobalLocked && <button className="btn btn-primary btn-sm pst-add-btn" onClick={openAdd}>+ Add Component</button>}
       </div>
       {isGlobalLocked && (
-        <div style={{ margin: "0 20px 16px", padding: "8px 12px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, fontSize: 12, color: "#92400e" }}>
+        <div className="pst-readonly-alert">
           Payroll Components are managed centrally by the superadmin. This list is read-only here.
         </div>
       )}
 
       {flash && (
-        <div style={{
-          marginBottom: 16, padding: "10px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600,
-          background: flash.type === "success" ? "#dcfce7" : "#fee2e2",
-          color: flash.type === "success" ? "#166534" : "#dc2626"
+        <div className="pst-flash" style={{
+          "--flash-bg": flash.type === "success" ? "#dcfce7" : "#fee2e2",
+          "--flash-color": flash.type === "success" ? "#166534" : "#dc2626"
         }}>
           {flash.type === "success" ? "\u2713 " : "\u26a0 "}{flash.msg}
         </div>
       )}
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+      <div className="pst-filter-row">
         {[["", "All"], ["earning", "Earnings"], ["deduction", "Deductions"]].map(([val, label]) => (
           <button key={val} onClick={() => setTypeFilter(val)}
-            className={typeFilter === val ? "btn btn-primary btn-sm" : "btn btn-ghost btn-sm"}
-            style={typeFilter === val ? { color: "#fff" } : {}}>
+            className={typeFilter === val ? "btn btn-primary btn-sm pst-filter-btn-active" : "btn btn-ghost btn-sm"}>
             {label}
           </button>
         ))}
       </div>
 
-      <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <div className="pst-table-wrap">
+        <table className="pst-table">
           <thead>
-            <tr style={{ background: "#f8fafc" }}>
+            <tr className="pst-th-row">
               {["Name", "Type", "Calculation", "Part of Salary", "Taxable / Statutory", "Active", ""].map(h => (
-                <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "#64748b", borderBottom: "1px solid #e2e8f0" }}>{h}</th>
+                <th key={h} className="pst-th">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {components.map(c => (
-              <tr key={c.id} style={{ borderBottom: "1px solid #f1f5f9", opacity: c.is_active ? 1 : 0.5 }}>
-                <td style={{ padding: "10px 14px", fontWeight: 600, fontSize: 13 }}>
+              <tr key={c.id} className="pst-tr" style={{ "--row-opacity": c.is_active ? 1 : 0.5 }}>
+                <td className="pst-td-name">
                   {c.name}
-                  {c.is_basic && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 6, background: "#eff6ff", color: "#1d4ed8" }}>Basic</span>}
-                  {c.is_income_tax && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 6, background: "#fef2f2", color: "#dc2626" }}>Income Tax</span>}
+                  {c.is_basic && <span className="pst-basic-tag">Basic</span>}
+                  {c.is_income_tax && <span className="pst-income-tax-tag">Income Tax</span>}
                 </td>
-                <td style={{ padding: "10px 14px" }}>
-                  <span style={{
-                    fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 10,
-                    background: c.component_type === "earning" ? "#f0fdf4" : "#fef2f2",
-                    color: c.component_type === "earning" ? "#166534" : "#dc2626"
+                <td className="pst-td-type">
+                  <span className="pst-type-badge" style={{
+                    "--badge-bg": c.component_type === "earning" ? "#f0fdf4" : "#fef2f2",
+                    "--badge-color": c.component_type === "earning" ? "#166534" : "#dc2626"
                   }}>
                     {c.component_type === "earning" ? "Earning" : "Deduction"}
                   </span>
                 </td>
-                <td style={{ padding: "10px 14px", fontSize: 12, color: "#475569" }}>{CALC_LABELS[c.calculation_type] || c.calculation_type}</td>
-                <td style={{ padding: "10px 14px", fontSize: 12 }}>
+                <td className="pst-td-calc">{CALC_LABELS[c.calculation_type] || c.calculation_type}</td>
+                <td className="pst-td-permanent">
                   {c.is_permanent
-                    ? <span style={{ color: "#166534", fontWeight: 600 }}>Yes</span>
-                    : <span style={{ color: "#94a3b8" }}>Variable</span>}
+                    ? <span className="pst-permanent-yes">Yes</span>
+                    : <span className="pst-permanent-no">Variable</span>}
                 </td>
-                <td style={{ padding: "10px 14px", fontSize: 12, color: "#64748b" }}>
+                <td className="pst-td-taxable">
                   {c.component_type === "earning"
                     ? (c.is_taxable ? "Taxable" : "Non-taxable")
                     : (c.is_statutory ? "Statutory" : "Non-statutory")}
                 </td>
-                <td style={{ padding: "10px 14px", fontSize: 12 }}>
-                  {c.is_active ? <span style={{ color: "#166534" }}>Active</span> : <span style={{ color: "#dc2626" }}>Inactive</span>}
+                <td className="pst-td-status">
+                  {c.is_active ? <span className="pst-status-active">Active</span> : <span className="pst-status-inactive">Inactive</span>}
                 </td>
-                <td style={{ padding: "10px 14px", display: "flex", gap: 6 }}>
-                  {!isGlobalLocked && <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => openEdit(c)}>Edit</button>}
+                <td className="pst-actions-cell">
+                  {!isGlobalLocked && <button className="btn btn-ghost btn-sm pst-edit-btn" onClick={() => openEdit(c)}>Edit</button>}
                   {!isGlobalLocked && c.is_active && (
-                    <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, color: "#dc2626" }} onClick={() => deactivate(c.id)}>Deactivate</button>
+                    <button className="btn btn-ghost btn-sm pst-deactivate-btn" onClick={() => deactivate(c.id)}>Deactivate</button>
                   )}
                 </td>
               </tr>
             ))}
             {components.length === 0 && (
-              <tr><td colSpan={7} style={{ padding: 30, textAlign: "center", color: "#94a3b8", fontSize: 13 }}>No components configured yet.</td></tr>
+              <tr><td colSpan={7} className="pst-empty-td">No components configured yet.</td></tr>
             )}
           </tbody>
         </table>
       </div>
 
       {showForm && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 9000, background: "rgba(15,23,42,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <div style={{ background: "#fff", borderRadius: 12, width: "100%", maxWidth: 460, boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
-            <div style={{ padding: "14px 20px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>{editingId ? "Edit Component" : "Add Component"}</div>
+        <div className="pst-modal-overlay">
+          <div className="pst-modal-box">
+            <div className="pst-modal-header">
+              <div className="pst-modal-title">{editingId ? "Edit Component" : "Add Component"}</div>
               <button className="btn btn-ghost btn-sm" onClick={() => setShowForm(false)}>Close</button>
             </div>
-            <div style={{ padding: 20 }}>
+            <div className="pst-modal-body">
               {formError && (
-                <div style={{ marginBottom: 14, padding: "10px 14px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, fontSize: 13, color: "#b91c1c", fontWeight: 600 }}>
+                <div className="pst-error-box">
                   \u26a0 {formError}
                 </div>
               )}
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div className="pst-form-column">
                 <div>
-                  <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Name *</label>
-                  <input className="form-input" style={{ width: "100%", fontSize: 13 }} placeholder="e.g. House Rent Allowance"
+                  <label className="pst-field-label">Name *</label>
+                  <input className="form-input pst-full-input" placeholder="e.g. House Rent Allowance"
                     value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} />
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                <div className="pst-grid-2col">
                   <div>
-                    <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Component Type *</label>
-                    <select className="form-input" style={{ width: "100%", fontSize: 13 }} value={form.component_type}
+                    <label className="pst-field-label">Component Type *</label>
+                    <select className="form-input pst-full-input" value={form.component_type}
                       onChange={e => setForm(p => ({ ...p, component_type: e.target.value }))}>
                       <option value="earning">Earning</option>
                       <option value="deduction">Deduction</option>
                     </select>
                   </div>
                   <div>
-                    <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Calculation Type *</label>
-                    <select className="form-input" style={{ width: "100%", fontSize: 13 }} value={form.calculation_type}
+                    <label className="pst-field-label">Calculation Type *</label>
+                    <select className="form-input pst-full-input" value={form.calculation_type}
                       onChange={e => setForm(p => ({ ...p, calculation_type: e.target.value }))}>
                       <option value="fixed">Fixed Amount</option>
                       <option value="percent_of_basic">% of Basic</option>
@@ -222,47 +220,47 @@ export default function PayrollSetup() {
                   </div>
                 </div>
 
-                <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, cursor: "pointer" }}>
+                <label className="pst-checkbox-label">
                   <input type="checkbox" checked={form.is_permanent} onChange={e => setForm(p => ({ ...p, is_permanent: e.target.checked }))} />
                   Part of Salary (standard, permanent component)
                 </label>
 
                 {form.component_type === "earning" ? (
                   <>
-                    <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, cursor: "pointer" }}>
+                    <label className="pst-checkbox-label">
                       <input type="checkbox" checked={form.is_taxable} onChange={e => setForm(p => ({ ...p, is_taxable: e.target.checked }))} />
                       Taxable
                     </label>
-                    <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, cursor: "pointer" }}>
+                    <label className="pst-checkbox-label">
                       <input type="checkbox" checked={form.is_basic} onChange={e => setForm(p => ({ ...p, is_basic: e.target.checked }))} />
                       This is the Basic Salary component
                     </label>
                     {form.is_basic && (
-                      <div style={{ fontSize: 11, color: "#94a3b8" }}>Only one component can be marked as Basic Salary - marking this one will unmark any other.</div>
+                      <div className="pst-help-text">Only one component can be marked as Basic Salary - marking this one will unmark any other.</div>
                     )}
                   </>
                 ) : (
                   <>
-                    <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, cursor: "pointer" }}>
+                    <label className="pst-checkbox-label">
                       <input type="checkbox" checked={form.is_statutory} onChange={e => setForm(p => ({ ...p, is_statutory: e.target.checked }))} />
                       Statutory (government-mandated, e.g. Tax, PF, EOBI)
                     </label>
                     {form.calculation_type === "tax_slab" && (
-                      <div style={{ fontSize: 11, color: "#94a3b8" }}>Only one component can use Tax Slab calculation - selecting it here will switch any other Tax Slab component back to Fixed Amount. Its value will always come from the configured Income Tax Slabs, not a manual amount.</div>
+                      <div className="pst-help-text">Only one component can use Tax Slab calculation - selecting it here will switch any other Tax Slab component back to Fixed Amount. Its value will always come from the configured Income Tax Slabs, not a manual amount.</div>
                     )}
                   </>
                 )}
 
                 {editingId && (
-                  <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, cursor: "pointer" }}>
+                  <label className="pst-checkbox-label">
                     <input type="checkbox" checked={form.is_active} onChange={e => setForm(p => ({ ...p, is_active: e.target.checked }))} />
                     Active
                   </label>
                 )}
               </div>
-              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 16 }}>
+              <div className="pst-btn-row">
                 <button className="btn btn-ghost btn-sm" onClick={() => setShowForm(false)}>Cancel</button>
-                <button className="btn btn-primary btn-sm" style={{ color: "#fff" }} disabled={saving} onClick={submit}>
+                <button className="btn btn-primary btn-sm pst-save-btn" disabled={saving} onClick={submit}>
                   {saving ? "Saving..." : (editingId ? "Update" : "Create")}
                 </button>
               </div>

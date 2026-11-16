@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import libraryApi from "../api/libraryApi";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
+import "./LibraryInventory.css";
 
 function ResolveMissingModal({ copy, onClose, onSaved }) {
   const [saving, setSaving] = useState(false);
@@ -19,12 +20,12 @@ function ResolveMissingModal({ copy, onClose, onSaved }) {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={onClose}>
-      <div style={{ background: "#fff", borderRadius: 12, padding: 24, width: "100%", maxWidth: 380 }} onClick={e => e.stopPropagation()}>
-        <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>Resolve Missing Copy</div>
-        <div style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>{copy.book_title} &mdash; {copy.accession_no}</div>
-        {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+    <div className="lib-inv-modal-overlay" onClick={onClose}>
+      <div className="lib-inv-modal" onClick={e => e.stopPropagation()}>
+        <div className="lib-inv-modal-title">Resolve Missing Copy</div>
+        <div className="lib-inv-modal-subtitle">{copy.book_title} &mdash; {copy.accession_no}</div>
+        {error && <div className="alert alert-error lib-inv-mb12">{error}</div>}
+        <div className="lib-inv-modal-footer">
           <button className="btn btn-secondary" disabled={saving} onClick={onClose}>Cancel</button>
           <button className="btn btn-danger" disabled={saving} onClick={() => handleResolve("remove")}>Remove from Inventory</button>
           <button className="btn btn-primary" disabled={saving} onClick={() => handleResolve("found")}>Mark as Found</button>
@@ -87,46 +88,46 @@ function AuditPanel({ audit, onCompleted }) {
   const pct = progress.total_to_verify > 0 ? Math.round((progress.verified_count / progress.total_to_verify) * 100) : 0;
 
   return (
-    <div className="section-card" style={{ marginBottom: 16 }}>
+    <div className="section-card lib-inv-audit-card">
       <div className="section-card-header">
         <span className="section-card-title">Audit in Progress</span>
       </div>
-      <div style={{ fontSize: 13, color: "#64748b", marginBottom: 12 }}>
+      <div className="lib-inv-audit-meta">
         Started by {progress.started_by_name} on {formatDate(progress.started_at)}
       </div>
 
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, marginBottom: 6 }}>
+      <div className="lib-inv-progress-wrap">
+        <div className="lib-inv-progress-header">
           <span>{progress.verified_count} of {progress.total_to_verify} verified</span>
           <span>{pct}%</span>
         </div>
-        <div style={{ height: 8, background: "#e2e8f0", borderRadius: 4, overflow: "hidden" }}>
-          <div style={{ height: "100%", width: pct + "%", background: "#16a34a", transition: "width .3s" }} />
+        <div className="lib-inv-progress-track">
+          <div className="lib-inv-progress-fill" style={{ width: pct + "%" }} />
         </div>
       </div>
 
-      {error && <div className="alert alert-error" style={{ marginBottom: 12 }}>{error}</div>}
-      {message && <div className="alert alert-success" style={{ marginBottom: 12 }}>{message}</div>}
+      {error && <div className="alert alert-error lib-inv-mb12">{error}</div>}
+      {message && <div className="alert alert-success lib-inv-mb12">{message}</div>}
 
-      <form onSubmit={handleScan} style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+      <form onSubmit={handleScan} className="lib-inv-scan-form">
         <input className="form-control" placeholder="Scan or type barcode / accession no." value={identifier} onChange={e => setIdentifier(e.target.value)} autoFocus />
         <button type="submit" className="btn btn-primary" disabled={scanning}>{scanning ? "Checking..." : "Verify"}</button>
       </form>
 
-      <div style={{ maxHeight: 200, overflow: "auto", marginBottom: 16 }}>
+      <div className="lib-inv-items-list">
         {items.length === 0 ? (
-          <div style={{ fontSize: 13, color: "#94a3b8" }}>No copies verified yet.</div>
+          <div className="lib-inv-empty-hint">No copies verified yet.</div>
         ) : (
           items.map(it => (
-            <div key={it.copy_id} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid #f1f5f9", fontSize: 13 }}>
+            <div key={it.copy_id} className="lib-inv-item-row">
               <span>{it.book_title} ({it.accession_no})</span>
-              <span style={{ color: "#94a3b8", fontSize: 11 }}>{formatTime(it.verified_at)}</span>
+              <span className="lib-inv-item-time">{formatTime(it.verified_at)}</span>
             </div>
           ))
         )}
       </div>
 
-      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+      <div className="lib-inv-audit-actions">
         <button className="btn btn-danger" disabled={completing} onClick={handleComplete}>
           {completing ? "Completing..." : "Complete Audit"}
         </button>
@@ -191,7 +192,7 @@ export default function LibraryInventory() {
 
   return (
     <div>
-      <div className="page-header" style={{ marginBottom: 16 }}>
+      <div className="page-header lib-inv-mb16">
         <h1 className="page-heading">Inventory Management</h1>
         {!activeAudit && (
           <button className="btn btn-primary" disabled={starting} onClick={handleStartAudit}>
@@ -200,18 +201,18 @@ export default function LibraryInventory() {
         )}
       </div>
 
-      {success && <div className="alert alert-success" style={{ marginBottom: 16 }}>{success}</div>}
-      {error && <div className="alert alert-error" style={{ marginBottom: 16 }}>{error}</div>}
+      {success && <div className="alert alert-success lib-inv-mb16">{success}</div>}
+      {error && <div className="alert alert-error lib-inv-mb16">{error}</div>}
 
       {loading ? (
         <div className="loading-state">Loading...</div>
       ) : (
         <>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px,1fr))", gap: 12, marginBottom: 16 }}>
+          <div className="lib-inv-summary-grid">
             {cards.map(c => (
-              <div key={c.label} style={{ background: "#fff", borderRadius: 10, border: "1px solid #e2e8f0", borderTop: "3px solid " + c.color, padding: "14px 16px" }}>
-                <div style={{ fontSize: 22, fontWeight: 800, color: c.color }}>{c.value}</div>
-                <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>{c.label}</div>
+              <div key={c.label} className="lib-inv-summary-card" style={{ "--stat-color": c.color }}>
+                <div className="lib-inv-summary-value">{c.value}</div>
+                <div className="lib-inv-summary-label">{c.label}</div>
               </div>
             ))}
           </div>
@@ -245,7 +246,7 @@ export default function LibraryInventory() {
                       <tr key={c.copy_id}>
                         <td><strong>{c.book_title}</strong></td>
                         <td>{c.accession_no}</td>
-                        <td style={{ fontSize: 12, color: "#64748b" }}>{c.shelf || "-"} / {c.rack || "-"}</td>
+                        <td className="lib-inv-shelf">{c.shelf || "-"} / {c.rack || "-"}</td>
                         <td>
                           <button className="btn btn-primary btn-xs" onClick={() => setResolveCopy(c)}>Resolve</button>
                         </td>

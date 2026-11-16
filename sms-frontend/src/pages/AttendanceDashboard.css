@@ -1,0 +1,619 @@
+.ad-page {
+  padding: 24px;
+  margin: 0 auto;
+}
+
+.ad-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 20px;
+  color: var(--text-heading);
+}
+
+.ad-tab-row {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.ad-tab-btn {
+  padding: 10px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--tab-color);
+  border-bottom: 2px solid var(--tab-border);
+}
+
+.ad-filter-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ad-filter-group {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.ad-dept-label {
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+}
+
+.ad-select-sm {
+  width: 200px;
+  font-size: 13px;
+}
+
+.ad-input-sm {
+  font-size: 13px;
+  width: 160px;
+}
+
+.ad-datepicker-sm {
+  width: 150px;
+}
+
+.ad-back-today-btn {
+  font-size: 12px;
+}
+
+.ad-summary-text {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.ad-table-wrap {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.ad-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ad-th {
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.ad-tr {
+  border-bottom: 1px solid var(--border-color);
+}
+
+.ad-td {
+  padding: 10px 14px;
+  font-size: 13px;
+}
+
+.ad-td-secondary {
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.ad-status-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 10px;
+  background: var(--badge-bg);
+  color: var(--badge-color);
+  border: 1px solid var(--badge-border, transparent);
+}
+
+.ad-late-tag {
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: var(--bg-danger-soft);
+  color: #dc2626;
+  border: 1px solid var(--border-danger-soft);
+}
+
+.ad-late-tag-sm {
+  margin-left: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--bg-danger-soft);
+  color: #dc2626;
+}
+
+.ad-view-details-btn {
+  font-size: 11px;
+}
+
+.ad-empty-row {
+  padding: 30px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.ad-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.ad-card-flat {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.ad-card-title {
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+
+.ad-assign-row {
+  display: flex;
+  gap: 8px;
+}
+
+.ad-select-flex {
+  flex: 1;
+  font-size: 13px;
+}
+
+.ad-input-flex {
+  flex: 1;
+  font-size: 13px;
+}
+
+.ad-assign-btn {
+  color: #fff;
+  white-space: nowrap;
+}
+
+.ad-card-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.ad-empty-text {
+  padding: 30px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.ad-card-row {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ad-card-row-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.ad-card-row-uid {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: monospace;
+}
+
+.ad-card-row-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.ad-active-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: var(--badge-bg);
+  color: var(--badge-color);
+}
+
+.ad-deactivate-btn {
+  color: #dc2626;
+  font-size: 11px;
+}
+
+.ad-settings-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 20px;
+  max-width: 480px;
+}
+
+.ad-settings-card-mt {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 20px;
+  max-width: 480px;
+  margin-top: 20px;
+}
+
+.ad-settings-title {
+  font-weight: 700;
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+
+.ad-readonly-notice {
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  background: var(--bg-warning-soft);
+  border: 1px solid var(--border-warning-soft);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--text-warning-soft);
+}
+
+.ad-settings-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 14px;
+}
+
+.ad-time-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.ad-time-input {
+  font-size: 14px;
+  width: 160px;
+}
+
+.ad-save-btn {
+  color: #fff;
+}
+
+.ad-save-btn-mt {
+  color: #fff;
+  margin-top: 16px;
+}
+
+.ad-msg {
+  margin-top: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--msg-bg);
+  color: var(--msg-color);
+}
+
+.ad-help-text {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 12px;
+}
+
+.ad-field-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+.ad-field-label {
+  font-size: 12px;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.ad-number-input {
+  font-size: 14px;
+  width: 160px;
+}
+
+.ad-radio-row {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.ad-radio-label {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.ad-schedule-label {
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.ad-time-group-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.ad-small-field-label {
+  font-size: 11px;
+  font-weight: 600;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.ad-time-group-field-140 {
+  font-size: 13px;
+  width: 140px;
+}
+
+.ad-time-group-field-200 {
+  font-size: 13px;
+  width: 200px;
+}
+
+.ad-time-group-field-120 {
+  font-size: 13px;
+  width: 120px;
+}
+
+.ad-time-group-field-90 {
+  font-size: 13px;
+  width: 90px;
+}
+
+.ad-dept-schedule-form {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+  padding: 14px;
+  background: var(--bg-hover);
+  border-radius: 8px;
+}
+
+.ad-dept-schedule-empty {
+  padding: 20px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.ad-dept-schedule-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.ad-dept-schedule-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.ad-dept-schedule-meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.ad-dept-schedule-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.ad-edit-btn {
+  font-size: 11px;
+}
+
+.ad-remove-btn {
+  font-size: 11px;
+  color: #dc2626;
+}
+
+.ad-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: rgba(15,23,42,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.ad-modal-box {
+  background: var(--bg-card);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 700px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+}
+
+.ad-modal-header {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ad-modal-title {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.ad-modal-body {
+  padding: 20px;
+}
+
+.ad-add-session-box {
+  background: var(--bg-hover);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 16px;
+}
+
+.ad-add-session-title {
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+
+.ad-datetime-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.ad-notes-input {
+  width: 100%;
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+
+.ad-form-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.ad-day-summary-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.ad-day-summary-header {
+  padding: 12px 14px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--bg-hover);
+}
+
+.ad-day-summary-title {
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.ad-day-summary-meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 3px;
+}
+
+.ad-expand-toggle {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.ad-sessions-th {
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.ad-sessions-td {
+  padding: 8px 10px;
+  font-size: 12px;
+}
+
+.ad-sessions-td-bold {
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.ad-source-tag {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: var(--border-color);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+}
+
+.ad-actions-cell {
+  padding: 8px 10px;
+  display: flex;
+  gap: 6px;
+}
+
+.ad-open-text {
+  color: #16a34a;
+  font-weight: 600;
+}
+
+.ad-auto-closed-tag {
+  margin-left: 6px;
+  font-size: 10px;
+  color: #c2410c;
+  font-weight: 600;
+}
+
+.ad-flash-toast {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 9999;
+  padding: 10px 18px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--flash-bg);
+  color: var(--flash-color);
+}
+
+.ad-td-bold {
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 600;
+}

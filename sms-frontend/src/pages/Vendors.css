@@ -1,0 +1,133 @@
+.vnd-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z, 1000);
+  background: rgba(0,0,0,0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.vnd-modal-box-sm {
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 24px;
+  width: 100%;
+  max-width: 340px;
+}
+
+.vnd-modal-box-md {
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 24px;
+  width: 100%;
+  max-width: 380px;
+}
+
+.vnd-modal-box-lg {
+  background: var(--bg-card);
+  border-radius: 12px;
+  padding: 24px;
+  width: 100%;
+  max-width: 520px;
+  max-height: 88vh;
+  overflow: auto;
+}
+
+.vnd-modal-title {
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 16px;
+}
+
+.vnd-modal-title-mb4 {
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+
+.vnd-modal-subtitle {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.vnd-mb12 {
+  margin-bottom: 12px;
+}
+
+.vnd-btn-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.vnd-btn-row-mt16 {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.vnd-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.vnd-full-field {
+  grid-column: 1 / -1;
+}
+
+.vnd-cat-row {
+  display: flex;
+  gap: 6px;
+}
+
+.vnd-page-header {
+  margin-bottom: 16px;
+}
+
+.vnd-readonly-alert {
+  background: var(--bg-warning-soft);
+  border: 1px solid var(--border-warning-soft);
+  color: var(--text-warning-soft);
+  margin-bottom: 16px;
+}
+
+.vnd-mb16 {
+  margin-bottom: 16px;
+}
+
+.vnd-search-row {
+  display: flex;
+  gap: 10px;
+}
+
+.vnd-none-text {
+  color: var(--text-muted);
+}
+
+.vnd-contact-subtext {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.vnd-ntn-cell {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.vnd-status-row {
+  display: flex;
+  gap: 4px;
+  flex-wrap: nowrap;
+}
+
+.vnd-actions-cell {
+  display: flex;
+  gap: 6px;
+  flex-wrap: nowrap;
+}

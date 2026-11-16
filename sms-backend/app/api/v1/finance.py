@@ -90,7 +90,7 @@ DATE_KEYS = ["due_date", "issued_at", "paid_at", "valid_from", "valid_until", "c
              "updated_at", "waived_at", "late_fee_billed_through"]
 
 
-# ─── Pydantic models ────────────────────────────────────────────────────────
+# â”€â”€â”€ Pydantic models â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class CategoryIn(BaseModel):
     name: str
@@ -212,7 +212,7 @@ class SiblingTierIn(BaseModel):
     tiers: List[dict]
 
 
-# ─── Fee Categories ─────────────────────────────────────────────────────────
+# â”€â”€â”€ Fee Categories â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.get("/categories")
 def list_categories(user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("fee_categories"))):
@@ -233,7 +233,7 @@ def create_category(body: CategoryIn, user_id: int = Depends(require_permission(
         db.rollback(); fail(str(e), 400)
 
 
-# ─── Fee Structures ──────────────────────────────────────────────────────────
+# â”€â”€â”€ Fee Structures â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.get("/structures")
 def list_structures(user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("fee_structures"))):
@@ -293,7 +293,7 @@ def deactivate_structure(struct_id: int, user_id: int = Depends(require_permissi
     return ok(message="Fee structure deactivated.")
 
 
-# ─── Fee Types ───────────────────────────────────────────────────────────────
+# â”€â”€â”€ Fee Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.get("/fee-types")
 def get_fee_types(user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("fee_types"))):
@@ -334,7 +334,7 @@ def delete_fee_type(type_id: int, user_id: int = Depends(require_permission("fin
     return ok(message="Deleted.")
 
 
-# ─── Class Fees ───────────────────────────────────────────────────────────────
+# â”€â”€â”€ Class Fees â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.get("/class-fees")
 def get_class_fees(
@@ -386,7 +386,7 @@ def delete_class_fee(fee_id: int, user_id: int = Depends(require_permission("fin
     return ok(message="Deleted.")
 
 
-# ─── Class Fee Config ─────────────────────────────────────────────────────────
+# â”€â”€â”€ Class Fee Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.get("/class-fee-config")
 def get_class_fee_configs(user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("class_fee_config"))):
@@ -432,7 +432,7 @@ def delete_class_fee_config(cfg_id: int, user_id: int = Depends(require_permissi
     return ok(message="Deleted.")
 
 
-# ─── Invoices ────────────────────────────────────────────────────────────────
+# â”€â”€â”€ Invoices â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.get("/invoices")
 def list_invoices(
@@ -571,11 +571,12 @@ def get_invoice_payments(inv_id: int, user_id: int = Depends(require_permission(
     invoice = cur.fetchone()
     if not invoice: fail("Invoice not found.", 404)
     cur.execute("""
-        SELECT id, amount_paid, method, reference, notes, paid_at, is_verified
+        SELECT id, amount_paid, method, reference, notes, paid_at, is_verified, review_status, rejected_reason, rejected_at,
+               (receipt_image IS NOT NULL) AS has_receipt
         FROM payments WHERE invoice_id = %s ORDER BY paid_at ASC
     """, (inv_id,))
     payments = [fmt(dict(r), DATE_KEYS) for r in cur.fetchall()]
-    total_paid = sum(float(p.get("amount_paid") or 0) for p in payments)
+    total_paid = sum(float(p.get("amount_paid") or 0) for p in payments if p.get("review_status") == "verified")
     inv = fmt(dict(invoice), DATE_KEYS)
     inv["total_paid"] = total_paid
     inv["balance"] = float(inv.get("net_amount") or 0) - total_paid
@@ -604,7 +605,64 @@ def download_invoice_pdf(inv_id: int, user_id: int = Depends(require_permission(
         fail(str(e), 500)
 
 
-# ─── Payments ────────────────────────────────────────────────────────────────
+# â”€â”€â”€ Payments â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+def _refresh_invoice_status(cur, db, invoice_id):
+    """
+    One rule for an invoice's status, from VERIFIED payments only:
+      paid                 - verified payments cover the invoice
+      pending_verification - a submitted payment is waiting for finance
+      partial              - some verified, not all
+      overdue / unpaid     - nothing verified yet (past due date / not yet)
+    Cancelled invoices are left alone. Returns the new status.
+    """
+    cur.execute("SELECT status, net_amount, amount, due_date, student_id FROM fee_invoices WHERE id=%s", (invoice_id,))
+    inv = cur.fetchone()
+    if not inv or inv["status"] == "cancelled":
+        return inv["status"] if inv else None
+    cur.execute("""SELECT COALESCE(SUM(amount_paid) FILTER (WHERE review_status='verified'),0) AS verified,
+                          COUNT(*) FILTER (WHERE review_status='pending') AS pending
+                   FROM payments WHERE invoice_id=%s""", (invoice_id,))
+    r = cur.fetchone()
+    verified, pending = float(r["verified"]), r["pending"]
+    net = float(inv["net_amount"] or inv["amount"] or 0)
+    today = get_processing_date(db)
+    if net > 0 and verified >= net - 0.005:
+        status = "paid"
+    elif pending:
+        status = "pending_verification"
+    elif verified > 0:
+        status = "partial"
+    else:
+        status = "overdue" if inv["due_date"] and inv["due_date"] < today else "unpaid"
+    if status == "paid":
+        cur.execute("UPDATE fee_invoices SET status='paid', paid_at=COALESCE(paid_at, %s) WHERE id=%s",
+                    (get_processing_datetime(db), invoice_id))
+        cur.execute("""UPDATE users SET is_active=TRUE, lock_reason=NULL WHERE lock_reason='fee_overdue'
+                       AND id=(SELECT user_id FROM students WHERE id=%s)""", (inv["student_id"],))
+    else:
+        cur.execute("UPDATE fee_invoices SET status=%s, paid_at=NULL WHERE id=%s", (status, invoice_id))
+    return status
+
+
+def _caller_role(claims):
+    roles = (claims or {}).get("roles") or []
+    return roles[0] if roles else ""
+
+
+def _owns_student(cur, role, user_id, student_id):
+    """Students may act on their own record, parents on their children's."""
+    col = "user_id" if role == "student" else "parent_id"
+    cur.execute(f"SELECT 1 FROM students WHERE id=%s AND {col}=%s", (student_id, user_id))
+    return cur.fetchone() is not None
+
+
+def _payment_people(cur, pay_id):
+    cur.execute("""SELECT s.id AS student_id, s.user_id, s.parent_id, s.first_name, s.last_name, s.campus_id, p.amount_paid, p.rejected_reason
+                   FROM payments p JOIN fee_invoices fi ON fi.id=p.invoice_id
+                   JOIN students s ON s.id=fi.student_id WHERE p.id=%s""", (pay_id,))
+    return cur.fetchone()
+
 
 @router.get("/payments")
 def list_payments(
@@ -645,56 +703,80 @@ def list_payments(
 
 
 @router.post("/payments")
-def record_payment(body: PaymentIn, user_id: int = Depends(get_current_user_id), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def record_payment(body: PaymentIn, user_id: int = Depends(get_current_user_id), claims: dict = Depends(get_jwt_claims),
+                   db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+    """
+    Parents / students submit a payment WITH a receipt; it waits for finance to verify it
+    and the invoice is not marked paid until then. Finance staff (finance.collect)
+    recording a payment at the counter are verifying it themselves, so theirs count at once.
+    """
     cur = get_cur(db)
     cur.execute("SELECT * FROM fee_invoices WHERE id=%s", (body.invoice_id,))
     invoice = cur.fetchone()
     if not invoice: fail("Invoice not found.", 404)
+    if invoice["status"] in ("paid", "cancelled"): fail(f"This invoice is already {invoice['status']}.", 400)
     _check_student_campus(cur, invoice["student_id"], campus_id)
+    role = _caller_role(claims)
+    self_service = role in ("student", "parent")
+    if self_service:
+        if not _owns_student(cur, role, user_id, invoice["student_id"]):
+            fail("Invoice not found.", 404)
+    else:
+        perms = set((claims or {}).get("permissions") or [])
+        if "finance.collect" not in perms:
+            fail("You don't have permission to record payments.", 403)
     receipt_image = body.receipt_image or None
+    if self_service and not receipt_image:
+        fail("Please attach a photo or scan of your payment receipt.", 400)
     if receipt_image and len(receipt_image) > 2000000:
         fail("Receipt image too large. Max 1.5MB.", 400)
-    auto_verified = receipt_image is None
+    amount = float(body.amount_paid or 0)
+    if amount <= 0: fail("Enter the amount paid.", 400)
+    cur.execute("""SELECT COALESCE(SUM(amount_paid) FILTER (WHERE review_status IN ('verified','pending')),0) AS counted,
+                          COUNT(*) FILTER (WHERE review_status='pending') AS pending
+                   FROM payments WHERE invoice_id=%s""", (body.invoice_id,))
+    t = cur.fetchone()
+    net_amount = float(invoice["net_amount"] or invoice["amount"])
+    remaining = round(net_amount - float(t["counted"]), 2)
+    if self_service and t["pending"]:
+        fail("A payment for this invoice is already waiting for verification. Please wait for the school to review it.", 400)
+    if amount > remaining + 0.005:
+        fail(f"The amount is more than the balance (Rs. {remaining:,.0f}).", 400)
+
+    verified_now = not self_service                      # counter payment by finance
     _proc_now = get_processing_datetime(db)
     cur.execute("""
         INSERT INTO payments (invoice_id, amount_paid, method, reference, received_by, notes, receipt_image,
-                              is_verified, verified_by, verified_at, paid_at)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, CASE WHEN %s THEN %s ELSE NULL END, %s) RETURNING *
-    """, (body.invoice_id, body.amount_paid, body.method or "cash", body.reference or None,
-          user_id, body.notes or None, receipt_image, auto_verified,
-          user_id if auto_verified else None, auto_verified, _proc_now, _proc_now))
-    cur.execute("SELECT COALESCE(SUM(amount_paid),0) AS total_paid FROM payments WHERE invoice_id=%s", (body.invoice_id,))
-    total_paid = float(cur.fetchone()["total_paid"])
-    net_amount = float(invoice["net_amount"] or invoice["amount"])
-    if receipt_image:
-        cur.execute("UPDATE fee_invoices SET status='pending_verification' WHERE id=%s", (body.invoice_id,))
-    elif total_paid >= net_amount:
-        cur.execute("UPDATE fee_invoices SET status='paid', paid_at=%s WHERE id=%s", (get_processing_datetime(db), body.invoice_id,))
-    elif total_paid > 0:
-        cur.execute("UPDATE fee_invoices SET status='partial' WHERE id=%s", (body.invoice_id,))
+                              is_verified, verified_by, verified_at, paid_at, review_status)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id
+    """, (body.invoice_id, amount, body.method or "cash", body.reference or None, user_id, body.notes or None,
+          receipt_image, verified_now, user_id if verified_now else None, _proc_now if verified_now else None,
+          _proc_now, "verified" if verified_now else "pending"))
+    _refresh_invoice_status(cur, db, body.invoice_id)
     db.commit()
 
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         import main as _main
-        cur.execute("""
-            SELECT s.user_id, s.parent_id, s.first_name, s.last_name
-            FROM fee_invoices fi JOIN students s ON s.id=fi.student_id WHERE fi.id=%s
-        """, (body.invoice_id,))
+        cur.execute("""SELECT s.id AS student_id, s.user_id, s.parent_id, s.first_name, s.last_name, s.campus_id
+                       FROM fee_invoices fi JOIN students s ON s.id=fi.student_id WHERE fi.id=%s""", (body.invoice_id,))
         stu = cur.fetchone()
         if stu:
-            status_msg = "submitted and awaiting verification" if receipt_image else "recorded"
-            msg = f"Payment of Rs. {float(body.amount_paid):,.0f} has been {status_msg}."
+            status_msg = "recorded" if verified_now else "submitted and is awaiting verification by the school"
+            msg = f"Payment of Rs. {amount:,.0f} has been {status_msg}."
+            _sname = f"{stu['first_name']} {stu['last_name']}"
+            _tags = {"student_name": _sname, "amount": f"{amount:,.0f}", "status": status_msg}
             with _main.flask_app.app_context():
                 if stu["user_id"]:
-                    send_notification(stu["user_id"], "Payment Received", msg, "success", "/my-fees")
+                    _t, _b = render_templated_notification("payment_received_student", _tags, "Payment Received", msg, campus_id=stu["campus_id"])
+                    send_notification(stu["user_id"], _t, _b, "success" if verified_now else "info", "/my-fees")
                 if stu["parent_id"]:
-                    send_notification(stu["parent_id"], "Payment Received",
-                        f"{stu['first_name']} {stu['last_name']}: {msg}", "success", "/my-fees")
+                    _t, _b = render_templated_notification("payment_received_parent", _tags, "Payment Received", f"{_sname}: {msg}", campus_id=stu["campus_id"])
+                    send_notification(stu["parent_id"], _t, _b, "success" if verified_now else "info", f"/my-fees?studentId={stu['student_id']}")
     except Exception:
         pass
-
-    return ok(message="Payment submitted. Awaiting verification." if receipt_image else "Payment recorded.")
+    return ok(message="Payment recorded." if verified_now else
+              "Payment submitted. It will be marked paid once the school verifies your receipt.")
 
 
 @router.put("/payments/{pay_id}/verify")
@@ -704,47 +786,81 @@ def verify_payment(pay_id: int, user_id: int = Depends(require_permission("finan
     cur.execute("SELECT * FROM payments WHERE id=%s", (pay_id,))
     payment = cur.fetchone()
     if not payment: fail("Payment not found.", 404)
-    cur.execute("UPDATE payments SET is_verified=TRUE, verified_by=%s, verified_at=%s WHERE id=%s", (user_id, get_processing_datetime(db), pay_id))
-    cur.execute("SELECT COALESCE(SUM(amount_paid),0) AS total_paid FROM payments WHERE invoice_id=%s", (payment["invoice_id"],))
-    total_paid = float(cur.fetchone()["total_paid"])
-    cur.execute("SELECT net_amount, amount FROM fee_invoices WHERE id=%s", (payment["invoice_id"],))
-    inv = cur.fetchone()
-    net_amount = float(inv["net_amount"] or inv["amount"])
-    if total_paid >= net_amount:
-        cur.execute("UPDATE fee_invoices SET status='paid', paid_at=%s WHERE id=%s", (get_processing_datetime(db), payment["invoice_id"],))
-        cur.execute("SELECT s.user_id FROM fee_invoices fi JOIN students s ON s.id = fi.student_id WHERE fi.id = %s", (payment["invoice_id"],))
-        paid_stu = cur.fetchone()
-        if paid_stu and paid_stu["user_id"]:
-            cur.execute("UPDATE users SET is_active=TRUE, lock_reason=NULL WHERE id=%s AND lock_reason='fee_overdue'", (paid_stu["user_id"],))
-    else:
-        cur.execute("UPDATE fee_invoices SET status='partial' WHERE id=%s", (payment["invoice_id"],))
+    if payment["review_status"] != "pending": fail(f"This payment is already {payment['review_status']}.", 400)
+    cur.execute("""UPDATE payments SET is_verified=TRUE, review_status='verified', verified_by=%s, verified_at=%s,
+                   rejected_reason=NULL, rejected_by=NULL, rejected_at=NULL WHERE id=%s""",
+                (user_id, get_processing_datetime(db), pay_id))
+    _refresh_invoice_status(cur, db, payment["invoice_id"])
     db.commit()
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         import main as _main
         cur.execute("""
-            SELECT s.user_id, s.parent_id, s.first_name, s.last_name, p.amount_paid
+            SELECT s.id AS student_id, s.user_id, s.parent_id, s.first_name, s.last_name, p.amount_paid, s.campus_id
             FROM payments p JOIN fee_invoices fi ON fi.id=p.invoice_id
             JOIN students s ON s.id=fi.student_id WHERE p.id=%s
         """, (pay_id,))
         stu = cur.fetchone()
         if stu:
             msg = f"Your payment of Rs. {float(stu['amount_paid']):,.0f} has been verified."
+            _sname = f"{stu['first_name']} {stu['last_name']}"
+            _tags = {"student_name": _sname, "amount": f"{float(stu['amount_paid']):,.0f}"}
             with _main.flask_app.app_context():
                 if stu["user_id"]:
-                    send_notification(stu["user_id"], "Payment Verified", msg, "success", "/my-fees")
+                    _t, _b = render_templated_notification("payment_verified_student", _tags, "Payment Verified", msg, campus_id=stu["campus_id"])
+                    send_notification(stu["user_id"], _t, _b, "success", "/my-fees")
                 if stu["parent_id"]:
-                    send_notification(stu["parent_id"], "Payment Verified",
-                        f"{stu['first_name']} {stu['last_name']}: {msg}", "success", "/my-fees")
+                    _t, _b = render_templated_notification("payment_verified_parent", _tags, "Payment Verified", f"{_sname}: {msg}", campus_id=stu["campus_id"])
+                    send_notification(stu["parent_id"], _t, _b, "success", f"/my-fees?studentId={stu['student_id']}")
     except Exception:
         pass
     return ok(message="Payment verified successfully.")
 
 
-@router.get("/payments/{pay_id}/receipt")
-def download_payment_receipt(pay_id: int, user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+class RejectIn(BaseModel):
+    reason: str
+
+
+@router.put("/payments/{pay_id}/reject")
+def reject_payment(pay_id: int, body: RejectIn, user_id: int = Depends(require_permission("finance.collect")), db=Depends(get_db),
+                   campus_id: Optional[int] = Depends(get_current_campus_id)):
+    """Finance rejects a submitted payment (wrong amount, unreadable or invalid receipt) with a reason."""
     cur = get_cur(db)
     _check_payment_campus(cur, pay_id, campus_id)
+    cur.execute("SELECT * FROM payments WHERE id=%s", (pay_id,))
+    payment = cur.fetchone()
+    if not payment: fail("Payment not found.", 404)
+    if payment["review_status"] != "pending": fail(f"This payment is already {payment['review_status']}.", 400)
+    reason = (body.reason or "").strip()
+    if not reason: fail("Give a reason so the parent or student knows what to fix.", 400)
+    cur.execute("""UPDATE payments SET is_verified=FALSE, review_status='rejected', rejected_reason=%s, rejected_by=%s, rejected_at=%s
+                   WHERE id=%s""", (reason, user_id, get_processing_datetime(db), pay_id))
+    _refresh_invoice_status(cur, db, payment["invoice_id"])
+    db.commit()
+    try:
+        from app.utils.notify import send_notification
+        import main as _main
+        stu = _payment_people(cur, pay_id)
+        if stu:
+            msg = f"Your payment of Rs. {float(stu['amount_paid']):,.0f} could not be verified: {reason}. Please check and submit it again."
+            with _main.flask_app.app_context():
+                if stu["user_id"]: send_notification(stu["user_id"], "Payment Not Verified", msg, "warning", "/my-fees")
+                if stu["parent_id"]: send_notification(stu["parent_id"], "Payment Not Verified", msg, "warning", f"/my-fees?studentId={stu['student_id']}")
+    except Exception:
+        pass
+    return ok(message="Payment rejected. The parent / student has been told the reason.")
+
+
+@router.get("/payments/{pay_id}/receipt")
+def download_payment_receipt(pay_id: int, user_id: int = Depends(require_permission("finance.view")), claims: dict = Depends(get_jwt_claims),
+                             db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+    cur = get_cur(db)
+    _check_payment_campus(cur, pay_id, campus_id)
+    _role = _caller_role(claims)
+    if _role in ("student", "parent"):
+        cur.execute("SELECT fi.student_id FROM payments p JOIN fee_invoices fi ON fi.id=p.invoice_id WHERE p.id=%s", (pay_id,))
+        _r = cur.fetchone()
+        if not _r or not _owns_student(cur, _role, user_id, _r["student_id"]): fail("Payment not found.", 404)
     cur.execute("SELECT is_verified FROM payments WHERE id=%s", (pay_id,))
     pay = cur.fetchone()
     if not pay: fail("Payment not found.", 404)
@@ -762,7 +878,7 @@ def download_payment_receipt(pay_id: int, user_id: int = Depends(require_permiss
         fail(str(e), 500)
 
 
-# ─── Dashboard ───────────────────────────────────────────────────────────────
+# â”€â”€â”€ Dashboard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.get("/dashboard")
 def finance_dashboard(user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
@@ -780,11 +896,11 @@ def finance_dashboard(user_id: int = Depends(require_permission("finance.view"))
         WHERE fi.status != 'cancelled' AND (%s IS NULL OR s.campus_id = %s)
     """, (campus_id, campus_id))
     stats = dict(cur.fetchone())
-    cur.execute("SELECT COALESCE(SUM(p.amount_paid),0) AS collected_today FROM payments p JOIN fee_invoices fi ON fi.id=p.invoice_id JOIN students s ON s.id=fi.student_id WHERE DATE(p.paid_at) = %s AND (%s IS NULL OR s.campus_id = %s)", (get_processing_date(db), campus_id, campus_id))
+    cur.execute("SELECT COALESCE(SUM(p.amount_paid),0) AS collected_today FROM payments p JOIN fee_invoices fi ON fi.id=p.invoice_id JOIN students s ON s.id=fi.student_id WHERE p.review_status='verified' AND DATE(p.paid_at) = %s AND (%s IS NULL OR s.campus_id = %s)", (get_processing_date(db), campus_id, campus_id))
     stats["collected_today"] = float(cur.fetchone()["collected_today"])
-    cur.execute("SELECT COALESCE(SUM(p.amount_paid),0) AS collected_month FROM payments p JOIN fee_invoices fi ON fi.id=p.invoice_id JOIN students s ON s.id=fi.student_id WHERE DATE_TRUNC('month',p.paid_at) = DATE_TRUNC('month',%s::date) AND (%s IS NULL OR s.campus_id = %s)", (get_processing_date(db), campus_id, campus_id))
+    cur.execute("SELECT COALESCE(SUM(p.amount_paid),0) AS collected_month FROM payments p JOIN fee_invoices fi ON fi.id=p.invoice_id JOIN students s ON s.id=fi.student_id WHERE p.review_status='verified' AND DATE_TRUNC('month',p.paid_at) = DATE_TRUNC('month',%s::date) AND (%s IS NULL OR s.campus_id = %s)", (get_processing_date(db), campus_id, campus_id))
     stats["collected_month"] = float(cur.fetchone()["collected_month"])
-    cur.execute("SELECT COUNT(*) AS cnt, COALESCE(SUM(p.amount_paid),0) AS amt FROM payments p JOIN fee_invoices fi ON fi.id=p.invoice_id JOIN students s ON s.id=fi.student_id WHERE p.is_verified = FALSE AND (%s IS NULL OR s.campus_id = %s)", (campus_id, campus_id))
+    cur.execute("SELECT COUNT(*) AS cnt, COALESCE(SUM(p.amount_paid),0) AS amt FROM payments p JOIN fee_invoices fi ON fi.id=p.invoice_id JOIN students s ON s.id=fi.student_id WHERE p.review_status = 'pending' AND (%s IS NULL OR s.campus_id = %s)", (campus_id, campus_id))
     pv = cur.fetchone()
     stats["pending_verification_count"] = pv["cnt"]
     stats["pending_verification_amount"] = float(pv["amt"])
@@ -793,7 +909,7 @@ def finance_dashboard(user_id: int = Depends(require_permission("finance.view"))
     return ok(data=stats)
 
 
-# ─── Student Fee Summary ──────────────────────────────────────────────────────
+# â”€â”€â”€ Student Fee Summary â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.get("/student/{student_id}")
 def student_summary(student_id: int, user_id: int = Depends(get_current_user_id), claims: dict = Depends(get_jwt_claims), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
@@ -818,7 +934,7 @@ def student_summary(student_id: int, user_id: int = Depends(get_current_user_id)
     return ok(data=row)
 
 
-# ─── Charges ─────────────────────────────────────────────────────────────────
+# â”€â”€â”€ Charges â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.get("/charges/search")
 def search_charges(
@@ -920,25 +1036,30 @@ def waive_charge(item_id: int, user_id: int = Depends(require_permission("financ
         if "ALREADY_WAIVED" in msg: fail("This charge has already been waived.", 400)
         fail("Failed to waive charge.", 500)
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         import main as _main
-        cur.execute("SELECT user_id, parent_id, first_name, last_name FROM students WHERE id = %s", (result["student_id"],))
+        cur.execute("SELECT user_id, parent_id, first_name, last_name, campus_id FROM students WHERE id = %s", (result["student_id"],))
         stu = cur.fetchone()
         if stu:
             msg = (f"The charge \"{result['waived_label']}\" (Rs. {float(result['waived_amount']):,.0f}) has been waived. "
                    f"Your updated invoice is {result['new_invoice_no']}, amount Rs. {float(result['new_amount']):,.0f}.")
+            _sname = f"{stu['first_name']} {stu['last_name']}"
+            _tags = {"student_name": _sname, "charge_label": result['waived_label'], "waived_amount": f"{float(result['waived_amount']):,.0f}",
+                     "new_invoice_no": result['new_invoice_no'], "new_amount": f"{float(result['new_amount']):,.0f}"}
             with _main.flask_app.app_context():
                 if stu["user_id"]:
-                    send_notification(stu["user_id"], "Charge Waived - Invoice Updated", msg, "info", "/my-fees")
+                    _t, _b = render_templated_notification("charge_waived_student", _tags, "Charge Waived - Invoice Updated", msg, campus_id=stu["campus_id"])
+                    send_notification(stu["user_id"], _t, _b, "info", "/my-fees")
                 if stu["parent_id"]:
-                    send_notification(stu["parent_id"], f"{stu['first_name']} {stu['last_name']}: Charge Waived", msg, "info", "/my-fees")
+                    _t, _b = render_templated_notification("charge_waived_parent", _tags, f"{_sname}: Charge Waived", msg, campus_id=stu["campus_id"])
+                    send_notification(stu["parent_id"], _t, _b, "info", "/my-fees")
     except Exception:
         pass
     return ok(message=f"Charge waived. New invoice {result['new_invoice_no']} generated.",
               data={"new_invoice_id": result["new_invoice_id"], "new_invoice_no": result["new_invoice_no"]})
 
 
-# ─── Charge Types ─────────────────────────────────────────────────────────────
+# â”€â”€â”€ Charge Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.get("/charge-types")
 def get_charge_types(user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db)):
@@ -984,7 +1105,7 @@ def toggle_charge_type(ct_id: int, user_id: int = Depends(require_permission("fi
     return ok(data=dict(row), message="Charge type status updated.")
 
 
-# ─── Auto-generate Settings ───────────────────────────────────────────────────
+# â”€â”€â”€ Auto-generate Settings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.get("/auto-generate-settings")
 def get_auto_generate_settings(user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db)):
@@ -1036,7 +1157,7 @@ def run_auto_generate_now(user_id: int = Depends(require_permission("finance.man
     return ok(message="No invoices generated: " + result.get("reason", ""), data=result)
 
 
-# ─── Fee Reminders ────────────────────────────────────────────────────────────
+# â”€â”€â”€ Fee Reminders â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.post("/run-fee-reminders")
 def run_fee_reminders_endpoint(user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
@@ -1050,7 +1171,7 @@ def run_fee_reminders_endpoint(user_id: int = Depends(get_current_user_id), db=D
         fail(str(e), 500)
 
 
-# ─── Fee Reports ──────────────────────────────────────────────────────────────
+# â”€â”€â”€ Fee Reports â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.get("/reports/fee-report")
 def fee_report_school(
@@ -1102,7 +1223,7 @@ def fee_report_me(user_id: int = Depends(get_current_user_id), db=Depends(get_db
     return ok(data=[fmt(dict(r), DATE_KEYS) for r in cur.fetchall()])
 
 
-# ─── Locked Accounts ──────────────────────────────────────────────────────────
+# â”€â”€â”€ Locked Accounts â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.get("/locked-accounts")
 def get_locked_accounts(
@@ -1149,7 +1270,7 @@ def unlock_account(student_id: int, user_id: int = Depends(require_permission("f
     return ok(message="Account unlocked.")
 
 
-# ─── Discount Config ──────────────────────────────────────────────────────────
+# â”€â”€â”€ Discount Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.get("/discount-config")
 def get_discount_config(user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(governed_settings_campus_id("discount_config"))):
@@ -1184,7 +1305,7 @@ def save_discount_config(body: DiscountConfigIn, user_id: int = Depends(require_
     return ok(message="Discount config saved.")
 
 
-# ─── Internal helpers ─────────────────────────────────────────────────────────
+# â”€â”€â”€ Internal helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 def _run_monthly_invoice_generation(cur, db, user_id, target_month, campus_id=None):
     cur.execute("SELECT value FROM system_settings WHERE key = 'fee_due_day'")
@@ -1389,18 +1510,24 @@ def _run_smart_monthly_generation(cur, db, user_id, yr, mo, due_day=10):
         generated += 1
     db.commit()
     try:
-        from app.utils.notify import send_notification
+        from app.utils.notify import send_notification, render_templated_notification
         import main as _main
         cur.execute("""
             SELECT fi.id, fi.student_id, fi.amount, fi.due_date,
-                   s.user_id, s.parent_id, s.first_name, s.last_name
+                   s.user_id, s.parent_id, s.first_name, s.last_name, s.campus_id
             FROM fee_invoices fi JOIN students s ON s.id = fi.student_id WHERE fi.month_year = %s
         """, (month_yr,))
         with _main.flask_app.app_context():
             for inv in cur.fetchall():
                 msg = f"Fee invoice of Rs. {float(inv['amount']):,.0f} generated. Due: {inv['due_date']}."
-                if inv["user_id"]: send_notification(inv["user_id"], "Fee Invoice Generated", msg, "info", "/my-fees")
-                if inv["parent_id"]: send_notification(inv["parent_id"], "Child Fee Invoice", f"{inv['first_name']} {inv['last_name']}: {msg}", "info", "/my-fees")
+                _iname = f"{inv['first_name']} {inv['last_name']}"
+                _tags = {"student_name": _iname, "amount": f"{float(inv['amount']):,.0f}", "due_date": str(inv['due_date'])}
+                if inv["user_id"]:
+                    _t, _b = render_templated_notification("fee_invoice_generated_student", _tags, "Fee Invoice Generated", msg, campus_id=inv["campus_id"])
+                    send_notification(inv["user_id"], _t, _b, "info", "/my-fees")
+                if inv["parent_id"]:
+                    _t, _b = render_templated_notification("fee_invoice_generated_parent", _tags, "Child Fee Invoice", f"{_iname}: {msg}", campus_id=inv["campus_id"])
+                    send_notification(inv["parent_id"], _t, _b, "info", "/my-fees")
     except Exception:
         pass
     return {"generated": generated, "skipped": skipped, "month_yr": month_yr}

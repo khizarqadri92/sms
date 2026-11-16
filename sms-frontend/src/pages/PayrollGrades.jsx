@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import payrollApi from "../api/payrollApi";
 import { useGovernanceMode } from "../hooks/useGovernanceMode";
+import "./PayrollGrades.css";
 
 const CALC_LABELS = {
   fixed: "Fixed Amount",
@@ -217,86 +218,85 @@ export default function PayrollGrades() {
 
   const basicModeBlocksComponent = (comp) => comp.is_basic && settings.basic_salary_mode === "individual";
 
-  if (loading) return <div style={{ padding: 60, textAlign: "center", color: "#64748b" }}>Loading...</div>;
+  if (loading) return <div className="pg-loading">Loading...</div>;
 
   return (
-    <div style={{ margin: "0 auto", padding: 24 }}>
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 22, fontWeight: 800, color: "#0f172a" }}>Payroll Grades</div>
-        <div style={{ fontSize: 13, color: "#64748b" }}>Define employee grades and attach salary components to each</div>
+    <div className="pg-page">
+      <div className="pg-header">
+        <div className="pg-title">Payroll Grades</div>
+        <div className="pg-subtitle">Define employee grades and attach salary components to each</div>
       </div>
 
-      <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, padding: 20, marginBottom: 24 }}>
-        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6 }}>Basic Salary Mode</div>
-        <div style={{ fontSize: 12, color: "#64748b", marginBottom: 14 }}>
+      <div className="pg-settings-card">
+        <div className="pg-settings-title">Basic Salary Mode</div>
+        <div className="pg-settings-desc">
           Controls whether Basic Salary is fixed at the grade level (everyone in a grade earns the same) or set individually per employee.
         </div>
-        <div style={{ display: "flex", gap: 16, marginBottom: 14 }}>
-          <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13, cursor: "pointer" }}>
+        <div className="pg-radio-row-16-mb14">
+          <label className="pg-radio-label">
             <input type="radio" checked={settings.basic_salary_mode === "grade_fixed"}
               onChange={() => setSettings(p => ({ ...p, basic_salary_mode: "grade_fixed" }))} />
             Fixed by Grade (uniform for everyone in the grade)
           </label>
-          <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13, cursor: "pointer" }}>
+          <label className="pg-radio-label">
             <input type="radio" checked={settings.basic_salary_mode === "individual"}
               onChange={() => setSettings(p => ({ ...p, basic_salary_mode: "individual" }))} />
             Individual per Employee
           </label>
         </div>
 
-        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 6, marginTop: 18 }}>Days in Month (for "Days of Salary" adjustments)</div>
-        <div style={{ fontSize: 12, color: "#64748b", marginBottom: 14 }}>
+        <div className="pg-settings-title-mt18">Days in Month (for "Days of Salary" adjustments)</div>
+        <div className="pg-settings-desc">
           Controls the divisor used to calculate a per-day rate from an employee salary, based on the adjustment target month.
         </div>
-        <div style={{ display: "flex", gap: 16, marginBottom: 14 }}>
-          <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13, cursor: "pointer" }}>
+        <div className="pg-radio-row-16-mb14">
+          <label className="pg-radio-label">
             <input type="radio" checked={settings.days_in_month_mode === "fixed_30"}
               onChange={() => setSettings(p => ({ ...p, days_in_month_mode: "fixed_30" }))} />
             Fixed number of days for every month:
-            <input type="number" min="1" max="31" className="form-input" style={{ width: 70, fontSize: 13 }}
+            <input type="number" min="1" max="31" className="form-input pg-inline-input-70"
               disabled={settings.days_in_month_mode !== "fixed_30"}
               value={settings.fixed_days_value} onChange={e => setSettings(p => ({ ...p, fixed_days_value: e.target.value }))} />
           </label>
-          <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13, cursor: "pointer" }}>
+          <label className="pg-radio-label">
             <input type="radio" checked={settings.days_in_month_mode === "actual"}
               onChange={() => setSettings(p => ({ ...p, days_in_month_mode: "actual" }))} />
             Actual calendar days in that month (28-31)
           </label>
         </div>
 
-        <div style={{ fontWeight: 700, fontSize: 14, marginTop: 20, marginBottom: 10 }}>Employer Provident Fund Contribution</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
-          <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13, cursor: "pointer" }}>
+        <div className="pg-settings-title-mt20">Employer Provident Fund Contribution</div>
+        <div className="pg-radio-col-10-mb14">
+          <label className="pg-radio-label">
             <input type="radio" checked={settings.pf_employer_contribution_mode === "same_as_employee"}
               onChange={() => setSettings(p => ({ ...p, pf_employer_contribution_mode: "same_as_employee" }))} />
             Same as employee deduction percentage
           </label>
-          <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13, cursor: "pointer" }}>
+          <label className="pg-radio-label">
             <input type="radio" checked={settings.pf_employer_contribution_mode === "percentage"}
               onChange={() => setSettings(p => ({ ...p, pf_employer_contribution_mode: "percentage" }))} />
             Different percentage of basic salary:
-            <input type="number" min="0" max="100" step="0.01" className="form-input" style={{ width: 80, fontSize: 13 }}
+            <input type="number" min="0" max="100" step="0.01" className="form-input pg-inline-input-80"
               disabled={settings.pf_employer_contribution_mode !== "percentage"}
               value={settings.pf_employer_percentage} onChange={e => setSettings(p => ({ ...p, pf_employer_percentage: e.target.value }))} />
             %
           </label>
-          <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13, cursor: "pointer" }}>
+          <label className="pg-radio-label">
             <input type="radio" checked={settings.pf_employer_contribution_mode === "fixed"}
               onChange={() => setSettings(p => ({ ...p, pf_employer_contribution_mode: "fixed" }))} />
             Fixed amount per employee:
-            <input type="number" min="0" step="0.01" className="form-input" style={{ width: 100, fontSize: 13 }}
+            <input type="number" min="0" step="0.01" className="form-input pg-inline-input-100"
               disabled={settings.pf_employer_contribution_mode !== "fixed"}
               value={settings.pf_employer_fixed_amount} onChange={e => setSettings(p => ({ ...p, pf_employer_fixed_amount: e.target.value }))} />
           </label>
         </div>
-        <button className="btn btn-primary btn-sm" style={{ color: "#fff" }} disabled={savingSettings} onClick={saveSettings}>
+        <button className="btn btn-primary btn-sm pg-save-btn" disabled={savingSettings} onClick={saveSettings}>
           {savingSettings ? "Saving..." : "Save"}
         </button>
         {settingsMsg && (
-          <div style={{
-            marginTop: 12, padding: "8px 12px", borderRadius: 8, fontSize: 13, fontWeight: 600,
-            background: settingsMsg.type === "success" ? "#dcfce7" : "#fee2e2",
-            color: settingsMsg.type === "success" ? "#166534" : "#dc2626"
+          <div className="pg-settings-msg" style={{
+            "--msg-bg": settingsMsg.type === "success" ? "#dcfce7" : "#fee2e2",
+            "--msg-color": settingsMsg.type === "success" ? "#166534" : "#dc2626"
           }}>
             {settingsMsg.type === "success" ? "" : ""}{settingsMsg.text}
           </div>
@@ -304,94 +304,93 @@ export default function PayrollGrades() {
       </div>
 
       {flash && (
-        <div style={{
-          marginBottom: 16, padding: "10px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600,
-          background: flash.type === "success" ? "#dcfce7" : "#fee2e2",
-          color: flash.type === "success" ? "#166534" : "#dc2626"
+        <div className="pg-flash" style={{
+          "--flash-bg": flash.type === "success" ? "#dcfce7" : "#fee2e2",
+          "--flash-color": flash.type === "success" ? "#166534" : "#dc2626"
         }}>
           {flash.type === "success" ? "" : ""}{flash.msg}
         </div>
       )}
 
       {isGlobalLocked && (
-        <div style={{ marginBottom: 12, padding: "8px 12px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, fontSize: 12, color: "#92400e" }}>
+        <div className="pg-readonly-alert">
           Payroll Grades are managed centrally by the superadmin. This list is read-only here.
         </div>
       )}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <div style={{ fontWeight: 700, fontSize: 15 }}>Grades</div>
-        {!isGlobalLocked && <button className="btn btn-primary btn-sm" style={{ color: "#fff" }} onClick={openAddGrade}>+ Add Grade</button>}
+      <div className="pg-section-header-row">
+        <div className="pg-section-title">Grades</div>
+        {!isGlobalLocked && <button className="btn btn-primary btn-sm pg-add-btn" onClick={openAddGrade}>+ Add Grade</button>}
       </div>
 
-      <div style={{ background: "#fff", border: "1px solid #e2e8f0", borderRadius: 12, overflow: "hidden" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <div className="pg-table-wrap">
+        <table className="pg-table">
           <thead>
-            <tr style={{ background: "#f8fafc" }}>
+            <tr className="pg-th-row">
               {["Name", "Description", "Components", "Active", ""].map(h => (
-                <th key={h} style={{ padding: "10px 14px", textAlign: "left", fontSize: 11, fontWeight: 700, color: "#64748b", borderBottom: "1px solid #e2e8f0" }}>{h}</th>
+                <th key={h} className="pg-th">{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {grades.map(g => (
-              <tr key={g.id} style={{ borderBottom: "1px solid #f1f5f9", opacity: g.is_active ? 1 : 0.5 }}>
-                <td style={{ padding: "10px 14px", fontWeight: 600, fontSize: 13 }}>{g.name}</td>
-                <td style={{ padding: "10px 14px", fontSize: 12, color: "#64748b" }}>{g.description || "-"}</td>
-                <td style={{ padding: "10px 14px", fontSize: 12, color: "#475569" }}>{g.component_count} attached</td>
-                <td style={{ padding: "10px 14px", fontSize: 12 }}>
-                  {g.is_active ? <span style={{ color: "#166534" }}>Active</span> : <span style={{ color: "#dc2626" }}>Inactive</span>}
+              <tr key={g.id} className="pg-tr" style={{ "--row-opacity": g.is_active ? 1 : 0.5 }}>
+                <td className="pg-td-name">{g.name}</td>
+                <td className="pg-td-desc">{g.description || "-"}</td>
+                <td className="pg-td-comp-count">{g.component_count} attached</td>
+                <td className="pg-td-status">
+                  {g.is_active ? <span className="pg-status-active">Active</span> : <span className="pg-status-inactive">Inactive</span>}
                 </td>
-                <td style={{ padding: "10px 14px", display: "flex", gap: 6 }}>
+                <td className="pg-actions-cell">
                   {!isGlobalLocked && (
                     <>
-                      <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => openManageComponents(g)}>Manage Components</button>
-                      <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => openEditGrade(g)}>Edit</button>
+                      <button className="btn btn-ghost btn-sm pg-action-btn-sm" onClick={() => openManageComponents(g)}>Manage Components</button>
+                      <button className="btn btn-ghost btn-sm pg-action-btn-sm" onClick={() => openEditGrade(g)}>Edit</button>
                     </>
                   )}
                 </td>
               </tr>
             ))}
             {grades.length === 0 && (
-              <tr><td colSpan={5} style={{ padding: 30, textAlign: "center", color: "#94a3b8", fontSize: 13 }}>No grades configured yet.</td></tr>
+              <tr><td colSpan={5} className="pg-empty-td">No grades configured yet.</td></tr>
             )}
           </tbody>
         </table>
       </div>
 
       {showGradeForm && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 9000, background: "rgba(15,23,42,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <div style={{ background: "#fff", borderRadius: 12, width: "100%", maxWidth: 440, boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
-            <div style={{ padding: "14px 20px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>{editingGradeId ? "Edit Grade" : "Add Grade"}</div>
+        <div className="pg-modal-overlay">
+          <div className="pg-modal-box-sm">
+            <div className="pg-modal-header">
+              <div className="pg-modal-title">{editingGradeId ? "Edit Grade" : "Add Grade"}</div>
               <button className="btn btn-ghost btn-sm" onClick={() => setShowGradeForm(false)}>Close</button>
             </div>
-            <div style={{ padding: 20 }}>
+            <div className="pg-modal-body">
               {gradeFormError && (
-                <div style={{ marginBottom: 14, padding: "10px 14px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 8, fontSize: 13, color: "#b91c1c", fontWeight: 600 }}>
+                <div className="pg-error-box">
                   {gradeFormError}
                 </div>
               )}
-              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div className="pg-form-column">
                 <div>
-                  <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Name *</label>
-                  <input className="form-input" style={{ width: "100%", fontSize: 13 }} placeholder="e.g. Grade 1, Senior Teacher"
+                  <label className="pg-field-label">Name *</label>
+                  <input className="form-input pg-full-input" placeholder="e.g. Grade 1, Senior Teacher"
                     value={gradeForm.name} onChange={e => setGradeForm(p => ({ ...p, name: e.target.value }))} />
                 </div>
                 <div>
-                  <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 4 }}>Description</label>
-                  <textarea className="form-input" rows={2} style={{ width: "100%", fontSize: 13 }}
+                  <label className="pg-field-label">Description</label>
+                  <textarea className="form-input pg-full-input" rows={2}
                     value={gradeForm.description} onChange={e => setGradeForm(p => ({ ...p, description: e.target.value }))} />
                 </div>
                 {editingGradeId && (
-                  <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, cursor: "pointer" }}>
+                  <label className="pg-checkbox-label">
                     <input type="checkbox" checked={gradeForm.is_active} onChange={e => setGradeForm(p => ({ ...p, is_active: e.target.checked }))} />
                     Active
                   </label>
                 )}
               </div>
-              <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 16 }}>
+              <div className="pg-btn-row">
                 <button className="btn btn-ghost btn-sm" onClick={() => setShowGradeForm(false)}>Cancel</button>
-                <button className="btn btn-primary btn-sm" style={{ color: "#fff" }} disabled={savingGrade} onClick={submitGrade}>
+                <button className="btn btn-primary btn-sm pg-save-btn" disabled={savingGrade} onClick={submitGrade}>
                   {savingGrade ? "Saving..." : (editingGradeId ? "Update" : "Create")}
                 </button>
               </div>
@@ -401,30 +400,29 @@ export default function PayrollGrades() {
       )}
 
       {managingGrade && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 9000, background: "rgba(15,23,42,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <div ref={modalScrollRef} style={{ background: "#fff", borderRadius: 12, width: "100%", maxWidth: 620, maxHeight: "85vh", overflowY: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.2)" }}>
-            <div style={{ padding: "14px 20px", borderBottom: "1px solid #e2e8f0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>{managingGrade.name} - Components</div>
+        <div className="pg-modal-overlay">
+          <div ref={modalScrollRef} className="pg-modal-box-lg">
+            <div className="pg-modal-header">
+              <div className="pg-modal-title">{managingGrade.name} - Components</div>
               <button className="btn btn-ghost btn-sm" onClick={() => { setManagingGrade(null); loadAll(true); }}>Close</button>
             </div>
-            <div style={{ padding: 20 }}>
+            <div className="pg-modal-body">
               {componentActionError && (
-                <div style={{
-                  marginBottom: 14, padding: "10px 14px", borderRadius: 8, fontSize: 13, fontWeight: 600,
-                  background: componentActionError.type === "success" ? "#dcfce7" : "#fef2f2",
-                  border: "1px solid " + (componentActionError.type === "success" ? "#bbf7d0" : "#fecaca"),
-                  color: componentActionError.type === "success" ? "#166534" : "#b91c1c"
+                <div className="pg-action-msg" style={{
+                  "--msg-bg": componentActionError.type === "success" ? "#dcfce7" : "#fef2f2",
+                  "--msg-border": componentActionError.type === "success" ? "#bbf7d0" : "#fecaca",
+                  "--msg-color": componentActionError.type === "success" ? "#166534" : "#b91c1c"
                 }}>
                   {componentActionError.type === "success" ? "\u2713 " : "\u26a0 "}{componentActionError.text}
                 </div>
               )}
 
-              <div style={{ marginBottom: 18, padding: 12, background: "#f8fafc", borderRadius: 8, border: "1px solid #e2e8f0" }}>
-                <label style={{ fontSize: 12, fontWeight: 600, display: "block", marginBottom: 6 }}>Department-Specific Overrides</label>
-                <div style={{ fontSize: 11, color: "#94a3b8", marginBottom: 8 }}>
+              <div className="pg-dept-override-card">
+                <label className="pg-field-label-mb6">Department-Specific Overrides</label>
+                <div className="pg-help-text-mb8">
                   Optional - only needed if a specific department should differ from this grade's defaults below.
                 </div>
-                <select className="form-input" style={{ width: 240, fontSize: 13 }} value={overrideDeptId}
+                <select className="form-input pg-dept-select" value={overrideDeptId}
                   onChange={e => loadDeptOverrides(e.target.value)}>
                   <option value="">View defaults only (no department selected)</option>
                   {departments.map(d => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -432,34 +430,31 @@ export default function PayrollGrades() {
               </div>
 
               {overrideDeptId && (
-                <div style={{ marginBottom: 18 }}>
-                  <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>
+                <div className="pg-overrides-section">
+                  <div className="pg-overrides-title">
                     Overrides for {departments.find(d => d.id === Number(overrideDeptId))?.name}
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  <div className="pg-comp-list-column">
                     {allComponents.map(comp => {
                       const overridden = isDeptOverridden(comp.id);
                       return (
-                        <div key={comp.id} style={{
-                          display: "flex", alignItems: "center", gap: 10, padding: "8px 10px",
-                          background: "#fff", border: "1px solid #fde68a", borderRadius: 8
-                        }}>
+                        <div key={comp.id} className="pg-comp-row-override">
                           <input type="checkbox" checked={overridden} onChange={() => toggleDeptOverride(comp)} />
-                          <div style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>
+                          <div className="pg-comp-row-flex">
                             {comp.name}
-                            <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 400 }}>{CALC_LABELS[comp.calculation_type]}</div>
+                            <div className="pg-comp-subtext">{CALC_LABELS[comp.calculation_type]}</div>
                           </div>
                           {overridden && (
                             comp.calculation_type === "tax_slab" ? (
-                              <div style={{ fontSize: 11, color: "#1d4ed8", fontStyle: "italic", maxWidth: 220, textAlign: "right" }}>
+                              <div className="pg-tax-slab-note">
                                 Income tax will be deducted as per Income Tax Slabs
                               </div>
                             ) : (
                               <>
-                                <input type="number" step="0.01" className="form-input" style={{ width: 110, fontSize: 12 }}
+                                <input type="number" step="0.01" className="form-input pg-value-input-110"
                                   value={deptOverrideValues[comp.id] ?? 0}
                                   onChange={e => setDeptOverrideValues(p => ({ ...p, [comp.id]: e.target.value }))} />
-                                <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => saveDeptOverrideValue(comp)}>Save</button>
+                                <button className="btn btn-ghost btn-sm pg-action-btn-sm" onClick={() => saveDeptOverrideValue(comp)}>Save</button>
                               </>
                             )
                           )}
@@ -470,44 +465,41 @@ export default function PayrollGrades() {
                 </div>
               )}
 
-              <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>Grade Defaults</div>
+              <div className="pg-grade-defaults-title">Grade Defaults</div>
               {["earning", "deduction"].map(type => (
-                <div key={type} style={{ marginBottom: 18 }}>
-                  <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, textTransform: "capitalize" }}>{type}s</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div key={type} className="pg-type-section">
+                  <div className="pg-type-section-title">{type}s</div>
+                  <div className="pg-comp-list-column">
                     {allComponents.filter(c => c.component_type === type).map(comp => {
                       const blocked = basicModeBlocksComponent(comp);
                       const attached = isAttached(comp.id);
                       return (
-                        <div key={comp.id} style={{
-                          display: "flex", alignItems: "center", gap: 10, padding: "8px 10px",
-                          background: blocked ? "#f8fafc" : "#fff", border: "1px solid #e2e8f0", borderRadius: 8, opacity: blocked ? 0.5 : 1
-                        }}>
+                        <div key={comp.id} className="pg-comp-row-default" style={{ "--row-bg": blocked ? "var(--bg-hover)" : "var(--bg-card)", "--row-opacity-comp": blocked ? 0.5 : 1 }}>
                           <input type="checkbox" checked={attached && !blocked} disabled={blocked} onChange={() => toggleComponent(comp)} />
-                          <div style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>
+                          <div className="pg-comp-row-flex">
                             {comp.name}
-                            {comp.is_basic && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 6, background: "#eff6ff", color: "#1d4ed8" }}>Basic</span>}
-                            <div style={{ fontSize: 11, color: "#94a3b8", fontWeight: 400 }}>{CALC_LABELS[comp.calculation_type]}</div>
+                            {comp.is_basic && <span className="pg-basic-tag">Basic</span>}
+                            <div className="pg-comp-subtext">{CALC_LABELS[comp.calculation_type]}</div>
                           </div>
                           {blocked ? (
-                            <div style={{ fontSize: 11, color: "#94a3b8" }}>Set per-employee</div>
+                            <div className="pg-blocked-text">Set per-employee</div>
                           ) : comp.calculation_type === "tax_slab" ? (
-                            attached && <div style={{ fontSize: 11, color: "#1d4ed8", fontStyle: "italic", maxWidth: 220, textAlign: "right" }}>
+                            attached && <div className="pg-tax-slab-note">
                               Income tax will be deducted as per Income Tax Slabs
                             </div>
                           ) : attached && (
                             <>
-                              <input type="number" step="0.01" className="form-input" style={{ width: 110, fontSize: 12 }}
+                              <input type="number" step="0.01" className="form-input pg-value-input-110"
                                 value={componentValues[comp.id] ?? 0}
                                 onChange={e => setComponentValues(p => ({ ...p, [comp.id]: e.target.value }))} />
-                              <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => saveComponentValue(comp)}>Save</button>
+                              <button className="btn btn-ghost btn-sm pg-action-btn-sm" onClick={() => saveComponentValue(comp)}>Save</button>
                             </>
                           )}
                         </div>
                       );
                     })}
                     {allComponents.filter(c => c.component_type === type).length === 0 && (
-                      <div style={{ fontSize: 12, color: "#94a3b8" }}>No {type} components configured yet.</div>
+                      <div className="pg-no-components-text">No {type} components configured yet.</div>
                     )}
                   </div>
                 </div>

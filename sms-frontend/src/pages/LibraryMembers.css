@@ -1,0 +1,63 @@
+.lib-mem-mb16 { margin-bottom: 16px; }
+.lib-mem-mb12 { margin-bottom: 12px; }
+
+.lib-mem-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.lib-mem-modal {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border-radius: 12px;
+  padding: 24px;
+  width: 100%;
+  max-width: 560px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.lib-mem-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.lib-mem-modal-title { font-weight: 700; font-size: 16px; }
+
+.lib-mem-search-row { display: flex; gap: 10px; margin-bottom: 12px; }
+.lib-mem-type-select { max-width: 150px; }
+.lib-mem-results { overflow: auto; flex: 1; }
+
+.lib-mem-filters-card { margin-bottom: 16px; }
+.lib-mem-filter-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+.lib-mem-filter-search-group { flex: 1; min-width: 200px; margin-bottom: 0; }
+.lib-mem-filter-type-group { min-width: 160px; margin-bottom: 0; }
+
+.lib-mem-muted { color: var(--text-muted); }
+.lib-mem-date  { font-size: 12px; color: var(--text-secondary); }
+
+.lib-mem-card-info {
+  font-size: 11px;
+}
+
+.lib-mem-capitalize {
+  text-transform: capitalize;
+}
+
+.lib-mem-fine-due {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.lib-mem-fine-clear {
+  color: #16a34a;
+}

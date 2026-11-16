@@ -47,3 +47,56 @@ def send_bulk(user_ids: list, title: str, body: str, ntype: str = "info", link: 
     """Send same notification to multiple users."""
     for uid in user_ids:
         send_notification(uid, title, body, ntype, link)
+
+
+def render_templated_notification(event_key: str, tags: dict, default_title: str, default_body: str, campus_id: int = None):
+    """
+    Looks up an admin-configurable message for this event (Setup -> Notification
+    Templates). If a template exists and is active, its title/body (with
+    {{tag}} placeholders substituted from `tags`) is used instead of the
+    hard-coded default - so admins can reword these automated messages without
+    a code change, while the underlying trigger/recipient logic is unaffected.
+    Falls back to the given defaults if no active template is configured.
+
+    Governance-aware: this entity is itself governed (Setup -> Setting
+    Governance -> Notification Templates), and the two modes are kept fully
+    separate - neither leaks into the other:
+      - mode='global': every campus uses the single shared row (campus_id
+        IS NULL), which only superadmin can edit.
+      - mode='per_campus': each campus's own row (campus_id=X) is used if it
+        exists and is active; if that campus hasn't configured this event
+        yet, this falls straight through to the hard-coded default below,
+        NOT to the global row - so superadmin's own configuration (or edits
+        to it) never leaks into a campus that hasn't set up its own version,
+        and a campus's customization never affects any other campus.
+    """
+    db = get_db()
+    cur = db.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+
+    cur.execute("SELECT mode FROM setting_governance WHERE entity_key='notification_templates'")
+    gov = cur.fetchone()
+    mode = gov["mode"] if gov else "global"
+
+    row = None
+    if mode == "per_campus" and campus_id:
+        cur.execute(
+            "SELECT title_template, body_template FROM notification_templates WHERE event_key=%s AND campus_id=%s AND is_active=TRUE",
+            (event_key, campus_id)
+        )
+        row = cur.fetchone()
+    else:
+        cur.execute(
+            "SELECT title_template, body_template FROM notification_templates WHERE event_key=%s AND campus_id IS NULL AND is_active=TRUE",
+            (event_key,)
+        )
+        row = cur.fetchone()
+
+    if not row:
+        return default_title, default_body
+
+    title, body = row["title_template"], row["body_template"]
+    for key, value in (tags or {}).items():
+        placeholder = "{{" + key + "}}"
+        title = title.replace(placeholder, str(value))
+        body = body.replace(placeholder, str(value))
+    return title, body

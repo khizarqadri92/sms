@@ -56,9 +56,11 @@ class UserCreateIn(BaseModel):
     password: Optional[str] = None
     phone: Optional[Any] = None
     role_id: Optional[Any] = None
+    campus_id: Optional[int] = None   # only used when the creator works across all campuses (superadmin)
 
     def to_dict(self):
         d = self.dict()
+        d.pop("campus_id", None)
         if d.get("password") is None:
             d.pop("password")
         return d
@@ -124,9 +126,18 @@ def list_users(
 
 
 @router.post("/")
-def create_user(body: UserCreateIn, user_id: int = Depends(require_permission("users.create")), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def create_user(body: UserCreateIn, user_id: int = Depends(require_permission("users.create")),
+                campus_id: Optional[int] = Depends(get_current_campus_id), db=Depends(get_db)):
     if campus_id is None:
-        fail("No campus context - please select a campus before creating a user.", 400)
+        # working across all campuses (superadmin): the campus comes from the form
+        if not body.campus_id:
+            fail("Choose the campus this user belongs to.", 400)
+        cur = get_cur(db)
+        cur.execute("SELECT id FROM campuses WHERE id=%s AND is_active", (body.campus_id,))
+        if not cur.fetchone():
+            fail("That campus doesn't exist or is inactive.", 400)
+        campus_id = body.campus_id
+    # a campus user always creates users on their own campus (any campus_id sent is ignored)
     with _flask_app().app_context():
         from app.services.user_service import UserService
         try:
@@ -269,6 +280,25 @@ def update_theme(body: dict = Body({}), user_id: int = Depends(get_current_user_
     cur.execute("SELECT sp_update_user_theme(%s, %s)", (user_id, theme))
     db.commit()
     return ok(message="Theme saved.")
+
+
+@router.get("/profile/color-mode")
+def get_color_mode(user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+    cur = get_cur(db)
+    cur.execute("SELECT color_mode FROM users WHERE id=%s", (user_id,))
+    row = cur.fetchone()
+    return ok(data={"color_mode": row["color_mode"] if row and row["color_mode"] else "light"})
+
+
+@router.put("/profile/color-mode")
+def update_color_mode(body: dict = Body({}), user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+    mode = body.get("color_mode", "light")
+    if mode not in ("light", "dark"):
+        fail("color_mode must be 'light' or 'dark'.", 400)
+    cur = get_cur(db)
+    cur.execute("UPDATE users SET color_mode=%s WHERE id=%s", (mode, user_id))
+    db.commit()
+    return ok(message="Color mode saved.")
 
 @router.get("/{id}")
 def get_user(id: int, user_id: int = Depends(require_permission("users.view"))):
