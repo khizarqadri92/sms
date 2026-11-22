@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useAuth } from "../auth/AuthContext";
+import { useAuth, effectiveRole } from "../auth/AuthContext";
 import materialsApi from "../api/materialsApi";
 import academicsApi from "../api/academicsApi";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
@@ -29,7 +29,7 @@ export default function StudyMaterial() {
   const { formatDate: fmtDate } = useRegionalSettings();
   const formatDate = dt => dt ? fmtDate(dt) : "";
   const { user } = useAuth();
-  const role = user?.roles?.[0];
+  const role = effectiveRole(user);
   if (role === "student") return <StudentMaterials />;
   if (role === "parent")  return <ParentMaterials />;
   if (role === "principal" || role === "admin" || role === "superadmin" || role === "academic_coordinator") return <PrincipalMaterials />;

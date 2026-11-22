@@ -11,8 +11,10 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Q
 from fastapi.responses import FileResponse
 
 from app.fastapi_auth import get_current_user_id
-from app.fastapi_permissions import require_permission
+from app.fastapi_permissions import require_permission, require_any_permission
 from app.fastapi_db import get_db, get_cur as _get_cur
+
+from app.utils.session_scope import keep_session, assert_current_session   # current session / history
 
 router = APIRouter()
 
@@ -36,7 +38,7 @@ def ok(data=None, message="Success"):
 def upload_material(
     class_id: int = Form(...), subject_id: int = Form(...), title: str = Form(...),
     description: Optional[str] = Form(""), file: UploadFile = File(...),
-    user_id: int = Depends(require_permission("material.upload")), db=Depends(get_db),
+    user_id: int = Depends(require_permission("academics.material_upload")), db=Depends(get_db),
 ):
     cur = get_cur(db)
     cur.execute("SELECT sp_get_teacher_id_by_user(%s) AS tid", (user_id,))
@@ -98,9 +100,9 @@ def upload_material(
 
 
 @router.get("/")
-def list_materials(
+def list_materials(academic_year_id: Optional[int] = Query(None), 
     class_id: Optional[int] = Query(None), subject_id: Optional[int] = Query(None),
-    user_id: int = Depends(require_permission("material.view")), db=Depends(get_db),
+    user_id: int = Depends(require_permission("academics.material_view")), db=Depends(get_db),
 ):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_list_materials(%s, %s)", (class_id, subject_id))
@@ -108,18 +110,19 @@ def list_materials(
     for r in rows:
         if r.get("created_at"):
             r["created_at"] = str(r["created_at"])
+    rows = keep_session(cur, "study_materials", rows, academic_year_id)
     return ok(data=rows)
 
 
 @router.get("/my-classes")
-def my_classes(user_id: int = Depends(require_permission("material.upload")), db=Depends(get_db)):
+def my_classes(user_id: int = Depends(require_permission("academics.material_upload")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_my_classes(%s)", (user_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.get("/{id}/download")
-def download_material(id: int, user_id: int = Depends(require_permission("material.view")), db=Depends(get_db)):
+def download_material(id: int, user_id: int = Depends(require_permission("academics.material_view")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_material_by_id(%s)", (id,))
     m = cur.fetchone()
@@ -132,8 +135,9 @@ def download_material(id: int, user_id: int = Depends(require_permission("materi
 
 
 @router.delete("/{id}")
-def delete_material(id: int, user_id: int = Depends(require_permission("material.delete")), db=Depends(get_db)):
+def delete_material(id: int, user_id: int = Depends(require_permission("academics.material_delete")), db=Depends(get_db)):
     cur = get_cur(db)
+    assert_current_session(cur, "study_materials", id)
     cur.execute("SELECT * FROM sp_get_material_for_delete(%s)", (id,))
     m = cur.fetchone()
     if not m:

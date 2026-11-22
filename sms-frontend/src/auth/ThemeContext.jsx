@@ -123,7 +123,7 @@ export function ThemeProvider({ children }) {
   // Runs on mount (covers page refresh while logged in) and whenever
   // localStorage changes (covers the moment right after login).
   function loadThemeFromApi() {
-    const token = localStorage.getItem("access_token");
+    const token = sessionStorage.getItem("access_token");
     if (!token) return;
     fetch("/api/v1/users/profile/theme", {
       headers: { "Authorization": "Bearer " + token }
@@ -140,7 +140,7 @@ export function ThemeProvider({ children }) {
   }
 
   function loadColorModeFromApi() {
-    const token = localStorage.getItem("access_token");
+    const token = sessionStorage.getItem("access_token");
     if (!token) return;
     fetch("/api/v1/users/profile/color-mode", {
       headers: { "Authorization": "Bearer " + token }
@@ -200,7 +200,7 @@ export function ThemeProvider({ children }) {
   function setTheme(key) {
     setThemeKey(key);
     localStorage.setItem("sms_theme", key);
-    const token = localStorage.getItem("access_token");
+    const token = sessionStorage.getItem("access_token");
     if (token) {
       fetch("/api/v1/users/profile/theme", {
         method: "PUT",
@@ -217,7 +217,7 @@ export function ThemeProvider({ children }) {
     if (mode !== "light" && mode !== "dark") return;
     setColorModeState(mode);
     localStorage.setItem("sms_color_mode", mode);
-    const token = localStorage.getItem("access_token");
+    const token = sessionStorage.getItem("access_token");
     if (token) {
       fetch("/api/v1/users/profile/color-mode", {
         method: "PUT",

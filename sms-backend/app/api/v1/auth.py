@@ -100,6 +100,7 @@ def refresh(user_id: int = Depends(get_current_user_id_from_refresh)):
         from app.repositories.user_repository import UserRepository
         rbac = UserRepository().get_user_roles_and_permissions(user_id)
         from app.services.auth_service import AuthService
+        rbac = AuthService()._effective(user_id)                 # roles + acting roles + extra permissions, today
         claims = {"roles": rbac["roles"], "permissions": rbac["permissions"]}
         if AuthService().must_change_password(user_id):
             claims["pwd_change"] = True                    # refreshing can't skip the required password change

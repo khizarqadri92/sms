@@ -16,9 +16,11 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from app.fastapi_auth import get_current_user_id
-from app.fastapi_permissions import require_permission
+from app.fastapi_permissions import require_permission, require_any_permission
 from app.fastapi_db import get_db, get_cur as _get_cur
 from app.utils.processing_date import get_processing_date
+
+from app.utils.session_scope import keep_session, assert_current_session   # current session / history
 
 router = APIRouter()
 
@@ -48,7 +50,7 @@ def create_assignment(
     class_id: int = Form(...), subject_id: int = Form(...), title: str = Form(...),
     due_date: str = Form(...), total_marks: float = Form(...),
     description: Optional[str] = Form(""), file: Optional[UploadFile] = File(None),
-    user_id: int = Depends(require_permission("assignment.create")), db=Depends(get_db),
+    user_id: int = Depends(require_permission("academics.assignment_create")), db=Depends(get_db),
 ):
     cur = get_cur(db)
     cur.execute("SELECT sp_get_teacher_id_by_user(%s) AS tid", (user_id,))
@@ -102,9 +104,9 @@ def create_assignment(
 
 
 @router.get("/")
-def list_assignments(
+def list_assignments(academic_year_id: Optional[int] = Query(None), 
     class_id: Optional[int] = Query(None), subject_id: Optional[int] = Query(None),
-    user_id: int = Depends(require_permission("assignment.view")), db=Depends(get_db),
+    user_id: int = Depends(require_permission("academics.assignment_view")), db=Depends(get_db),
 ):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_list_assignments(%s, %s)", (class_id, subject_id))
@@ -113,11 +115,12 @@ def list_assignments(
         r["due_date"] = str(r["due_date"])
         r["created_at"] = str(r["created_at"])
         r["is_overdue"] = r["due_date"] < get_processing_date(db).isoformat()
+    rows = keep_session(cur, "assignments", rows, academic_year_id)
     return ok(data=rows)
 
 
 @router.get("/my-assignments")
-def my_assignments(user_id: int = Depends(require_permission("assignment.create")), db=Depends(get_db)):
+def my_assignments(academic_year_id: Optional[int] = Query(None), user_id: int = Depends(require_permission("academics.assignment_create")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT sp_get_teacher_id_by_user(%s) AS tid", (user_id,))
     row = cur.fetchone()
@@ -129,11 +132,12 @@ def my_assignments(user_id: int = Depends(require_permission("assignment.create"
         r["due_date"] = str(r["due_date"])
         r["created_at"] = str(r["created_at"])
         r["is_overdue"] = r["due_date"] < get_processing_date(db).isoformat()
+    rows = keep_session(cur, "assignments", rows, academic_year_id)
     return ok(data=rows)
 
 
 @router.get("/student")
-def student_assignments(user_id: int = Depends(require_permission("assignment.view")), db=Depends(get_db)):
+def student_assignments(academic_year_id: Optional[int] = Query(None), user_id: int = Depends(require_permission("academics.assignment_view")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_student_id_class_by_user(%s)", (user_id,))
     s = cur.fetchone()
@@ -147,13 +151,14 @@ def student_assignments(user_id: int = Depends(require_permission("assignment.vi
         r["submitted_at"] = str(r["submitted_at"]) if r["submitted_at"] else None
         r["is_overdue"] = r["due_date"] < get_processing_date(db).isoformat()
         r["can_submit"] = (not r["is_overdue"]) and (not r["submission_id"])
+    rows = keep_session(cur, "assignments", rows, academic_year_id)
     return ok(data=rows)
 
 
 @router.get("/student-history")
 def student_assignment_history(
     student_id: Optional[int] = Query(None), before_date: Optional[str] = Query(None),
-    user_id: int = Depends(require_permission("assignment.view")), db=Depends(get_db),
+    user_id: int = Depends(require_permission("academics.assignment_view")), db=Depends(get_db),
 ):
     if not student_id:
         fail("student_id required", 400)
@@ -170,9 +175,10 @@ def student_assignment_history(
 @router.post("/{id}/submit")
 def submit_assignment(
     id: int, file: UploadFile = File(...),
-    user_id: int = Depends(require_permission("assignment.submit")), db=Depends(get_db),
+    user_id: int = Depends(require_permission("academics.assignment_submission")), db=Depends(get_db),
 ):
     cur = get_cur(db)
+    assert_current_session(cur, "assignments", id)
     cur.execute("SELECT * FROM sp_get_student_id_class_by_user(%s)", (user_id,))
     s = cur.fetchone()
     if not s:
@@ -236,7 +242,7 @@ def submit_assignment(
 
 
 @router.get("/{id}/submissions")
-def get_submissions(id: int, user_id: int = Depends(require_permission("assignment.view")), db=Depends(get_db)):
+def get_submissions(id: int, user_id: int = Depends(require_permission("academics.assignment_view")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_submissions_for_assignment(%s)", (id,))
     rows = [dict(r) for r in cur.fetchall()]
@@ -248,7 +254,7 @@ def get_submissions(id: int, user_id: int = Depends(require_permission("assignme
 
 
 @router.put("/submissions/{sub_id}/grade")
-def grade_submission(sub_id: int, body: GradeIn, user_id: int = Depends(require_permission("assignment.grade")), db=Depends(get_db)):
+def grade_submission(sub_id: int, body: GradeIn, user_id: int = Depends(require_permission("academics.assignment_grading")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_submission_for_grading(%s)", (sub_id,))
     sub = cur.fetchone()
@@ -287,7 +293,7 @@ def grade_submission(sub_id: int, body: GradeIn, user_id: int = Depends(require_
 
 
 @router.get("/submissions/{sub_id}/download")
-def download_submission(sub_id: int, user_id: int = Depends(require_permission("assignment.grade")), db=Depends(get_db)):
+def download_submission(sub_id: int, user_id: int = Depends(require_permission("academics.assignment_grading")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_submission_by_id(%s)", (sub_id,))
     sub = cur.fetchone()
@@ -300,7 +306,7 @@ def download_submission(sub_id: int, user_id: int = Depends(require_permission("
 
 
 @router.get("/{id}/download")
-def download_assignment_file(id: int, user_id: int = Depends(require_permission("assignment.view")), db=Depends(get_db)):
+def download_assignment_file(id: int, user_id: int = Depends(require_permission("academics.assignment_view")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_assignment_by_id(%s)", (id,))
     a = cur.fetchone()
@@ -315,8 +321,9 @@ def download_assignment_file(id: int, user_id: int = Depends(require_permission(
 
 
 @router.delete("/{id}")
-def delete_assignment(id: int, user_id: int = Depends(require_permission("assignment.create")), db=Depends(get_db)):
+def delete_assignment(id: int, user_id: int = Depends(require_permission("academics.assignment_create")), db=Depends(get_db)):
     cur = get_cur(db)
+    assert_current_session(cur, "assignments", id)
     cur.execute("SELECT * FROM sp_get_assignment_for_delete(%s)", (id,))
     a = cur.fetchone()
     if not a:

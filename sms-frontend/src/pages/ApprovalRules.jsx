@@ -174,7 +174,7 @@ function conditionSummary(rule) {
 export default function ApprovalRules() {
   const { can } = useAuth();
   const { isGlobalLocked } = useGovernanceMode("procurement_approval_rules");
-  const canConfigure = can("procurement.configure") && !isGlobalLocked;
+  const canConfigure = can("procurement_inventory.procurement_setup") && !isGlobalLocked;
   const [rules, setRules] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [categories, setCategories] = useState([]);

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { leavesApi } from "../api/leavesApi";
-import { useAuth } from "../auth/AuthContext";
+import { useAuth, effectiveRole } from "../auth/AuthContext";
 import { useProcessingToday } from "../hooks/useProcessingToday";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
 import DatePicker from "../components/DatePicker";
@@ -16,8 +16,8 @@ export default function Leaves() {
   const { formatDate, formatDateTime } = useRegionalSettings();
   const fmtDate = (d) => d ? formatDate(d) : "";
   const { user, can } = useAuth();
-  const canApply = can("leave.apply");
-  const role = user?.roles?.[0] || "";
+  const canApply = can("hr.leave_application", "hr.student_leave_application");
+  const role = effectiveRole(user) || "";
   const isParent = role === "parent";
 
   const [children, setChildren]   = useState([]);

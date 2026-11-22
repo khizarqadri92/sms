@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from app.fastapi_auth import get_current_user_id, get_jwt_claims
-from app.fastapi_permissions import require_permission
+from app.fastapi_permissions import require_permission, require_any_permission
 from app.fastapi_campus import get_current_campus_id, enforce_same_campus
 from app.fastapi_db import get_db, get_cur as _get_cur
 from app.utils.processing_date import get_processing_date
@@ -69,7 +69,7 @@ def _active_year(cur, campus_id):
 # =============================================================================
 
 @router.get("/years")
-def admission_years(campus: Optional[int] = Query(None), user_id: int = Depends(require_permission("admission.view")),
+def admission_years(campus: Optional[int] = Query(None), user_id: int = Depends(require_any_permission("admissions.admission_dashboard_view", "admissions.application_list_view", "admissions.application_create", "admissions.admission_settings_view", "admissions.admission_test_view", "admissions.interview_schedule", "admissions.interview_panel_setup", "admissions.admission_fee_view", "admissions.admission_reports")),
                     db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cid = _campus_or_param(campus_id, campus)
@@ -96,7 +96,7 @@ def _class_levels(cur, campus_id):
 
 @router.get("/settings")
 def get_settings(academic_year_id: Optional[int] = Query(None), campus: Optional[int] = Query(None),
-                 user_id: int = Depends(require_permission("admission.view")), db=Depends(get_db),
+                 user_id: int = Depends(require_permission("admissions.admission_settings_view")), db=Depends(get_db),
                  campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cid = _campus_or_param(campus_id, campus)
@@ -189,7 +189,7 @@ NO_FORMAT_TOKENS = re.compile(r"\{(YYYY|YY|CAMPUS_ID|CAMPUS|SEQ\d)\}")
 
 
 @router.put("/settings")
-def save_settings(body: SettingsIn, user_id: int = Depends(require_permission("admission.settings")), db=Depends(get_db),
+def save_settings(body: SettingsIn, user_id: int = Depends(require_permission("admissions.admission_settings_edit")), db=Depends(get_db),
                   campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cid = _campus_or_param(campus_id, body.campus_id)
@@ -260,7 +260,7 @@ def save_settings(body: SettingsIn, user_id: int = Depends(require_permission("a
 # =============================================================================
 
 @router.get("/staff")
-def admission_staff_list(user_id: int = Depends(require_permission("admission.view")), db=Depends(get_db),
+def admission_staff_list(user_id: int = Depends(require_any_permission("admissions.application_assign", "admissions.application_list_view")), db=Depends(get_db),
                          campus_id: Optional[int] = Depends(get_current_campus_id)):
     """People who handle applications (for the 'staff member' filter)."""
     cur = get_cur(db)
@@ -272,7 +272,7 @@ def admission_staff_list(user_id: int = Depends(require_permission("admission.vi
 
 
 @router.get("/examiners")
-def examiners_list(campus: Optional[int] = Query(None), user_id: int = Depends(require_permission("admission.view")), db=Depends(get_db),
+def examiners_list(campus: Optional[int] = Query(None), user_id: int = Depends(require_permission("admissions.admission_test_view")), db=Depends(get_db),
                    campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Who can examine an admission test: every active teacher on the campus, then other academic staff."""
     cur = get_cur(db)
@@ -301,7 +301,7 @@ def dashboard(academic_year_id: Optional[int] = Query(None), campus: Optional[in
               class_name: Optional[str] = Query(None), status: Optional[str] = Query(None),
               date_from: Optional[date] = Query(None), date_to: Optional[date] = Query(None),
               assigned_to: Optional[int] = Query(None),
-              user_id: int = Depends(require_permission("admission.view")), db=Depends(get_db),
+              user_id: int = Depends(require_permission("admissions.admission_dashboard_view")), db=Depends(get_db),
               campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     today = get_processing_date(db)
@@ -608,9 +608,36 @@ def _wf():
 
 
 def _user_perms(cur, user_id):
-    cur.execute("""SELECT DISTINCT p.code FROM role_permissions rp JOIN user_roles ur ON ur.role_id=rp.role_id
-                   JOIN permissions p ON p.id=rp.permission_id WHERE ur.user_id=%s""", (user_id,))
-    return {r["code"] for r in cur.fetchall()}
+    from app.utils.access import effective_permissions          # roles + acting roles + extra permissions, today
+    return set(effective_permissions(cur, user_id))
+
+
+CONTACT_FIELDS = ("father_cnic", "father_phone", "father_email", "mother_cnic", "mother_phone", "mother_email",
+                  "guardian_cnic", "guardian_phone", "guardian_email", "b_form_no", "pickup_address", "address")
+SPECIAL_FIELDS = ("has_disability", "disability_types", "disability_details")
+
+
+def _mask(v):
+    """35202-1234567-1 -> 35202-*******-1 ; 03001234567 -> 0300****567 ; a@b.pk -> a***@b.pk"""
+    if not v: return v
+    s = str(v)
+    if "@" in s:
+        u, d = s.split("@", 1); return (u[:1] + "***@" + d)
+    digits = sum(ch.isdigit() for ch in s)
+    if digits >= 7: keep_a, keep_b = (5, 1) if digits == 13 else (4, 3); return s[:keep_a] + "*" * max(len(s) - keep_a - keep_b, 3) + s[-keep_b:]
+    return "***"
+
+
+def protect_application(a, perms):
+    """Sensitive fields follow the permissions: contact details, special needs (server-side, not just hidden on screen)."""
+    if "admissions.application_contact_details" not in perms:
+        for k in CONTACT_FIELDS:
+            if a.get(k): a[k] = _mask(a[k])
+        a["contact_masked"] = True
+    if "admissions.application_special_needs" not in perms:
+        a["has_disability"], a["disability_types"], a["disability_details"] = None, [], None
+        a["special_needs_hidden"] = True
+    return a
 
 
 def _assignment(cur, user_id, app_id):
@@ -624,16 +651,31 @@ def _assignment(cur, user_id, app_id):
 
 def _claims_actor(user_id, db):
     """Workflow actor with the user's live permissions (same source as require_permission)."""
-    cur = get_cur(db)
-    cur.execute("""SELECT DISTINCT p.code FROM role_permissions rp JOIN user_roles ur ON ur.role_id=rp.role_id
-                   JOIN permissions p ON p.id=rp.permission_id WHERE ur.user_id=%s""", (user_id,))
-    return _wf().actor(user_id, [r["code"] for r in cur.fetchall()])
+    from app.utils.access import effective_permissions          # roles + acting roles + extra permissions, today
+    return _wf().actor(user_id, effective_permissions(get_cur(db), user_id))
 
 
 # timeline headings for entries that don't change the status (status changes show the new status)
 EVENT_TITLES = {"document_upload": "Document uploaded", "fee_payment_submitted": "Fee payment submitted", "parent_account": "Parent login", "documents_verified": "All documents verified", "document_review": "Document needs attention",
                 "test_rescheduled": "Admission test rescheduled", "approval_chain": "Approval workflow started",
-                "approval_step": "Approval step", "edit": "Details updated", "create": "Application created"}
+                "approval_step": "Approval step", "edit": "Details updated", "create": "Application created",
+                "send_for_approval": "Sent for approval"}
+
+
+def _timeline_entry(h, step_names):
+    """Title + remarks for one timeline row. Rows written by the approval chain start with the step's name
+    ('Principal approval: approved - note') -> 'Principal approval - Approved' with just the note as remarks."""
+    title = EVENT_TITLES.get(h["action"])
+    remarks = h.get("remarks")
+    if h["action"] in ("approval_step", "approve", "reject") and remarks and ":" in remarks:
+        step, rest = remarks.split(":", 1)
+        if step.strip() in step_names:
+            verdict = "Rejected" if h["action"] == "reject" else "Approved"
+            rest = rest.strip()
+            rest = re.sub(r"^approved(\s*-\s*)?", "", rest, flags=re.I)              # 'approved - note' -> 'note'
+            rest = re.sub(r"\.\s*Next:\s*(.+)$", r" (next: \1)", rest).strip(" .")   # keep who's next, briefly
+            return f"{step.strip()} - {verdict}", (rest or None)
+    return title, remarks
 
 
 def _get_app(cur, app_id, campus_id):
@@ -646,7 +688,7 @@ def _get_app(cur, app_id, campus_id):
 
 @router.get("/class-options")
 def class_options(campus: Optional[int] = Query(None), academic_year_id: Optional[int] = Query(None),
-                  user_id: int = Depends(require_permission("admission.view")), db=Depends(get_db),
+                  user_id: int = Depends(require_any_permission("admissions.application_create", "admissions.application_edit", "admissions.application_list_view")), db=Depends(get_db),
                   campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Classes that can be applied for (open ones), with seats left."""
     cur = get_cur(db)
@@ -661,7 +703,7 @@ def class_options(campus: Optional[int] = Query(None), academic_year_id: Optiona
 
 
 @router.post("/applications")
-def create_application(body: ApplicationIn, submit: bool = Query(False), user_id: int = Depends(require_permission("admission.create")),
+def create_application(body: ApplicationIn, submit: bool = Query(False), user_id: int = Depends(require_permission("admissions.application_create")),
                        db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Staff enters an application for a parent (saved as a draft, or submitted straight away)."""
     import psycopg2
@@ -708,7 +750,7 @@ def create_application(body: ApplicationIn, submit: bool = Query(False), user_id
 
 
 @router.put("/applications/{app_id}")
-def update_application(app_id: int, body: ApplicationIn, user_id: int = Depends(require_permission("admission.edit")),
+def update_application(app_id: int, body: ApplicationIn, user_id: int = Depends(require_permission("admissions.application_edit")),
                        db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     import psycopg2
     cur = get_cur(db)
@@ -717,6 +759,13 @@ def update_application(app_id: int, body: ApplicationIn, user_id: int = Depends(
         fail("Details can't be changed at this stage.", 409)
     body.campus_id = a["campus_id"]                       # campus / session can't be moved by an edit
     body.academic_year_id = a["academic_year_id"]
+    perms = _user_perms(cur, user_id)
+    # without the contact / special-needs permissions the form only had masked values: keep what is stored
+    if "admissions.application_contact_details" not in perms:
+        for k in CONTACT_FIELDS:
+            if hasattr(body, k): setattr(body, k, a.get(k))
+    if "admissions.application_special_needs" not in perms:
+        body.has_disability, body.disability_types, body.disability_details = bool(a.get("has_disability")), list(a.get("disability_types") or []), a.get("disability_details")
     v = validate_application(cur, body, get_processing_date(db))
     v.pop("campus_id"); v.pop("academic_year_id")
     save_siblings(cur, app_id, resolve_siblings(cur, body.sibling_enrollment_nos))
@@ -739,7 +788,7 @@ def update_application(app_id: int, body: ApplicationIn, user_id: int = Depends(
 def list_applications(academic_year_id: Optional[int] = Query(None), campus: Optional[int] = Query(None),
                       class_name: Optional[str] = Query(None), status: Optional[str] = Query(None),
                       q: Optional[str] = Query(None), page: int = Query(1, ge=1), per_page: int = Query(20, ge=5, le=100),
-                      user_id: int = Depends(require_permission("admission.view")), db=Depends(get_db),
+                      user_id: int = Depends(require_permission("admissions.application_list_view")), db=Depends(get_db),
                       campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cid = _campus_or_param(campus_id, campus)
@@ -777,6 +826,9 @@ def list_applications(academic_year_id: Optional[int] = Query(None), campus: Opt
         for k in ("date_of_birth", "submitted_at", "updated_at"):
             if d.get(k): d[k] = str(d[k])
         rows.append(d)
+    if "admissions.application_contact_details" not in _user_perms(cur, user_id):
+        for d in rows:
+            if d.get("phone"): d["phone"] = _mask(d["phone"])
     return ok(data={"items": rows, "total": total, "page": page, "per_page": per_page,
                     "statuses": [{"key": k, "label": v} for k, v in W.STATUS_LABELS.items()]})
 
@@ -787,7 +839,9 @@ def get_application(app_id: int, user_id: int = Depends(get_current_user_id), db
     cur = get_cur(db)
     W = _wf()
     a = _get_app(cur, app_id, campus_id)
-    staff = "admission.view" in _user_perms(cur, user_id)
+    if a["status"] == "awaiting_approval" and _settle_finished_approval(cur, db, app_id, user_id):
+        a = _get_app(cur, app_id, campus_id)              # approved / rejected in the chain elsewhere - now applied
+    staff = "admissions.application_list_view" in _user_perms(cur, user_id)
     mine = _assignment(cur, user_id, app_id)
     if not staff and not (mine["examiner"] or mine["panel"]):
         fail("You don't have access to this application.", 403)
@@ -805,7 +859,7 @@ def get_application(app_id: int, user_id: int = Depends(get_current_user_id), db
     interviews = [dict(r) for r in cur.fetchall()]
     for i_ in interviews: i_["panel_names"] = list(i_["panel_names"] or [])
     cur.execute("""SELECT h.*, u.first_name || ' ' || u.last_name AS acted_by_name FROM admission_status_history h
-                   LEFT JOIN users u ON u.id=h.acted_by WHERE h.application_id=%s ORDER BY h.acted_at, h.id""", (app_id,))
+                   LEFT JOIN users u ON u.id=h.acted_by WHERE h.application_id=%s ORDER BY h.id""", (app_id,))   # recording order
     history = [dict(r) for r in cur.fetchall()]
     cur.execute("SELECT name FROM academic_years WHERE id=%s", (a["academic_year_id"],)); a["session"] = cur.fetchone()["name"]
     cur.execute("SELECT name FROM campuses WHERE id=%s", (a["campus_id"],)); a["campus"] = cur.fetchone()["name"]
@@ -855,19 +909,27 @@ def get_application(app_id: int, user_id: int = Depends(get_current_user_id), db
     open_iv = next((i for i in interviews if not i.get("recommendation")), None)
     a["my_assignment"] = {**mine, "staff": staff,
                           "can_record_interview": bool(open_iv and a["status"] == "interview_scheduled"
-                                                       and (user_id in (open_iv.get("panel_user_ids") or []) or "admission.assess" in _user_perms(cur, user_id)))}
+                                                       and (user_id in (open_iv.get("panel_user_ids") or []) or "admissions.interview_result_recording" in _user_perms(cur, user_id)))}
     a["siblings"] = siblings_of(cur, app_id)
+    _perms = _user_perms(cur, user_id)
+    protect_application(a, _perms)
+    if "admissions.application_internal_notes" not in _perms:
+        history = [h for h in history if not h.get("is_internal")]
+    cur.execute("""SELECT DISTINCT wsi.step_name FROM workflow_step_instances wsi JOIN workflow_instances wi ON wi.id=wsi.instance_id
+                   WHERE wi.module=%s AND wi.entity_type=%s AND wi.entity_id=%s""", (WF_MODULE, WF_ENTITY, app_id))
+    _step_names = {r["step_name"] for r in cur.fetchall() if r["step_name"]}
     return ok(data={"application": a, "documents": [clean(d) for d in docs], "missing_documents": [r for r in required if r.lower() not in have],
                     "tests": [clean(t) for t in tests], "interviews": [clean(i) for i in interviews],
                     "history": [{**clean(h), "action_label": h["action"].replace("_", " ").capitalize(),
                                  "to_label": W.STATUS_LABELS.get(h["to_status"], h["to_status"]),
-                                 "title": EVENT_TITLES.get(h["action"]) or W.STATUS_LABELS.get(h["to_status"], h["to_status"])} for h in history],
+                                 "title": _timeline_entry(h, _step_names)[0] or W.STATUS_LABELS.get(h["to_status"], h["to_status"]),
+                                 "remarks": _timeline_entry(h, _step_names)[1]} for h in history],
                     "actions": actions, "approval": approval})
 
 
 @router.post("/applications/{app_id}/documents")
 def upload_document(app_id: int, document_name: str = Form(...), file: UploadFile = File(...),
-                    user_id: int = Depends(require_permission("admission.edit")), db=Depends(get_db),
+                    user_id: int = Depends(require_permission("admissions.document_upload")), db=Depends(get_db),
                     campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Upload (or replace) one document. A replaced document goes back to 'pending' verification."""
     cur = get_cur(db)
@@ -906,7 +968,7 @@ def upload_document(app_id: int, document_name: str = Form(...), file: UploadFil
 
 
 @router.get("/applications/{app_id}/documents/{doc_id}")
-def download_document(app_id: int, doc_id: int, user_id: int = Depends(require_permission("admission.view")), db=Depends(get_db),
+def download_document(app_id: int, doc_id: int, user_id: int = Depends(require_permission("admissions.application_list_view")), db=Depends(get_db),
                       campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _get_app(cur, app_id, campus_id)
@@ -998,7 +1060,7 @@ class ActionIn(BaseModel):
 
 
 @router.post("/applications/{app_id}/action")
-def application_action(app_id: int, body: ActionIn, user_id: int = Depends(require_permission("admission.view")),
+def application_action(app_id: int, body: ActionIn, user_id: int = Depends(require_permission("admissions.application_list_view")),
                        db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Every status change goes through the workflow service (permissions + conditions checked there)."""
     cur = get_cur(db)
@@ -1034,8 +1096,48 @@ class ApprovalIn(BaseModel):
     note: Optional[str] = None
 
 
+def _settle_finished_approval(cur, db, app_id, user_id):
+    """
+    The approval workflow can finish OUTSIDE this module (e.g. approved from the Work Queue's generic box), leaving
+    the application 'awaiting_approval'. When its workflow is already completed / rejected, finish the admission
+    step the normal way (approved -> admitted + voucher + notifications; rejected -> rejected).
+    Returns a message when it settled something, else None. Never raises (a full class just stays waiting).
+    """
+    W = _wf()
+    cur.execute("SELECT status FROM admission_applications WHERE id=%s", (app_id,))
+    a = cur.fetchone()
+    if not a or a["status"] != "awaiting_approval":
+        return None
+    cur.execute("""SELECT wi.status FROM workflow_instances wi WHERE wi.module=%s AND wi.entity_type=%s AND wi.entity_id=%s
+                   ORDER BY wi.created_at DESC, wi.id DESC LIMIT 1""", (WF_MODULE, WF_ENTITY, app_id))
+    inst = cur.fetchone()
+    if not inst or inst["status"] not in ("completed", "rejected"):
+        return None
+    cur.execute("""SELECT wsi.step_name, wsi.note FROM workflow_step_instances wsi JOIN workflow_instances wi ON wi.id=wsi.instance_id
+                   WHERE wi.module=%s AND wi.entity_type=%s AND wi.entity_id=%s AND wsi.status IN ('approved','rejected')
+                   ORDER BY wsi.actioned_at DESC NULLS LAST, wsi.step_order DESC LIMIT 1""", (WF_MODULE, WF_ENTITY, app_id))
+    last = cur.fetchone() or {}
+    label = (last.get("step_name") or "Approval") + (f" - {last['note']}" if last.get("note") else "")
+    system = W.actor(None, system=True)
+    try:
+        cur.execute("SAVEPOINT settle_approval")
+        if inst["status"] == "rejected":
+            W.perform(cur, app_id, "reject", system, get_processing_date(db), remarks=f"{label} (rejected in the approval chain)")
+            msg = "Application rejected."
+        else:
+            W.perform(cur, app_id, "approve", system, get_processing_date(db), remarks=f"{label}: approved")
+            msg = "Approved - the application is admitted." + _after_approved(cur, db, app_id, user_id)
+        cur.execute("RELEASE SAVEPOINT settle_approval")
+        db.commit()
+        return msg
+    except W.WorkflowError as e:
+        cur.execute("ROLLBACK TO SAVEPOINT settle_approval")
+        print(f"[admissions] approval finished but couldn't be applied to application {app_id}: {e}")
+        return None
+
+
 @router.post("/applications/{app_id}/approval")
-def approval_step(app_id: int, body: ApprovalIn, user_id: int = Depends(require_permission("admission.view")),
+def approval_step(app_id: int, body: ApprovalIn, user_id: int = Depends(require_permission("admissions.application_list_view")),
                   claims: dict = Depends(get_jwt_claims), db=Depends(get_db),
                   campus_id: Optional[int] = Depends(get_current_campus_id)):
     """
@@ -1061,11 +1163,16 @@ def approval_step(app_id: int, body: ApprovalIn, user_id: int = Depends(require_
                    ORDER BY wsi.step_order LIMIT 1""", (WF_MODULE, WF_ENTITY, app_id))
     step = cur.fetchone()
     if not step:
+        settled = _settle_finished_approval(cur, db, app_id, user_id)
+        if settled:
+            return ok(message=settled)
         fail("No approval step is waiting.", 409)
     if not (step["assigned_to_id"] == user_id or (step["assigned_role"] and step["assigned_role"] in roles)):
         fail(f"The current step ('{step['step_name']}') isn't assigned to you.", 403)
     if body.decision == "reject" and not step["can_reject"]:
         fail("This step can't reject - only approve.", 400)
+    cur.execute("SELECT COALESCE(MAX(id), 0) AS m FROM admission_status_history WHERE application_id=%s", (app_id,))
+    _history_before = cur.fetchone()["m"]
     res = _engine().advance(db, WF_MODULE, WF_ENTITY, app_id, body.decision, user_id, note) or {}
     if res.get("error"):
         db.rollback(); fail(res["error"], 400)
@@ -1086,6 +1193,9 @@ def approval_step(app_id: int, body: ApprovalIn, user_id: int = Depends(require_
     except W.WorkflowError as e:
         db.rollback()                       # e.g. class full - the step stays pending, nothing changes
         fail(str(e), e.status_code)
+    # the decision was applied by the system on the approver's behalf: show the approver on the timeline
+    cur.execute("""UPDATE admission_status_history SET acted_by=%s
+                   WHERE application_id=%s AND id > %s AND acted_by IS NULL""", (user_id, app_id, _history_before))
     db.commit()
     return ok(message=msg)
 
@@ -1095,7 +1205,7 @@ class AssignIn(BaseModel):
 
 
 @router.put("/applications/{app_id}/assign")
-def assign_application(app_id: int, body: AssignIn, user_id: int = Depends(require_permission("admission.edit")),
+def assign_application(app_id: int, body: AssignIn, user_id: int = Depends(require_permission("admissions.application_assign")),
                        db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _get_app(cur, app_id, campus_id)
@@ -1182,7 +1292,7 @@ class DocReviewIn(BaseModel):
 
 
 @router.put("/applications/{app_id}/documents/{doc_id}/review")
-def review_document(app_id: int, doc_id: int, body: DocReviewIn, user_id: int = Depends(require_permission("admission.verify")),
+def review_document(app_id: int, doc_id: int, body: DocReviewIn, user_id: int = Depends(require_permission("admissions.document_verification")),
                     db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     a = _get_app(cur, app_id, campus_id)
@@ -1221,7 +1331,7 @@ def review_document(app_id: int, doc_id: int, body: DocReviewIn, user_id: int = 
 
 
 @router.post("/applications/{app_id}/documents/verify-all")
-def verify_all_documents(app_id: int, user_id: int = Depends(require_permission("admission.verify")), db=Depends(get_db),
+def verify_all_documents(app_id: int, user_id: int = Depends(require_permission("admissions.document_verification")), db=Depends(get_db),
                          campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     a = _get_app(cur, app_id, campus_id)
@@ -1269,7 +1379,7 @@ def _do(cur, db, app_id, action, user_id, remarks=None, system=False):
 
 
 @router.post("/applications/{app_id}/test")
-def schedule_test(app_id: int, body: TestScheduleIn, user_id: int = Depends(require_permission("admission.assess")),
+def schedule_test(app_id: int, body: TestScheduleIn, user_id: int = Depends(require_permission("admissions.admission_test_schedule")),
                   db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     import json
     cur = get_cur(db)
@@ -1336,7 +1446,7 @@ def _record_result(cur, db, app_id, test_id, absent, obtained, remarks, internal
 
 
 @router.put("/applications/{app_id}/test/{test_id}/result")
-def record_test_result(app_id: int, test_id: int, body: TestResultIn, user_id: int = Depends(require_permission("admission.assess")),
+def record_test_result(app_id: int, test_id: int, body: TestResultIn, user_id: int = Depends(require_permission("admissions.admission_test_marks_entry")),
                        db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _get_app(cur, app_id, campus_id)
@@ -1354,7 +1464,7 @@ class InterviewScheduleIn(BaseModel):
 
 
 @router.post("/applications/{app_id}/interview")
-def schedule_interview(app_id: int, body: InterviewScheduleIn, user_id: int = Depends(require_permission("admission.assess")),
+def schedule_interview(app_id: int, body: InterviewScheduleIn, user_id: int = Depends(require_permission("admissions.interview_schedule")),
                        db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     app = _get_app(cur, app_id, campus_id)
@@ -1401,7 +1511,7 @@ def record_interview_result(app_id: int, iid: int, body: InterviewResultIn, user
     _get_app(cur, app_id, campus_id)
     cur.execute("SELECT panel_user_ids FROM admission_interviews WHERE id=%s AND application_id=%s", (iid, app_id))
     iv = cur.fetchone()
-    is_staff = "admission.assess" in _user_perms(cur, user_id)
+    is_staff = "admissions.interview_result_recording" in _user_perms(cur, user_id)
     if not is_staff and not (iv and user_id in (iv["panel_user_ids"] or [])):
         fail("Only the interview panel can record this interview.", 403)
     if body.recommendation not in ("recommended", "not_recommended", "further_review"):
@@ -1525,7 +1635,7 @@ def _session_rows(cur, setting_id):
 
 @router.get("/test-sessions")
 def list_sessions(academic_year_id: Optional[int] = Query(None), campus: Optional[int] = Query(None),
-                  user_id: int = Depends(require_permission("admission.view")), db=Depends(get_db),
+                  user_id: int = Depends(require_permission("admissions.admission_test_view")), db=Depends(get_db),
                   campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cid = _campus_or_param(campus_id, campus)
@@ -1543,7 +1653,7 @@ def list_sessions(academic_year_id: Optional[int] = Query(None), campus: Optiona
 
 
 @router.post("/test-sessions")
-def create_session(body: SessionIn, user_id: int = Depends(require_permission("admission.settings")), db=Depends(get_db),
+def create_session(body: SessionIn, user_id: int = Depends(require_permission("admissions.admission_test_schedule")), db=Depends(get_db),
                    campus_id: Optional[int] = Depends(get_current_campus_id)):
     import psycopg2
     cur = get_cur(db)
@@ -1575,7 +1685,7 @@ def create_session(body: SessionIn, user_id: int = Depends(require_permission("a
 
 
 @router.put("/test-sessions/{session_id}")
-def update_session(session_id: int, body: SessionIn, user_id: int = Depends(require_permission("admission.settings")), db=Depends(get_db),
+def update_session(session_id: int, body: SessionIn, user_id: int = Depends(require_permission("admissions.admission_test_schedule")), db=Depends(get_db),
                    campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("""SELECT ts.*, s.campus_id, s.opens_on, s.closes_on, s.classes_commence_on, s.tests_start_on FROM admission_test_sessions ts
@@ -1623,7 +1733,7 @@ def update_session(session_id: int, body: SessionIn, user_id: int = Depends(requ
 
 
 @router.delete("/test-sessions/{session_id}")
-def delete_session(session_id: int, user_id: int = Depends(require_permission("admission.settings")), db=Depends(get_db),
+def delete_session(session_id: int, user_id: int = Depends(require_permission("admissions.admission_test_delete")), db=Depends(get_db),
                    campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("SELECT ts.class_name, s.campus_id FROM admission_test_sessions ts JOIN admission_settings s ON s.id=ts.setting_id WHERE ts.id=%s", (session_id,))
@@ -1647,7 +1757,7 @@ def session_candidates(session_id: int, user_id: int = Depends(get_current_user_
     if not ss: fail("Test session not found.", 404)
     enforce_same_campus(ss["campus_id"], campus_id)
     is_examiner = ss["examiner_id"] == user_id
-    if "admission.view" not in perms and not is_examiner:
+    if "admissions.admission_test_view" not in perms and not is_examiner:
         fail("Only the examiner of this test can open its marks sheet.", 403)
     cur.execute("""SELECT t.id AS test_id, t.result, t.percentage, t.subjects, t.remarks, a.id AS application_id, a.application_no,
                           a.student_first_name || ' ' || a.student_last_name AS student, a.gender, a.status
@@ -1659,7 +1769,7 @@ def session_candidates(session_id: int, user_id: int = Depends(get_current_user_
         rows.append(d)
     sess = dict(ss); sess["test_date"] = str(sess["test_date"]); sess["start_time"] = sess["start_time"].strftime("%H:%M")
     for k in ("created_at", "updated_at"): sess[k] = str(sess[k])
-    return ok(data={"session": sess, "candidates": rows, "can_mark": "admission.assess" in perms or is_examiner,
+    return ok(data={"session": sess, "candidates": rows, "can_mark": "admissions.admission_test_marks_entry" in perms or is_examiner,
                     "is_examiner": is_examiner})
 
 
@@ -1683,7 +1793,7 @@ def save_session_marks(session_id: int, body: MarksIn, user_id: int = Depends(ge
     ss = cur.fetchone()
     if not ss: fail("Test session not found.", 404)
     enforce_same_campus(ss["campus_id"], campus_id)
-    staff = "admission.assess" in _user_perms(cur, user_id)
+    staff = "admissions.admission_test_marks_entry" in _user_perms(cur, user_id)
     if not staff and ss["examiner_id"] != user_id:
         fail("Only the examiner of this test can enter its marks.", 403)
     done = {"pass": 0, "fail": 0, "absent": 0}
@@ -1711,7 +1821,7 @@ def save_session_marks(session_id: int, body: MarksIn, user_id: int = Depends(ge
 # ---------------------------------------------------------------- publish
 @router.get("/schedule")
 def get_schedule(academic_year_id: Optional[int] = Query(None), campus: Optional[int] = Query(None),
-                 user_id: int = Depends(require_permission("admission.view")), db=Depends(get_db),
+                 user_id: int = Depends(require_any_permission("admissions.admission_settings_view", "admissions.admission_test_view")), db=Depends(get_db),
                  campus_id: Optional[int] = Depends(get_current_campus_id)):
     """The season's admission schedule (what gets published)."""
     cur = get_cur(db)
@@ -1756,7 +1866,7 @@ class PublishIn(BaseModel):
 
 
 @router.post("/schedule/publish")
-def publish_schedule(body: PublishIn, user_id: int = Depends(require_permission("admission.settings")), db=Depends(get_db),
+def publish_schedule(body: PublishIn, user_id: int = Depends(require_permission("admissions.admission_schedule_publish")), db=Depends(get_db),
                      campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cid = _campus_or_param(campus_id, body.campus_id)
@@ -1889,7 +1999,7 @@ def _panel_rows(cur, setting_id):
 
 @router.get("/interview-panels")
 def list_panels(academic_year_id: Optional[int] = Query(None), campus: Optional[int] = Query(None), class_name: Optional[str] = Query(None),
-                user_id: int = Depends(require_permission("admission.view")), db=Depends(get_db),
+                user_id: int = Depends(require_any_permission("admissions.interview_panel_setup", "admissions.interview_schedule")), db=Depends(get_db),
                 campus_id: Optional[int] = Depends(get_current_campus_id)):
     """All panels of the session; with class_name, also which one is the default for that class."""
     cur = get_cur(db)
@@ -1935,7 +2045,7 @@ def _validate_panel(cur, body, cid):
 
 
 @router.post("/interview-panels")
-def create_panel(body: PanelIn, user_id: int = Depends(require_permission("admission.panels")), db=Depends(get_db),
+def create_panel(body: PanelIn, user_id: int = Depends(require_permission("admissions.interview_panel_setup")), db=Depends(get_db),
                  campus_id: Optional[int] = Depends(get_current_campus_id)):
     import psycopg2
     cur = get_cur(db)
@@ -1955,7 +2065,7 @@ def create_panel(body: PanelIn, user_id: int = Depends(require_permission("admis
 
 
 @router.put("/interview-panels/{panel_id}")
-def update_panel(panel_id: int, body: PanelIn, user_id: int = Depends(require_permission("admission.panels")), db=Depends(get_db),
+def update_panel(panel_id: int, body: PanelIn, user_id: int = Depends(require_permission("admissions.interview_panel_setup")), db=Depends(get_db),
                  campus_id: Optional[int] = Depends(get_current_campus_id)):
     import psycopg2
     cur = get_cur(db)
@@ -1975,7 +2085,7 @@ def update_panel(panel_id: int, body: PanelIn, user_id: int = Depends(require_pe
 
 
 @router.delete("/interview-panels/{panel_id}")
-def delete_panel(panel_id: int, user_id: int = Depends(require_permission("admission.panels")), db=Depends(get_db),
+def delete_panel(panel_id: int, user_id: int = Depends(require_permission("admissions.interview_panel_setup")), db=Depends(get_db),
                  campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("SELECT p.name, s.campus_id FROM admission_interview_panels p JOIN admission_settings s ON s.id=p.setting_id WHERE p.id=%s", (panel_id,))
@@ -1998,6 +2108,20 @@ def delete_panel(panel_id: int, user_id: int = Depends(require_permission("admis
 from datetime import timedelta
 
 
+_NET_AMOUNT_CALCULATED = None
+
+
+def _net_amount_is_calculated(cur):
+    """True when fee_invoices.net_amount is a generated column (the database computes it)."""
+    global _NET_AMOUNT_CALCULATED
+    if _NET_AMOUNT_CALCULATED is None:
+        cur.execute("""SELECT is_generated FROM information_schema.columns
+                       WHERE table_schema='public' AND table_name='fee_invoices' AND column_name='net_amount'""")
+        r = cur.fetchone()
+        _NET_AMOUNT_CALCULATED = bool(r and (r["is_generated"] or "").upper() == "ALWAYS")
+    return _NET_AMOUNT_CALCULATED
+
+
 def _after_approved(cur, db, app_id, user_id):
     """An application has just been approved: issue the admission fee voucher (or waive a zero fee)."""
     W = _wf()
@@ -2012,13 +2136,16 @@ def _after_approved(cur, db, app_id, user_id):
         W.perform(cur, app_id, "waive_fee", system, today, remarks="No admission fee this session")
         return " No admission fee this session - ready for registration."
     due = today + timedelta(days=int(s.get("fee_due_days") or 7))
-    cur.execute("""INSERT INTO fee_invoices (student_id, admission_application_id, amount, discount, fine, net_amount, status, due_date,
+    # net_amount is a calculated column (amount - discount + fine) in the school's database: never write it there
+    cur.execute("""INSERT INTO fee_invoices (student_id, admission_application_id, amount, discount, fine, status, due_date,
                        issued_by, issued_at, invoice_no, month_year, notes, late_fee_type, late_fee_amount)
-                   VALUES (NULL, %s, %s, 0, 0, %s, 'unpaid', %s, %s, fn_admission_now(),
+                   VALUES (NULL, %s, %s, 0, 0, 'unpaid', %s, %s, fn_admission_now(),
                            'INV-' || %s::text || '-' || LPAD(nextval('invoice_seq')::TEXT, 4, '0'), %s, %s, 'none', 0)
                    RETURNING id, invoice_no""",
-                (app_id, fee, fee, due, user_id, today.year, f"{today:%Y-%m}", f"Admission fee - {app['application_no']}"))
+                (app_id, fee, due, user_id, today.year, f"{today:%Y-%m}", f"Admission fee - {app['application_no']}"))
     inv = cur.fetchone()
+    if not _net_amount_is_calculated(cur):
+        cur.execute("UPDATE fee_invoices SET net_amount=%s WHERE id=%s", (fee, inv["id"]))
     cur.execute("UPDATE admission_applications SET fee_invoice_id=%s WHERE id=%s", (inv["id"], app_id))
     W.perform(cur, app_id, "generate_voucher", system, today,
               remarks=f"Admission fee voucher {inv['invoice_no']}: Rs. {fee:,.0f}, due {due:%d %b %Y}")
@@ -2055,7 +2182,7 @@ def _fee_invoice(cur, invoice_id, campus_id):
 
 @router.get("/fees")
 def list_fees(status: Optional[str] = Query(None), q: Optional[str] = Query(None), academic_year_id: Optional[int] = Query(None),
-              campus: Optional[int] = Query(None), user_id: int = Depends(require_permission("admission.view")), db=Depends(get_db),
+              campus: Optional[int] = Query(None), user_id: int = Depends(require_permission("admissions.admission_fee_view")), db=Depends(get_db),
               campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Admission fee vouchers with what's paid, what's waiting for verification, and the status."""
     cur = get_cur(db)
@@ -2086,7 +2213,7 @@ def list_fees(status: Optional[str] = Query(None), q: Optional[str] = Query(None
 
 
 @router.get("/fees/{invoice_id}")
-def get_fee(invoice_id: int, user_id: int = Depends(require_permission("admission.view")), db=Depends(get_db),
+def get_fee(invoice_id: int, user_id: int = Depends(require_permission("admissions.admission_fee_view")), db=Depends(get_db),
             campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     inv = _fee_invoice(cur, invoice_id, campus_id)
@@ -2112,7 +2239,7 @@ class CounterPaymentIn(BaseModel):
 
 
 @router.post("/fees/{invoice_id}/payments")
-def record_fee_payment(invoice_id: int, body: CounterPaymentIn, user_id: int = Depends(require_permission("finance.collect")),
+def record_fee_payment(invoice_id: int, body: CounterPaymentIn, user_id: int = Depends(require_permission("admissions.admission_fee_collection")),
                        db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Finance records a payment made at the counter - verified at once (finance is the one confirming it)."""
     cur = get_cur(db)
@@ -2145,7 +2272,7 @@ class FeeReviewIn(BaseModel):
 
 
 @router.put("/fees/payments/{payment_id}")
-def review_fee_payment(payment_id: int, body: FeeReviewIn, user_id: int = Depends(require_permission("finance.verify")),
+def review_fee_payment(payment_id: int, body: FeeReviewIn, user_id: int = Depends(require_permission("admissions.admission_fee_verification")),
                        db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Finance verifies or rejects a payment a parent submitted for the admission fee."""
     cur = get_cur(db)
@@ -2172,7 +2299,7 @@ def review_fee_payment(payment_id: int, body: FeeReviewIn, user_id: int = Depend
 
 
 @router.get("/fees/{invoice_id}/voucher")
-def fee_voucher_pdf(invoice_id: int, user_id: int = Depends(require_permission("admission.view")), db=Depends(get_db),
+def fee_voucher_pdf(invoice_id: int, user_id: int = Depends(require_permission("admissions.admission_fee_view")), db=Depends(get_db),
                     campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Printable admission fee voucher (school name, logo and bank details from School Info)."""
     from fastapi.responses import Response
@@ -2225,7 +2352,7 @@ def _sections(cur, app):
 
 
 @router.get("/applications/{app_id}/sections")
-def registration_sections(app_id: int, user_id: int = Depends(require_permission("admission.view")), db=Depends(get_db),
+def registration_sections(app_id: int, user_id: int = Depends(require_permission("admissions.student_registration")), db=Depends(get_db),
                           campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     app = _get_app(cur, app_id, campus_id)
@@ -2238,7 +2365,7 @@ class RegisterIn(BaseModel):
 
 
 @router.post("/applications/{app_id}/register")
-def register_student(app_id: int, body: RegisterIn, user_id: int = Depends(require_permission("admission.register")),
+def register_student(app_id: int, body: RegisterIn, user_id: int = Depends(require_permission("admissions.student_registration")),
                      db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     """
     Creates the student (login + enrollment number via sp_create_student), copies the
@@ -2313,7 +2440,7 @@ def register_student(app_id: int, body: RegisterIn, user_id: int = Depends(requi
 # Phase 4 - parent login account for an application (primary guardian's phone)
 # =============================================================================
 @router.post("/applications/{app_id}/parent-account")
-def parent_account(app_id: int, user_id: int = Depends(require_permission("admission.edit")), db=Depends(get_db),
+def parent_account(app_id: int, user_id: int = Depends(require_permission("admissions.parent_login_creation")), db=Depends(get_db),
                    campus_id: Optional[int] = Depends(get_current_campus_id)):
     """
     Links the application to the parent account for the primary guardian's phone, creating
@@ -2358,7 +2485,7 @@ def parent_account(app_id: int, user_id: int = Depends(require_permission("admis
 
 
 @router.get("/fees/payments/{payment_id}/receipt")
-def fee_payment_receipt(payment_id: int, user_id: int = Depends(require_permission("finance.verify")), db=Depends(get_db),
+def fee_payment_receipt(payment_id: int, user_id: int = Depends(require_permission("admissions.admission_fee_verification")), db=Depends(get_db),
                         campus_id: Optional[int] = Depends(get_current_campus_id)):
     """The receipt image a parent attached, so finance can check it before verifying."""
     cur = get_cur(db)
@@ -2377,7 +2504,7 @@ def fee_payment_receipt(payment_id: int, user_id: int = Depends(require_permissi
 PHOTO_WORDS = ("photo", "picture", "photograph")
 
 
-def application_pdf(cur, db, a):
+def application_pdf(cur, db, a, viewer_id=None):
     """The printable application form for one application (no internal notes). Returns PDF bytes."""
     from app.utils.admission_form_pdf import build_application_pdf, fmt_date
     from app.utils.school_info import get_school_info
@@ -2391,6 +2518,8 @@ def application_pdf(cur, db, a):
     a["submitted"] = fmt_date(a["submitted_at"], date_fmt) if a.get("submitted_at") else "Not submitted yet"
     a["printed"] = fmt_date(get_processing_date(db), date_fmt)
     a["siblings"] = siblings_of(cur, a["id"])
+    if viewer_id is not None:
+        protect_application(a, _user_perms(cur, viewer_id))
     cur.execute("SELECT document_name, status, uploaded_at, file_path, mime_type FROM admission_documents WHERE application_id=%s ORDER BY id", (a["id"],))
     docs = [dict(x) for x in cur.fetchall()]
     photo = None                                   # the student's photograph: an image document named like "photo"
@@ -2408,12 +2537,12 @@ def application_pdf(cur, db, a):
 
 
 @router.get("/applications/{app_id}/pdf")
-def application_pdf_staff(app_id: int, user_id: int = Depends(require_permission("admission.view")), db=Depends(get_db),
+def application_pdf_staff(app_id: int, user_id: int = Depends(require_permission("admissions.application_pdf")), db=Depends(get_db),
                           campus_id: Optional[int] = Depends(get_current_campus_id)):
     from fastapi.responses import Response
     cur = get_cur(db)
     a = _get_app(cur, app_id, campus_id)
-    return Response(content=application_pdf(cur, db, a), media_type="application/pdf",
+    return Response(content=application_pdf(cur, db, a, viewer_id=user_id), media_type="application/pdf",
                     headers={"Content-Disposition": f'inline; filename="application_{a["application_no"]}.pdf"'})
 
 
@@ -2427,7 +2556,7 @@ BANNER_MAX = 3 * 1024 * 1024
 
 @router.post("/settings/banner")
 def upload_banner(academic_year_id: int = Form(...), campus: Optional[int] = Form(None), file: UploadFile = File(...),
-                  user_id: int = Depends(require_permission("admission.settings")), db=Depends(get_db),
+                  user_id: int = Depends(require_permission("admissions.admission_banner")), db=Depends(get_db),
                   campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cid = _campus_or_param(campus_id, campus)
@@ -2454,7 +2583,7 @@ def upload_banner(academic_year_id: int = Form(...), campus: Optional[int] = For
 
 @router.delete("/settings/banner")
 def delete_banner(academic_year_id: int = Query(...), campus: Optional[int] = Query(None),
-                  user_id: int = Depends(require_permission("admission.settings")), db=Depends(get_db),
+                  user_id: int = Depends(require_permission("admissions.admission_banner")), db=Depends(get_db),
                   campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cid = _campus_or_param(campus_id, campus)
@@ -2470,7 +2599,7 @@ def delete_banner(academic_year_id: int = Query(...), campus: Optional[int] = Qu
 
 @router.get("/settings/banner")
 def preview_banner(academic_year_id: int = Query(...), campus: Optional[int] = Query(None),
-                   user_id: int = Depends(require_permission("admission.view")), db=Depends(get_db),
+                   user_id: int = Depends(require_permission("admissions.admission_settings_view")), db=Depends(get_db),
                    campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Staff preview of the banner (also before the schedule is published)."""
     cur = get_cur(db)
@@ -2657,13 +2786,13 @@ def cnic_lookup(cur, cnic, parent_user_id=None):
 
 
 @router.get("/lookup/cnic")
-def lookup_cnic(cnic: str = Query(...), user_id: int = Depends(require_permission("admission.create")), db=Depends(get_db)):
+def lookup_cnic(cnic: str = Query(...), user_id: int = Depends(require_any_permission("admissions.application_create", "admissions.application_edit")), db=Depends(get_db)):
     found = cnic_lookup(get_cur(db), cnic)
     return ok(data=found, message="Details found." if found else "No earlier record for this CNIC.")
 
 
 @router.get("/lookup/student")
-def lookup_student(enrollment_no: str = Query(...), user_id: int = Depends(require_permission("admission.create")), db=Depends(get_db)):
+def lookup_student(enrollment_no: str = Query(...), user_id: int = Depends(require_any_permission("admissions.application_create", "admissions.application_edit")), db=Depends(get_db)):
     s = student_brief(get_cur(db), enrollment_no)
     if not s or s["status"] != "active": fail("No current student has that registration number.", 404)
     return ok(data={k: s[k] for k in ("enrollment_no", "name", "class_name", "campus", "father_name")})

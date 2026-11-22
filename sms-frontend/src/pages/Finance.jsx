@@ -348,7 +348,7 @@ function DashboardTab() {
 function StructuresTab() {
   const { can } = useAuth();
   const { isGlobalLocked } = useGovernanceMode("fee_structures");
-  const canManage = can("finance.manage") && !isGlobalLocked;
+  const canManage = can("finance.fee_setup_edit") && !isGlobalLocked;
   const [structures,  setStructures]  = useState([]);
   const [categories,  setCategories]  = useState([]);
   const [years,       setYears]       = useState([]);
@@ -621,9 +621,9 @@ function InvoicesTab() {
           </select>
         </div>
         <div className="fin-header-actions">
-          {can("finance.bulk") && <button className="btn btn-secondary" onClick={() => { setShowBulk(!showBulk); setShowForm(false); setShowSmartGen(false); }}>Bulk Generate</button>}
-          {can("finance.bulk") && <button className="btn btn-primary fin-btn-green" onClick={() => { setShowSmartGen(!showSmartGen); setShowBulk(false); setShowForm(false); }}>Smart Monthly</button>}
-          {can("finance.invoice") && <button className="btn btn-primary" onClick={() => { setShowForm(!showForm); setShowBulk(false); }}>+ New Invoice</button>}
+          {can("finance.invoice_generation") && <button className="btn btn-secondary" onClick={() => { setShowBulk(!showBulk); setShowForm(false); setShowSmartGen(false); }}>Bulk Generate</button>}
+          {can("finance.invoice_generation") && <button className="btn btn-primary fin-btn-green" onClick={() => { setShowSmartGen(!showSmartGen); setShowBulk(false); setShowForm(false); }}>Smart Monthly</button>}
+          {can("finance.invoice_generation") && <button className="btn btn-primary" onClick={() => { setShowForm(!showForm); setShowBulk(false); }}>+ New Invoice</button>}
         </div>
       </div>
 
@@ -808,7 +808,7 @@ function InvoicesTab() {
                   <td><span className={statusBadge(inv.status) + " fin-capitalize"}>{inv.status}</span></td>
                   <td>
                     <div className="fin-actions-cell-wrap">
-                      {inv.status !== "paid" && can("finance.collect") && (
+                      {inv.status !== "paid" && can("finance.payment_collection") && (
                         <button className="btn btn-primary btn-xs" onClick={() => setShowPayment(inv)}>
                           Record Payment
                         </button>
@@ -1359,7 +1359,7 @@ function LockedAccountsTab() {
                 <th>Days Overdue</th>
                 <th>Fine</th>
                 <th>Net Amount</th>
-                {can("finance.manage") && <th></th>}
+                {can("finance.account_unlock") && <th></th>}
               </tr>
             </thead>
             <tbody>
@@ -1373,7 +1373,7 @@ function LockedAccountsTab() {
                   <td><span className="badge badge-danger">{r.days_overdue != null ? r.days_overdue + " days" : "-"}</span></td>
                   <td>{r.fine != null ? "Rs. " + Number(r.fine).toLocaleString() : "-"}</td>
                   <td><strong>{r.net_amount != null ? "Rs. " + Number(r.net_amount).toLocaleString() : "-"}</strong></td>
-                  {can("finance.manage") && (
+                  {can("finance.account_unlock") && (
                     <td>
                       <button className="btn btn-secondary btn-sm" onClick={() => handleUnlock(r.student_id)} disabled={unlockingId === r.student_id}>
                         {unlockingId === r.student_id ? "Unlocking..." : "Unlock"}
@@ -1456,7 +1456,7 @@ function SiblingTiersConfig() {
 function DiscountsTab() {
   const { can } = useAuth();
   const { isGlobalLocked } = useGovernanceMode("discount_types");
-  const canManage = can("finance.manage") && !isGlobalLocked;
+  const canManage = can("finance.fee_setup_edit") && !isGlobalLocked;
   const [allTypes, setAllTypes] = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -1662,7 +1662,7 @@ function ChargeTypesTab() {
     <div>
       <div className="page-header fin-page-header-mb16">
         <h2 className="fin-section-h2">Charge Types</h2>
-        {can("finance.manage") && (
+        {can("finance.fee_setup_edit") && (
           <button className="btn btn-primary" onClick={openCreate}>+ Add Charge Type</button>
         )}
       </div>
@@ -1712,7 +1712,7 @@ function ChargeTypesTab() {
                 <th>Recurrence</th>
                 <th>Interval</th>
                 <th>Status</th>
-                {can("finance.manage") && <th></th>}
+                {can("finance.fee_setup_edit") && <th></th>}
               </tr>
             </thead>
             <tbody>
@@ -1722,7 +1722,7 @@ function ChargeTypesTab() {
                   <td className="fin-capitalize">{t.recurrence}</td>
                   <td>{t.recurrence === "interval" ? (t.interval_months + " month" + (t.interval_months !== 1 ? "s" : "")) : "-"}</td>
                   <td>{t.is_active ? <span className="badge badge-success">Active</span> : <span className="badge badge-gray">Inactive</span>}</td>
-                  {can("finance.manage") && (
+                  {can("finance.fee_setup_edit") && (
                     <td className="fin-actions-cell">
                       <button className="btn btn-secondary btn-xs" onClick={() => openEdit(t)}>Edit</button>
                       <button className="btn btn-ghost btn-xs" onClick={() => handleToggle(t.id)}>{t.is_active ? "Deactivate" : "Activate"}</button>
@@ -1859,7 +1859,7 @@ function ChargeSettlementTab() {
 function ChargesTab() {
   const { can } = useAuth();
   const { isGlobalLocked } = useGovernanceMode("fee_charges");
-  const canManage = can("finance.manage") && !isGlobalLocked;
+  const canManage = can("finance.invoice_generation") && !isGlobalLocked;
   const [charges,  setCharges]  = useState([]);
   const [classes,  setClasses]  = useState([]);
   const [years,    setYears]    = useState([]);
@@ -2184,7 +2184,7 @@ function SmartMonthlyForm({ onGenerated, onClose }) {
 function FeeTypesTab() {
   const { can } = useAuth();
   const { isGlobalLocked } = useGovernanceMode("fee_types");
-  const canManage = can("finance.manage") && !isGlobalLocked;
+  const canManage = can("finance.fee_setup_edit") && !isGlobalLocked;
   const [types,    setTypes]    = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -2370,7 +2370,7 @@ function ClassFeesTab() {
   const { can } = useAuth();
   const { isGlobalLocked: feesLocked } = useGovernanceMode("class_fees");
   const { isGlobalLocked: configLocked } = useGovernanceMode("class_fee_config");
-  const canManage = can("finance.manage") && !feesLocked;
+  const canManage = can("finance.fee_setup_edit") && !feesLocked;
   const [classes,   setClasses]   = useState([]);
   const [years,     setYears]     = useState([]);
   const [feeTypes,  setFeeTypes]  = useState([]);
@@ -2462,7 +2462,7 @@ function ClassFeesTab() {
       </div>
 
       {selClass && selYear && (
-        <LateFeeConfigCard classId={selClass} academicYearId={selYear} canManage={can("finance.manage") && !configLocked} isGlobalLocked={configLocked} />
+        <LateFeeConfigCard classId={selClass} academicYearId={selYear} canManage={can("finance.fee_setup_edit") && !configLocked} isGlobalLocked={configLocked} />
       )}
 
       {selClass && selYear && (
@@ -2534,7 +2534,7 @@ function ClassFeesTab() {
 function DiscountConfigTab() {
   const { can }     = useAuth();
   const { isGlobalLocked } = useGovernanceMode("discount_config");
-  const canManage = can("finance.manage") && !isGlobalLocked;
+  const canManage = can("finance.fee_setup_edit") && !isGlobalLocked;
   const [feeTypes,  setFeeTypes]  = useState([]);
   const [config,    setConfig]    = useState({ on_all: false, fee_type_ids: [], sibling_rank_method: "class" });
   const [loading,   setLoading]   = useState(true);

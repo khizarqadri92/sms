@@ -138,6 +138,13 @@ export default function StudentProfile() {
           <span className={`badge ${student.status === "active" ? "badge-success" : "badge-danger"}`}>
             {student.status}
           </span>
+          {can("communication.message_my_students_parents") && student.parent_id && (
+            <div style={{ marginTop:12 }}>
+              <button type="button" className="btn btn-primary btn-sm" onClick={() => navigate(`/messages?student=${student.id}&with=${student.parent_id}`)}>
+                Message parent
+              </button>
+            </div>
+          )}
           <div style={{ marginTop:20 }}>
             {profileRows.map(([label, value]) => (
               <div key={label} className="profile-detail">
@@ -220,7 +227,7 @@ function ProfileTab({ student }) {
         ) : (
           <div style={{ padding:"12px 0", textAlign:"center" }}>
             <div style={{ fontSize:13, color:"#94a3b8", marginBottom:10 }}>No parent linked to this student.</div>
-            {can && can("students.edit") && <button className="btn btn-primary btn-sm"
+            {can && can("students.student_edit") && <button className="btn btn-primary btn-sm"
               onClick={() => window.dispatchEvent(new CustomEvent("subnav-change", { detail:{ sub:"parent" } }))}>
               Link Parent Now
             </button>}}
@@ -372,7 +379,7 @@ function EditTab({ student, can, onSaved }) {
         </div>
       </form>
     </div>
-    <StudentFamilyDetails studentId={student.id} canEdit={can("students.edit")} onSaved={onSaved} />
+    <StudentFamilyDetails studentId={student.id} canEdit={can("students.family_details_edit")} onSaved={onSaved} />
     </Fragment>
   );
 }
@@ -860,7 +867,7 @@ function DiscountsTab({ studentId, can }) {
           <div style={{ display:"flex", gap:8, alignItems:"center" }}>
             {totalPct > 0   && <span className="badge badge-success">{totalPct}% off</span>}
             {totalFixed > 0 && <span className="badge badge-primary">Rs. {totalFixed} off</span>}
-            {(can ? can("discounts.manage") : true) && <button className="btn btn-primary btn-sm" style={{color:"#fff"}} onClick={() => setShowForm(!showForm)}>
+            {(can ? can("finance.discount_grant") : true) && <button className="btn btn-primary btn-sm" style={{color:"#fff"}} onClick={() => setShowForm(!showForm)}>
               {showForm ? "Cancel" : "+ Assign Discount"}
             </button>}
           </div>
@@ -923,7 +930,7 @@ function DiscountsTab({ studentId, can }) {
                   </div>
                   <div style={{ fontSize:11, color:"#94a3b8", marginTop:2 }}>Assigned by: {d.assigned_by_name || "N/A"}</div>
                 </div>
-                {(can ? can("discounts.manage") : true) && <button className="btn btn-danger btn-xs" onClick={() => handleRemove(d.id)}>Remove</button>}
+                {(can ? can("finance.discount_grant") : true) && <button className="btn btn-danger btn-xs" onClick={() => handleRemove(d.id)}>Remove</button>}
               </div>
             ))}
           </div>
@@ -1004,7 +1011,7 @@ function ParentTab({ student, can, onUpdated }) {
         <div className="section-card" style={{ marginBottom:16 }}>
           <div className="section-card-header">
             <span className="section-card-title">Current Parent / Guardian</span>
-            {can && can("students.edit") && <button className="btn btn-danger btn-sm" onClick={handleUnlink} disabled={saving}>
+            {can && can("students.parent_account_link") && <button className="btn btn-danger btn-sm" onClick={handleUnlink} disabled={saving}>
               Remove Link
             </button>}
           </div>

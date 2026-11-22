@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import studentsApi from "../api/studentsApi";
+import { useAuth } from "../auth/AuthContext";
 import InvoiceTimelineModal from "../components/InvoiceTimelineModal";
 import { useProcessingToday } from "../hooks/useProcessingToday";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
@@ -99,6 +100,8 @@ export default function Children() {
 }
 
 function ChildOverview({ child }) {
+  const navigate = useNavigate();
+  const { can } = useAuth();
   return (
     <div className="sv-ch-two">
       <div className="section-card">
@@ -134,6 +137,12 @@ function ChildOverview({ child }) {
           <div className="sv-ch-badge">
             <span className="badge badge-success">{child.status || "active"}</span>
           </div>
+          {can("communication.message_my_child_teachers") && (
+            <button type="button" className="btn btn-primary btn-sm" style={{ marginTop: 12 }}
+                    onClick={() => navigate(`/messages?student=${child.id}`)}>
+              Message teachers
+            </button>
+          )}
         </div>
         <div className="sv-ch-hintbox">
           <p>

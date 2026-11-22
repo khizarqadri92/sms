@@ -13,7 +13,7 @@ from app.fastapi_auth import get_current_user_id
 from app.fastapi_campus import get_settings_campus_id
 from app.fastapi_campus import governed_settings_campus_id, resolve_governed_settings_campus_id, get_current_campus_id
 from app.fastapi_campus import governed_settings_campus_id_for_write, resolve_governed_settings_campus_id_for_write
-from app.fastapi_permissions import require_permission
+from app.fastapi_permissions import require_permission, require_any_permission
 from app.fastapi_db import get_db, get_cur as _get_cur
 
 router = APIRouter()
@@ -57,7 +57,7 @@ def get_public_settings(db=Depends(get_db)):
 
 
 @router.get("/")
-def get_settings(user_id: int = Depends(require_permission("settings.view")), db=Depends(get_db)):
+def get_settings(user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_all_settings()")
     rows = cur.fetchall()
@@ -69,7 +69,7 @@ def get_settings(user_id: int = Depends(require_permission("settings.view")), db
 
 
 @router.put("/")
-def update_settings(body: SettingsBody, user_id: int = Depends(require_permission("settings.manage")), db=Depends(get_db)):
+def update_settings(body: SettingsBody, user_id: int = Depends(require_permission("settings.school_information")), db=Depends(get_db)):
     data = body.dict()
     keys = list(data.keys())
     values = [str(v) for v in data.values()]
@@ -81,7 +81,7 @@ def update_settings(body: SettingsBody, user_id: int = Depends(require_permissio
 
 
 @router.get("/preview-id")
-def preview_id(role: str = Query("student"), user_id: int = Depends(require_permission("settings.view")), db=Depends(get_db)):
+def preview_id(role: str = Query("student"), user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT fn_generate_id(%s::varchar) AS preview_id", (role,))
     preview = cur.fetchone()["preview_id"]
@@ -90,14 +90,14 @@ def preview_id(role: str = Query("student"), user_id: int = Depends(require_perm
 
 
 @router.get("/fee")
-def get_fee_settings(user_id: int = Depends(require_permission("settings.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(governed_settings_campus_id("fee_settings"))):
+def get_fee_settings(user_id: int = Depends(get_current_user_id), db=Depends(get_db), campus_id: Optional[int] = Depends(governed_settings_campus_id("fee_settings"))):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_settings_by_category(%s::varchar, %s)", ("fee_settings", campus_id))
     return ok(data={r["key"]: r["value"] for r in cur.fetchall()})
 
 
 @router.put("/fee")
-def update_fee_settings(body: SettingsBody, user_id: int = Depends(require_permission("settings.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(governed_settings_campus_id_for_write("fee_settings"))):
+def update_fee_settings(body: SettingsBody, user_id: int = Depends(require_any_permission("finance.fee_reminders", "finance.invoice_auto_generation_settings")), db=Depends(get_db), campus_id: Optional[int] = Depends(governed_settings_campus_id_for_write("fee_settings"))):
     allowed = {
         "fee_due_day", "fee_reminder1_days", "fee_reminder2_days",
         "fee_lock_days", "fee_late_type", "fee_late_fixed",
@@ -118,7 +118,7 @@ def update_fee_settings(body: SettingsBody, user_id: int = Depends(require_permi
 
 
 @router.get("/category/{cat}")
-def get_category_settings(cat: str, user_id: int = Depends(require_permission("settings.view")), db=Depends(get_db), raw_campus_id: Optional[int] = Depends(get_current_campus_id)):
+def get_category_settings(cat: str, user_id: int = Depends(get_current_user_id), db=Depends(get_db), raw_campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     campus_id = resolve_governed_settings_campus_id(db, cat, raw_campus_id)
     cur.execute("SELECT * FROM sp_get_settings_by_category(%s::varchar, %s)", (cat, campus_id))
@@ -154,7 +154,7 @@ def get_school_info_public(user_id: int = Depends(get_current_user_id), db=Depen
 
 
 @router.post("/category/{cat}")
-def save_category_settings(cat: str, body: SettingsBody, user_id: int = Depends(require_permission("settings.manage")), db=Depends(get_db), raw_campus_id: Optional[int] = Depends(get_current_campus_id)):
+def save_category_settings(cat: str, body: SettingsBody, user_id: int = Depends(require_any_permission("settings.regional_format", "settings.school_information", "settings.school_timing", "settings.security_settings", "withdrawal.withdrawal_settings", "attendance.attendance_settings")), db=Depends(get_db), raw_campus_id: Optional[int] = Depends(get_current_campus_id)):
     data = body.dict()
     keys = list(data.keys())
     values = [str(v) for v in data.values()]
@@ -207,7 +207,7 @@ def list_timing_overrides(user_id: int = Depends(get_current_user_id), db=Depend
 
 
 @router.put("/school-timing/overrides")
-def upsert_timing_override(body: TimingOverrideIn, user_id: int = Depends(require_permission("settings.manage")), db=Depends(get_db)):
+def upsert_timing_override(body: TimingOverrideIn, user_id: int = Depends(require_permission("settings.school_timing")), db=Depends(get_db)):
     """Creates a new override (id omitted) or updates an existing one (id
     given). Exactly one of day_of_week/override_date must be set - enforced
     by a DB check constraint as well as here for a clearer error message."""
@@ -225,7 +225,7 @@ def upsert_timing_override(body: TimingOverrideIn, user_id: int = Depends(requir
 
 
 @router.delete("/school-timing/overrides/{id}")
-def delete_timing_override(id: int, user_id: int = Depends(require_permission("settings.manage")), db=Depends(get_db)):
+def delete_timing_override(id: int, user_id: int = Depends(require_permission("settings.school_timing")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT sp_delete_timing_override(%s)", (id,))
     db.commit()

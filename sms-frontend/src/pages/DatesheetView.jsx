@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useAuth } from "../auth/AuthContext";
+import { useAuth, effectiveRole } from "../auth/AuthContext";
 import { examsApi } from "../api/examsApi";
 import client from "../api/client";
 import studentsApi from "../api/studentsApi";
@@ -7,7 +7,7 @@ import "./ExamViews.css";
 
 export default function DatesheetView() {
   const { user } = useAuth();
-  const role = user?.roles?.[0] || "";
+  const role = effectiveRole(user) || "";
   const [exams,    setExams]    = useState([]);
   const [selected, setSelected] = useState(null);
   const [datesheet,setDatesheet]= useState([]);

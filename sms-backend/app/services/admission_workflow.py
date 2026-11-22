@@ -35,55 +35,55 @@ SYSTEM = "system"           # internal hooks (e.g. payment verified by finance)
 # from: allowed starting statuses | to: resulting status | who: permission / APPLICANT / SYSTEM (a list = any of them)
 # needs: condition names checked before the move | remarks: reason required
 ACTIONS = {
-    "submit":             {"from": ["draft"], "to": "submitted", "who": [APPLICANT, "admission.create"], "needs": ["admission_open", "documents_uploaded"]},
-    "start_review":       {"from": ["submitted"], "to": "initial_verification", "who": ["admission.verify"]},
-    "verify_information": {"from": ["initial_verification"], "to": "document_verification", "who": ["admission.verify"], "needs": ["age_eligible"]},
+    "submit":             {"from": ["draft"], "to": "submitted", "who": [APPLICANT, "admissions.application_create"], "needs": ["admission_open", "documents_uploaded"]},
+    "start_review":       {"from": ["submitted"], "to": "initial_verification", "who": ["admissions.application_review"]},
+    "verify_information": {"from": ["initial_verification"], "to": "document_verification", "who": ["admissions.application_review"], "needs": ["age_eligible"]},
     "request_correction": {"from": ["initial_verification", "document_verification", "documents_rejected"], "to": "correction_required",
-                           "who": ["admission.verify"], "remarks": True},
-    "resubmit":           {"from": ["correction_required"], "to": "initial_verification", "who": [APPLICANT, "admission.edit"]},
-    "reject_documents":   {"from": ["document_verification"], "to": "documents_rejected", "who": ["admission.verify"],
+                           "who": ["admissions.application_review"], "remarks": True},
+    "resubmit":           {"from": ["correction_required"], "to": "initial_verification", "who": [APPLICANT, "admissions.application_edit"]},
+    "reject_documents":   {"from": ["document_verification"], "to": "documents_rejected", "who": ["admissions.document_verification"],
                            "needs": ["some_document_rejected"], "remarks": True},
-    "resubmit_documents": {"from": ["documents_rejected"], "to": "document_verification", "who": [APPLICANT, "admission.edit"]},
+    "resubmit_documents": {"from": ["documents_rejected"], "to": "document_verification", "who": [APPLICANT, "admissions.application_edit", "admissions.document_upload"]},
     # SYSTEM = joining the class's combined test session automatically
-    "schedule_test":      {"from": ["document_verification", "further_evaluation"], "to": "test_scheduled", "who": ["admission.assess", SYSTEM],
+    "schedule_test":      {"from": ["document_verification", "further_evaluation"], "to": "test_scheduled", "who": [SYSTEM, "admissions.admission_test_schedule"],
                            "needs": ["documents_verified", "test_enabled", "test_record_exists"]},
     # SYSTEM = marks entered by the test's assigned examiner (checked by the API)
-    "record_test":        {"from": ["test_scheduled"], "to": "test_completed", "who": ["admission.assess", SYSTEM], "needs": ["test_result_recorded"]},
+    "record_test":        {"from": ["test_scheduled"], "to": "test_completed", "who": [SYSTEM, "admissions.admission_test_marks_entry"], "needs": ["test_result_recorded"]},
     "schedule_interview": {"from": ["document_verification", "test_completed", "further_evaluation"], "to": "interview_scheduled",
-                           "who": ["admission.assess"], "needs": ["documents_verified", "interview_enabled", "test_done_if_required",
+                           "who": ["admissions.interview_schedule"], "needs": ["documents_verified", "interview_enabled", "test_done_if_required",
                                                                   "interview_record_exists"]},
     # SYSTEM = recorded by a member of the interview panel (checked by the API)
-    "record_interview":   {"from": ["interview_scheduled"], "to": "interview_completed", "who": ["admission.assess", SYSTEM],
+    "record_interview":   {"from": ["interview_scheduled"], "to": "interview_completed", "who": [SYSTEM, "admissions.interview_result_recording"],
                            "needs": ["interview_result_recorded"]},
     "send_for_approval":  {"from": ["document_verification", "test_completed", "interview_completed", "further_evaluation"],
-                           "to": "awaiting_approval", "who": ["admission.verify", "admission.assess", SYSTEM],
+                           "to": "awaiting_approval", "who": [SYSTEM, "admissions.application_review", "admissions.admission_test_marks_entry", "admissions.interview_result_recording"],
                            "needs": ["documents_verified", "test_done_if_required", "interview_done_if_required"]},
     # principal
     # "system" = the Workflow Builder approval chain completing (its last step approved / any step rejected)
-    "approve":            {"from": ["awaiting_approval", "on_hold", "waiting_list"], "to": "approved", "who": ["admission.decide", SYSTEM],
+    "approve":            {"from": ["awaiting_approval", "on_hold", "waiting_list"], "to": "approved", "who": [SYSTEM, "admissions.admission_approval"],
                            "needs": ["seat_available"]},
     "reject":             {"from": ["initial_verification", "document_verification", "documents_rejected", "test_completed",
                                     "interview_completed", "awaiting_approval", "further_evaluation", "on_hold", "waiting_list"],
-                           "to": "rejected", "who": ["admission.decide", SYSTEM], "remarks": True},
-    "request_evaluation": {"from": ["awaiting_approval"], "to": "further_evaluation", "who": ["admission.decide"], "remarks": True},
-    "return_correction":  {"from": ["awaiting_approval"], "to": "correction_required", "who": ["admission.decide"], "remarks": True},
-    "hold":               {"from": ["awaiting_approval", "waiting_list"], "to": "on_hold", "who": ["admission.decide"], "remarks": True},
-    "waitlist":           {"from": ["awaiting_approval", "on_hold"], "to": "waiting_list", "who": ["admission.decide"]},
+                           "to": "rejected", "who": [SYSTEM, "admissions.admission_approval"], "remarks": True},
+    "request_evaluation": {"from": ["awaiting_approval"], "to": "further_evaluation", "who": ["admissions.admission_waiting_list_hold"], "remarks": True},
+    "return_correction":  {"from": ["awaiting_approval"], "to": "correction_required", "who": ["admissions.admission_waiting_list_hold", "admissions.admission_approval"], "remarks": True},
+    "hold":               {"from": ["awaiting_approval", "waiting_list"], "to": "on_hold", "who": ["admissions.admission_waiting_list_hold"], "remarks": True},
+    "waitlist":           {"from": ["awaiting_approval", "on_hold"], "to": "waiting_list", "who": ["admissions.admission_waiting_list_hold"]},
     # fee
-    "generate_voucher":   {"from": ["approved"], "to": "fee_voucher_generated", "who": ["admission.register", "admission.decide", SYSTEM],
+    "generate_voucher":   {"from": ["approved"], "to": "fee_voucher_generated", "who": [SYSTEM, "admissions.student_registration", "admissions.admission_approval"],
                            "needs": ["voucher_linked"]},
     "payment_partial":    {"from": ["fee_voucher_generated"], "to": "payment_partially_paid", "who": [SYSTEM]},
     "payment_verified":   {"from": ["fee_voucher_generated", "payment_partially_paid"], "to": "payment_verified", "who": [SYSTEM],
                            "needs": ["voucher_paid"]},
     # SYSTEM = no admission fee this session
     "waive_fee":          {"from": ["approved", "fee_voucher_generated", "payment_partially_paid"], "to": "payment_verified",
-                           "who": ["admission.decide", SYSTEM], "remarks": True},
+                           "who": [SYSTEM, "admissions.admission_fee_waiver"], "remarks": True},
     # registration
-    "register":           {"from": ["payment_verified"], "to": "admission_completed", "who": ["admission.register"],
+    "register":           {"from": ["payment_verified"], "to": "admission_completed", "who": ["admissions.student_registration"],
                            "needs": ["student_linked"]},
     # anyone involved can withdraw a live application
     "withdraw":           {"from": [s for s in STATUS_LABELS if s not in TERMINAL], "to": "withdrawn",
-                           "who": [APPLICANT, "admission.edit"], "remarks": True},
+                           "who": [APPLICANT, "admissions.application_withdraw"], "remarks": True},
 }
 
 
@@ -297,7 +297,7 @@ def perform(cur, app_id, action, act, today, remarks=None, internal=False, overr
     if failed:
         if not override:
             raise WorkflowError(failed[0], 400)
-        if "admission.decide" not in act["perms"]:
+        if "admissions.admission_rule_override" not in act["perms"]:
             raise WorkflowError("Only someone with final admission authority can override: " + failed[0], 403)
         if not remarks:
             raise WorkflowError("An override needs a reason.", 400)

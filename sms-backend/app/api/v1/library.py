@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from app.fastapi_auth import get_current_user_id
-from app.fastapi_permissions import require_permission
+from app.fastapi_permissions import require_permission, require_any_permission
 from app.fastapi_campus import get_current_campus_id, enforce_same_campus
 from app.fastapi_campus import catalog_campus_id, catalog_campus_id_for_write
 from app.fastapi_db import get_db, get_cur as _get_cur
@@ -165,7 +165,7 @@ class PlaceReservationIn(BaseModel):
 # ── Dashboard ─────────────────────────────────────────────
 
 @router.get("/dashboard")
-def get_dashboard(user_id: int = Depends(require_permission("library.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def get_dashboard(user_id: int = Depends(require_permission("library.book_search")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_library_dashboard(%s)", (campus_id,))
     return ok(data=dict(cur.fetchone()))
@@ -174,14 +174,14 @@ def get_dashboard(user_id: int = Depends(require_permission("library.view")), db
 # ── Inventory / Audits ────────────────────────────
 
 @router.get("/inventory/summary")
-def get_inventory_summary(user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def get_inventory_summary(user_id: int = Depends(require_any_permission("library.book_issue_return", "library.book_search", "library.catalogue_management", "library.library_fines", "library.library_members_settings")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_inventory_summary(%s)", (campus_id,))
     return ok(data=dict(cur.fetchone()))
 
 
 @router.get("/inventory/active-audit")
-def get_active_audit(user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def get_active_audit(user_id: int = Depends(require_any_permission("library.book_issue_return", "library.book_search", "library.catalogue_management", "library.library_fines", "library.library_members_settings")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_active_audit(%s)", (campus_id,))
     row = cur.fetchone()
@@ -189,7 +189,7 @@ def get_active_audit(user_id: int = Depends(require_permission("library.manage")
 
 
 @router.post("/inventory/audits")
-def start_audit(body: NotesIn, user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def start_audit(body: NotesIn, user_id: int = Depends(require_permission("library.catalogue_management")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_start_inventory_audit(%s, %s, %s)", (user_id, body.notes, campus_id))
     result = cur.fetchone()
@@ -201,7 +201,7 @@ def start_audit(body: NotesIn, user_id: int = Depends(require_permission("librar
 
 
 @router.post("/inventory/audits/{audit_id}/verify")
-def verify_audit_copy(audit_id: int, body: VerifyAuditIn, user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def verify_audit_copy(audit_id: int, body: VerifyAuditIn, user_id: int = Depends(require_permission("library.catalogue_management")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_audit_campus(cur, audit_id, campus_id)
     cur.execute("SELECT * FROM sp_verify_audit_copy(%s, %s, %s)", (audit_id, body.identifier, user_id))
@@ -214,7 +214,7 @@ def verify_audit_copy(audit_id: int, body: VerifyAuditIn, user_id: int = Depends
 
 
 @router.get("/inventory/audits/{audit_id}/items")
-def get_audit_items(audit_id: int, user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def get_audit_items(audit_id: int, user_id: int = Depends(require_any_permission("library.book_issue_return", "library.book_search", "library.catalogue_management", "library.library_fines", "library.library_members_settings")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_audit_campus(cur, audit_id, campus_id)
     cur.execute("SELECT * FROM sp_get_audit_verified_items(%s)", (audit_id,))
@@ -222,7 +222,7 @@ def get_audit_items(audit_id: int, user_id: int = Depends(require_permission("li
 
 
 @router.post("/inventory/audits/{audit_id}/complete")
-def complete_audit(audit_id: int, user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def complete_audit(audit_id: int, user_id: int = Depends(require_permission("library.catalogue_management")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_audit_campus(cur, audit_id, campus_id)
     cur.execute("SELECT * FROM sp_complete_inventory_audit(%s)", (audit_id,))
@@ -235,14 +235,14 @@ def complete_audit(audit_id: int, user_id: int = Depends(require_permission("lib
 
 
 @router.get("/copies/missing")
-def list_missing_copies(user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def list_missing_copies(user_id: int = Depends(require_any_permission("library.book_issue_return", "library.book_search", "library.catalogue_management", "library.library_fines", "library.library_members_settings")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_missing_copies(%s)", (campus_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.post("/copies/{id}/resolve-missing")
-def resolve_missing_copy(id: int, body: ResolutionIn, user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def resolve_missing_copy(id: int, body: ResolutionIn, user_id: int = Depends(require_permission("library.catalogue_management")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     if body.resolution not in ("found", "remove"):
         fail("resolution must be found or remove.", 400)
     cur = get_cur(db)
@@ -259,14 +259,14 @@ def resolve_missing_copy(id: int, body: ResolutionIn, user_id: int = Depends(req
 # ── Categories ─────────────────────────────────────────────
 
 @router.get("/settings/membership-rules")
-def get_membership_rules(user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("library_membership_rules"))):
+def get_membership_rules(user_id: int = Depends(require_any_permission("library.book_issue_return", "library.book_search", "library.catalogue_management", "library.library_fines", "library.library_members_settings")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("library_membership_rules"))):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_membership_rules(%s)", (campus_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.put("/settings/membership-rules/{member_type}")
-def update_membership_rule(member_type: str, body: MembershipRuleIn, user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("library_membership_rules"))):
+def update_membership_rule(member_type: str, body: MembershipRuleIn, user_id: int = Depends(require_permission("library.library_members_settings")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("library_membership_rules"))):
     for field in ("max_books", "borrow_days", "renewal_limit", "fine_per_day"):
         if getattr(body, field) in (None, ""):
             fail(field + " is required.", 400)
@@ -284,14 +284,14 @@ def update_membership_rule(member_type: str, body: MembershipRuleIn, user_id: in
 
 
 @router.get("/categories")
-def list_categories(user_id: int = Depends(require_permission("library.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("library_categories"))):
+def list_categories(user_id: int = Depends(require_permission("library.book_search")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("library_categories"))):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_categories(%s)", (campus_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.post("/categories")
-def create_category(body: CategoryIn, user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("library_categories"))):
+def create_category(body: CategoryIn, user_id: int = Depends(require_permission("library.catalogue_management")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("library_categories"))):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_create_category(%s, %s, %s)", (body.name, body.parent_id, campus_id))
     row = cur.fetchone()
@@ -300,14 +300,14 @@ def create_category(body: CategoryIn, user_id: int = Depends(require_permission(
 
 
 @router.get("/categories/all")
-def list_all_categories(user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("library_categories"))):
+def list_all_categories(user_id: int = Depends(require_any_permission("library.book_issue_return", "library.book_search", "library.catalogue_management", "library.library_fines", "library.library_members_settings")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("library_categories"))):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_all_categories(%s)", (campus_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.put("/categories/{id}")
-def update_category(id: int, body: CategoryIn, user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("library_categories"))):
+def update_category(id: int, body: CategoryIn, user_id: int = Depends(require_permission("library.catalogue_management")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("library_categories"))):
     cur = get_cur(db)
     cur.execute("SELECT campus_id FROM library_categories WHERE id=%s", (id,))
     _row = cur.fetchone()
@@ -322,7 +322,7 @@ def update_category(id: int, body: CategoryIn, user_id: int = Depends(require_pe
 
 
 @router.delete("/categories/{id}")
-def deactivate_category(id: int, user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("library_categories"))):
+def deactivate_category(id: int, user_id: int = Depends(require_permission("library.catalogue_management")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("library_categories"))):
     cur = get_cur(db)
     cur.execute("SELECT campus_id FROM library_categories WHERE id=%s", (id,))
     _row = cur.fetchone()
@@ -333,7 +333,7 @@ def deactivate_category(id: int, user_id: int = Depends(require_permission("libr
 
 
 @router.post("/categories/{id}/reactivate")
-def reactivate_category(id: int, user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("library_categories"))):
+def reactivate_category(id: int, user_id: int = Depends(require_permission("library.catalogue_management")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("library_categories"))):
     cur = get_cur(db)
     cur.execute("SELECT campus_id FROM library_categories WHERE id=%s", (id,))
     _row = cur.fetchone()
@@ -346,14 +346,14 @@ def reactivate_category(id: int, user_id: int = Depends(require_permission("libr
 # ── Authors ────────────────────────────────────────────────
 
 @router.get("/authors")
-def list_authors(user_id: int = Depends(require_permission("library.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("library_authors"))):
+def list_authors(user_id: int = Depends(require_permission("library.book_search")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("library_authors"))):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_authors(%s)", (campus_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.post("/authors")
-def create_author(body: AuthorIn, user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("library_authors"))):
+def create_author(body: AuthorIn, user_id: int = Depends(require_permission("library.catalogue_management")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("library_authors"))):
     cur = get_cur(db)
     cur.execute(
         "SELECT * FROM sp_create_author(%s, %s, %s, %s, %s)",
@@ -365,14 +365,14 @@ def create_author(body: AuthorIn, user_id: int = Depends(require_permission("lib
 
 
 @router.get("/authors/all")
-def list_all_authors(user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("library_authors"))):
+def list_all_authors(user_id: int = Depends(require_any_permission("library.book_issue_return", "library.book_search", "library.catalogue_management", "library.library_fines", "library.library_members_settings")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("library_authors"))):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_all_authors(%s)", (campus_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.put("/authors/{id}")
-def update_author(id: int, body: AuthorIn, user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("library_authors"))):
+def update_author(id: int, body: AuthorIn, user_id: int = Depends(require_permission("library.catalogue_management")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("library_authors"))):
     cur = get_cur(db)
     cur.execute("SELECT campus_id FROM library_authors WHERE id=%s", (id,))
     _row = cur.fetchone()
@@ -390,7 +390,7 @@ def update_author(id: int, body: AuthorIn, user_id: int = Depends(require_permis
 
 
 @router.delete("/authors/{id}")
-def deactivate_author(id: int, user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("library_authors"))):
+def deactivate_author(id: int, user_id: int = Depends(require_permission("library.catalogue_management")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("library_authors"))):
     cur = get_cur(db)
     cur.execute("SELECT campus_id FROM library_authors WHERE id=%s", (id,))
     _row = cur.fetchone()
@@ -401,7 +401,7 @@ def deactivate_author(id: int, user_id: int = Depends(require_permission("librar
 
 
 @router.post("/authors/{id}/reactivate")
-def reactivate_author(id: int, user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("library_authors"))):
+def reactivate_author(id: int, user_id: int = Depends(require_permission("library.catalogue_management")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("library_authors"))):
     cur = get_cur(db)
     cur.execute("SELECT campus_id FROM library_authors WHERE id=%s", (id,))
     _row = cur.fetchone()
@@ -414,14 +414,14 @@ def reactivate_author(id: int, user_id: int = Depends(require_permission("librar
 # ── Publishers ─────────────────────────────────────────────
 
 @router.get("/publishers")
-def list_publishers(user_id: int = Depends(require_permission("library.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("library_publishers"))):
+def list_publishers(user_id: int = Depends(require_permission("library.book_search")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("library_publishers"))):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_publishers(%s)", (campus_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.post("/publishers")
-def create_publisher(body: PublisherIn, user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("library_publishers"))):
+def create_publisher(body: PublisherIn, user_id: int = Depends(require_permission("library.catalogue_management")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("library_publishers"))):
     cur = get_cur(db)
     cur.execute(
         "SELECT * FROM sp_create_publisher(%s, %s, %s, %s, %s, %s)",
@@ -433,14 +433,14 @@ def create_publisher(body: PublisherIn, user_id: int = Depends(require_permissio
 
 
 @router.get("/publishers/all")
-def list_all_publishers(user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("library_publishers"))):
+def list_all_publishers(user_id: int = Depends(require_any_permission("library.book_issue_return", "library.book_search", "library.catalogue_management", "library.library_fines", "library.library_members_settings")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("library_publishers"))):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_all_publishers(%s)", (campus_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.put("/publishers/{id}")
-def update_publisher(id: int, body: PublisherIn, user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("library_publishers"))):
+def update_publisher(id: int, body: PublisherIn, user_id: int = Depends(require_permission("library.catalogue_management")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("library_publishers"))):
     cur = get_cur(db)
     cur.execute("SELECT campus_id FROM library_publishers WHERE id=%s", (id,))
     _row = cur.fetchone()
@@ -458,7 +458,7 @@ def update_publisher(id: int, body: PublisherIn, user_id: int = Depends(require_
 
 
 @router.delete("/publishers/{id}")
-def deactivate_publisher(id: int, user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("library_publishers"))):
+def deactivate_publisher(id: int, user_id: int = Depends(require_permission("library.catalogue_management")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("library_publishers"))):
     cur = get_cur(db)
     cur.execute("SELECT campus_id FROM library_publishers WHERE id=%s", (id,))
     _row = cur.fetchone()
@@ -469,7 +469,7 @@ def deactivate_publisher(id: int, user_id: int = Depends(require_permission("lib
 
 
 @router.post("/publishers/{id}/reactivate")
-def reactivate_publisher(id: int, user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("library_publishers"))):
+def reactivate_publisher(id: int, user_id: int = Depends(require_permission("library.catalogue_management")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("library_publishers"))):
     cur = get_cur(db)
     cur.execute("SELECT campus_id FROM library_publishers WHERE id=%s", (id,))
     _row = cur.fetchone()
@@ -485,7 +485,7 @@ def reactivate_publisher(id: int, user_id: int = Depends(require_permission("lib
 def list_books(
     search: Optional[str] = Query(None), category_id: Optional[str] = Query(None),
     author_id: Optional[str] = Query(None), availability: Optional[str] = Query(None),
-    user_id: int = Depends(require_permission("library.view")), db=Depends(get_db),
+    user_id: int = Depends(require_permission("library.book_search")), db=Depends(get_db),
     campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
     cur = get_cur(db)
@@ -514,7 +514,7 @@ def list_books(
 
 
 @router.get("/books/{id}")
-def get_book(id: int, user_id: int = Depends(require_permission("library.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def get_book(id: int, user_id: int = Depends(require_permission("library.book_search")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM vw_library_books WHERE id = %s", (id,))
     row = cur.fetchone()
@@ -529,7 +529,7 @@ def get_book(id: int, user_id: int = Depends(require_permission("library.view"))
 
 
 @router.post("/books")
-def create_book(body: BookIn, user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def create_book(body: BookIn, user_id: int = Depends(require_permission("library.catalogue_management")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute(
         "SELECT sp_create_book(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
@@ -547,7 +547,7 @@ def create_book(body: BookIn, user_id: int = Depends(require_permission("library
 
 
 @router.put("/books/{id}")
-def update_book(id: int, body: BookIn, user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def update_book(id: int, body: BookIn, user_id: int = Depends(require_permission("library.catalogue_management")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_book_campus(cur, id, campus_id)
     cur.execute(
@@ -564,7 +564,7 @@ def update_book(id: int, body: BookIn, user_id: int = Depends(require_permission
 
 
 @router.post("/books/{id}/copies")
-def add_copies(id: int, body: AddCopiesIn, user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def add_copies(id: int, body: AddCopiesIn, user_id: int = Depends(require_permission("library.catalogue_management")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     num = int(body.num_copies or 1)
     cur = get_cur(db)
     _check_book_campus(cur, id, campus_id)
@@ -574,14 +574,14 @@ def add_copies(id: int, body: AddCopiesIn, user_id: int = Depends(require_permis
 
 
 @router.get("/copies/damaged")
-def list_damaged_copies(user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def list_damaged_copies(user_id: int = Depends(require_any_permission("library.book_issue_return", "library.book_search", "library.catalogue_management", "library.library_fines", "library.library_members_settings")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_damaged_copies(%s)", (campus_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.post("/copies/{id}/resolve-damage")
-def resolve_damaged_copy(id: int, body: ResolveChargeIn, user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def resolve_damaged_copy(id: int, body: ResolveChargeIn, user_id: int = Depends(require_permission("library.catalogue_management")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     if body.resolution not in ("repair", "replace", "remove"):
         fail("resolution must be repair, replace, or remove.", 400)
     charge_amount = body.charge_amount or 0
@@ -600,7 +600,7 @@ def resolve_damaged_copy(id: int, body: ResolveChargeIn, user_id: int = Depends(
 
 
 @router.post("/issues/{transaction_id}/report-lost")
-def report_book_lost(transaction_id: int, user_id: int = Depends(require_permission("library.issue")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def report_book_lost(transaction_id: int, user_id: int = Depends(require_permission("library.book_issue_return")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_transaction_campus(cur, transaction_id, campus_id)
     cur.execute("SELECT * FROM sp_report_book_lost(%s)", (transaction_id,))
@@ -613,14 +613,14 @@ def report_book_lost(transaction_id: int, user_id: int = Depends(require_permiss
 
 
 @router.get("/copies/lost")
-def list_lost_copies(user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def list_lost_copies(user_id: int = Depends(require_any_permission("library.book_issue_return", "library.book_search", "library.catalogue_management", "library.library_fines", "library.library_members_settings")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_lost_copies(%s)", (campus_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.post("/copies/{id}/resolve-lost")
-def resolve_lost_copy(id: int, body: ResolveChargeIn, user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def resolve_lost_copy(id: int, body: ResolveChargeIn, user_id: int = Depends(require_permission("library.catalogue_management")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     if body.resolution not in ("found", "replace", "remove"):
         fail("resolution must be found, replace, or remove.", 400)
     charge_amount = body.charge_amount or 0
@@ -639,7 +639,7 @@ def resolve_lost_copy(id: int, body: ResolveChargeIn, user_id: int = Depends(req
 
 
 @router.delete("/books/{id}")
-def deactivate_book(id: int, user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def deactivate_book(id: int, user_id: int = Depends(require_permission("library.catalogue_management")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_book_campus(cur, id, campus_id)
     cur.execute("SELECT sp_deactivate_book(%s)", (id,))
@@ -652,7 +652,7 @@ def deactivate_book(id: int, user_id: int = Depends(require_permission("library.
 @router.get("/members")
 def list_members(
     search: Optional[str] = Query(None), member_type: Optional[str] = Query(None),
-    user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db),
+    user_id: int = Depends(require_any_permission("library.book_issue_return", "library.book_search", "library.catalogue_management", "library.library_fines", "library.library_members_settings")), db=Depends(get_db),
     campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
     cur = get_cur(db)
@@ -675,7 +675,7 @@ def list_members(
 @router.get("/search-users")
 def search_enrollable_users(
     type: Optional[str] = Query(None, alias="type"), q: Optional[str] = Query(""),
-    user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db),
+    user_id: int = Depends(require_any_permission("library.book_issue_return", "library.book_search", "library.catalogue_management", "library.library_fines", "library.library_members_settings")), db=Depends(get_db),
     campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
     if type not in ("student", "teacher", "staff"):
@@ -686,7 +686,7 @@ def search_enrollable_users(
 
 
 @router.post("/members")
-def enroll_member(body: EnrollMemberIn, user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def enroll_member(body: EnrollMemberIn, user_id: int = Depends(require_permission("library.library_members_settings")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("SELECT campus_id FROM users WHERE id=%s", (body.user_id,))
     _row = cur.fetchone()
@@ -700,7 +700,7 @@ def enroll_member(body: EnrollMemberIn, user_id: int = Depends(require_permissio
 
 
 @router.get("/members/me")
-def my_membership(user_id: int = Depends(require_permission("library.view")), db=Depends(get_db)):
+def my_membership(user_id: int = Depends(require_permission("library.book_search")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM vw_library_members WHERE user_id = %s", (user_id,))
     row = cur.fetchone()
@@ -714,7 +714,7 @@ def my_membership(user_id: int = Depends(require_permission("library.view")), db
 @router.get("/issues")
 def list_issues(
     status: Optional[str] = Query(None), member_id: Optional[str] = Query(None),
-    user_id: int = Depends(require_permission("library.issue")), db=Depends(get_db),
+    user_id: int = Depends(require_permission("library.book_issue_return")), db=Depends(get_db),
     campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
     cur = get_cur(db)
@@ -734,7 +734,7 @@ def list_issues(
 
 
 @router.get("/issues/my-history")
-def my_issue_history(user_id: int = Depends(require_permission("library.view")), db=Depends(get_db)):
+def my_issue_history(user_id: int = Depends(require_permission("library.book_search")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT id FROM library_members WHERE user_id = %s", (user_id,))
     row = cur.fetchone()
@@ -745,7 +745,7 @@ def my_issue_history(user_id: int = Depends(require_permission("library.view")),
 
 
 @router.post("/issue")
-def issue_book(body: IssueBookIn, user_id: int = Depends(require_permission("library.issue")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def issue_book(body: IssueBookIn, user_id: int = Depends(require_permission("library.book_issue_return")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_copy_campus(cur, body.copy_id, campus_id)
     cur.execute("SELECT * FROM sp_issue_book(%s, %s, %s)", (body.copy_id, body.member_id, user_id))
@@ -758,7 +758,7 @@ def issue_book(body: IssueBookIn, user_id: int = Depends(require_permission("lib
 
 
 @router.post("/return/{transaction_id}")
-def return_book(transaction_id: int, body: ReturnBookIn, user_id: int = Depends(require_permission("library.issue")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def return_book(transaction_id: int, body: ReturnBookIn, user_id: int = Depends(require_permission("library.book_issue_return")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     condition = body.return_condition or "good"
     cur = get_cur(db)
     _check_transaction_campus(cur, transaction_id, campus_id)
@@ -810,7 +810,7 @@ def return_book(transaction_id: int, body: ReturnBookIn, user_id: int = Depends(
 
 
 @router.post("/issues/{transaction_id}/renew")
-def renew_book(transaction_id: int, user_id: int = Depends(require_permission("library.issue")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def renew_book(transaction_id: int, user_id: int = Depends(require_permission("library.book_issue_return")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_transaction_campus(cur, transaction_id, campus_id)
     cur.execute("SELECT * FROM sp_renew_book(%s)", (transaction_id,))
@@ -823,7 +823,7 @@ def renew_book(transaction_id: int, user_id: int = Depends(require_permission("l
 
 
 @router.get("/fines/pending")
-def list_pending_fines(search: Optional[str] = Query(None), user_id: int = Depends(require_permission("library.issue")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def list_pending_fines(search: Optional[str] = Query(None), user_id: int = Depends(require_permission("library.book_issue_return")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     conditions, params = ["1=1"], []
     if campus_id is not None:
@@ -839,7 +839,7 @@ def list_pending_fines(search: Optional[str] = Query(None), user_id: int = Depen
 
 
 @router.get("/fines/history")
-def fine_history(search: Optional[str] = Query(None), user_id: int = Depends(require_permission("library.issue")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def fine_history(search: Optional[str] = Query(None), user_id: int = Depends(require_permission("library.book_issue_return")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     conditions, params = ["1=1"], []
     if campus_id is not None:
@@ -855,7 +855,7 @@ def fine_history(search: Optional[str] = Query(None), user_id: int = Depends(req
 
 
 @router.post("/fines/{transaction_id}/pay")
-def pay_fine(transaction_id: int, body: PayFineIn, user_id: int = Depends(require_permission("library.issue")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def pay_fine(transaction_id: int, body: PayFineIn, user_id: int = Depends(require_permission("library.book_issue_return")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_transaction_campus(cur, transaction_id, campus_id)
     cur.execute(
@@ -871,7 +871,7 @@ def pay_fine(transaction_id: int, body: PayFineIn, user_id: int = Depends(requir
 
 
 @router.get("/reservations")
-def list_reservations(status: Optional[str] = Query(None), user_id: int = Depends(require_permission("library.issue")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def list_reservations(status: Optional[str] = Query(None), user_id: int = Depends(require_permission("library.book_issue_return")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     conditions, params = ["1=1"], []
     if campus_id is not None:
@@ -898,7 +898,7 @@ def list_reservations(status: Optional[str] = Query(None), user_id: int = Depend
 
 
 @router.post("/reservations")
-def place_reservation(body: PlaceReservationIn, user_id: int = Depends(require_permission("library.issue")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def place_reservation(body: PlaceReservationIn, user_id: int = Depends(require_permission("library.book_issue_return")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_book_campus(cur, body.book_id, campus_id)
     cur.execute("SELECT * FROM sp_place_reservation(%s, %s)", (body.book_id, body.member_id))
@@ -911,7 +911,7 @@ def place_reservation(body: PlaceReservationIn, user_id: int = Depends(require_p
 
 
 @router.delete("/reservations/{id}")
-def cancel_reservation(id: int, user_id: int = Depends(require_permission("library.issue")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def cancel_reservation(id: int, user_id: int = Depends(require_permission("library.book_issue_return")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_reservation_campus(cur, id, campus_id)
     cur.execute("SELECT * FROM sp_cancel_reservation(%s)", (id,))
@@ -924,7 +924,7 @@ def cancel_reservation(id: int, user_id: int = Depends(require_permission("libra
 
 
 @router.post("/fines/{transaction_id}/waive")
-def waive_fine(transaction_id: int, user_id: int = Depends(require_permission("library.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def waive_fine(transaction_id: int, user_id: int = Depends(require_permission("library.library_fines")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_transaction_campus(cur, transaction_id, campus_id)
     cur.execute("SELECT * FROM sp_waive_fine(%s, %s)", (transaction_id, user_id))

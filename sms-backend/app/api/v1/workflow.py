@@ -8,7 +8,7 @@ from typing import Optional, Any, List
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from app.fastapi_auth import get_current_user_id
-from app.fastapi_permissions import require_permission
+from app.fastapi_permissions import require_permission, require_any_permission
 from app.fastapi_db import get_db, get_cur as _get_cur
 from app.utils.processing_date import get_processing_datetime
 from app.fastapi_campus import get_current_campus_id, enforce_same_campus, catalog_campus_id
@@ -208,7 +208,7 @@ def get_workflow(wf_id: int, user_id: int = Depends(get_current_user_id), db=Dep
 
 @router.post("/")
 def create_workflow(body: WorkflowDefIn,
-                    user_id: int = Depends(require_permission("users.manage_roles")),
+                    user_id: int = Depends(require_permission("workflows_reports.workflow_builder")),
                     db=Depends(get_db),
                     campus_id: Optional[int] = Depends(catalog_campus_id_for_write("workflow_definitions"))):
     cur = get_cur(db)
@@ -226,7 +226,7 @@ def create_workflow(body: WorkflowDefIn,
 
 @router.put("/{wf_id}")
 def update_workflow(wf_id: int, body: WorkflowDefIn,
-                    user_id: int = Depends(require_permission("users.manage_roles")),
+                    user_id: int = Depends(require_permission("workflows_reports.workflow_builder")),
                     db=Depends(get_db),
                     campus_id: Optional[int] = Depends(catalog_campus_id_for_write("workflow_definitions"))):
     cur = get_cur(db)
@@ -243,7 +243,7 @@ def update_workflow(wf_id: int, body: WorkflowDefIn,
 
 @router.delete("/{wf_id}")
 def delete_workflow(wf_id: int,
-                    user_id: int = Depends(require_permission("users.manage_roles")),
+                    user_id: int = Depends(require_permission("workflows_reports.workflow_builder")),
                     db=Depends(get_db),
                     campus_id: Optional[int] = Depends(catalog_campus_id_for_write("workflow_definitions"))):
     cur = get_cur(db)
@@ -264,7 +264,7 @@ def delete_workflow(wf_id: int,
 
 @router.post("/{wf_id}/steps")
 def add_step(wf_id: int, body: WorkflowStepIn,
-             user_id: int = Depends(require_permission("users.manage_roles")),
+             user_id: int = Depends(require_permission("workflows_reports.workflow_builder")),
              db=Depends(get_db),
              campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
@@ -290,7 +290,7 @@ def add_step(wf_id: int, body: WorkflowStepIn,
 
 @router.put("/steps/{step_id}")
 def update_step(step_id: int, body: WorkflowStepIn,
-                user_id: int = Depends(require_permission("users.manage_roles")),
+                user_id: int = Depends(require_permission("workflows_reports.workflow_builder")),
                 db=Depends(get_db),
                 campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
@@ -317,7 +317,7 @@ def update_step(step_id: int, body: WorkflowStepIn,
 
 @router.delete("/steps/{step_id}")
 def delete_step(step_id: int,
-                user_id: int = Depends(require_permission("users.manage_roles")),
+                user_id: int = Depends(require_permission("workflows_reports.workflow_builder")),
                 db=Depends(get_db),
                 campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
@@ -333,7 +333,7 @@ def delete_step(step_id: int,
 
 @router.post("/steps/{step_id}/conditions")
 def add_condition(step_id: int, body: WorkflowConditionIn,
-                  user_id: int = Depends(require_permission("users.manage_roles")),
+                  user_id: int = Depends(require_permission("workflows_reports.workflow_builder")),
                   db=Depends(get_db),
                   campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
@@ -349,7 +349,7 @@ def add_condition(step_id: int, body: WorkflowConditionIn,
 
 @router.delete("/conditions/{cond_id}")
 def delete_condition(cond_id: int,
-                     user_id: int = Depends(require_permission("users.manage_roles")),
+                     user_id: int = Depends(require_permission("workflows_reports.workflow_builder")),
                      db=Depends(get_db),
                      campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
@@ -388,7 +388,7 @@ def list_assignments(
 
 @router.post("/assignments")
 def create_assignment(body: WorkflowAssignmentIn,
-                      user_id: int = Depends(require_permission("users.manage_roles")),
+                      user_id: int = Depends(require_permission("workflows_reports.workflow_builder")),
                       db=Depends(get_db),
                       campus_id: Optional[int] = Depends(catalog_campus_id_for_write("workflow_definitions"))):
     cur = get_cur(db)
@@ -409,7 +409,7 @@ def create_assignment(body: WorkflowAssignmentIn,
 
 @router.put("/assignments/{assign_id}")
 def update_assignment(assign_id: int, body: WorkflowAssignmentIn,
-                      user_id: int = Depends(require_permission("users.manage_roles")),
+                      user_id: int = Depends(require_permission("workflows_reports.workflow_builder")),
                       db=Depends(get_db),
                       campus_id: Optional[int] = Depends(catalog_campus_id_for_write("workflow_definitions"))):
     cur = get_cur(db)
@@ -428,7 +428,7 @@ def update_assignment(assign_id: int, body: WorkflowAssignmentIn,
 
 @router.delete("/assignments/{assign_id}")
 def delete_assignment(assign_id: int,
-                      user_id: int = Depends(require_permission("users.manage_roles")),
+                      user_id: int = Depends(require_permission("workflows_reports.workflow_builder")),
                       db=Depends(get_db),
                       campus_id: Optional[int] = Depends(catalog_campus_id_for_write("workflow_definitions"))):
     cur = get_cur(db)
@@ -445,7 +445,7 @@ def list_instances(
     module: Optional[str] = Query(None),
     status: Optional[str] = Query(None),
     limit: int = Query(50, le=200),
-    user_id: int = Depends(require_permission("users.manage_roles")),
+    user_id: int = Depends(require_permission("workflows_reports.workflow_builder")),
     db=Depends(get_db),
     campus_id: Optional[int] = Depends(get_current_campus_id)
 ):
@@ -540,7 +540,7 @@ class AssignmentConditionIn(BaseModel):
 
 @router.post("/assignments/{assign_id}/conditions")
 def add_assignment_condition(assign_id: int, body: AssignmentConditionIn,
-                             user_id: int = Depends(require_permission("users.manage_roles")),
+                             user_id: int = Depends(require_permission("workflows_reports.workflow_builder")),
                              db=Depends(get_db),
                              campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
@@ -555,7 +555,7 @@ def add_assignment_condition(assign_id: int, body: AssignmentConditionIn,
 
 @router.delete("/assignments/conditions/{cond_id}")
 def delete_assignment_condition(cond_id: int,
-                                user_id: int = Depends(require_permission("users.manage_roles")),
+                                user_id: int = Depends(require_permission("workflows_reports.workflow_builder")),
                                 db=Depends(get_db),
                                 campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)

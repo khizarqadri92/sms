@@ -6,7 +6,7 @@ import teachersApi   from "../api/teachersApi";
 import { useProcessingToday } from "../hooks/useProcessingToday";
 import DatePicker from "../components/DatePicker";
 import "./Attendance.css";
-import { useAuth }   from "../auth/AuthContext";
+import { useAuth, effectiveRole } from "../auth/AuthContext";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
 
 const today = () => new Date().toISOString().split("T")[0];
@@ -28,7 +28,7 @@ const STATUS_INLINE = {
 const STATUS_LABEL = { present:"Present", absent:"Absent", late:"Late", on_leave:"On Leave", on_leave:"On Leave" };
 export default function Attendance() {
   const { user } = useAuth();
-  const role = user?.roles?.[0] || "";
+  const role = effectiveRole(user) || "";
   if (role === "hr") return (
     <div>
       <div className="page-header"><h1 className="page-heading">Staff Attendance</h1></div>

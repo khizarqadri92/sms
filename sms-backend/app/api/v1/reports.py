@@ -16,22 +16,11 @@ def fail(message: str, status_code: int = 400, details=None):
     raise HTTPException(status_code=status_code, detail={"status": "error", "message": message, "details": details})
 def ok(data=None, message="Success"):
     return {"status": "success", "message": message, "data": data}
-def require_permission(perm: str):
-    def dep(user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
-        cur = get_cur(db)
-        cur.execute("""SELECT 1 FROM user_roles ur
-            JOIN role_permissions rp ON rp.role_id=ur.role_id
-            JOIN permissions p ON p.id=rp.permission_id
-            WHERE ur.user_id=%s AND p.code=%s LIMIT 1""", (user_id, perm))
-        if not cur.fetchone():
-            fail("Permission denied.", 403)
-        return user_id
-    return dep
-
+from app.fastapi_permissions import require_permission, require_any_permission   # the ONE rule
 
 @router.get("/attendance/directory")
 def attendance_report_directory(department_id: Optional[int] = None, search: Optional[str] = None,
-        user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+        user_id: int = Depends(require_permission("hr.employee_attendance_report")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Employee directory for the report\'s employee list, filterable by
     department and a name/employee-code search term."""
     cur = get_cur(db)
@@ -54,7 +43,7 @@ def attendance_report_directory(department_id: Optional[int] = None, search: Opt
 
 @router.get("/attendance/daily")
 def attendance_report_daily(date: str, department_id: Optional[int] = None,
-        user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+        user_id: int = Depends(require_permission("hr.employee_attendance_report")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     """All employees\' attendance status for a single date (Daily Report mode)."""
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_attendance_daily_status_bulk(%s,%s,%s)", (date, department_id, campus_id))
@@ -63,7 +52,7 @@ def attendance_report_daily(date: str, department_id: Optional[int] = None,
 
 @router.get("/attendance/monthly/{staff_id}")
 def attendance_report_monthly(staff_id: int, month: int, year: int,
-        user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+        user_id: int = Depends(require_permission("hr.employee_attendance_report")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     """One employee\'s full day-by-day attendance for a given month (Monthly Report mode)."""
     import calendar as _cal
     if month < 1 or month > 12:
@@ -84,7 +73,7 @@ def attendance_report_monthly(staff_id: int, month: int, year: int,
 def employee_salaries_report(
         department_id: Optional[int] = None, staff_id: Optional[int] = None,
         month: Optional[int] = None, year: Optional[int] = None,
-        user_id: int = Depends(require_permission("reports.employee_salaries")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+        user_id: int = Depends(require_permission("payroll.salary_report")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     where = []
     params = []
@@ -107,7 +96,7 @@ def employee_salaries_report(
 def expenditure_details_report(
         department_id: Optional[int] = None, expenditure_type: Optional[str] = None,
         month: Optional[int] = None, year: Optional[int] = None,
-        user_id: int = Depends(require_permission("reports.expenditure")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+        user_id: int = Depends(require_permission("procurement_inventory.expenditure_report")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     where = []
     params = []
@@ -127,7 +116,7 @@ def expenditure_details_report(
 
 
 @router.get("/expenditure-types-list")
-def expenditure_types_list(user_id: int = Depends(require_permission("reports.expenditure")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def expenditure_types_list(user_id: int = Depends(require_permission("procurement_inventory.expenditure_report")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("SELECT DISTINCT expenditure_type FROM v_expenditure_details_report WHERE expenditure_type IS NOT NULL AND (%s IS NULL OR campus_id = %s) ORDER BY expenditure_type", (campus_id, campus_id))
     return ok(data=[r["expenditure_type"] for r in cur.fetchall()])

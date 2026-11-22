@@ -43,6 +43,14 @@ const attendanceApi = {
   getRfidCards:    ()          => client.get("/staff-attendance/rfid-cards"),
   assignRfidCard:  (data)      => client.post("/staff-attendance/rfid-cards", data),
   deactivateRfidCard: (id)     => client.delete(`/staff-attendance/rfid-cards/${id}`),
+
+  // Employee attendance methods (HR) + biometric numbers + the employee's own options
+  getCaptureSettings:    ()       => client.get("/staff-attendance/capture-settings"),
+  updateCaptureSettings: (data)   => client.put("/staff-attendance/capture-settings", data),
+  getMyOptions:          ()       => client.get("/staff-attendance/my/options"),
+  getBiometricIds:       ()       => client.get("/staff-attendance/biometric-ids"),
+  assignBiometricId:     (data)   => client.post("/staff-attendance/biometric-ids", data),
+  removeBiometricId:     (id)     => client.delete(`/staff-attendance/biometric-ids/${id}`),
 };
 
 export default attendanceApi;

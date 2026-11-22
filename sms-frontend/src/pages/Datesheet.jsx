@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { examsApi } from "../api/examsApi";
-import { useAuth } from "../auth/AuthContext";
+import { useAuth, effectiveRole } from "../auth/AuthContext";
 import DatePicker from "../components/DatePicker";
 import "./Datesheet.css";
 import { useNavigate } from "react-router-dom";
@@ -19,7 +19,7 @@ export default function Datesheet() {
   const [selectedExam,setSelectedExam]= useState(null);
   const [datesheet,   setDatesheet]   = useState([]);
   const { user: authUser } = useAuth();
-  const role = authUser?.roles?.[0]||"";
+  const role = effectiveRole(authUser)||"";
   const isLocked = selectedExam?.status==="published" && role!=="superadmin";  // always array
   const [examClasses, setExamClasses] = useState([]);
   const [classSubjects,setClassSubjects]=useState({});
@@ -288,7 +288,7 @@ export default function Datesheet() {
 
   // Build grid data
   const safeDS = Array.isArray(datesheet)?datesheet:[];
-  const userRole = user?.roles?.[0]||"";
+  const userRole = effectiveRole(user)||"";
   const canSubmit  = userRole===submitRole||userRole==="superadmin"||userRole==="admin";
   const canApprove = userRole===approveRole||userRole==="superadmin";
   const canPublish = userRole===publishRole||userRole==="superadmin"||userRole==="admin";

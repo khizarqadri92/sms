@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useAuth } from "../auth/AuthContext";
+import { useAuth, effectiveRole } from "../auth/AuthContext";
 import { useProcessingToday } from "../hooks/useProcessingToday";
 import { useNavigate } from "react-router-dom";
 import AnnouncementPanel from "../components/AnnouncementPanel";
@@ -13,28 +13,44 @@ import HRInsights from "./dashboards/HRInsights";
 import LibraryInsights from "./dashboards/LibraryInsights";
 import ProcurementInsights from "./dashboards/ProcurementInsights";
 import AdmissionDashboard from "./AdmissionDashboard";
+import LabRoleDashboard from "./LabRoleDashboard";
 import AdmissionBannerPopup from "./AdmissionBannerPopup";
 import "./StudentViews.css";
+import { ActivityWidget } from "./ActivityStream";
 
 export default function Dashboard() {
   const { user }      = useAuth();
-  const role          = user?.roles?.[0] || "student";
+  const role          = effectiveRole(user) || "student";
   const canManage = user?.permissions?.includes("announcement.manage") ||
                     user?.permissions?.includes("announcement.create") ||
                     ["superadmin","admin","principal","academic_coordinator"].includes(role);
+
+  const [showActivity, setShowActivity] = useState(false);
 
   return (
     <div style={{ display:"grid", gridTemplateColumns:"1fr 300px", gap:16, alignItems:"start" }}>
       <AdmissionBannerPopup />
       <div><OverviewTab user={user} role={role} /></div>
-      <div style={{ position:"sticky", top:8, height:"calc(100vh - 180px)" }}>
-        <AnnouncementPanel canManage={canManage} />
+      {/* right column: News & Announcements, then the Activity Stream under it (for those who may see it) */}
+      <div style={{ display:"flex", flexDirection:"column", gap:16, ...(showActivity ? {} : { position:"sticky", top:8 }) }}>
+        <div style={{ height: showActivity ? "min(440px, calc(100vh - 180px))" : "calc(100vh - 180px)" }}>
+          <AnnouncementPanel canManage={canManage} />
+        </div>
+        {role !== "parent" && role !== "student" && <ActivityWidget narrow onAvailable={setShowActivity} />}
       </div>
     </div>
   );
 }
 
 function OverviewTab({ user, role }) {
+  // lab roles: Lab Admin, or a Lab Supervisor who isn't a teacher -> the lab dashboard;
+  // a teacher who also supervises a lab keeps the teacher dashboard with "My Labs" under it
+  const roles = (user && user.roles) || [];
+  const isLabAdmin = roles.includes("lab_admin"), isLabSup = roles.includes("lab_supervisor");
+  if (role === "lab_admin" || (isLabAdmin && !["admin", "superadmin", "principal"].includes(role))) return <LabRoleDashboard />;
+  if (role === "lab_supervisor" && !roles.includes("teacher")) return <LabRoleDashboard />;
+  if ((role === "teacher" || role === "lab_supervisor") && isLabSup)
+    return <><TeacherDashboard /><div style={{ marginTop: 20 }}><LabRoleDashboard compact /></div></>;
   if (role === "hr")          return <HRInsights />;
   if (role === "librarian")   return <LibraryInsights />;
   if (role === "procurement") return <ProcurementInsights />;

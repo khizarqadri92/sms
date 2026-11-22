@@ -10,7 +10,7 @@ const NEW = { name: "", member_user_ids: [], location: "", class_names: [], is_a
 /** Interview panels for the session - set up by the academic coordinator, picked when an interview is scheduled. */
 export default function AdmissionPanels() {
   const { can } = useAuth();
-  const canEdit = can("admission.panels");
+  const canEdit = can("admissions.interview_panel_setup");
   const [meta, setMeta] = useState(null);
   const [campus, setCampus] = useState("");
   const [yearId, setYearId] = useState("");
@@ -73,7 +73,7 @@ export default function AdmissionPanels() {
           {d.panels.map(p => (
             <div key={p.id} className={"am-card am-session" + (p.is_active ? "" : " am-row-off")}>
               <div className="am-assess-head">
-                <div className="am-card-title" style={{ margin: 0 }}>{p.name}</div>
+                <div className="am-card-title" style={{ margin: 0 }}>{p.name1}</div>
                 <span className={"am-status am-status--" + (p.is_active ? "good" : "")}>{p.is_active ? "Active" : "Inactive"}</span>
               </div>
               <div className="am-chips">{p.members.map(m => <span key={m.id} className="am-chip">{m.name}</span>)}</div>

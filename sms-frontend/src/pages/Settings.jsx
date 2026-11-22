@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { useGovernanceMode } from "../hooks/useGovernanceMode";
 import settingsApi from "../api/settingsApi";
+import { AttendanceSetupPanel } from "./AttendanceCapture";
 import processingDateApi from "../api/processingDateApi";
 import { useProcessingToday } from "../hooks/useProcessingToday";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
@@ -45,13 +46,13 @@ export default function Settings({ visibleTabs } = {}) {
         </div>
       )}
 
-      {tab === "id_formats" && (!visibleTabs||visibleTabs.includes("id_formats")) && <IdFormatsTab       onSaved={() => showToast("Settings saved successfully.")} canManage={can("settings.manage") && !idFormatLocked} isGlobalLocked={idFormatLocked} />}
-      {tab === "attendance_config" && (!visibleTabs||visibleTabs.includes("attendance_config")) && <AttendanceConfigTab onSaved={() => showToast("Settings saved successfully.")} canManage={can("settings.manage") && !attendanceConfigLocked} isGlobalLocked={attendanceConfigLocked} />}
-      {tab === "school_info" && (!visibleTabs||visibleTabs.includes("school_info")) && <SchoolInfoTab  onSaved={() => showToast("School info saved.")} canManage={can("settings.manage")} />}
-      {tab === "fee_settings" && (!visibleTabs||visibleTabs.includes("fee_settings")) && <FeeSettingsTab   onSaved={() => showToast("Fee settings saved.")} canManage={can("settings.manage")} />}
-      {tab === "school_timing" && (!visibleTabs||visibleTabs.includes("school_timing")) && <SchoolTimingTab  onSaved={() => showToast("School timing saved.")} canManage={can("settings.manage") && !schoolTimingLocked} isGlobalLocked={schoolTimingLocked} />}
-      {tab === "regional_format" && (!visibleTabs||visibleTabs.includes("regional_format")) && <RegionalFormatTab onSaved={() => showToast("Regional & format settings saved.")} canManage={can("settings.manage")} />}
-      {tab === "account_settings" && (!visibleTabs||visibleTabs.includes("account_settings")) && <AccountSettingsTab onSaved={() => showToast("Account security settings saved.")} canManage={can("settings.manage")} />}
+      {tab === "id_formats" && (!visibleTabs||visibleTabs.includes("id_formats")) && <IdFormatsTab       onSaved={() => showToast("Settings saved successfully.")} canManage={can("settings.school_information") && !idFormatLocked} isGlobalLocked={idFormatLocked} />}
+      {tab === "attendance_config" && (!visibleTabs||visibleTabs.includes("attendance_config")) && <AttendanceConfigTab onSaved={() => showToast("Settings saved successfully.")} canManage={can("attendance.attendance_settings") && !attendanceConfigLocked} isGlobalLocked={attendanceConfigLocked} />}
+      {tab === "school_info" && (!visibleTabs||visibleTabs.includes("school_info")) && <SchoolInfoTab  onSaved={() => showToast("School info saved.")} canManage={can("settings.school_information")} />}
+      {tab === "fee_settings" && (!visibleTabs||visibleTabs.includes("fee_settings")) && <FeeSettingsTab   onSaved={() => showToast("Fee settings saved.")} canManage={can("finance.fee_reminders", "finance.invoice_auto_generation_settings")} />}
+      {tab === "school_timing" && (!visibleTabs||visibleTabs.includes("school_timing")) && <SchoolTimingTab  onSaved={() => showToast("School timing saved.")} canManage={can("settings.school_timing") && !schoolTimingLocked} isGlobalLocked={schoolTimingLocked} />}
+      {tab === "regional_format" && (!visibleTabs||visibleTabs.includes("regional_format")) && <RegionalFormatTab onSaved={() => showToast("Regional & format settings saved.")} canManage={can("settings.regional_format")} />}
+      {tab === "account_settings" && (!visibleTabs||visibleTabs.includes("account_settings")) && <AccountSettingsTab onSaved={() => showToast("Account security settings saved.")} canManage={can("settings.security_settings")} />}
     </div>
   );
 }
@@ -1013,64 +1014,18 @@ function TimingOverridesSection({ canManage }) {
 }
 
 function AttendanceConfigTab({ onSaved, canManage, isGlobalLocked }) {
-  const [marker,  setMarker]  = useState("incharge_only");
-  const [loading, setLoading] = useState(true);
-  const [saving,  setSaving]  = useState(false);
-
-  useEffect(() => {
-    settingsApi.getByCategory("attendance_config").then(r => {
-      const d = r.data.data || {};
-      setMarker(d.attendance_marker || "incharge_only");
-    }).catch(() => {}).finally(() => setLoading(false));
-  }, []);
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      await settingsApi.saveByCategory("attendance_config", { attendance_marker: marker });
-      onSaved();
-    } catch {}
-    finally { setSaving(false); }
-  };
-
-  if (loading) return <div className="loading-state">Loading...</div>;
-
+  // the one Attendance Setup: method (Manual class / period, RFID, Biometric), devices, cards & fingerprints, today's scans
   return (
     <div className="section-card">
       <div className="section-card-header">
-        <span className="section-card-title">Attendance Configuration</span>
+        <span className="section-card-title">Attendance Setup</span>
       </div>
       {isGlobalLocked && (
         <div className="alert" style={{ background:"var(--bg-warning-soft)", border:"1px solid var(--border-warning-soft)", color:"var(--text-warning-soft)", marginBottom:16 }}>
-          Attendance Configuration is managed centrally by the superadmin. This section is read-only here.
+          Attendance Setup is managed centrally by the superadmin. This section is read-only here.
         </div>
       )}
-      <div style={{ display:"flex", flexDirection:"column", gap:16, maxWidth:500 }}>
-        <div className="form-group">
-          <label className="form-label">Who can mark attendance?</label>
-          <div style={{ display:"flex", flexDirection:"column", gap:10, marginTop:8 }}>
-            <label style={{ display:"flex", alignItems:"flex-start", gap:12, padding:"12px 14px", border:"1px solid "+(marker==="incharge_only"?"#2563eb":"var(--border-color)"), borderRadius:8, cursor:"pointer", background:marker==="incharge_only"?"var(--bg-info-soft)":"var(--bg-card)" }}>
-              <input type="radio" name="marker" value="incharge_only" checked={marker==="incharge_only"} onChange={e=>setMarker(e.target.value)} style={{ marginTop:2 }} />
-              <div>
-                <div style={{ fontWeight:600, fontSize:13, color:marker==="incharge_only"?"#1d4ed8":"var(--text-heading)" }}>Class Incharge Only</div>
-                <div style={{ fontSize:12, color:"var(--text-secondary)", marginTop:2 }}>Only the class incharge teacher can mark daily attendance for their class. Subject teachers cannot mark attendance.</div>
-              </div>
-            </label>
-            <label style={{ display:"flex", alignItems:"flex-start", gap:12, padding:"12px 14px", border:"1px solid "+(marker==="all_teachers"?"#2563eb":"var(--border-color)"), borderRadius:8, cursor:"pointer", background:marker==="all_teachers"?"var(--bg-info-soft)":"var(--bg-card)" }}>
-              <input type="radio" name="marker" value="all_teachers" checked={marker==="all_teachers"} onChange={e=>setMarker(e.target.value)} style={{ marginTop:2 }} />
-              <div>
-                <div style={{ fontWeight:600, fontSize:13, color:marker==="all_teachers"?"#1d4ed8":"var(--text-heading)" }}>All Subject Teachers</div>
-                <div style={{ fontSize:12, color:"var(--text-secondary)", marginTop:2 }}>All teachers assigned to a class can mark attendance for their subject periods.</div>
-              </div>
-            </label>
-          </div>
-        </div>
-        {canManage && (
-          <button className="btn btn-primary" style={{ alignSelf:"flex-start" }} onClick={handleSave} disabled={saving}>
-            {saving ? "Saving..." : "Save Configuration"}
-          </button>
-        )}
-      </div>
+      <AttendanceSetupPanel canManage={canManage} />
     </div>
   );
 }

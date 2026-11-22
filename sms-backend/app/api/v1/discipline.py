@@ -13,7 +13,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from app.fastapi_auth import get_current_user_id, get_jwt_claims
-from app.fastapi_permissions import require_permission
+from app.fastapi_permissions import require_permission, require_any_permission
 from app.fastapi_campus import get_current_campus_id
 from app.fastapi_campus import enforce_same_campus
 from app.fastapi_db import get_db, get_cur as _get_cur
@@ -130,7 +130,7 @@ DATE_KEYS = ["incident_date", "suspension_from", "suspension_to", "appeal_deadli
 @router.get("/")
 def list_cases(
     status: Optional[str] = None,
-    user_id: int = Depends(require_permission("discipline.view")),
+    user_id: int = Depends(require_permission("hr.discipline_view")),
     claims: dict = Depends(get_jwt_claims), db=Depends(get_db),
     campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
@@ -157,7 +157,7 @@ def list_cases(
 
 
 @router.get("/{case_id}")
-def get_case(case_id: int, user_id: int = Depends(require_permission("discipline.view")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus)):
+def get_case(case_id: int, user_id: int = Depends(require_permission("hr.discipline_view")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_discipline_case_detail(%s)", (case_id,))
     row = cur.fetchone()
@@ -178,7 +178,7 @@ def get_case(case_id: int, user_id: int = Depends(require_permission("discipline
 
 
 @router.post("/report")
-def report_case(body: ReportIn, user_id: int = Depends(require_permission("discipline.report")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def report_case(body: ReportIn, user_id: int = Depends(require_permission("hr.discipline_reporting")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     if not body.description or not body.incident_date:
         fail("student_id, description and incident_date are required", 400)
     cur = get_cur(db)
@@ -239,7 +239,7 @@ def report_case(body: ReportIn, user_id: int = Depends(require_permission("disci
 
 
 @router.post("/{case_id}/review")
-def review_case(case_id: int, body: ReviewIn, user_id: int = Depends(require_permission("discipline.review")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def review_case(case_id: int, body: ReviewIn, user_id: int = Depends(require_permission("hr.discipline_review")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     # Engine-first
     if wf_engine:
@@ -286,7 +286,7 @@ def review_case(case_id: int, body: ReviewIn, user_id: int = Depends(require_per
 
 
 @router.post("/{case_id}/hearing")
-def conduct_hearing(case_id: int, body: HearingIn, user_id: int = Depends(require_permission("discipline.hearing")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def conduct_hearing(case_id: int, body: HearingIn, user_id: int = Depends(require_permission("hr.discipline_committee_hearings")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     # Engine-first
     if wf_engine:
@@ -323,7 +323,7 @@ def conduct_hearing(case_id: int, body: HearingIn, user_id: int = Depends(requir
 
 
 @router.post("/{case_id}/decide")
-def decide_case(case_id: int, body: DecideIn, user_id: int = Depends(require_permission("discipline.decide")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def decide_case(case_id: int, body: DecideIn, user_id: int = Depends(require_permission("hr.discipline_decision")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus), campus_id: Optional[int] = Depends(get_current_campus_id)):
     if body.action_type not in ("warning", "suspension", "expulsion", "dismissed"):
         fail("Invalid action_type", 400)
     cur = get_cur(db)
@@ -390,7 +390,7 @@ def decide_case(case_id: int, body: DecideIn, user_id: int = Depends(require_per
 
 
 @router.post("/{case_id}/committee")
-def assign_committee(case_id: int, body: CommitteeIn, user_id: int = Depends(require_permission("discipline.review")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def assign_committee(case_id: int, body: CommitteeIn, user_id: int = Depends(require_permission("hr.discipline_review")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus), campus_id: Optional[int] = Depends(get_current_campus_id)):
     if not body.teacher_ids or not body.head_id:
         fail("teacher_ids and head_id are required", 400)
     cur = get_cur(db)
@@ -529,7 +529,7 @@ def assign_committee(case_id: int, body: CommitteeIn, user_id: int = Depends(req
 
 
 @router.get("/{case_id}/appearance-candidates")
-def get_appearance_candidates(case_id: int, user_id: int = Depends(require_permission("discipline.view")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus)):
+def get_appearance_candidates(case_id: int, user_id: int = Depends(require_permission("hr.discipline_view")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus)):
     """Returns all people who could appear before the committee for this case."""
     cur = get_cur(db)
     cur.execute("""
@@ -581,7 +581,7 @@ def get_appearance_candidates(case_id: int, user_id: int = Depends(require_permi
     return ok(data=candidates)
 
 @router.get("/{case_id}/committee")
-def get_committee(case_id: int, user_id: int = Depends(require_permission("discipline.view")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus)):
+def get_committee(case_id: int, user_id: int = Depends(require_permission("hr.discipline_view")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_committee_remarks(%s)", (case_id,))
     rows = [fmt_dates(dict(r), DATE_KEYS) for r in cur.fetchall()]
@@ -589,7 +589,7 @@ def get_committee(case_id: int, user_id: int = Depends(require_permission("disci
 
 
 @router.post("/{case_id}/remarks")
-def submit_remarks(case_id: int, body: RemarksIn, user_id: int = Depends(require_permission("discipline.committee")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def submit_remarks(case_id: int, body: RemarksIn, user_id: int = Depends(require_permission("hr.discipline_committee_hearings")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus), campus_id: Optional[int] = Depends(get_current_campus_id)):
     if not body.remarks.strip():
         fail("Remarks are required", 400)
     cur = get_cur(db)
@@ -636,7 +636,7 @@ def submit_remarks(case_id: int, body: RemarksIn, user_id: int = Depends(require
 
 
 @router.post("/{case_id}/final-hearing")
-def submit_final_hearing(case_id: int, body: FinalHearingIn, user_id: int = Depends(require_permission("discipline.committee")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def submit_final_hearing(case_id: int, body: FinalHearingIn, user_id: int = Depends(require_permission("hr.discipline_committee_hearings")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus), campus_id: Optional[int] = Depends(get_current_campus_id)):
     if not body.final_remarks or not body.outcome:
         fail("Final remarks and outcome are required", 400)
     cur = get_cur(db)
@@ -672,7 +672,7 @@ def submit_final_hearing(case_id: int, body: FinalHearingIn, user_id: int = Depe
 def upload_evidence(
     case_id: int, description: Optional[str] = Form(""),
     file: UploadFile = File(...),
-    user_id: int = Depends(require_permission("discipline.report")), db=Depends(get_db),
+    user_id: int = Depends(require_permission("hr.discipline_reporting")), db=Depends(get_db),
     _case_check: None = Depends(verify_case_campus),
 ):
     ext = os.path.splitext(file.filename)[1].lower()
@@ -691,7 +691,7 @@ def upload_evidence(
 
 
 @router.post("/{case_id}/appeal/forward")
-def forward_appeal(case_id: int, body: NoteIn, user_id: int = Depends(require_permission("discipline.review")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus)):
+def forward_appeal(case_id: int, body: NoteIn, user_id: int = Depends(require_permission("hr.discipline_review")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus)):
     """Coordinator forwards appeal to principal for final decision."""
     if wf_engine:
         try:
@@ -714,7 +714,7 @@ def forward_appeal(case_id: int, body: NoteIn, user_id: int = Depends(require_pe
     fail("Workflow engine not available.", 500)
 
 @router.post("/{case_id}/appeal/respond")
-def respond_appeal(case_id: int, body: AppealRespondIn, user_id: int = Depends(require_permission("discipline.decide")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def respond_appeal(case_id: int, body: AppealRespondIn, user_id: int = Depends(require_permission("hr.discipline_decision")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus), campus_id: Optional[int] = Depends(get_current_campus_id)):
     if body.outcome not in ("upheld", "overturned"):
         fail("outcome must be upheld or overturned", 400)
     if not body.response:
@@ -779,7 +779,7 @@ def respond_appeal(case_id: int, body: AppealRespondIn, user_id: int = Depends(r
 
 
 @router.get("/{case_id}/evidence/{evidence_id}/download")
-def download_evidence(case_id: int, evidence_id: int, user_id: int = Depends(require_permission("discipline.view")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus)):
+def download_evidence(case_id: int, evidence_id: int, user_id: int = Depends(require_permission("hr.discipline_view")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus)):
     cur = get_cur(db)
     cur.execute("SELECT url, filename FROM discipline_evidence WHERE id=%s AND case_id=%s", (evidence_id, case_id))
     row = cur.fetchone()
@@ -792,7 +792,7 @@ def download_evidence(case_id: int, evidence_id: int, user_id: int = Depends(req
 
 
 @router.post("/{case_id}/appeal")
-def submit_appeal(case_id: int, body: AppealIn, user_id: int = Depends(require_permission("discipline.appeal")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def submit_appeal(case_id: int, body: AppealIn, user_id: int = Depends(require_permission("hr.discipline_appeal")), db=Depends(get_db), _case_check: None = Depends(verify_case_campus), campus_id: Optional[int] = Depends(get_current_campus_id)):
     if not body.note.strip():
         fail("Appeal note is required", 400)
     cur = get_cur(db)

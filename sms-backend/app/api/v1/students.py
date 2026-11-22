@@ -19,7 +19,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from app.fastapi_auth import get_current_user_id
-from app.fastapi_permissions import require_permission
+from app.fastapi_permissions import require_permission, require_any_permission
 from app.fastapi_campus import get_current_campus_id
 from app.fastapi_campus import enforce_same_campus
 from app.fastapi_db import get_db as _campus_get_db, get_cur as _campus_get_cur
@@ -99,7 +99,7 @@ class LinkParentIn(BaseModel):
 def list_students(
     class_id: Optional[str] = Query(None), status: Optional[str] = Query(None), search: Optional[str] = Query(None),
     page: int = Query(1), per_page: int = Query(20),
-    user_id: int = Depends(require_permission("students.view")),
+    user_id: int = Depends(require_any_permission("students.family_contact_details", "students.family_details_edit", "students.family_details_view", "students.my_children", "students.my_studies", "students.parent_account_link", "students.special_needs_edit", "students.special_needs_view", "students.student_attendance_tab", "students.student_edit", "students.student_enrolment", "students.student_export", "students.student_fees_tab", "students.student_grades_tab", "students.student_import", "students.student_list_view", "students.student_status_change", "students.transport_details")),
     campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
     filters = {k: v for k, v in {"class_id": class_id, "status": status, "search": search, "campus_id": campus_id}.items() if v}
@@ -114,7 +114,7 @@ def list_students(
 
 
 @router.post("/")
-def enroll_student(body: StudentEnrollIn, user_id: int = Depends(require_permission("students.create")), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def enroll_student(body: StudentEnrollIn, user_id: int = Depends(require_permission("students.student_enrolment")), campus_id: Optional[int] = Depends(get_current_campus_id)):
     if campus_id is None:
         fail("No campus context - please select a campus before enrolling a student.", 400)
     with _flask_app().app_context():
@@ -167,7 +167,7 @@ def my_profile(user_id: int = Depends(get_current_user_id)):
 
 
 @router.get("/my-children")
-def my_children(user_id: int = Depends(require_permission("students.view"))):
+def my_children(user_id: int = Depends(require_any_permission("students.family_contact_details", "students.family_details_edit", "students.family_details_view", "students.my_children", "students.my_studies", "students.parent_account_link", "students.special_needs_edit", "students.special_needs_view", "students.student_attendance_tab", "students.student_edit", "students.student_enrolment", "students.student_export", "students.student_fees_tab", "students.student_grades_tab", "students.student_import", "students.student_list_view", "students.student_status_change", "students.transport_details"))):
     with _flask_app().app_context():
         from app.services.student_service import StudentService
         data = StudentService().get_by_parent(user_id)
@@ -175,7 +175,7 @@ def my_children(user_id: int = Depends(require_permission("students.view"))):
 
 
 @router.get("/meta/next-enrollment-no")
-def next_enrollment_no(user_id: int = Depends(require_permission("students.create"))):
+def next_enrollment_no(user_id: int = Depends(require_permission("students.student_enrolment"))):
     with _flask_app().app_context():
         import psycopg2.extras
         from app.db.connection import get_db
@@ -187,7 +187,7 @@ def next_enrollment_no(user_id: int = Depends(require_permission("students.creat
 
 
 @router.get("/meta/classes")
-def get_classes(user_id: int = Depends(require_permission("students.view"))):
+def get_classes(user_id: int = Depends(require_any_permission("students.family_contact_details", "students.family_details_edit", "students.family_details_view", "students.my_children", "students.my_studies", "students.parent_account_link", "students.special_needs_edit", "students.special_needs_view", "students.student_attendance_tab", "students.student_edit", "students.student_enrolment", "students.student_export", "students.student_fees_tab", "students.student_grades_tab", "students.student_import", "students.student_list_view", "students.student_status_change", "students.transport_details"))):
     with _flask_app().app_context():
         from app.db.connection import execute_query
         rows = execute_query("SELECT id, name, section FROM classes ORDER BY name")
@@ -196,7 +196,7 @@ def get_classes(user_id: int = Depends(require_permission("students.view"))):
 
 
 @router.get("/meta/parents")
-def get_parents(user_id: int = Depends(require_permission("students.view"))):
+def get_parents(user_id: int = Depends(require_any_permission("students.family_contact_details", "students.family_details_edit", "students.family_details_view", "students.my_children", "students.my_studies", "students.parent_account_link", "students.special_needs_edit", "students.special_needs_view", "students.student_attendance_tab", "students.student_edit", "students.student_enrolment", "students.student_export", "students.student_fees_tab", "students.student_grades_tab", "students.student_import", "students.student_list_view", "students.student_status_change", "students.transport_details"))):
     with _flask_app().app_context():
         from app.db.connection import execute_query
         rows = execute_query("""
@@ -212,7 +212,7 @@ def get_parents(user_id: int = Depends(require_permission("students.view"))):
 
 
 @router.get("/parents/search")
-def search_parents(q: Optional[str] = Query(""), user_id: int = Depends(require_permission("students.edit"))):
+def search_parents(q: Optional[str] = Query(""), user_id: int = Depends(require_permission("students.parent_account_link"))):
     with _flask_app().app_context():
         import psycopg2.extras
         from app.db.connection import get_db
@@ -240,7 +240,7 @@ def search_parents(q: Optional[str] = Query(""), user_id: int = Depends(require_
 # ── Parameterized /{id} routes (must come after all literal paths above) ──
 
 @router.get("/{id}")
-def get_student(id: int, user_id: int = Depends(require_permission("students.view"))):
+def get_student(id: int, user_id: int = Depends(require_any_permission("students.family_contact_details", "students.family_details_edit", "students.family_details_view", "students.my_children", "students.my_studies", "students.parent_account_link", "students.special_needs_edit", "students.special_needs_view", "students.student_attendance_tab", "students.student_edit", "students.student_enrolment", "students.student_export", "students.student_fees_tab", "students.student_grades_tab", "students.student_import", "students.student_list_view", "students.student_status_change", "students.transport_details"))):
     with _flask_app().app_context():
         from app.services.student_service import StudentService
         try:
@@ -251,7 +251,7 @@ def get_student(id: int, user_id: int = Depends(require_permission("students.vie
 
 
 @router.put("/{id}")
-def update_student(id: int, body: StudentUpdateIn, user_id: int = Depends(require_permission("students.edit")), campus_id: Optional[int] = Depends(get_current_campus_id), _db=Depends(_campus_get_db)):
+def update_student(id: int, body: StudentUpdateIn, user_id: int = Depends(require_permission("students.student_edit")), campus_id: Optional[int] = Depends(get_current_campus_id), _db=Depends(_campus_get_db)):
     _check_student_campus(_db, id, campus_id)
     with _flask_app().app_context():
         from app.services.student_service import StudentService
@@ -263,7 +263,7 @@ def update_student(id: int, body: StudentUpdateIn, user_id: int = Depends(requir
 
 
 @router.delete("/{id}")
-def deactivate_student(id: int, user_id: int = Depends(require_permission("students.delete")), campus_id: Optional[int] = Depends(get_current_campus_id), _db=Depends(_campus_get_db)):
+def deactivate_student(id: int, user_id: int = Depends(require_permission("students.student_status_change")), campus_id: Optional[int] = Depends(get_current_campus_id), _db=Depends(_campus_get_db)):
     _check_student_campus(_db, id, campus_id)
     with _flask_app().app_context():
         from app.services.student_service import StudentService
@@ -275,7 +275,7 @@ def deactivate_student(id: int, user_id: int = Depends(require_permission("stude
 
 
 @router.post("/{id}/reactivate")
-def reactivate_student(id: int, user_id: int = Depends(require_permission("students.delete")), campus_id: Optional[int] = Depends(get_current_campus_id), _db=Depends(_campus_get_db)):
+def reactivate_student(id: int, user_id: int = Depends(require_permission("students.student_status_change")), campus_id: Optional[int] = Depends(get_current_campus_id), _db=Depends(_campus_get_db)):
     _check_student_campus(_db, id, campus_id)
     with _flask_app().app_context():
         from app.services.student_service import StudentService
@@ -289,7 +289,7 @@ def reactivate_student(id: int, user_id: int = Depends(require_permission("stude
 @router.get("/{id}/attendance")
 def student_attendance(
     id: int, from_: Optional[str] = Query(None, alias="from"), to: Optional[str] = Query(None),
-    user_id: int = Depends(require_permission("attendance.view")),
+    user_id: int = Depends(require_any_permission("attendance.attendance_correction_past_days", "attendance.attendance_delete", "attendance.attendance_marking", "attendance.attendance_reports", "attendance.attendance_settings", "attendance.attendance_view", "students.family_contact_details", "students.family_details_edit", "students.family_details_view", "students.my_children", "students.my_studies", "students.parent_account_link", "students.special_needs_edit", "students.special_needs_view", "students.student_attendance_tab", "students.student_edit", "students.student_enrolment", "students.student_export", "students.student_fees_tab", "students.student_grades_tab", "students.student_import", "students.student_list_view", "students.student_status_change", "students.transport_details")),
 ):
     if not from_ or not to:
         fail("from and to query params required", 400)
@@ -300,7 +300,7 @@ def student_attendance(
 
 
 @router.get("/{id}/attendance/summary")
-def attendance_summary(id: int, month: Optional[str] = Query(None), user_id: int = Depends(require_permission("attendance.view"))):
+def attendance_summary(id: int, month: Optional[str] = Query(None), user_id: int = Depends(require_any_permission("attendance.attendance_correction_past_days", "attendance.attendance_delete", "attendance.attendance_marking", "attendance.attendance_reports", "attendance.attendance_settings", "attendance.attendance_view", "students.family_contact_details", "students.family_details_edit", "students.family_details_view", "students.my_children", "students.my_studies", "students.parent_account_link", "students.special_needs_edit", "students.special_needs_view", "students.student_attendance_tab", "students.student_edit", "students.student_enrolment", "students.student_export", "students.student_fees_tab", "students.student_grades_tab", "students.student_import", "students.student_list_view", "students.student_status_change", "students.transport_details"))):
     from app.db.connection import get_db as _get_flask_db
     from app.utils.processing_date import get_processing_date
     month = month or get_processing_date(_get_flask_db()).strftime("%Y-%m-01")
@@ -350,7 +350,7 @@ def student_grades(id: int, user_id: int = Depends(get_current_user_id), db=Depe
 
 
 @router.get("/{id}/siblings")
-def student_siblings(id: int, user_id: int = Depends(require_permission("students.view"))):
+def student_siblings(id: int, user_id: int = Depends(require_any_permission("students.family_contact_details", "students.family_details_edit", "students.family_details_view", "students.my_children", "students.my_studies", "students.parent_account_link", "students.special_needs_edit", "students.special_needs_view", "students.student_attendance_tab", "students.student_edit", "students.student_enrolment", "students.student_export", "students.student_fees_tab", "students.student_grades_tab", "students.student_import", "students.student_list_view", "students.student_status_change", "students.transport_details"))):
     with _flask_app().app_context():
         import psycopg2.extras
         from app.db.connection import get_db
@@ -362,7 +362,7 @@ def student_siblings(id: int, user_id: int = Depends(require_permission("student
 
 
 @router.get("/{id}/fees")
-def student_fees(id: int, user_id: int = Depends(require_permission("finance.view"))):
+def student_fees(id: int, user_id: int = Depends(require_any_permission("finance.account_unlock", "finance.discount_grant", "finance.discount_rules", "finance.discount_view", "finance.fee_payment_online", "finance.fee_reminders", "finance.fee_reports", "finance.fee_setup_edit", "finance.fee_setup_view", "finance.finance_dashboard", "finance.invoice_auto_generation_settings", "finance.invoice_cancellation", "finance.invoice_download", "finance.invoice_generation", "finance.invoice_view", "finance.locked_accounts_view", "finance.payment_collection", "finance.payment_verification", "finance.payment_view", "finance.refunds", "students.family_contact_details", "students.family_details_edit", "students.family_details_view", "students.my_children", "students.my_studies", "students.parent_account_link", "students.special_needs_edit", "students.special_needs_view", "students.student_attendance_tab", "students.student_edit", "students.student_enrolment", "students.student_export", "students.student_fees_tab", "students.student_grades_tab", "students.student_import", "students.student_list_view", "students.student_status_change", "students.transport_details"))):
     with _flask_app().app_context():
         import psycopg2.extras
         from app.db.connection import get_db
@@ -444,7 +444,7 @@ def invoice_timeline(id: int, invoice_id: int, user_id: int = Depends(get_curren
 
 
 @router.put("/{id}/link-parent")
-def link_parent(id: int, body: LinkParentIn, user_id: int = Depends(require_permission("students.edit"))):
+def link_parent(id: int, body: LinkParentIn, user_id: int = Depends(require_permission("students.parent_account_link"))):
     with _flask_app().app_context():
         import psycopg2.extras
         from app.db.connection import get_db
@@ -519,7 +519,7 @@ class StudentDetailsIn(BaseModel):
 
 
 @router.get("/{id}/details")
-def get_student_details(id: int, user_id: int = Depends(require_permission("students.view")), db=Depends(get_db),
+def get_student_details(id: int, user_id: int = Depends(require_any_permission("students.family_contact_details", "students.family_details_edit", "students.family_details_view", "students.my_children", "students.my_studies", "students.parent_account_link", "students.special_needs_edit", "students.special_needs_view", "students.student_attendance_tab", "students.student_edit", "students.student_enrolment", "students.student_export", "students.student_fees_tab", "students.student_grades_tab", "students.student_import", "students.student_list_view", "students.student_status_change", "students.transport_details")), db=Depends(get_db),
                         campus_id: Optional[int] = Depends(get_current_campus_id)):
     from app.api.v1.admissions import STUDENT_DETAIL_FIELDS
     _check_student_campus(db, id, campus_id)
@@ -533,7 +533,7 @@ def get_student_details(id: int, user_id: int = Depends(require_permission("stud
 
 
 @router.put("/{id}/details")
-def save_student_details(id: int, body: StudentDetailsIn, user_id: int = Depends(require_permission("students.edit")), db=Depends(get_db),
+def save_student_details(id: int, body: StudentDetailsIn, user_id: int = Depends(require_any_permission("students.family_details_edit", "students.special_needs_edit", "students.transport_details")), db=Depends(get_db),
                          campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Same rules as the admission form (CNIC 13 digits, mobile numbers, guardian, disability, transport)."""
     import re as _re

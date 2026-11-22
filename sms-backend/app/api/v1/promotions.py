@@ -23,7 +23,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from app.fastapi_campus import get_current_campus_id, enforce_same_campus
-from app.fastapi_permissions import require_permission
+from app.fastapi_permissions import require_permission, require_any_permission
 from app.fastapi_auth import get_jwt_claims
 from app.fastapi_db import get_db, get_cur as _get_cur
 from app.utils.processing_date import get_processing_datetime, get_processing_date
@@ -310,7 +310,7 @@ def _items_view(cur, batch_id, classes):
 
 
 @router.get("/overview")
-def overview(user_id: int = Depends(require_permission("exam.view")), db=Depends(get_db),
+def overview(user_id: int = Depends(require_any_permission("academics.session_management", "exams_results.promotion_approval", "exams_results.promotion_preparation", "exams_results.promotion_view")), db=Depends(get_db),
              campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Every class of the campus with its next class, students and this year's promotion status."""
     cur = get_cur(db)
@@ -338,7 +338,7 @@ class LevelsIn(BaseModel):
 
 
 @router.put("/levels")
-def set_levels(body: LevelsIn, user_id: int = Depends(require_permission("exam.manage")), db=Depends(get_db),
+def set_levels(body: LevelsIn, user_id: int = Depends(require_permission("exams_results.promotion_preparation")), db=Depends(get_db),
                campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Set class order (level) - needed before a campus can be promoted."""
     cur = get_cur(db)
@@ -361,7 +361,7 @@ class CreateIn(BaseModel):
 
 
 @router.post("/batches")
-def create_batch(body: CreateIn, user_id: int = Depends(require_permission("exam.manage")), db=Depends(get_db),
+def create_batch(body: CreateIn, user_id: int = Depends(require_permission("exams_results.promotion_preparation")), db=Depends(get_db),
                  campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Creates (or rebuilds, while still a draft/returned) the promotion list for a class."""
     cur = get_cur(db)
@@ -400,7 +400,7 @@ def create_batch(body: CreateIn, user_id: int = Depends(require_permission("exam
 
 
 @router.get("/batches/{batch_id}")
-def get_batch(batch_id: int, user_id: int = Depends(require_permission("exam.view")), db=Depends(get_db),
+def get_batch(batch_id: int, user_id: int = Depends(require_any_permission("academics.session_management", "exams_results.promotion_approval", "exams_results.promotion_preparation", "exams_results.promotion_view")), db=Depends(get_db),
               campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     b = _batch(cur, batch_id, campus_id)
@@ -424,7 +424,7 @@ class ItemIn(BaseModel):
 
 
 @router.put("/batches/{batch_id}/items/{item_id}")
-def update_item(batch_id: int, item_id: int, body: ItemIn, user_id: int = Depends(require_permission("exam.manage")),
+def update_item(batch_id: int, item_id: int, body: ItemIn, user_id: int = Depends(require_permission("exams_results.promotion_preparation")),
                 db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Coordinator changes one student's decision / section. Any change from the suggestion needs a reason + principal approval."""
     cur = get_cur(db)
@@ -458,7 +458,7 @@ def update_item(batch_id: int, item_id: int, body: ItemIn, user_id: int = Depend
 
 
 @router.post("/batches/{batch_id}/submit")
-def submit_batch(batch_id: int, user_id: int = Depends(require_permission("exam.manage")), db=Depends(get_db),
+def submit_batch(batch_id: int, user_id: int = Depends(require_permission("exams_results.promotion_preparation")), db=Depends(get_db),
                  campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     b = _batch(cur, batch_id, campus_id)
@@ -482,7 +482,7 @@ class DecideIn(BaseModel):
 
 
 @router.post("/batches/{batch_id}/items/{item_id}/decide")
-def decide_item(batch_id: int, item_id: int, body: DecideIn, user_id: int = Depends(require_permission("exam.approve")),
+def decide_item(batch_id: int, item_id: int, body: DecideIn, user_id: int = Depends(require_permission("exams_results.promotion_approval")),
                 db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Principal decides one 'needs approval' student (compartment / fee due / override)."""
     cur = get_cur(db)
@@ -501,7 +501,7 @@ class ApproveIn(BaseModel):
 
 
 @router.post("/batches/{batch_id}/approve")
-def approve_batch(batch_id: int, body: ApproveIn, user_id: int = Depends(require_permission("exam.approve")),
+def approve_batch(batch_id: int, body: ApproveIn, user_id: int = Depends(require_permission("exams_results.promotion_approval")),
                   db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Principal approves the list - students are moved immediately."""
     cur = get_cur(db)
@@ -531,7 +531,7 @@ class ReturnIn(BaseModel):
 
 
 @router.post("/batches/{batch_id}/return")
-def return_batch(batch_id: int, body: ReturnIn, user_id: int = Depends(require_permission("exam.approve")),
+def return_batch(batch_id: int, body: ReturnIn, user_id: int = Depends(require_permission("exams_results.promotion_approval")),
                  db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     b = _batch(cur, batch_id, campus_id)
@@ -544,7 +544,7 @@ def return_batch(batch_id: int, body: ReturnIn, user_id: int = Depends(require_p
 
 
 @router.post("/batches/{batch_id}/rollback")
-def rollback_batch(batch_id: int, user_id: int = Depends(require_permission("exam.approve")), db=Depends(get_db),
+def rollback_batch(batch_id: int, user_id: int = Depends(require_permission("exams_results.promotion_approval")), db=Depends(get_db),
                    campus_id: Optional[int] = Depends(get_current_campus_id)):
     """
     Undoes an executed list: students go back to their class (graduates become
@@ -580,7 +580,7 @@ def rollback_batch(batch_id: int, user_id: int = Depends(require_permission("exa
 
 
 @router.get("/report")
-def report(academic_year_id: Optional[int] = Query(None), user_id: int = Depends(require_permission("exam.view")),
+def report(academic_year_id: Optional[int] = Query(None), user_id: int = Depends(require_any_permission("academics.session_management", "exams_results.promotion_approval", "exams_results.promotion_preparation", "exams_results.promotion_view")),
            db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Promoted / detained / graduated lists for a year (from the permanent class history)."""
     cur = get_cur(db)
@@ -770,7 +770,7 @@ def _carry_syllabus(cur, from_ay, to_ay, campus_id):
 
 
 @router.get("/session")
-def session_status(user_id: int = Depends(require_permission("exam.view")), db=Depends(get_db),
+def session_status(user_id: int = Depends(require_any_permission("academics.session_management", "exams_results.promotion_approval", "exams_results.promotion_preparation", "exams_results.promotion_view")), db=Depends(get_db),
                    campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     ay = _year_or_fail(cur, campus_id)
@@ -801,7 +801,7 @@ class StartSessionIn(BaseModel):
 
 
 @router.post("/session/start")
-def start_new_session(body: StartSessionIn, user_id: int = Depends(require_permission("exam.manage")), db=Depends(get_db),
+def start_new_session(body: StartSessionIn, user_id: int = Depends(require_permission("academics.session_management")), db=Depends(get_db),
                       campus_id: Optional[int] = Depends(get_current_campus_id)):
     """
     Closes the current academic year and opens the next one for this campus.
@@ -850,7 +850,13 @@ def start_new_session(body: StartSessionIn, user_id: int = Depends(require_permi
                 (campus_id, new_id))
     cur.execute("UPDATE academic_years SET is_active=TRUE WHERE id=%s", (new_id,))
     # ---- classes move into the new session (students are already in their promoted classes)
+    # ---- class set-up of the ending session goes to history (timetable, class / subject teachers, subject days)
+    cur.execute("SELECT fn_snapshot_class_setup(%s, %s) AS n", (ay["id"], campus_id))
+    snapshot_classes = cur.fetchone()["n"]
     cur.execute("UPDATE classes SET academic_year_id=%s WHERE campus_id IS NOT DISTINCT FROM %s", (new_id, campus_id))
+    # ---- the new session starts with an empty timetable (last session's stays in history and can be copied back)
+    cur.execute("""DELETE FROM timetable WHERE class_id IN (SELECT id FROM classes WHERE campus_id IS NOT DISTINCT FROM %s)""", (campus_id,))
+    timetable_cleared = cur.rowcount
     moved = cur.rowcount
     # ---- carry exam settings forward
     copied = [t for t in ("exam_config", "result_formula") if _copy_year_rows(cur, t, ay["id"], new_id)]
@@ -874,6 +880,7 @@ def start_new_session(body: StartSessionIn, user_id: int = Depends(require_permi
     return ok(message=f"{ay['name']} is closed and {new_name} has started. {moved} classes moved into the new session."
                       + (f" {n_syl} syllabi carried over with progress reset." if n_syl else ""),
               data={"closed": ay["name"], "started": new_name, "classes_moved": moved,
+                    "setup_history_classes": snapshot_classes, "timetable_entries_cleared": timetable_cleared,
                     "promoted": s["p"], "detained": s["d"], "graduated": s["g"], "settings_copied": copied})
 
 
@@ -915,7 +922,7 @@ def _own_student_ids(cur, role, user_id):
     return {r["id"] for r in cur.fetchall()}
 
 @router.get("/history/years")
-def history_years(user_id: int = Depends(require_permission("exam.view")), db=Depends(get_db),
+def history_years(user_id: int = Depends(require_any_permission("exams_results.promotion_view", "exams_results.result_view", "students.my_children", "students.my_studies", "students.student_grades_tab")), db=Depends(get_db),
                   claims: dict = Depends(get_jwt_claims), campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Sessions with history the caller may see, newest first."""
     cur = get_cur(db)
@@ -936,7 +943,7 @@ def history_years(user_id: int = Depends(require_permission("exam.view")), db=De
 
 
 @router.get("/history")
-def history_class(year_id: int, class_id: Optional[int] = Query(None), user_id: int = Depends(require_permission("exam.view")),
+def history_class(year_id: int, class_id: Optional[int] = Query(None), user_id: int = Depends(require_any_permission("exams_results.promotion_view", "exams_results.result_view", "students.my_children", "students.my_studies", "students.student_grades_tab")),
                   db=Depends(get_db), claims: dict = Depends(get_jwt_claims), campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Classes as they were in that year, and (with class_id) each student's outcome and results."""
     cur = get_cur(db)
@@ -976,7 +983,7 @@ def history_class(year_id: int, class_id: Optional[int] = Query(None), user_id: 
 
 
 @router.get("/history/student/{student_id}")
-def history_student(student_id: int, year_id: int, user_id: int = Depends(require_permission("exam.view")),
+def history_student(student_id: int, year_id: int, user_id: int = Depends(require_any_permission("exams_results.promotion_view", "exams_results.result_view", "students.my_children", "students.my_studies", "students.student_grades_tab")),
                     db=Depends(get_db), claims: dict = Depends(get_jwt_claims), campus_id: Optional[int] = Depends(get_current_campus_id)):
     """One student's full record for a past session: class, exams, quizzes, assignments, final result, attendance, outcome."""
     cur = get_cur(db)
@@ -1056,7 +1063,7 @@ def history_student(student_id: int, year_id: int, user_id: int = Depends(requir
 
 
 @router.get("/history/me")
-def history_me(user_id: int = Depends(require_permission("exam.view")), db=Depends(get_db),
+def history_me(user_id: int = Depends(require_any_permission("exams_results.promotion_view", "exams_results.result_view", "students.my_children", "students.my_studies", "students.student_grades_tab")), db=Depends(get_db),
                claims: dict = Depends(get_jwt_claims)):
     """Students: their own past sessions. Parents: each child's past sessions."""
     cur = get_cur(db)

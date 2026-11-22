@@ -56,7 +56,7 @@ export default function Students() {
           <h1 className="page-heading">Students</h1>
           <span className="badge badge-primary">{total} total</span>
         </div>
-        {can("students.create") && (
+        {can("students.student_enrolment") && (
           <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
             + Enroll Student
           </button>

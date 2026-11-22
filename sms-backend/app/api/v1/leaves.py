@@ -19,7 +19,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from app.fastapi_auth import get_current_user_id, get_jwt_claims
-from app.fastapi_permissions import require_permission
+from app.fastapi_permissions import require_permission, require_any_permission
 from app.fastapi_db import get_db, get_cur as _get_cur
 from app.fastapi_campus import get_current_campus_id
 
@@ -196,7 +196,7 @@ def apply_leave(
     student_id: Optional[Any] = Form(None), leave_type_id: Optional[Any] = Form(None),
     from_date: Optional[str] = Form(None), to_date: Optional[str] = Form(None),
     reason: Optional[str] = Form(None), certificate: Optional[UploadFile] = File(None),
-    user_id: int = Depends(require_permission("leave.apply")),
+    user_id: int = Depends(require_any_permission("hr.leave_application", "hr.student_leave_application")),
     claims: dict = Depends(get_jwt_claims), db=Depends(get_db),
 ):
     roles = claims.get("roles", [])
@@ -328,7 +328,8 @@ def get_leaves(
 ):
     roles = claims.get("roles", [])
     role = roles[0] if roles else claims.get("role", "")
-    permissions = claims.get("permissions", [])
+    from app.utils.access import effective_permissions as _eff   # live: roles + acting roles + extra permissions
+    permissions = _eff(get_cur(db), user_id)
     cur = get_cur(db)
 
     if role == "hr":
@@ -392,7 +393,7 @@ def get_leaves(
 @router.get("/my-balance")
 def get_balance(
     student_id: Optional[int] = Query(None),
-    user_id: int = Depends(require_permission("leave.view_own")),
+    user_id: int = Depends(require_any_permission("hr.all_leave_requests", "hr.attendance_correction_approval", "hr.departments_designations_edit", "hr.departments_designations_view", "hr.discipline_appeal", "hr.discipline_committee_hearings", "hr.discipline_decision", "hr.discipline_reporting", "hr.discipline_review", "hr.discipline_view", "hr.employee_attendance_report", "hr.hr_policy_settings", "hr.leave_application", "hr.leave_approval", "hr.leave_recommendation", "hr.leave_setup", "hr.my_attendance", "hr.my_hr_profile", "hr.resignation_management", "hr.resignation_submission", "hr.staff_attendance_setup", "hr.staff_attendance_view", "hr.staff_contact_details", "hr.staff_create", "hr.staff_deactivate", "hr.staff_documents", "hr.staff_edit", "hr.staff_import_export", "hr.staff_list_view", "hr.student_leave_application", "students.family_contact_details", "students.family_details_edit", "students.family_details_view", "students.my_children", "students.my_studies", "students.parent_account_link", "students.special_needs_edit", "students.special_needs_view", "students.student_attendance_tab", "students.student_edit", "students.student_enrolment", "students.student_export", "students.student_fees_tab", "students.student_grades_tab", "students.student_import", "students.student_list_view", "students.student_status_change", "students.transport_details")),
     claims: dict = Depends(get_jwt_claims), db=Depends(get_db),
 ):
     roles = claims.get("roles", [])
@@ -422,7 +423,7 @@ def get_balance(
 
 
 @router.post("/{leave_id}/recommend")
-def recommend_leave(leave_id: int, body: RecommendIn, user_id: int = Depends(require_permission("leave.recommend")), db=Depends(get_db)):
+def recommend_leave(leave_id: int, body: RecommendIn, user_id: int = Depends(require_permission("hr.leave_recommendation")), db=Depends(get_db)):
     cur = get_cur(db)
     # Engine-first: if workflow instance active, bypass SP
     if _has_active_workflow(db, leave_id):
@@ -480,6 +481,27 @@ def recommend_leave(leave_id: int, body: RecommendIn, user_id: int = Depends(req
     return ok(message="Leave recommended.")
 
 
+def _call_sp_action_leave(cur, leave_id, action, user_id, note):
+    """sp_action_leave, with each value passed to its parameter BY NAME (looked up in the database),
+    so the parameter order can't be got wrong."""
+    cur.execute("""SELECT pg_get_function_identity_arguments(p.oid) AS args FROM pg_proc p
+                   WHERE p.proname = 'sp_action_leave' ORDER BY p.oid DESC LIMIT 1""")
+    sig = cur.fetchone()
+    if not sig:
+        fail("The leave action procedure (sp_action_leave) is missing from the database.", 500)
+    names = [a.strip().split()[0] for a in sig["args"].split(",") if a.strip()]
+    def value_for(n):
+        l = n.lower()
+        if "action" in l: return action
+        if any(w in l for w in ("note", "remark", "comment", "reason")): return note
+        if "leave" in l or l in ("p_id", "id"): return leave_id
+        if any(w in l for w in ("user", "by", "approver", "actor")): return user_id
+        fail(f"sp_action_leave has an unexpected parameter '{n}'.", 500)
+    cur.execute("SELECT * FROM sp_action_leave(" + ", ".join(f"{n} => %s" for n in names) + ")", [value_for(n) for n in names])
+    row = cur.fetchone()
+    return dict(row) if row else {}
+
+
 @router.post("/{leave_id}/action")
 def action_leave(
     leave_id: int, body: ActionIn, user_id: int = Depends(get_current_user_id),
@@ -487,7 +509,8 @@ def action_leave(
 ):
     roles = claims.get("roles", [])
     role = roles[0] if roles else claims.get("role", "")
-    permissions = claims.get("permissions", [])
+    from app.utils.access import effective_permissions as _eff   # live: roles + acting roles + extra permissions
+    permissions = _eff(get_cur(db), user_id)
     action = body.action or ""
 
     if action not in ("approve", "reject", "verify", "recommend", "clear", "publish", "review"):
@@ -515,7 +538,8 @@ def action_leave(
         _wf_step = _wf_cur.fetchone()
         if not _wf_step:
             rule = _get_matching_rule(cur, lr["leave_type_id"], lr["total_days"])
-            if not rule or rule.get("approver_role") != role:
+            from app.utils.access import effective_roles as _eff_roles      # own + acting roles
+            if not rule or rule.get("approver_role") not in _eff_roles(cur, user_id):
                 fail("You do not have permission to approve this leave", 403)
 
     # Engine-first: if workflow instance active, bypass SP
@@ -525,7 +549,8 @@ def action_leave(
             fail("Workflow advance failed", 500)
         db.commit()
         return ok(message="Leave " + action + "d successfully.")
-    if result["error_msg"]:
+    result = _call_sp_action_leave(cur, leave_id, action, user_id, body.note or "")
+    if result.get("error_msg"):
         fail(result["error_msg"], 400)
     db.commit()
 

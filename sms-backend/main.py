@@ -107,7 +107,14 @@ from app.api.v1.work_queue import router as work_queue_router
 from app.api.v1.workflow import router as workflow_router
 from app.api.v1.campuses import router as campuses_router
 from app.api.v1.admissions import router as admissions_router
+from app.api.v1.access_admin import router as access_admin_router
+from app.api.v1.messages import router as messages_router
 from app.api.v1.admissions_portal import router as admission_portal_router
+from app.api.v1.activities import router as activities_router
+from app.api.v1.attendance_capture import router as attendance_capture_router, iclock_router
+from app.api.v1.laboratory import router as laboratory_router
+from app.api.v1.lab_inventory import router as lab_inventory_router
+from app.activity_middleware import ActivityMiddleware
 
 app.include_router(procurement_router, prefix="/api/v1/procurement")
 app.include_router(library_router, prefix="/api/v1/library")
@@ -159,9 +166,22 @@ app.include_router(work_queue_router, prefix="/api/v1/work-queue")
 app.include_router(workflow_router, prefix="/api/v1/workflow")
 app.include_router(campuses_router, prefix="/api/v1/campuses")
 app.include_router(admissions_router, prefix="/api/v1/admissions")
+app.include_router(access_admin_router, prefix="/api/v1/access")
+app.include_router(messages_router, prefix="/api/v1/messages")
 app.include_router(admission_portal_router, prefix="/api/v1/admission-portal")
+app.include_router(activities_router, prefix="/api/v1/activities")
+
+# Activity stream: records every successful change made by a signed-in user (one central place, all modules)
+app.add_middleware(ActivityMiddleware, fastapi_app=app)
 
 
 # Fallback: anything not yet natively handled by FastAPI falls through to Flask.
 # This MUST be registered last so explicit FastAPI routes above take precedence.
+app.include_router(attendance_capture_router, prefix="/api/v1/attendance-capture")
+app.include_router(iclock_router, prefix="/iclock")
+
+app.include_router(laboratory_router, prefix="/api/v1/laboratory")
+
+app.include_router(lab_inventory_router, prefix="/api/v1/laboratory")
+
 app.mount("/", WSGIMiddleware(flask_app))

@@ -355,10 +355,10 @@ export default function VendorInvoices() {
                   ) : (
                     <>
                       {detail.status==="pending"&&<button className="btn btn-primary btn-sm vi-btn-white" disabled={acting} onClick={()=>act("verify")}>Verify</button>}
-                      {detail.status==="verified"&&can("finance.manage")&&<button className="btn btn-primary btn-sm vi-approve-btn" disabled={acting} onClick={()=>act("approve")}>Approve</button>}
+                      {detail.status==="verified"&&can("procurement_inventory.vendor_invoices")&&<button className="btn btn-primary btn-sm vi-approve-btn" disabled={acting} onClick={()=>act("approve")}>Approve</button>}
                     </>
                   )}
-                  {detail.status==="approved"&&(!wfExists||wfDone)&&can("finance.manage")&&parseFloat(detail.paid_amount||0)<parseFloat(detail.total_amount||0)&&<button className="btn btn-primary btn-sm vi-payment-btn" onClick={()=>setPayModal(true)}>Record Payment</button>}
+                  {detail.status==="approved"&&(!wfExists||wfDone)&&can("procurement_inventory.vendor_invoices")&&parseFloat(detail.paid_amount||0)<parseFloat(detail.total_amount||0)&&<button className="btn btn-primary btn-sm vi-payment-btn" onClick={()=>setPayModal(true)}>Record Payment</button>}
                   {["pending","verified"].includes(detail.status)&&<button className="btn btn-ghost btn-sm vi-dispute-btn" onClick={()=>setDispute(true)}>Dispute</button>}
                   {["pending","disputed"].includes(detail.status)&&<button className="btn btn-ghost btn-sm vi-cancel-btn" disabled={acting} onClick={()=>act("cancel")}>Cancel</button>}
                   <button className="vi-small-close-btn" onClick={()=>setDetail(null)}>×</button>

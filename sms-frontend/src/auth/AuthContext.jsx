@@ -28,6 +28,14 @@ export function AuthProvider({ children }) {
       setUser(parsed);
       setPermissions(parsed.permissions || []);
       loadRequestScopes();
+      // refresh roles + permissions from the server: acting roles / extra permissions given or ended since login apply now
+      client.get("/access/me").then(r => {
+        const d = r.data.data;
+        if (!d) return;
+        const next = { ...parsed, roles: d.roles, acting_roles: d.acting_roles || [], permissions: d.permissions };
+        sessionStorage.setItem("user", JSON.stringify(next));
+        setUser(next); setPermissions(d.permissions);
+      }).catch(() => {});
     } else {
       setRequestScopesLoading(false);
     }
@@ -93,7 +101,8 @@ export function AuthProvider({ children }) {
     window.location.href = "/login";
   };
 
-  const can = (permission) => permissions.includes(permission);
+  // can("a") or can("a", "b", ...): true when the user has at least one of them
+  const can = (...codes) => codes.flat().some(c => permissions.includes(c));
   const hasRequestAccess = (requestType) => requestScopes.includes(requestType);
 
   return (
@@ -104,3 +113,13 @@ export function AuthProvider({ children }) {
 }
 
 export const useAuth = () => useContext(AuthContext);
+
+// The role pages should treat the user as: while someone holds an ACTING role (e.g. a teacher acting as
+// principal) the most senior acting role; otherwise their own first role, exactly as before.
+const SENIORITY = ["superadmin", "admin", "principal", "academic_coordinator", "finance_officer", "hr",
+                   "admission_staff", "librarian", "procurement", "teacher", "parent", "student"];
+export function effectiveRole(user) {
+  const acting = (user && user.acting_roles) || [];
+  if (acting.length) return [...acting].sort((a, b) => SENIORITY.indexOf(a) - SENIORITY.indexOf(b))[0];
+  return (user && user.roles && user.roles[0]) || "";
+}

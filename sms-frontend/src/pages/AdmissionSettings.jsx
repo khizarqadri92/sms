@@ -15,7 +15,9 @@ function previewNo(fmt, campusCode, campusId) {
 
 export default function AdmissionSettings() {
   const { can } = useAuth();
-  const canEdit = can("admission.settings");
+  const canEdit = can("admissions.admission_settings_edit");        // Admission settings edit
+  const canPublish = can("admissions.admission_schedule_publish");   // Admission schedule publish
+  const canBanner = can("admissions.admission_banner");              // Admission banner
   const [meta, setMeta] = useState(null);          // years + campuses
   const [campus, setCampus] = useState("");
   const [yearId, setYearId] = useState("");
@@ -206,7 +208,7 @@ export default function AdmissionSettings() {
                   </tbody>
                 </table>
                 {sched.missing.length > 0 && <div className="am-notice">Still needed before publishing: {sched.missing.join(", ")}.</div>}
-                {canEdit && (
+                {canPublish && (
                   <div style={{ display: "flex", gap: 8 }}>
                     <button className="am-btn am-btn--primary" disabled={sched.missing.length > 0} onClick={() => publish(true)}>{sched.published ? "Publish again (updated)" : "Publish schedule"}</button>
                     {sched.published && <button className="am-btn" onClick={() => publish(false)}>Unpublish</button>}
@@ -223,7 +225,7 @@ export default function AdmissionSettings() {
               <>
                 {banner ? <img src={banner} alt="Admission banner" className="am-banner-preview" />
                         : <div className="am-hint" style={{ marginBottom: 10 }}>No banner yet. A wide image works best (for example 1200 x 630 pixels).</div>}
-                {canEdit && (
+                {canBanner && (
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginTop: 10 }}>
                     <label className="am-btn am-btn--sm" style={{ cursor: "pointer" }}>{banner ? "Replace banner" : "Upload banner"}
                       <input key={bannerKey} type="file" accept=".jpg,.jpeg,.png" style={{ display: "none" }} onChange={e => uploadBanner(e.target.files?.[0])} />

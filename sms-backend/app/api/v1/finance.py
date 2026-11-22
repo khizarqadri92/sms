@@ -19,7 +19,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.fastapi_auth import get_current_user_id, get_jwt_claims
-from app.fastapi_permissions import require_permission
+from app.fastapi_permissions import require_permission, require_any_permission
 from app.fastapi_db import get_db, get_cur as _get_cur
 from app.utils.processing_date import get_processing_datetime, get_processing_date
 
@@ -215,14 +215,14 @@ class SiblingTierIn(BaseModel):
 # â”€â”€â”€ Fee Categories â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.get("/categories")
-def list_categories(user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("fee_categories"))):
+def list_categories(user_id: int = Depends(require_any_permission("finance.account_unlock", "finance.discount_grant", "finance.discount_rules", "finance.discount_view", "finance.fee_payment_online", "finance.fee_reminders", "finance.fee_reports", "finance.fee_setup_edit", "finance.fee_setup_view", "finance.finance_dashboard", "finance.invoice_auto_generation_settings", "finance.invoice_cancellation", "finance.invoice_download", "finance.invoice_generation", "finance.invoice_view", "finance.locked_accounts_view", "finance.payment_collection", "finance.payment_verification", "finance.payment_view", "finance.refunds", "students.family_contact_details", "students.family_details_edit", "students.family_details_view", "students.my_children", "students.my_studies", "students.parent_account_link", "students.special_needs_edit", "students.special_needs_view", "students.student_attendance_tab", "students.student_edit", "students.student_enrolment", "students.student_export", "students.student_fees_tab", "students.student_grades_tab", "students.student_import", "students.student_list_view", "students.student_status_change", "students.transport_details")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("fee_categories"))):
     cur = get_cur(db)
     cur.execute("SELECT * FROM fee_categories WHERE is_active = TRUE AND (campus_id = %s OR campus_id IS NULL) ORDER BY name", (campus_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.post("/categories")
-def create_category(body: CategoryIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("fee_categories"))):
+def create_category(body: CategoryIn, user_id: int = Depends(require_permission("finance.fee_setup_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("fee_categories"))):
     cur = get_cur(db)
     try:
         cur.execute("INSERT INTO fee_categories (name, description, campus_id) VALUES (%s, %s, %s) RETURNING *",
@@ -236,7 +236,7 @@ def create_category(body: CategoryIn, user_id: int = Depends(require_permission(
 # â”€â”€â”€ Fee Structures â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.get("/structures")
-def list_structures(user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("fee_structures"))):
+def list_structures(user_id: int = Depends(require_any_permission("finance.account_unlock", "finance.discount_grant", "finance.discount_rules", "finance.discount_view", "finance.fee_payment_online", "finance.fee_reminders", "finance.fee_reports", "finance.fee_setup_edit", "finance.fee_setup_view", "finance.finance_dashboard", "finance.invoice_auto_generation_settings", "finance.invoice_cancellation", "finance.invoice_download", "finance.invoice_generation", "finance.invoice_view", "finance.locked_accounts_view", "finance.payment_collection", "finance.payment_verification", "finance.payment_view", "finance.refunds", "students.family_contact_details", "students.family_details_edit", "students.family_details_view", "students.my_children", "students.my_studies", "students.parent_account_link", "students.special_needs_edit", "students.special_needs_view", "students.student_attendance_tab", "students.student_edit", "students.student_enrolment", "students.student_export", "students.student_fees_tab", "students.student_grades_tab", "students.student_import", "students.student_list_view", "students.student_status_change", "students.transport_details")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("fee_structures"))):
     cur = get_cur(db)
     cur.execute("""
         SELECT fs.*, fc.name AS category_name, ay.name AS year_name, c.name AS class_name
@@ -250,7 +250,7 @@ def list_structures(user_id: int = Depends(require_permission("finance.view")), 
 
 
 @router.post("/structures")
-def create_structure(body: StructureIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("fee_structures"))):
+def create_structure(body: StructureIn, user_id: int = Depends(require_permission("finance.fee_setup_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("fee_structures"))):
     cur = get_cur(db)
     cur.execute("""
         INSERT INTO fee_structures
@@ -266,7 +266,7 @@ def create_structure(body: StructureIn, user_id: int = Depends(require_permissio
 
 
 @router.put("/structures/{struct_id}")
-def update_structure(struct_id: int, body: StructureIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("fee_structures"))):
+def update_structure(struct_id: int, body: StructureIn, user_id: int = Depends(require_permission("finance.fee_setup_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("fee_structures"))):
     cur = get_cur(db)
     _check_structure_campus(cur, struct_id, campus_id)
     cur.execute("""
@@ -285,7 +285,7 @@ def update_structure(struct_id: int, body: StructureIn, user_id: int = Depends(r
 
 
 @router.delete("/structures/{struct_id}")
-def deactivate_structure(struct_id: int, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("fee_structures"))):
+def deactivate_structure(struct_id: int, user_id: int = Depends(require_permission("finance.fee_setup_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("fee_structures"))):
     cur = get_cur(db)
     _check_structure_campus(cur, struct_id, campus_id)
     cur.execute("UPDATE fee_structures SET is_active=FALSE WHERE id=%s", (struct_id,))
@@ -296,14 +296,14 @@ def deactivate_structure(struct_id: int, user_id: int = Depends(require_permissi
 # â”€â”€â”€ Fee Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.get("/fee-types")
-def get_fee_types(user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("fee_types"))):
+def get_fee_types(user_id: int = Depends(require_any_permission("finance.account_unlock", "finance.discount_grant", "finance.discount_rules", "finance.discount_view", "finance.fee_payment_online", "finance.fee_reminders", "finance.fee_reports", "finance.fee_setup_edit", "finance.fee_setup_view", "finance.finance_dashboard", "finance.invoice_auto_generation_settings", "finance.invoice_cancellation", "finance.invoice_download", "finance.invoice_generation", "finance.invoice_view", "finance.locked_accounts_view", "finance.payment_collection", "finance.payment_verification", "finance.payment_view", "finance.refunds", "students.family_contact_details", "students.family_details_edit", "students.family_details_view", "students.my_children", "students.my_studies", "students.parent_account_link", "students.special_needs_edit", "students.special_needs_view", "students.student_attendance_tab", "students.student_edit", "students.student_enrolment", "students.student_export", "students.student_fees_tab", "students.student_grades_tab", "students.student_import", "students.student_list_view", "students.student_status_change", "students.transport_details")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("fee_types"))):
     cur = get_cur(db)
     cur.execute("SELECT * FROM fee_types WHERE campus_id = %s OR campus_id IS NULL ORDER BY name", (campus_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.post("/fee-types")
-def create_fee_type(body: FeeTypeIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("fee_types"))):
+def create_fee_type(body: FeeTypeIn, user_id: int = Depends(require_permission("finance.fee_setup_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("fee_types"))):
     cur = get_cur(db)
     cur.execute("INSERT INTO fee_types (name, description, campus_id) VALUES (%s, %s, %s) RETURNING *",
                 (body.name, body.description or None, campus_id))
@@ -312,7 +312,7 @@ def create_fee_type(body: FeeTypeIn, user_id: int = Depends(require_permission("
 
 
 @router.put("/fee-types/{type_id}")
-def update_fee_type(type_id: int, body: FeeTypeIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("fee_types"))):
+def update_fee_type(type_id: int, body: FeeTypeIn, user_id: int = Depends(require_permission("finance.fee_setup_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("fee_types"))):
     cur = get_cur(db)
     cur.execute("SELECT campus_id FROM fee_types WHERE id=%s", (type_id,))
     row = cur.fetchone()
@@ -324,7 +324,7 @@ def update_fee_type(type_id: int, body: FeeTypeIn, user_id: int = Depends(requir
 
 
 @router.delete("/fee-types/{type_id}")
-def delete_fee_type(type_id: int, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("fee_types"))):
+def delete_fee_type(type_id: int, user_id: int = Depends(require_permission("finance.fee_setup_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("fee_types"))):
     cur = get_cur(db)
     cur.execute("SELECT campus_id FROM fee_types WHERE id=%s", (type_id,))
     row = cur.fetchone()
@@ -339,7 +339,7 @@ def delete_fee_type(type_id: int, user_id: int = Depends(require_permission("fin
 @router.get("/class-fees")
 def get_class_fees(
     class_id: Optional[str] = Query(None), academic_year_id: Optional[str] = Query(None),
-    user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db),
+    user_id: int = Depends(require_any_permission("finance.account_unlock", "finance.discount_grant", "finance.discount_rules", "finance.discount_view", "finance.fee_payment_online", "finance.fee_reminders", "finance.fee_reports", "finance.fee_setup_edit", "finance.fee_setup_view", "finance.finance_dashboard", "finance.invoice_auto_generation_settings", "finance.invoice_cancellation", "finance.invoice_download", "finance.invoice_generation", "finance.invoice_view", "finance.locked_accounts_view", "finance.payment_collection", "finance.payment_verification", "finance.payment_view", "finance.refunds", "students.family_contact_details", "students.family_details_edit", "students.family_details_view", "students.my_children", "students.my_studies", "students.parent_account_link", "students.special_needs_edit", "students.special_needs_view", "students.student_attendance_tab", "students.student_edit", "students.student_enrolment", "students.student_export", "students.student_fees_tab", "students.student_grades_tab", "students.student_import", "students.student_list_view", "students.student_status_change", "students.transport_details")), db=Depends(get_db),
     campus_id: Optional[int] = Depends(catalog_campus_id("class_fees")),
 ):
     cur = get_cur(db)
@@ -362,7 +362,7 @@ def get_class_fees(
 
 
 @router.post("/class-fees")
-def create_class_fee(body: ClassFeeIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("class_fees"))):
+def create_class_fee(body: ClassFeeIn, user_id: int = Depends(require_permission("finance.fee_setup_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("class_fees"))):
     cur = get_cur(db)
     _check_class_campus(cur, body.class_id, campus_id)
     cur.execute("""
@@ -376,7 +376,7 @@ def create_class_fee(body: ClassFeeIn, user_id: int = Depends(require_permission
 
 
 @router.delete("/class-fees/{fee_id}")
-def delete_class_fee(fee_id: int, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("class_fees"))):
+def delete_class_fee(fee_id: int, user_id: int = Depends(require_permission("finance.fee_setup_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("class_fees"))):
     cur = get_cur(db)
     cur.execute("SELECT c.campus_id FROM class_fees cf JOIN classes c ON c.id = cf.class_id WHERE cf.id=%s", (fee_id,))
     _row = cur.fetchone()
@@ -389,7 +389,7 @@ def delete_class_fee(fee_id: int, user_id: int = Depends(require_permission("fin
 # â”€â”€â”€ Class Fee Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.get("/class-fee-config")
-def get_class_fee_configs(user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("class_fee_config"))):
+def get_class_fee_configs(user_id: int = Depends(require_any_permission("finance.account_unlock", "finance.discount_grant", "finance.discount_rules", "finance.discount_view", "finance.fee_payment_online", "finance.fee_reminders", "finance.fee_reports", "finance.fee_setup_edit", "finance.fee_setup_view", "finance.finance_dashboard", "finance.invoice_auto_generation_settings", "finance.invoice_cancellation", "finance.invoice_download", "finance.invoice_generation", "finance.invoice_view", "finance.locked_accounts_view", "finance.payment_collection", "finance.payment_verification", "finance.payment_view", "finance.refunds", "students.family_contact_details", "students.family_details_edit", "students.family_details_view", "students.my_children", "students.my_studies", "students.parent_account_link", "students.special_needs_edit", "students.special_needs_view", "students.student_attendance_tab", "students.student_edit", "students.student_enrolment", "students.student_export", "students.student_fees_tab", "students.student_grades_tab", "students.student_import", "students.student_list_view", "students.student_status_change", "students.transport_details")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("class_fee_config"))):
     cur = get_cur(db)
     cur.execute("""
         SELECT cfc.*, c.name AS class_name, ay.name AS year_name
@@ -403,7 +403,7 @@ def get_class_fee_configs(user_id: int = Depends(require_permission("finance.vie
 
 
 @router.post("/class-fee-config")
-def create_class_fee_config(body: ClassFeeConfigIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("class_fee_config"))):
+def create_class_fee_config(body: ClassFeeConfigIn, user_id: int = Depends(require_permission("finance.fee_setup_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("class_fee_config"))):
     if body.late_fee_type not in ("none", "fixed", "percentage", "per_day"):
         fail("Invalid late_fee_type.", 400)
     cur = get_cur(db)
@@ -422,7 +422,7 @@ def create_class_fee_config(body: ClassFeeConfigIn, user_id: int = Depends(requi
 
 
 @router.delete("/class-fee-config/{cfg_id}")
-def delete_class_fee_config(cfg_id: int, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("class_fee_config"))):
+def delete_class_fee_config(cfg_id: int, user_id: int = Depends(require_permission("finance.fee_setup_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("class_fee_config"))):
     cur = get_cur(db)
     cur.execute("SELECT c.campus_id FROM class_fee_config cfc JOIN classes c ON c.id = cfc.class_id WHERE cfc.id=%s", (cfg_id,))
     _row = cur.fetchone()
@@ -440,7 +440,7 @@ def list_invoices(
     class_id: Optional[str] = Query(None), registration_no: Optional[str] = Query(None),
     invoice_no: Optional[str] = Query(None), month: Optional[str] = Query(None),
     academic_year_id: Optional[str] = Query(None),
-    user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db),
+    user_id: int = Depends(require_any_permission("finance.account_unlock", "finance.discount_grant", "finance.discount_rules", "finance.discount_view", "finance.fee_payment_online", "finance.fee_reminders", "finance.fee_reports", "finance.fee_setup_edit", "finance.fee_setup_view", "finance.finance_dashboard", "finance.invoice_auto_generation_settings", "finance.invoice_cancellation", "finance.invoice_download", "finance.invoice_generation", "finance.invoice_view", "finance.locked_accounts_view", "finance.payment_collection", "finance.payment_verification", "finance.payment_view", "finance.refunds", "students.family_contact_details", "students.family_details_edit", "students.family_details_view", "students.my_children", "students.my_studies", "students.parent_account_link", "students.special_needs_edit", "students.special_needs_view", "students.student_attendance_tab", "students.student_edit", "students.student_enrolment", "students.student_export", "students.student_fees_tab", "students.student_grades_tab", "students.student_import", "students.student_list_view", "students.student_status_change", "students.transport_details")), db=Depends(get_db),
     campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
     cur = get_cur(db)
@@ -478,7 +478,7 @@ def list_invoices(
 
 
 @router.post("/invoices")
-def create_invoice(body: InvoiceCreateIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def create_invoice(body: InvoiceCreateIn, user_id: int = Depends(require_permission("finance.invoice_generation")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_student_campus(cur, body.student_id, campus_id)
     cur.execute("""
@@ -493,7 +493,7 @@ def create_invoice(body: InvoiceCreateIn, user_id: int = Depends(require_permiss
 
 
 @router.put("/invoices/{inv_id}")
-def update_invoice(inv_id: int, body: InvoiceUpdateIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def update_invoice(inv_id: int, body: InvoiceUpdateIn, user_id: int = Depends(require_any_permission("finance.invoice_cancellation", "finance.invoice_generation")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_invoice_campus(cur, inv_id, campus_id)
     cur.execute("""
@@ -508,7 +508,7 @@ def update_invoice(inv_id: int, body: InvoiceUpdateIn, user_id: int = Depends(re
 
 
 @router.post("/invoices/bulk")
-def bulk_generate(body: BulkGenerateIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def bulk_generate(body: BulkGenerateIn, user_id: int = Depends(require_permission("finance.invoice_generation")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_class_campus(cur, body.class_id, campus_id)
     cur.execute("SELECT amount FROM fee_structures WHERE id=%s", (body.fee_structure_id,))
@@ -529,7 +529,7 @@ def bulk_generate(body: BulkGenerateIn, user_id: int = Depends(require_permissio
 
 
 @router.post("/invoices/generate-monthly")
-def generate_monthly_invoices(body: MonthlyGenerateIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def generate_monthly_invoices(body: MonthlyGenerateIn, user_id: int = Depends(require_permission("finance.invoice_generation")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     if body.month:
         y, m = body.month.split("-")
         target_month = date(int(y), int(m), 1)
@@ -542,7 +542,7 @@ def generate_monthly_invoices(body: MonthlyGenerateIn, user_id: int = Depends(re
 
 
 @router.post("/invoices/generate-smart-monthly")
-def generate_smart_monthly(body: SmartMonthlyIn, user_id: int = Depends(require_permission("finance.bulk")), db=Depends(get_db)):
+def generate_smart_monthly(body: SmartMonthlyIn, user_id: int = Depends(require_permission("finance.invoice_generation")), db=Depends(get_db)):
     yr = body.year or get_processing_date(db).year
     mo = body.month or get_processing_date(db).month
     cur = get_cur(db)
@@ -559,7 +559,7 @@ def generate_smart_monthly(body: SmartMonthlyIn, user_id: int = Depends(require_
 
 
 @router.get("/invoices/{inv_id}/payments")
-def get_invoice_payments(inv_id: int, user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def get_invoice_payments(inv_id: int, user_id: int = Depends(require_any_permission("finance.account_unlock", "finance.discount_grant", "finance.discount_rules", "finance.discount_view", "finance.fee_payment_online", "finance.fee_reminders", "finance.fee_reports", "finance.fee_setup_edit", "finance.fee_setup_view", "finance.finance_dashboard", "finance.invoice_auto_generation_settings", "finance.invoice_cancellation", "finance.invoice_download", "finance.invoice_generation", "finance.invoice_view", "finance.locked_accounts_view", "finance.payment_collection", "finance.payment_verification", "finance.payment_view", "finance.refunds", "students.family_contact_details", "students.family_details_edit", "students.family_details_view", "students.my_children", "students.my_studies", "students.parent_account_link", "students.special_needs_edit", "students.special_needs_view", "students.student_attendance_tab", "students.student_edit", "students.student_enrolment", "students.student_export", "students.student_fees_tab", "students.student_grades_tab", "students.student_import", "students.student_list_view", "students.student_status_change", "students.transport_details")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_invoice_campus(cur, inv_id, campus_id)
     cur.execute("""
@@ -590,7 +590,7 @@ def get_invoice_payments(inv_id: int, user_id: int = Depends(require_permission(
 
 
 @router.get("/invoices/{inv_id}/pdf")
-def download_invoice_pdf(inv_id: int, user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def download_invoice_pdf(inv_id: int, user_id: int = Depends(require_any_permission("finance.account_unlock", "finance.discount_grant", "finance.discount_rules", "finance.discount_view", "finance.fee_payment_online", "finance.fee_reminders", "finance.fee_reports", "finance.fee_setup_edit", "finance.fee_setup_view", "finance.finance_dashboard", "finance.invoice_auto_generation_settings", "finance.invoice_cancellation", "finance.invoice_download", "finance.invoice_generation", "finance.invoice_view", "finance.locked_accounts_view", "finance.payment_collection", "finance.payment_verification", "finance.payment_view", "finance.refunds", "students.family_contact_details", "students.family_details_edit", "students.family_details_view", "students.my_children", "students.my_studies", "students.parent_account_link", "students.special_needs_edit", "students.special_needs_view", "students.student_attendance_tab", "students.student_edit", "students.student_enrolment", "students.student_export", "students.student_fees_tab", "students.student_grades_tab", "students.student_import", "students.student_list_view", "students.student_status_change", "students.transport_details")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     _check_invoice_campus(get_cur(db), inv_id, campus_id)
     try:
         import main as _main
@@ -669,7 +669,7 @@ def list_payments(
     student: Optional[str] = Query(None), reference: Optional[str] = Query(None),
     class_id: Optional[str] = Query(None), month: Optional[str] = Query(None),
     from_date: Optional[str] = Query(None), to_date: Optional[str] = Query(None),
-    user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db),
+    user_id: int = Depends(require_any_permission("finance.account_unlock", "finance.discount_grant", "finance.discount_rules", "finance.discount_view", "finance.fee_payment_online", "finance.fee_reminders", "finance.fee_reports", "finance.fee_setup_edit", "finance.fee_setup_view", "finance.finance_dashboard", "finance.invoice_auto_generation_settings", "finance.invoice_cancellation", "finance.invoice_download", "finance.invoice_generation", "finance.invoice_view", "finance.locked_accounts_view", "finance.payment_collection", "finance.payment_verification", "finance.payment_view", "finance.refunds", "students.family_contact_details", "students.family_details_edit", "students.family_details_view", "students.my_children", "students.my_studies", "students.parent_account_link", "students.special_needs_edit", "students.special_needs_view", "students.student_attendance_tab", "students.student_edit", "students.student_enrolment", "students.student_export", "students.student_fees_tab", "students.student_grades_tab", "students.student_import", "students.student_list_view", "students.student_status_change", "students.transport_details")), db=Depends(get_db),
     campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
     cur = get_cur(db)
@@ -780,7 +780,7 @@ def record_payment(body: PaymentIn, user_id: int = Depends(get_current_user_id),
 
 
 @router.put("/payments/{pay_id}/verify")
-def verify_payment(pay_id: int, user_id: int = Depends(require_permission("finance.collect")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def verify_payment(pay_id: int, user_id: int = Depends(require_permission("finance.payment_verification")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_payment_campus(cur, pay_id, campus_id)
     cur.execute("SELECT * FROM payments WHERE id=%s", (pay_id,))
@@ -822,7 +822,7 @@ class RejectIn(BaseModel):
 
 
 @router.put("/payments/{pay_id}/reject")
-def reject_payment(pay_id: int, body: RejectIn, user_id: int = Depends(require_permission("finance.collect")), db=Depends(get_db),
+def reject_payment(pay_id: int, body: RejectIn, user_id: int = Depends(require_permission("finance.payment_verification")), db=Depends(get_db),
                    campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Finance rejects a submitted payment (wrong amount, unreadable or invalid receipt) with a reason."""
     cur = get_cur(db)
@@ -852,7 +852,7 @@ def reject_payment(pay_id: int, body: RejectIn, user_id: int = Depends(require_p
 
 
 @router.get("/payments/{pay_id}/receipt")
-def download_payment_receipt(pay_id: int, user_id: int = Depends(require_permission("finance.view")), claims: dict = Depends(get_jwt_claims),
+def download_payment_receipt(pay_id: int, user_id: int = Depends(require_any_permission("finance.account_unlock", "finance.discount_grant", "finance.discount_rules", "finance.discount_view", "finance.fee_payment_online", "finance.fee_reminders", "finance.fee_reports", "finance.fee_setup_edit", "finance.fee_setup_view", "finance.finance_dashboard", "finance.invoice_auto_generation_settings", "finance.invoice_cancellation", "finance.invoice_download", "finance.invoice_generation", "finance.invoice_view", "finance.locked_accounts_view", "finance.payment_collection", "finance.payment_verification", "finance.payment_view", "finance.refunds", "students.family_contact_details", "students.family_details_edit", "students.family_details_view", "students.my_children", "students.my_studies", "students.parent_account_link", "students.special_needs_edit", "students.special_needs_view", "students.student_attendance_tab", "students.student_edit", "students.student_enrolment", "students.student_export", "students.student_fees_tab", "students.student_grades_tab", "students.student_import", "students.student_list_view", "students.student_status_change", "students.transport_details")), claims: dict = Depends(get_jwt_claims),
                              db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_payment_campus(cur, pay_id, campus_id)
@@ -881,7 +881,7 @@ def download_payment_receipt(pay_id: int, user_id: int = Depends(require_permiss
 # â”€â”€â”€ Dashboard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.get("/dashboard")
-def finance_dashboard(user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def finance_dashboard(user_id: int = Depends(require_any_permission("finance.account_unlock", "finance.discount_grant", "finance.discount_rules", "finance.discount_view", "finance.fee_payment_online", "finance.fee_reminders", "finance.fee_reports", "finance.fee_setup_edit", "finance.fee_setup_view", "finance.finance_dashboard", "finance.invoice_auto_generation_settings", "finance.invoice_cancellation", "finance.invoice_download", "finance.invoice_generation", "finance.invoice_view", "finance.locked_accounts_view", "finance.payment_collection", "finance.payment_verification", "finance.payment_view", "finance.refunds", "students.family_contact_details", "students.family_details_edit", "students.family_details_view", "students.my_children", "students.my_studies", "students.parent_account_link", "students.special_needs_edit", "students.special_needs_view", "students.student_attendance_tab", "students.student_edit", "students.student_enrolment", "students.student_export", "students.student_fees_tab", "students.student_grades_tab", "students.student_import", "students.student_list_view", "students.student_status_change", "students.transport_details")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("""
         SELECT COUNT(*) AS total_invoices,
@@ -913,7 +913,8 @@ def finance_dashboard(user_id: int = Depends(require_permission("finance.view"))
 
 @router.get("/student/{student_id}")
 def student_summary(student_id: int, user_id: int = Depends(get_current_user_id), claims: dict = Depends(get_jwt_claims), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
-    perms = claims.get("permissions", [])
+    from app.utils.access import effective_permissions as _eff   # live: roles + acting roles + extra permissions
+    perms = _eff(get_cur(db), user_id)
     if not any(p in perms for p in ["finance.view","withdrawal.view_all","withdrawal.review","withdrawal.clear","withdrawal.approve"]):
         from app.utils.helpers import fail; fail("Permission denied: finance.view", 403)
     cur = get_cur(db)
@@ -939,7 +940,7 @@ def student_summary(student_id: int, user_id: int = Depends(get_current_user_id)
 @router.get("/charges/search")
 def search_charges(
     registration_no: Optional[str] = Query(None), receipt_no: Optional[str] = Query(None),
-    user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db),
+    user_id: int = Depends(require_any_permission("finance.account_unlock", "finance.discount_grant", "finance.discount_rules", "finance.discount_view", "finance.fee_payment_online", "finance.fee_reminders", "finance.fee_reports", "finance.fee_setup_edit", "finance.fee_setup_view", "finance.finance_dashboard", "finance.invoice_auto_generation_settings", "finance.invoice_cancellation", "finance.invoice_download", "finance.invoice_generation", "finance.invoice_view", "finance.locked_accounts_view", "finance.payment_collection", "finance.payment_verification", "finance.payment_view", "finance.refunds", "students.family_contact_details", "students.family_details_edit", "students.family_details_view", "students.my_children", "students.my_studies", "students.parent_account_link", "students.special_needs_edit", "students.special_needs_view", "students.student_attendance_tab", "students.student_edit", "students.student_enrolment", "students.student_export", "students.student_fees_tab", "students.student_grades_tab", "students.student_import", "students.student_list_view", "students.student_status_change", "students.transport_details")), db=Depends(get_db),
     campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
     if not registration_no and not receipt_no:
@@ -951,7 +952,7 @@ def search_charges(
 
 
 @router.get("/charges")
-def get_fee_charges(user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("fee_charges"))):
+def get_fee_charges(user_id: int = Depends(require_any_permission("finance.account_unlock", "finance.discount_grant", "finance.discount_rules", "finance.discount_view", "finance.fee_payment_online", "finance.fee_reminders", "finance.fee_reports", "finance.fee_setup_edit", "finance.fee_setup_view", "finance.finance_dashboard", "finance.invoice_auto_generation_settings", "finance.invoice_cancellation", "finance.invoice_download", "finance.invoice_generation", "finance.invoice_view", "finance.locked_accounts_view", "finance.payment_collection", "finance.payment_verification", "finance.payment_view", "finance.refunds", "students.family_contact_details", "students.family_details_edit", "students.family_details_view", "students.my_children", "students.my_studies", "students.parent_account_link", "students.special_needs_edit", "students.special_needs_view", "students.student_attendance_tab", "students.student_edit", "students.student_enrolment", "students.student_export", "students.student_fees_tab", "students.student_grades_tab", "students.student_import", "students.student_list_view", "students.student_status_change", "students.transport_details")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("fee_charges"))):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_fee_charges()")
     rows = [fmt(dict(r), DATE_KEYS) for r in cur.fetchall()]
@@ -963,7 +964,7 @@ def get_fee_charges(user_id: int = Depends(require_permission("finance.view")), 
 
 
 @router.post("/charges")
-def create_fee_charge(body: FeeChargeIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("fee_charges"))):
+def create_fee_charge(body: FeeChargeIn, user_id: int = Depends(require_permission("finance.invoice_generation")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("fee_charges"))):
     cur = get_cur(db)
     apply_month = int(body.apply_month) if body.apply_month not in (None, "") else None
     apply_year = int(body.apply_year) if body.apply_year not in (None, "") else None
@@ -985,7 +986,7 @@ def create_fee_charge(body: FeeChargeIn, user_id: int = Depends(require_permissi
 
 
 @router.put("/charges/{charge_id}")
-def update_fee_charge(charge_id: int, body: FeeChargeIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("fee_charges"))):
+def update_fee_charge(charge_id: int, body: FeeChargeIn, user_id: int = Depends(require_permission("finance.invoice_generation")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("fee_charges"))):
     cur = get_cur(db)
     _check_fee_charge_campus(cur, charge_id, campus_id)
     apply_month = int(body.apply_month) if body.apply_month not in (None, "") else None
@@ -1009,7 +1010,7 @@ def update_fee_charge(charge_id: int, body: FeeChargeIn, user_id: int = Depends(
 
 
 @router.delete("/charges/{charge_id}")
-def delete_fee_charge(charge_id: int, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("fee_charges"))):
+def delete_fee_charge(charge_id: int, user_id: int = Depends(require_permission("finance.invoice_generation")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("fee_charges"))):
     cur = get_cur(db)
     _check_fee_charge_campus(cur, charge_id, campus_id)
     try:
@@ -1021,7 +1022,7 @@ def delete_fee_charge(charge_id: int, user_id: int = Depends(require_permission(
 
 
 @router.post("/charges/{item_id}/waive")
-def waive_charge(item_id: int, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("fee_charges"))):
+def waive_charge(item_id: int, user_id: int = Depends(require_permission("finance.discount_grant")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("fee_charges"))):
     cur = get_cur(db)
     _check_charge_item_campus(cur, item_id, campus_id)
     try:
@@ -1062,14 +1063,14 @@ def waive_charge(item_id: int, user_id: int = Depends(require_permission("financ
 # â”€â”€â”€ Charge Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.get("/charge-types")
-def get_charge_types(user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db)):
+def get_charge_types(user_id: int = Depends(require_any_permission("finance.account_unlock", "finance.discount_grant", "finance.discount_rules", "finance.discount_view", "finance.fee_payment_online", "finance.fee_reminders", "finance.fee_reports", "finance.fee_setup_edit", "finance.fee_setup_view", "finance.finance_dashboard", "finance.invoice_auto_generation_settings", "finance.invoice_cancellation", "finance.invoice_download", "finance.invoice_generation", "finance.invoice_view", "finance.locked_accounts_view", "finance.payment_collection", "finance.payment_verification", "finance.payment_view", "finance.refunds", "students.family_contact_details", "students.family_details_edit", "students.family_details_view", "students.my_children", "students.my_studies", "students.parent_account_link", "students.special_needs_edit", "students.special_needs_view", "students.student_attendance_tab", "students.student_edit", "students.student_enrolment", "students.student_export", "students.student_fees_tab", "students.student_grades_tab", "students.student_import", "students.student_list_view", "students.student_status_change", "students.transport_details")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_charge_types()")
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.post("/charge-types")
-def create_charge_type(body: ChargeTypeIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db)):
+def create_charge_type(body: ChargeTypeIn, user_id: int = Depends(require_permission("finance.fee_setup_edit")), db=Depends(get_db)):
     interval_months = int(body.interval_months) if body.interval_months not in (None, "") else None
     cur = get_cur(db)
     try:
@@ -1082,7 +1083,7 @@ def create_charge_type(body: ChargeTypeIn, user_id: int = Depends(require_permis
 
 
 @router.put("/charge-types/{ct_id}")
-def update_charge_type(ct_id: int, body: ChargeTypeIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db)):
+def update_charge_type(ct_id: int, body: ChargeTypeIn, user_id: int = Depends(require_permission("finance.fee_setup_edit")), db=Depends(get_db)):
     interval_months = int(body.interval_months) if body.interval_months not in (None, "") else None
     cur = get_cur(db)
     try:
@@ -1095,7 +1096,7 @@ def update_charge_type(ct_id: int, body: ChargeTypeIn, user_id: int = Depends(re
 
 
 @router.put("/charge-types/{ct_id}/toggle")
-def toggle_charge_type(ct_id: int, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db)):
+def toggle_charge_type(ct_id: int, user_id: int = Depends(require_permission("finance.fee_setup_edit")), db=Depends(get_db)):
     cur = get_cur(db)
     try:
         cur.execute("SELECT * FROM sp_toggle_charge_type(%s)", (ct_id,))
@@ -1108,7 +1109,7 @@ def toggle_charge_type(ct_id: int, user_id: int = Depends(require_permission("fi
 # â”€â”€â”€ Auto-generate Settings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.get("/auto-generate-settings")
-def get_auto_generate_settings(user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db)):
+def get_auto_generate_settings(user_id: int = Depends(require_any_permission("finance.account_unlock", "finance.discount_grant", "finance.discount_rules", "finance.discount_view", "finance.fee_payment_online", "finance.fee_reminders", "finance.fee_reports", "finance.fee_setup_edit", "finance.fee_setup_view", "finance.finance_dashboard", "finance.invoice_auto_generation_settings", "finance.invoice_cancellation", "finance.invoice_download", "finance.invoice_generation", "finance.invoice_view", "finance.locked_accounts_view", "finance.payment_collection", "finance.payment_verification", "finance.payment_view", "finance.refunds", "students.family_contact_details", "students.family_details_edit", "students.family_details_view", "students.my_children", "students.my_studies", "students.parent_account_link", "students.special_needs_edit", "students.special_needs_view", "students.student_attendance_tab", "students.student_edit", "students.student_enrolment", "students.student_export", "students.student_fees_tab", "students.student_grades_tab", "students.student_import", "students.student_list_view", "students.student_status_change", "students.transport_details")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT key, value FROM system_settings WHERE key IN (%s,%s,%s,%s)",
                 ("fee_auto_generate_enabled","fee_auto_generate_day","fee_auto_generate_last_run","fee_auto_generate_time"))
@@ -1122,7 +1123,7 @@ def get_auto_generate_settings(user_id: int = Depends(require_permission("financ
 
 
 @router.put("/auto-generate-settings")
-def update_auto_generate_settings(body: AutoGenSettingsIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db)):
+def update_auto_generate_settings(body: AutoGenSettingsIn, user_id: int = Depends(require_permission("finance.invoice_auto_generation_settings")), db=Depends(get_db)):
     if body.day < 1 or body.day > 31:
         fail("Day must be between 1 and 31.", 400)
     time_str = (body.time or "01:00").strip()
@@ -1144,7 +1145,7 @@ def update_auto_generate_settings(body: AutoGenSettingsIn, user_id: int = Depend
 
 
 @router.post("/auto-generate-settings/run-now")
-def run_auto_generate_now(user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db)):
+def run_auto_generate_now(user_id: int = Depends(require_permission("finance.invoice_auto_generation_settings")), db=Depends(get_db)):
     try:
         import main as _main
         with _main.flask_app.app_context():
@@ -1178,7 +1179,7 @@ def fee_report_school(
     class_id: Optional[str] = Query(None), academic_year_id: Optional[str] = Query(None),
     month: Optional[str] = Query(None), status: Optional[str] = Query(None),
     registration_no: Optional[str] = Query(None),
-    user_id: int = Depends(require_permission("students.view")), db=Depends(get_db),
+    user_id: int = Depends(require_permission("finance.fee_reports")), db=Depends(get_db),
     campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
     cur = get_cur(db)
@@ -1229,7 +1230,7 @@ def fee_report_me(user_id: int = Depends(get_current_user_id), db=Depends(get_db
 def get_locked_accounts(
     class_id: Optional[str] = Query(None), student: Optional[str] = Query(None),
     from_date: Optional[str] = Query(None), to_date: Optional[str] = Query(None),
-    user_id: int = Depends(require_permission("students.view")), db=Depends(get_db),
+    user_id: int = Depends(require_permission("finance.locked_accounts_view")), db=Depends(get_db),
     campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
     cur = get_cur(db)
@@ -1258,7 +1259,7 @@ def get_my_class_locked_accounts(
 
 
 @router.post("/unlock-account/{student_id}")
-def unlock_account(student_id: int, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def unlock_account(student_id: int, user_id: int = Depends(require_permission("finance.account_unlock")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_student_campus(cur, student_id, campus_id)
     cur.execute("SELECT user_id FROM students WHERE id=%s", (student_id,))
@@ -1273,7 +1274,7 @@ def unlock_account(student_id: int, user_id: int = Depends(require_permission("f
 # â”€â”€â”€ Discount Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @router.get("/discount-config")
-def get_discount_config(user_id: int = Depends(require_permission("finance.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(governed_settings_campus_id("discount_config"))):
+def get_discount_config(user_id: int = Depends(require_any_permission("finance.account_unlock", "finance.discount_grant", "finance.discount_rules", "finance.discount_view", "finance.fee_payment_online", "finance.fee_reminders", "finance.fee_reports", "finance.fee_setup_edit", "finance.fee_setup_view", "finance.finance_dashboard", "finance.invoice_auto_generation_settings", "finance.invoice_cancellation", "finance.invoice_download", "finance.invoice_generation", "finance.invoice_view", "finance.locked_accounts_view", "finance.payment_collection", "finance.payment_verification", "finance.payment_view", "finance.refunds", "students.family_contact_details", "students.family_details_edit", "students.family_details_view", "students.my_children", "students.my_studies", "students.parent_account_link", "students.special_needs_edit", "students.special_needs_view", "students.student_attendance_tab", "students.student_edit", "students.student_enrolment", "students.student_export", "students.student_fees_tab", "students.student_grades_tab", "students.student_import", "students.student_list_view", "students.student_status_change", "students.transport_details")), db=Depends(get_db), campus_id: Optional[int] = Depends(governed_settings_campus_id("discount_config"))):
     cur = get_cur(db)
     cur.execute("SELECT * FROM discount_apply_config WHERE campus_id = %s OR campus_id IS NULL ORDER BY campus_id NULLS LAST LIMIT 1", (campus_id,))
     config = dict(cur.fetchone() or {"on_all": False})
@@ -1288,7 +1289,7 @@ def get_discount_config(user_id: int = Depends(require_permission("finance.view"
 
 
 @router.put("/discount-config")
-def save_discount_config(body: DiscountConfigIn, user_id: int = Depends(require_permission("finance.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(governed_settings_campus_id_for_write("discount_config"))):
+def save_discount_config(body: DiscountConfigIn, user_id: int = Depends(require_permission("finance.discount_rules")), db=Depends(get_db), campus_id: Optional[int] = Depends(governed_settings_campus_id_for_write("discount_config"))):
     if body.sibling_rank_method not in ("class", "registration_no", "dob"):
         fail("Invalid sibling_rank_method.", 400)
     cur = get_cur(db)

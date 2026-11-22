@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useAuth } from "../auth/AuthContext";
+import { useAuth, effectiveRole } from "../auth/AuthContext";
 import client from "../api/client";
 import academicsApi from "../api/academicsApi";
 import campusesApi from "../api/campusesApi";
@@ -13,7 +13,7 @@ const futureDate = (days=30) => { const d=new Date(); d.setDate(d.getDate()+days
 export default function Announcements() {
   const processingToday = useProcessingToday();
   const { user } = useAuth();
-  const role = user?.roles?.[0]||"";
+  const role = effectiveRole(user)||"";
   const isSuperAdmin = (user?.roles||[]).includes("superadmin");
   const [announcements, setAnnouncements] = useState([]);
   const [classes,       setClasses]       = useState([]);

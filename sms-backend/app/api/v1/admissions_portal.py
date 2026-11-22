@@ -306,11 +306,12 @@ PARENT_ACTIONS_NEEDED = {"correction_required": "Please correct your application
                          "payment_partially_paid": "Part of the admission fee is paid - please pay the balance."}
 
 
-def _parent_only(user_id, db):
+def _parent_only(user_id, db, code="admissions.my_admissions"):
+    """My Admissions: needs the permission for that task (Roles & Permissions); always own applications only."""
     cur = get_cur(db)
-    cur.execute("SELECT 1 FROM user_roles ur JOIN roles r ON r.id=ur.role_id WHERE ur.user_id=%s AND r.name='parent'", (user_id,))
-    if not cur.fetchone():
-        fail("This page is for parents.", 403)
+    cur.execute("SELECT fn_user_has_permission(%s, %s) AS ok", (user_id, code))
+    if not cur.fetchone()["ok"]:
+        fail("You don't have permission for this.", 403)
     return cur
 
 
@@ -343,11 +344,16 @@ def _parent_view(cur, db, a):
     i = cur.fetchone()
     interview = None if not i else {"date": str(i["scheduled_at"]), "location": i["location"],
                                     "done": i["recommendation"] is not None, "note": i["parent_note"]}
-    cur.execute("""SELECT action, to_status, remarks, acted_at FROM admission_status_history
-                   WHERE application_id=%s AND NOT is_internal ORDER BY acted_at, id""", (a["id"],))
     A = _A()
-    timeline = [{"title": A.EVENT_TITLES.get(h["action"]) or W.STATUS_LABELS.get(h["to_status"], h["to_status"]),
-                 "note": h["remarks"], "at": str(h["acted_at"])} for h in cur.fetchall()]
+    cur.execute("""SELECT DISTINCT wsi.step_name FROM workflow_step_instances wsi JOIN workflow_instances wi ON wi.id=wsi.instance_id
+                   WHERE wi.module=%s AND wi.entity_type=%s AND wi.entity_id=%s""", (A.WF_MODULE, A.WF_ENTITY, a["id"]))
+    step_names = {r["step_name"] for r in cur.fetchall() if r["step_name"]}
+    cur.execute("""SELECT action, to_status, remarks, acted_at FROM admission_status_history
+                   WHERE application_id=%s AND NOT is_internal ORDER BY id""", (a["id"],))      # recording order
+    timeline = []
+    for h in cur.fetchall():
+        title, note = A._timeline_entry(h, step_names)                 # e.g. "Principal approval - Approved" + the note
+        timeline.append({"title": title or W.STATUS_LABELS.get(h["to_status"], h["to_status"]), "note": note, "at": str(h["acted_at"])})
     fee = None
     if a["fee_invoice_id"]:
         cur.execute("""SELECT fi.invoice_no, fi.net_amount, fi.status, fi.due_date,
@@ -413,7 +419,7 @@ async def my_apply(request: Request, user_id: int = Depends(get_current_user_id)
 
 @router.post("/my/applications/{app_id}/documents")
 async def my_upload(app_id: int, request: Request, user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
-    cur = _parent_only(user_id, db)
+    cur = _parent_only(user_id, db, "admissions.document_upload")
     a = _own_app(cur, app_id, user_id, lock=True)
     if a["status"] not in ("correction_required", "documents_rejected", "submitted", "initial_verification", "document_verification"):
         fail("Documents can't be changed at this stage.", 409)
@@ -462,7 +468,7 @@ class ParentActionIn(BaseModel):
 @router.post("/my/applications/{app_id}/action")
 def my_action(app_id: int, body: ParentActionIn, user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
     W = _W()
-    cur = _parent_only(user_id, db)
+    cur = _parent_only(user_id, db, "admissions.application_withdraw" if body.action == "withdraw" else "admissions.my_admissions")
     a = _own_app(cur, app_id, user_id)
     if body.action == "resubmit":
         action = "resubmit" if a["status"] == "correction_required" else "resubmit_documents"
@@ -544,7 +550,7 @@ def my_pay(app_id: int, body: ParentPaymentIn, user_id: int = Depends(get_curren
 @router.get("/my/applications/{app_id}/pdf")
 def my_application_pdf(app_id: int, user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
     """The parent's own application form as a PDF (student photo at the top)."""
-    cur = _parent_only(user_id, db)
+    cur = _parent_only(user_id, db, "admissions.application_pdf")
     a = _own_app(cur, app_id, user_id)
     return Response(content=_A().application_pdf(cur, db, a), media_type="application/pdf",
                     headers={"Content-Disposition": f'inline; filename="application_{a["application_no"]}.pdf"'})

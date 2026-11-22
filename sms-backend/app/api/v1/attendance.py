@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from app.fastapi_auth import get_current_user_id
-from app.fastapi_permissions import require_permission
+from app.fastapi_permissions import require_permission, require_any_permission
 from app.fastapi_campus import get_current_campus_id
 from app.fastapi_campus import governed_settings_campus_id
 from app.fastapi_db import get_db, get_cur as _get_cur
@@ -47,7 +47,7 @@ class MarkAttendanceIn(BaseModel):
 
 
 @router.post("/mark")
-def mark_attendance(body: MarkAttendanceIn, marked_by: int = Depends(require_permission("attendance.create")), db=Depends(get_db)):
+def mark_attendance(body: MarkAttendanceIn, marked_by: int = Depends(require_permission("attendance.attendance_marking")), db=Depends(get_db)):
     att_date = body.date or get_processing_date(db).isoformat()
     cur = get_cur(db)
 
@@ -55,6 +55,21 @@ def mark_attendance(body: MarkAttendanceIn, marked_by: int = Depends(require_per
     holiday_title = cur.fetchone()["title"]
     if holiday_title:
         fail("Cannot mark attendance on holiday: " + holiday_title + ".", 400)
+
+    # RFID / Biometric campuses: attendance comes from the daily scan - teachers don't mark it
+    try:
+        cur.execute("SAVEPOINT capture_method")
+        from app.api.v1.attendance_capture import settings_for
+        cur.execute("SELECT campus_id FROM classes WHERE id = %s", (body.class_id,))
+        _cr = cur.fetchone()
+        _method = settings_for(cur, _cr["campus_id"] if _cr else None)["method"]
+        cur.execute("RELEASE SAVEPOINT capture_method")
+    except Exception:
+        cur.execute("ROLLBACK TO SAVEPOINT capture_method")
+        _method = "manual"
+    if _method != "manual":
+        fail("Attendance on this campus is recorded by " + ("RFID card scans" if _method == "rfid" else "thumb (biometric) scans")
+             + " at the school, so it can't be marked here.", 409)
 
     cur.execute("SELECT sp_get_attendance_marker_config() AS cfg")
     marker_config = cur.fetchone()["cfg"]
@@ -78,7 +93,7 @@ def mark_attendance(body: MarkAttendanceIn, marked_by: int = Depends(require_per
 @router.get("/class/{class_id}")
 def class_attendance(
     class_id: int, date: Optional[str] = Query(None), subject_id: Optional[int] = Query(None),
-    user_id: int = Depends(require_permission("attendance.view")),
+    user_id: int = Depends(require_any_permission("attendance.attendance_correction_past_days", "attendance.attendance_delete", "attendance.attendance_marking", "attendance.attendance_reports", "attendance.attendance_settings", "attendance.attendance_view", "students.family_contact_details", "students.family_details_edit", "students.family_details_view", "students.my_children", "students.my_studies", "students.parent_account_link", "students.special_needs_edit", "students.special_needs_view", "students.student_attendance_tab", "students.student_edit", "students.student_enrolment", "students.student_export", "students.student_fees_tab", "students.student_grades_tab", "students.student_import", "students.student_list_view", "students.student_status_change", "students.transport_details")),
 ):
     if not date:
         fail("date query param required (YYYY-MM-DD)", 400)
@@ -92,7 +107,7 @@ def class_attendance(
 def student_attendance(
     student_id: int, from_: Optional[str] = Query(None, alias="from"), to: Optional[str] = Query(None),
     subject_id: Optional[int] = Query(None),
-    user_id: int = Depends(require_permission("attendance.view")),
+    user_id: int = Depends(require_any_permission("attendance.attendance_correction_past_days", "attendance.attendance_delete", "attendance.attendance_marking", "attendance.attendance_reports", "attendance.attendance_settings", "attendance.attendance_view", "students.family_contact_details", "students.family_details_edit", "students.family_details_view", "students.my_children", "students.my_studies", "students.parent_account_link", "students.special_needs_edit", "students.special_needs_view", "students.student_attendance_tab", "students.student_edit", "students.student_enrolment", "students.student_export", "students.student_fees_tab", "students.student_grades_tab", "students.student_import", "students.student_list_view", "students.student_status_change", "students.transport_details")),
 ):
     if not from_ or not to:
         fail("from and to query params required (YYYY-MM-DD)", 400)
@@ -103,7 +118,7 @@ def student_attendance(
 
 
 @router.get("/student/{student_id}/summary")
-def attendance_summary(student_id: int, month: Optional[str] = Query(None), user_id: int = Depends(require_permission("attendance.view"))):
+def attendance_summary(student_id: int, month: Optional[str] = Query(None), user_id: int = Depends(require_any_permission("attendance.attendance_correction_past_days", "attendance.attendance_delete", "attendance.attendance_marking", "attendance.attendance_reports", "attendance.attendance_settings", "attendance.attendance_view", "students.family_contact_details", "students.family_details_edit", "students.family_details_view", "students.my_children", "students.my_studies", "students.parent_account_link", "students.special_needs_edit", "students.special_needs_view", "students.student_attendance_tab", "students.student_edit", "students.student_enrolment", "students.student_export", "students.student_fees_tab", "students.student_grades_tab", "students.student_import", "students.student_list_view", "students.student_status_change", "students.transport_details"))):
     from app.db.connection import get_db as _get_flask_db
     month = month or get_processing_date(_get_flask_db()).strftime("%Y-%m-01")
     with _flask_app().app_context():
@@ -116,7 +131,7 @@ def attendance_summary(student_id: int, month: Optional[str] = Query(None), user
 def my_attendance(
     from_: Optional[str] = Query(None, alias="from"), to: Optional[str] = Query(None),
     subject_id: Optional[int] = Query(None),
-    user_id: int = Depends(require_permission("attendance.view")), db=Depends(get_db),
+    user_id: int = Depends(require_any_permission("attendance.attendance_correction_past_days", "attendance.attendance_delete", "attendance.attendance_marking", "attendance.attendance_reports", "attendance.attendance_settings", "attendance.attendance_view", "students.family_contact_details", "students.family_details_edit", "students.family_details_view", "students.my_children", "students.my_studies", "students.parent_account_link", "students.special_needs_edit", "students.special_needs_view", "students.student_attendance_tab", "students.student_edit", "students.student_enrolment", "students.student_export", "students.student_fees_tab", "students.student_grades_tab", "students.student_import", "students.student_list_view", "students.student_status_change", "students.transport_details")), db=Depends(get_db),
 ):
     cur = get_cur(db)
     cur.execute("SELECT sp_get_student_id_by_user(%s) AS sid", (user_id,))
@@ -145,7 +160,7 @@ def my_attendance(
 def teacher_attendance_report(
     from_: Optional[str] = Query(None, alias="from"), to: Optional[str] = Query(None),
     class_id: Optional[int] = Query(None),
-    user_id: int = Depends(require_permission("attendance.view")), db=Depends(get_db),
+    user_id: int = Depends(require_any_permission("attendance.attendance_correction_past_days", "attendance.attendance_delete", "attendance.attendance_marking", "attendance.attendance_reports", "attendance.attendance_settings", "attendance.attendance_view", "students.family_contact_details", "students.family_details_edit", "students.family_details_view", "students.my_children", "students.my_studies", "students.parent_account_link", "students.special_needs_edit", "students.special_needs_view", "students.student_attendance_tab", "students.student_edit", "students.student_enrolment", "students.student_export", "students.student_fees_tab", "students.student_grades_tab", "students.student_import", "students.student_list_view", "students.student_status_change", "students.transport_details")), db=Depends(get_db),
 ):
     from_date = from_ or get_processing_date(db).strftime("%Y-%m-01")
     to_date = to or get_processing_date(db).isoformat()
@@ -181,7 +196,7 @@ def teacher_attendance_report(
 def attendance_report(
     date: Optional[str] = Query(None), class_id: Optional[int] = Query(None),
     subject_id: Optional[int] = Query(None), breakdown: Optional[str] = Query(None),
-    user_id: int = Depends(require_permission("attendance.report")), db=Depends(get_db),
+    user_id: int = Depends(require_permission("attendance.attendance_reports")), db=Depends(get_db),
     campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
     report_date = date or get_processing_date(db).isoformat()
@@ -205,7 +220,7 @@ def get_attendance_config(user_id: int = Depends(get_current_user_id), db=Depend
 def admin_attendance_report(
     from_: Optional[str] = Query(None, alias="from"), to: Optional[str] = Query(None),
     class_id: Optional[int] = Query(None),
-    user_id: int = Depends(get_current_user_id), db=Depends(get_db),
+    user_id: int = Depends(require_permission("attendance.attendance_reports")), db=Depends(get_db),
     campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
     from_date = from_ or get_processing_date(db).strftime("%Y-%m-01")
@@ -238,7 +253,7 @@ def admin_attendance_report(
 def student_attendance_report(
     from_: Optional[str] = Query(None, alias="from"), to: Optional[str] = Query(None),
     class_id: Optional[int] = Query(None), search: Optional[str] = Query(""),
-    user_id: int = Depends(get_current_user_id), db=Depends(get_db),
+    user_id: int = Depends(require_permission("attendance.attendance_reports")), db=Depends(get_db),
     campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
     from_date = from_ or get_processing_date(db).strftime("%Y-%m-01")

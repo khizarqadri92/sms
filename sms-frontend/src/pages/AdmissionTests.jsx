@@ -17,7 +17,8 @@ export default function AdmissionTests() {
   const fDT = v => v ? formatDateTime(String(v).replace(" ", "T")) : "-";
   const navigate = useNavigate();
   const { can } = useAuth();
-  const canSchedule = can("admission.settings");
+  const canSchedule = can("admissions.admission_test_schedule");     // Roles & Permissions: Admission test schedule
+  const canDelete = can("admissions.admission_test_delete");         // Admission test delete
   const [meta, setMeta] = useState(null);
   const [campus, setCampus] = useState("");
   const [yearId, setYearId] = useState("");
@@ -104,7 +105,7 @@ export default function AdmissionTests() {
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <button className="am-btn am-btn--primary am-btn--sm" disabled={!s.candidates} onClick={() => navigate("/admissions/tests/" + s.id)}>Marks sheet ({s.candidates})</button>
                 {canSchedule && <button className="am-btn am-btn--sm" onClick={() => setEdit({ ...s, examiner_id: s.examiner_id || "" })}>Edit</button>}
-                {canSchedule && !s.candidates && <button className="am-btn am-btn--sm am-btn--bad" onClick={() => remove(s)}>Remove</button>}
+                {canDelete && !s.candidates && <button className="am-btn am-btn--sm am-btn--bad" onClick={() => remove(s)}>Remove</button>}
               </div>
             </div>
           ))}
