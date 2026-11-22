@@ -54,7 +54,7 @@ export default function AdmissionApplications() {
     <div className="am-page">
       <div className="am-head">
         <div><div className="am-title">Admission Applications</div><div className="am-sub">Search, review and process applications</div></div>
-        {can("admission.create") && <button className="am-btn am-btn--primary" onClick={() => navigate("/admissions/applications/new")}>+ New Application</button>}
+        {can("admissions.application_create") && <button className="am-btn am-btn--primary" onClick={() => navigate("/admissions/applications/new")}>+ New Application</button>}
       </div>
       <div className="am-card">
         <div className="am-filters">

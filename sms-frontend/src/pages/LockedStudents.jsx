@@ -123,7 +123,7 @@ export default function LockedStudents() {
                     <th>Days Overdue</th>
                     <th>Fine</th>
                     <th>Net Amount</th>
-                    {can("finance.manage") && <th></th>}
+                    {can("finance.account_unlock") && <th></th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -137,7 +137,7 @@ export default function LockedStudents() {
                       <td><span className="badge badge-danger">{r.days_overdue != null ? r.days_overdue + " days" : "-"}</span></td>
                       <td>{r.fine != null ? "Rs. " + Number(r.fine).toLocaleString() : "-"}</td>
                       <td><strong>{r.net_amount != null ? "Rs. " + Number(r.net_amount).toLocaleString() : "-"}</strong></td>
-                      {can("finance.manage") && (
+                      {can("finance.account_unlock") && (
                         <td>
                           <button className="btn btn-secondary btn-sm" onClick={() => handleUnlock(r.student_id)} disabled={unlockingId === r.student_id}>
                             {unlockingId === r.student_id ? "Unlocking..." : "Unlock"}

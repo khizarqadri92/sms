@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useAuth } from "../auth/AuthContext";
+import { useAuth, effectiveRole } from "../auth/AuthContext";
 import quizzesApi from "../api/quizzesApi";
 import diaryApi from "../api/diaryApi";
 import { useProcessingNow } from "../hooks/useProcessingNow";
@@ -11,7 +11,7 @@ const isExpired = (due, nowValue) => new Date(due) < (nowValue || new Date());
 
 export default function Quizzes() {
   const { user } = useAuth();
-  const role = user?.roles?.[0];
+  const role = effectiveRole(user);
   if (role === "student") return <StudentQuizzes />;
   if (role === "parent")  return <ParentQuizzes />;
   if (role === "principal" || role === "admin" || role === "superadmin") return <PrincipalQuizzes />;

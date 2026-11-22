@@ -21,8 +21,8 @@ const RESULT = { pass: "Pass", compartment: "Compartment", fail: "Fail", none: "
  */
 export default function Promotions() {
   const { can } = useAuth();
-  const canApprove = can("exam.approve");
-  const canManage = can("exam.manage") && !canApprove;     // coordinator side
+  const canApprove = can("exams_results.promotion_approval");
+  const canManage = can("exams_results.promotion_preparation") && !canApprove;     // coordinator side
   const [tab, setTab] = useState("classes");
   const [ov, setOv] = useState(null);
   const [batchId, setBatchId] = useState(null);

@@ -144,7 +144,13 @@ export default function AdmissionApplicationForm({ initial, classes = [], onSave
     finally { setSibBusy(false); sibBusyRef.current.delete(keyNo); }
   };
   const set = (k, v) => setF(x => ({ ...x, [k]: v }));
-  const inp = (k, props = {}) => CNIC_FIELDS.includes(k)
+  // contact details are masked by the server for people without "Application contact details": read-only, not re-checked
+  const contactLocked = !!(initial && initial.contact_masked);
+  const LOCKED = ["father_cnic", "father_phone", "father_email", "mother_cnic", "mother_phone", "mother_email", "guardian_cnic",
+                  "guardian_phone", "guardian_email", "b_form_no", "address", "pickup_address"];
+  const inp = (k, props = {}) => (contactLocked && LOCKED.includes(k))
+    ? <input className="am-input" value={f[k] || ""} disabled title="Hidden - you don't have permission to see contact details" />
+    : CNIC_FIELDS.includes(k)
     ? <input className="am-input" value={f[k] || ""} inputMode="numeric" maxLength={15} placeholder="35303-2054815-3"
         onChange={e => set(k, formatCnic(e.target.value))}
         onBlur={e => { if (k !== "b_form_no") cnicTyped(k.split("_")[0], e.target.value); }} {...props} />
@@ -159,21 +165,21 @@ export default function AdmissionApplicationForm({ initial, classes = [], onSave
     if (!f.class_name) return "Choose the class.";
     if (pg !== "other") {
       if (!f[pg + "_name"].trim()) return `Enter the ${pg}'s name - the ${pg} is the primary guardian.`;
-      if (!mobileOk(f[pg + "_phone"])) return `Enter the ${pg}'s mobile number like 0300 1234567 - it becomes the parent login.`;
+      if (!contactLocked && !mobileOk(f[pg + "_phone"])) return `Enter the ${pg}'s mobile number like 0300 1234567 - it becomes the parent login.`;
     } else {
       if (!f.guardian_name.trim()) return "Enter the guardian's name.";
-      if (!mobileOk(f.guardian_phone)) return "Enter the guardian's mobile number like 0300 1234567 - it becomes the parent login.";
+      if (!contactLocked && !mobileOk(f.guardian_phone)) return "Enter the guardian's mobile number like 0300 1234567 - it becomes the parent login.";
       if (!f.guardian_relationship) return "Choose the guardian's relationship with the student.";
       if (f.guardian_relationship === "other" && !f.guardian_relationship_other.trim()) return "Describe the guardian's relationship.";
     }
     const cnicNames = { b_form_no: "The B-Form / birth certificate number", father_cnic: "The father's CNIC",
                         mother_cnic: "The mother's CNIC", guardian_cnic: "The guardian's CNIC" };
-    for (const k of CNIC_FIELDS) if ((k !== "guardian_cnic" || pg === "other") && !cnicOk(f[k]))
+    for (const k of CNIC_FIELDS) if (!contactLocked && (k !== "guardian_cnic" || pg === "other") && !cnicOk(f[k]))
       return `${cnicNames[k]} should have 13 digits (it has ${digits(f[k]).length}).`;
     if (f.notify_contact === "guardian" && pg !== "other") return "'Other guardian' is only available when the primary guardian is Other.";
     if (!f.religion.trim()) return "Choose the student's religion.";
     if (!f.nationality.trim()) return "Enter the student's nationality.";
-    if (!f.address.trim()) return "Enter the residential address.";
+    if (!contactLocked && !f.address.trim()) return "Enter the residential address.";
     if (f.previous_school.trim() && !f.leaving_reason.trim()) return "Give the reason for leaving the previous school.";
     if (!f.living_with) return "Choose who the student lives with.";
     if (f.has_disability && !f.disability_types.length && !f.disability_details.trim()) return "Tell us about the child's disability or special need.";
@@ -237,7 +243,7 @@ export default function AdmissionApplicationForm({ initial, classes = [], onSave
             <datalist id="am-nationalities">{NATIONALITIES.map(n => <option key={n} value={n} />)}</datalist>
           </Field>
         </div>
-        <div style={{ marginTop: 12 }}><Field label="Residential address" required><textarea className="am-input" rows={2} value={f.address || ""} onChange={e => set("address", e.target.value)} /></Field></div>
+        <div style={{ marginTop: 12 }}><Field label="Residential address" required><textarea className="am-input" rows={2} value={f.address || ""} disabled={contactLocked} onChange={e => set("address", e.target.value)} /></Field></div>
       </div>
 
       {["father", "mother"].map((who, i) => (

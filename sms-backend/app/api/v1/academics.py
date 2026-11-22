@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from app.fastapi_auth import get_current_user_id
-from app.fastapi_permissions import require_permission
+from app.fastapi_permissions import require_permission, require_any_permission
 from app.fastapi_db import get_db, get_cur as _get_cur
 from app.fastapi_campus import get_current_campus_id
 from app.fastapi_campus import catalog_campus_id, catalog_campus_id_for_write
@@ -118,14 +118,14 @@ def my_subjects(user_id: int = Depends(get_current_user_id), db=Depends(get_db))
 # ── Academic Years ─────────────────────────
 
 @router.get("/years")
-def list_academic_years(user_id: int = Depends(require_permission("academics.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("academic_years"))):
+def list_academic_years(user_id: int = Depends(get_current_user_id), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("academic_years"))):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_list_academic_years(%s)", (campus_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.post("/years")
-def create_academic_year(body: AcademicYearIn, user_id: int = Depends(require_permission("academics.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("academic_years"))):
+def create_academic_year(body: AcademicYearIn, user_id: int = Depends(require_permission("academics.session_management")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("academic_years"))):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_create_academic_year(%s, %s, %s, %s, %s)", (body.name, body.start_date, body.end_date, body.is_active, campus_id))
     row = cur.fetchone()
@@ -134,7 +134,7 @@ def create_academic_year(body: AcademicYearIn, user_id: int = Depends(require_pe
 
 
 @router.put("/years/{id}/activate")
-def activate_academic_year(id: int, user_id: int = Depends(require_permission("academics.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("academic_years"))):
+def activate_academic_year(id: int, user_id: int = Depends(require_permission("academics.session_management")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("academic_years"))):
     cur = get_cur(db)
     cur.execute("SELECT campus_id FROM academic_years WHERE id=%s", (id,))
     _row = cur.fetchone()
@@ -147,7 +147,7 @@ def activate_academic_year(id: int, user_id: int = Depends(require_permission("a
 # ── Classes ─────────────────────────
 
 @router.get("/classes")
-def list_classes(query_campus_id: Optional[int] = Query(None), user_id: int = Depends(require_permission("classes.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("classes"))):
+def list_classes(query_campus_id: Optional[int] = Query(None), user_id: int = Depends(get_current_user_id), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("classes"))):
     cur = get_cur(db)
     if query_campus_id is not None:
         # Lets a superadmin explicitly ask for one campus's classes (e.g. when
@@ -163,7 +163,7 @@ def list_classes(query_campus_id: Optional[int] = Query(None), user_id: int = De
 
 
 @router.post("/classes")
-def create_class(body: ClassIn, user_id: int = Depends(require_permission("classes.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("classes"))):
+def create_class(body: ClassIn, user_id: int = Depends(require_permission("academics.class_management")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("classes"))):
     cur = get_cur(db)
     cur.execute("SELECT mode FROM setting_governance WHERE entity_key='classes'")
     _gov = cur.fetchone()
@@ -179,7 +179,7 @@ def create_class(body: ClassIn, user_id: int = Depends(require_permission("class
 
 
 @router.put("/classes/{id}")
-def update_class(id: int, body: ClassIn, user_id: int = Depends(require_permission("classes.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("classes"))):
+def update_class(id: int, body: ClassIn, user_id: int = Depends(require_permission("academics.class_management")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("classes"))):
     cur = get_cur(db)
     _check_class_campus(cur, id, campus_id)
     cur.execute(
@@ -195,7 +195,7 @@ def update_class(id: int, body: ClassIn, user_id: int = Depends(require_permissi
 
 
 @router.delete("/classes/{id}")
-def delete_class(id: int, user_id: int = Depends(require_permission("classes.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("classes"))):
+def delete_class(id: int, user_id: int = Depends(require_permission("academics.class_management")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("classes"))):
     cur = get_cur(db)
     _check_class_campus(cur, id, campus_id)
     cur.execute("SELECT sp_delete_class(%s)", (id,))
@@ -204,14 +204,83 @@ def delete_class(id: int, user_id: int = Depends(require_permission("classes.man
 
 
 @router.get("/classes/{id}/teachers")
-def get_class_teachers(id: int, user_id: int = Depends(require_permission("classes.view")), db=Depends(get_db)):
+def get_class_teachers(id: int, user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_class_teachers(%s)", (id,))
-    return ok(data=[dict(r) for r in cur.fetchall()])
+    rows = [dict(r) for r in cur.fetchall()]
+    _fill_teacher_subjects(cur, id, rows)
+    return ok(data=rows)
+
+
+def _has_cols(cur, table, cols):
+    cur.execute("SELECT COUNT(*) AS n FROM information_schema.columns WHERE table_schema='public' AND table_name=%s AND column_name = ANY(%s)",
+                (table, list(cols)))
+    return cur.fetchone()["n"] == len(cols)
+
+
+def _fill_teacher_subjects(cur, class_id, rows):
+    """
+    Each teacher's subjects for THIS class (Teacher Assignment record + subject-teacher assignments + timetable).
+    A teacher attached to the class without a subject of their own here gets a clear reason instead:
+      "English · English in this class is assigned to Bilal Khan"  /  "History · no subject assigned in this class yet ..."
+    Montessori incharges teach everything, so they are left as they are.
+    """
+    ids = [r.get("teacher_id") for r in rows if r.get("teacher_id")]
+    if not ids:
+        return
+    found = {}                                               # teacher_id -> subject names they teach in this class
+    assigned_to = {}                                         # subject name -> teacher id assigned to it in this class
+    try:
+        cur.execute("SAVEPOINT class_subject_teachers")
+        cur.execute("SELECT * FROM sp_get_class_subject_teacher_options(%s)", (class_id,))
+        for r in cur.fetchall():
+            tid, name = r.get("assigned_teacher_id"), r.get("subject_name")
+            if name and tid:
+                assigned_to[name] = tid
+                found.setdefault(tid, set()).add(name)
+        cur.execute("RELEASE SAVEPOINT class_subject_teachers")
+    except Exception:
+        cur.execute("ROLLBACK TO SAVEPOINT class_subject_teachers")
+    parts = []
+    if _has_cols(cur, "class_subject_teacher_assignments", ("class_id", "teacher_id", "subject_id")):
+        parts.append("SELECT a.teacher_id, a.subject_id FROM class_subject_teacher_assignments a WHERE a.class_id = %(c)s")
+    if _has_cols(cur, "timetable", ("class_id", "teacher_id", "subject_id")):
+        parts.append("SELECT tt.teacher_id, tt.subject_id FROM timetable tt WHERE tt.class_id = %(c)s AND tt.teacher_id IS NOT NULL")
+    if parts:
+        cur.execute("SELECT x.teacher_id, s.name FROM (" + " UNION ".join(parts) + ") x JOIN subjects s ON s.id = x.subject_id", {"c": class_id})
+        for r in cur.fetchall():
+            found.setdefault(r["teacher_id"], set()).add(r["name"])
+            assigned_to.setdefault(r["name"], r["teacher_id"])
+    own = {}
+    if _has_cols(cur, "teacher_subjects", ("teacher_id", "subject_id")):
+        cur.execute("""SELECT ts.teacher_id, s.name FROM teacher_subjects ts JOIN subjects s ON s.id = ts.subject_id
+                       WHERE ts.teacher_id = ANY(%s) ORDER BY s.name""", (ids,))
+        for r in cur.fetchall():
+            own.setdefault(r["teacher_id"], []).append(r["name"])
+    others = [t for t in set(assigned_to.values()) if t]
+    names = {}
+    if others:
+        cur.execute("SELECT id, first_name || ' ' || last_name AS n FROM teachers WHERE id = ANY(%s)", (others,))
+        names = {r["id"]: r["n"] for r in cur.fetchall()}
+    for r in rows:
+        tid = r.get("teacher_id")
+        if r.get("class_type") == "montessori":
+            continue                                        # the incharge teaches all subjects
+        if found.get(tid):
+            r["subject_names"] = ", ".join(sorted(found[tid]))
+            continue
+        mine = own.get(tid) or ([r["specialization"]] if r.get("specialization") else [])
+        taken = [f"{sub} in this class is assigned to {names.get(assigned_to[sub], 'another teacher')}"
+                 for sub in mine if sub in assigned_to and assigned_to[sub] != tid]
+        label = ", ".join(mine)
+        if taken:
+            r["subject_names"] = (label + " \u00b7 " if label else "") + "; ".join(taken)
+        else:
+            r["subject_names"] = (label + " \u00b7 " if label else "") + "no subject assigned in this class yet (set it in Teacher Assignment)"
 
 
 @router.post("/classes/{id}/teachers")
-def assign_class_teacher(id: int, body: AssignTeacherIn, user_id: int = Depends(require_permission("classes.manage")), db=Depends(get_db)):
+def assign_class_teacher(id: int, body: AssignTeacherIn, user_id: int = Depends(require_permission("academics.class_management")), db=Depends(get_db)):
     cur = get_cur(db)
     if (body.action or "assign") == "remove":
         cur.execute("SELECT sp_unassign_class_teacher(%s, %s)", (id, body.teacher_id))
@@ -228,7 +297,7 @@ def assign_class_teacher(id: int, body: AssignTeacherIn, user_id: int = Depends(
 
 
 @router.delete("/classes/{id}/teachers/{teacher_id}")
-def unassign_class_teacher(id: int, teacher_id: int, user_id: int = Depends(require_permission("classes.manage")), db=Depends(get_db)):
+def unassign_class_teacher(id: int, teacher_id: int, user_id: int = Depends(require_permission("academics.class_management")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT sp_unassign_class_teacher(%s, %s)", (id, teacher_id))
     db.commit()
@@ -236,14 +305,14 @@ def unassign_class_teacher(id: int, teacher_id: int, user_id: int = Depends(requ
 
 
 @router.get("/classes/{id}/subjects")
-def get_class_subjects(id: int, user_id: int = Depends(require_permission("classes.view")), db=Depends(get_db)):
+def get_class_subjects(id: int, user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_class_subjects(%s)", (id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.post("/classes/{id}/subjects")
-def assign_class_subject(id: int, body: AssignSubjectIn, user_id: int = Depends(require_permission("classes.manage")), db=Depends(get_db)):
+def assign_class_subject(id: int, body: AssignSubjectIn, user_id: int = Depends(require_permission("academics.class_management")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT sp_assign_class_subject(%s, %s)", (id, body.subject_id))
     db.commit()
@@ -251,7 +320,7 @@ def assign_class_subject(id: int, body: AssignSubjectIn, user_id: int = Depends(
 
 
 @router.delete("/classes/{id}/subjects/{subject_id}")
-def remove_class_subject(id: int, subject_id: int, user_id: int = Depends(require_permission("classes.manage")), db=Depends(get_db)):
+def remove_class_subject(id: int, subject_id: int, user_id: int = Depends(require_permission("academics.class_management")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT sp_remove_class_subject(%s, %s)", (id, subject_id))
     db.commit()
@@ -259,7 +328,7 @@ def remove_class_subject(id: int, subject_id: int, user_id: int = Depends(requir
 
 
 @router.get("/classes/{id}/subject-days")
-def get_class_subject_days(id: int, user_id: int = Depends(require_permission("classes.view")), db=Depends(get_db)):
+def get_class_subject_days(id: int, user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
     """Returns which weekdays each subject is configured to be taught on for
     this class, e.g. Math=[1,3,5] (Mon/Wed/Fri). A subject with no rows here
     hasn\'t been configured yet - the frontend should treat that as \'not
@@ -270,7 +339,7 @@ def get_class_subject_days(id: int, user_id: int = Depends(require_permission("c
 
 
 @router.put("/classes/{id}/subject-days")
-def set_class_subject_days(id: int, body: ClassSubjectDaysIn, user_id: int = Depends(require_permission("classes.manage")), db=Depends(get_db)):
+def set_class_subject_days(id: int, body: ClassSubjectDaysIn, user_id: int = Depends(require_permission("academics.class_management")), db=Depends(get_db)):
     """Replaces this class\'s entire subject/day setup in one call - the
     academic coordinator submits the full grid (subject -> days taught)
     each time rather than incremental add/remove."""
@@ -283,7 +352,7 @@ def set_class_subject_days(id: int, body: ClassSubjectDaysIn, user_id: int = Dep
 
 
 @router.get("/classes/{id}/subject-teachers")
-def get_class_subject_teachers(id: int, user_id: int = Depends(require_permission("classes.view")), db=Depends(get_db)):
+def get_class_subject_teachers(id: int, user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
     """For each subject this class has, returns the currently assigned
     teacher (if any) plus the list of teachers qualified to teach it (i.e.
     on teacher_subjects AND already attached to this class via
@@ -295,7 +364,7 @@ def get_class_subject_teachers(id: int, user_id: int = Depends(require_permissio
 
 
 @router.put("/classes/{id}/subject-teachers")
-def set_class_subject_teacher(id: int, body: ClassSubjectTeacherIn, user_id: int = Depends(require_permission("classes.manage")), db=Depends(get_db)):
+def set_class_subject_teacher(id: int, body: ClassSubjectTeacherIn, user_id: int = Depends(require_permission("academics.class_management")), db=Depends(get_db)):
     """Fixes a single subject to exactly one teacher for this class - the
     AI Timetable Generator then uses this teacher directly for that
     class/subject instead of picking among several qualified options."""
@@ -306,7 +375,7 @@ def set_class_subject_teacher(id: int, body: ClassSubjectTeacherIn, user_id: int
 
 
 @router.post("/classes/{id}/subject-teachers/auto-assign")
-def auto_assign_class_subject_teachers(id: int, user_id: int = Depends(require_permission("classes.manage")), db=Depends(get_db)):
+def auto_assign_class_subject_teachers(id: int, user_id: int = Depends(require_permission("academics.class_management")), db=Depends(get_db)):
     """For every subject on this class that doesn\'t yet have a fixed
     teacher, picks any one qualified teacher (from teacher_subjects +
     class_teachers) and assigns them. Existing assignments are left as-is
@@ -322,14 +391,14 @@ def auto_assign_class_subject_teachers(id: int, user_id: int = Depends(require_p
 # ── Subjects ─────────────────────────
 
 @router.get("/subjects")
-def list_subjects(user_id: int = Depends(require_permission("subjects.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("subjects"))):
+def list_subjects(user_id: int = Depends(get_current_user_id), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("subjects"))):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_list_subjects(%s)", (campus_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.post("/subjects")
-def create_subject(body: SubjectIn, user_id: int = Depends(require_permission("subjects.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("subjects"))):
+def create_subject(body: SubjectIn, user_id: int = Depends(require_permission("academics.subject_management")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("subjects"))):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_create_subject(%s,%s,%s,%s,%s)", (body.name, clean(body.code), clean(body.description), clean(body.credit_hours), campus_id))
     row = cur.fetchone()
@@ -338,7 +407,7 @@ def create_subject(body: SubjectIn, user_id: int = Depends(require_permission("s
 
 
 @router.put("/subjects/{id}")
-def update_subject(id: int, body: SubjectIn, user_id: int = Depends(require_permission("subjects.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("subjects"))):
+def update_subject(id: int, body: SubjectIn, user_id: int = Depends(require_permission("academics.subject_management")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("subjects"))):
     cur = get_cur(db)
     cur.execute("SELECT campus_id FROM subjects WHERE id=%s", (id,))
     _row = cur.fetchone()
@@ -356,7 +425,7 @@ def update_subject(id: int, body: SubjectIn, user_id: int = Depends(require_perm
 
 
 @router.delete("/subjects/{id}")
-def deactivate_subject(id: int, user_id: int = Depends(require_permission("subjects.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("subjects"))):
+def deactivate_subject(id: int, user_id: int = Depends(require_permission("academics.subject_management")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("subjects"))):
     cur = get_cur(db)
     cur.execute("SELECT campus_id FROM subjects WHERE id=%s", (id,))
     _row = cur.fetchone()
@@ -367,7 +436,7 @@ def deactivate_subject(id: int, user_id: int = Depends(require_permission("subje
 
 
 @router.post("/subjects/{id}/reactivate")
-def reactivate_subject(id: int, user_id: int = Depends(require_permission("subjects.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("subjects"))):
+def reactivate_subject(id: int, user_id: int = Depends(require_permission("academics.subject_management")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("subjects"))):
     cur = get_cur(db)
     cur.execute("SELECT campus_id FROM subjects WHERE id=%s", (id,))
     _row = cur.fetchone()
@@ -380,14 +449,14 @@ def reactivate_subject(id: int, user_id: int = Depends(require_permission("subje
 # ── Timetable ─────────────────────────
 
 @router.get("/timetable")
-def list_timetable(class_id: Optional[int] = Query(None), user_id: int = Depends(require_permission("timetable.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def list_timetable(class_id: Optional[int] = Query(None), user_id: int = Depends(require_permission("academics.timetable_view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_list_timetable(%s, %s)", (class_id, campus_id))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.post("/timetable")
-def create_timetable_entry(body: TimetableIn, user_id: int = Depends(require_permission("timetable.manage")), db=Depends(get_db)):
+def create_timetable_entry(body: TimetableIn, user_id: int = Depends(require_permission("academics.timetable_edit")), db=Depends(get_db)):
     cur = get_cur(db)
     try:
         cur.execute(
@@ -403,7 +472,7 @@ def create_timetable_entry(body: TimetableIn, user_id: int = Depends(require_per
 
 
 @router.delete("/timetable/{id}")
-def delete_timetable_entry(id: int, user_id: int = Depends(require_permission("timetable.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def delete_timetable_entry(id: int, user_id: int = Depends(require_permission("academics.timetable_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("SELECT c.campus_id FROM timetable t JOIN classes c ON c.id = t.class_id WHERE t.id = %s", (id,))
     row = cur.fetchone()
@@ -414,7 +483,7 @@ def delete_timetable_entry(id: int, user_id: int = Depends(require_permission("t
 
 
 @router.delete("/timetable/by-class/{class_id}")
-def delete_timetable_for_class(class_id: int, user_id: int = Depends(require_permission("timetable.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def delete_timetable_for_class(class_id: int, user_id: int = Depends(require_permission("academics.timetable_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     """Clears every existing timetable entry for a class - used before
     re-applying an AI-generated schedule, so re-generating and applying
     again replaces the previous schedule instead of appending duplicate
@@ -428,7 +497,7 @@ def delete_timetable_for_class(class_id: int, user_id: int = Depends(require_per
 
 
 @router.get("/timetable/ai-context")
-def timetable_ai_context(user_id: int = Depends(require_permission("timetable.manage")), db=Depends(get_db)):
+def timetable_ai_context(user_id: int = Depends(require_permission("academics.timetable_edit")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_school_timing_settings()")
     settings = {r["key"]: r["value"] for r in cur.fetchall()}
@@ -463,7 +532,7 @@ def timetable_ai_context(user_id: int = Depends(require_permission("timetable.ma
 
 
 @router.post("/timetable/ai-generate")
-def timetable_ai_generate(body: dict, user_id: int = Depends(require_permission("timetable.manage"))):
+def timetable_ai_generate(body: dict, user_id: int = Depends(require_permission("academics.timetable_edit"))):
     import os
     try:
         import anthropic
@@ -490,3 +559,62 @@ def timetable_ai_generate(body: dict, user_id: int = Depends(require_permission(
         fail("AI generation failed: " + str(e), 500)
 
     return ok(data={"result": text})
+
+
+
+# =============================================================================
+# Class set-up history (saved when a session ends) + copying last session's timetable
+# =============================================================================
+@router.get("/setup-history")
+def setup_history(class_id: Optional[int] = Query(None), academic_year_id: Optional[int] = Query(None),
+                  user_id: int = Depends(require_any_permission("academics.timetable_view", "academics.timetable_edit", "academics.class_view")),
+                  db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+    """Past sessions' class set-up: which sessions exist, or one session's (and optionally one class's) snapshot."""
+    cur = get_cur(db)
+    if not academic_year_id:
+        cur.execute("""SELECT h.academic_year_id, ay.name AS session, COUNT(*) AS classes, MAX(h.taken_at) AS saved_at
+                       FROM class_setup_history h JOIN academic_years ay ON ay.id = h.academic_year_id
+                       WHERE (%s::int IS NULL OR h.campus_id = %s) AND (%s::int IS NULL OR h.class_id = %s)
+                       GROUP BY h.academic_year_id, ay.name, ay.start_date ORDER BY ay.start_date DESC""", (campus_id, campus_id, class_id, class_id))
+        return ok(data=[{**dict(r), "saved_at": str(r["saved_at"])} for r in cur.fetchall()])
+    cur.execute("""SELECT h.*, ay.name AS session FROM class_setup_history h JOIN academic_years ay ON ay.id = h.academic_year_id
+                   WHERE h.academic_year_id = %s AND (%s::int IS NULL OR h.campus_id = %s) AND (%s::int IS NULL OR h.class_id = %s)
+                   ORDER BY h.class_label""", (academic_year_id, campus_id, campus_id, class_id, class_id))
+    return ok(data=[{**dict(r), "taken_at": str(r["taken_at"])} for r in cur.fetchall()])
+
+
+class CopyTimetableIn(BaseModel):
+    class_id: Optional[int] = None          # one class, or every class of the campus
+
+
+@router.post("/timetable/copy-previous")
+def copy_previous_timetable(body: CopyTimetableIn, user_id: int = Depends(require_permission("academics.timetable_edit")),
+                            db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+    """Fill EMPTY timetables of the current session from last session's saved timetable (nothing is overwritten)."""
+    cur = get_cur(db)
+    cur.execute("""SELECT c.id, c.name || COALESCE(' (' || c.section || ')', '') AS label, c.academic_year_id,
+                          (SELECT COUNT(*) FROM timetable t WHERE t.class_id = c.id) AS current_entries,
+                          (SELECT h.timetable FROM class_setup_history h JOIN academic_years ay ON ay.id = h.academic_year_id
+                           WHERE h.class_id = c.id AND h.academic_year_id <> c.academic_year_id
+                           ORDER BY ay.start_date DESC LIMIT 1) AS previous
+                   FROM classes c WHERE (%s::int IS NULL OR c.campus_id = %s) AND (%s::int IS NULL OR c.id = %s)""",
+                (campus_id, campus_id, body.class_id, body.class_id))
+    copied, skipped, filled = 0, [], []
+    for c_ in cur.fetchall():
+        if c_["current_entries"]: skipped.append(c_["label"] + " (already has a timetable)"); continue
+        prev = c_["previous"] or []
+        if not prev: skipped.append(c_["label"] + " (no saved timetable)"); continue
+        n = 0
+        for e in prev:
+            if e.get("teacher_id"):
+                cur.execute("SELECT 1 FROM teachers WHERE id=%s AND COALESCE(status, 'active') = 'active'", (e["teacher_id"],))
+                if not cur.fetchone(): e = {**e, "teacher_id": None}
+            cur.execute("""INSERT INTO timetable (class_id, subject_id, teacher_id, day_of_week, start_time, end_time, room_number)
+                           VALUES (%s,%s,%s,%s,%s,%s,%s)""",
+                        (c_["id"], e.get("subject_id"), e.get("teacher_id"), e.get("day_of_week"), e.get("start_time"), e.get("end_time"), e.get("room_number")))
+            n += 1
+        copied += n; filled.append(f"{c_['label']} ({n})")
+    db.commit()
+    return ok(data={"entries_copied": copied, "classes_filled": filled, "skipped": skipped},
+              message=(f"{copied} timetable entries copied from last session" + (f" into {len(filled)} class(es)." if filled else ".")) if copied
+                      else "Nothing copied - " + ("; ".join(skipped[:3]) if skipped else "no classes found") + ".")

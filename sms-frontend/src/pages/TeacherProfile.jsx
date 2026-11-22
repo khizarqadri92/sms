@@ -369,7 +369,7 @@ function SubjectsTab({ teacherId, onRefresh }) {
           >
             Assign
           </button>
-          {can("teachers.edit") && <button
+          {can("hr.staff_deactivate") && <button
             className="btn btn-danger"
             onClick={() => handleAction("remove")}
             disabled={saving || !selected}

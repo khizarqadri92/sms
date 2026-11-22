@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from app.fastapi_auth import get_current_user_id
-from app.fastapi_permissions import require_permission
+from app.fastapi_permissions import require_permission, require_any_permission
 from app.fastapi_campus import get_current_campus_id
 from app.fastapi_campus import enforce_same_campus, catalog_campus_id, catalog_campus_id_for_write
 from app.fastapi_db import get_db, get_cur as _get_cur
@@ -49,7 +49,7 @@ class EventTypeIn(BaseModel):
 @router.get("/")
 def list_events(
     month: Optional[int] = Query(None), year: Optional[int] = Query(None),
-    user_id: int = Depends(require_permission("calendar.view")), db=Depends(get_db),
+    user_id: int = Depends(require_permission("communication.calendar_view")), db=Depends(get_db),
     campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
     y = year or get_processing_date(db).year
@@ -69,7 +69,7 @@ def list_events(
 
 
 @router.post("/")
-def create_event(body: EventIn, user_id: int = Depends(require_permission("calendar.manage")), db=Depends(get_db)):
+def create_event(body: EventIn, user_id: int = Depends(require_permission("communication.calendar_management")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute(
         "SELECT sp_create_calendar_event(%s,%s,%s,%s,%s,%s,%s) AS id",
@@ -96,7 +96,7 @@ def create_event(body: EventIn, user_id: int = Depends(require_permission("calen
 
 
 @router.put("/{id}")
-def update_event(id: int, body: EventIn, user_id: int = Depends(require_permission("calendar.manage")), db=Depends(get_db)):
+def update_event(id: int, body: EventIn, user_id: int = Depends(require_permission("communication.calendar_management")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute(
         "SELECT sp_update_calendar_event(%s,%s,%s,%s,%s,%s,%s)",
@@ -108,7 +108,7 @@ def update_event(id: int, body: EventIn, user_id: int = Depends(require_permissi
 
 
 @router.delete("/{id}")
-def delete_event(id: int, user_id: int = Depends(require_permission("calendar.manage")), db=Depends(get_db)):
+def delete_event(id: int, user_id: int = Depends(require_permission("communication.calendar_management")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT sp_delete_calendar_event(%s)", (id,))
     db.commit()
@@ -127,14 +127,14 @@ def get_holidays(user_id: int = Depends(get_current_user_id), db=Depends(get_db)
 
 
 @router.get("/event-types")
-def list_event_types(user_id: int = Depends(require_permission("calendar.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("event_types"))):
+def list_event_types(user_id: int = Depends(require_permission("communication.calendar_view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("event_types"))):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_list_event_types(%s)", (campus_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.post("/event-types")
-def create_event_type(body: EventTypeIn, user_id: int = Depends(require_permission("calendar.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("event_types"))):
+def create_event_type(body: EventTypeIn, user_id: int = Depends(require_permission("communication.calendar_management")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("event_types"))):
     cur = get_cur(db)
     cur.execute("SELECT sp_create_event_type(%s,%s,%s,%s) AS id", (body.name, body.color or "#2563eb", body.is_holiday or False, campus_id))
     new_id = cur.fetchone()["id"]
@@ -143,7 +143,7 @@ def create_event_type(body: EventTypeIn, user_id: int = Depends(require_permissi
 
 
 @router.put("/event-types/{id}")
-def update_event_type(id: int, body: EventTypeIn, user_id: int = Depends(require_permission("calendar.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("event_types"))):
+def update_event_type(id: int, body: EventTypeIn, user_id: int = Depends(require_permission("communication.calendar_management")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("event_types"))):
     cur = get_cur(db)
     cur.execute("SELECT campus_id FROM event_types WHERE id=%s", (id,))
     _row = cur.fetchone()
@@ -154,7 +154,7 @@ def update_event_type(id: int, body: EventTypeIn, user_id: int = Depends(require
 
 
 @router.delete("/event-types/{id}")
-def delete_event_type(id: int, user_id: int = Depends(require_permission("calendar.manage")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("event_types"))):
+def delete_event_type(id: int, user_id: int = Depends(require_permission("communication.calendar_management")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("event_types"))):
     cur = get_cur(db)
     cur.execute("SELECT campus_id FROM event_types WHERE id=%s", (id,))
     _row = cur.fetchone()

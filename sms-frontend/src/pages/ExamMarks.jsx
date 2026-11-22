@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useAuth } from "../auth/AuthContext";
+import { useAuth, effectiveRole } from "../auth/AuthContext";
 import { useSearchParams } from "react-router-dom";
 import { examsApi } from "../api/examsApi";
 import client from "../api/client";
@@ -8,9 +8,9 @@ import "./ExamMarks.css";
 export default function ExamMarks() {
   const { user, can } = useAuth();
   const [searchParams] = useSearchParams();
-  const role = user?.roles?.[0] || "";
-  const canCompile = can("exam.compile");
-  const isCoordinator = ["academic_coordinator","admin","superadmin"].includes(role);
+  const role = effectiveRole(user) || "";
+  const canCompile = can("exams_results.result_compilation");
+  const isCoordinator = can("exams_results.marks_change_after_submission");   // coordinator-level marks control
 
   const [exams,         setExams]         = useState([]);
   const [myClasses,     setMyClasses]     = useState([]);

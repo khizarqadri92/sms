@@ -85,7 +85,7 @@ export default function Teachers() {
           <h1 className="page-heading">Teachers</h1>
           {total > 0 && <span className="badge badge-primary">{total} total</span>}
         </div>
-        {can("teachers.create") && (
+        {can("hr.staff_create") && (
           <button className="btn btn-primary" onClick={() => setShowCreate(true)}>+ Add Teacher</button>
         )}
       </div>
@@ -200,7 +200,7 @@ export default function Teachers() {
                   </td>
                   <td className="t-actions-cell">
                     <button className="btn btn-ghost btn-xs" onClick={() => navigate(`/teachers/${t.id}`)}>View →</button>
-                    {can("teachers.delete") && (
+                    {can("hr.staff_deactivate") && (
                       t.status === "active" ? (
                         <button className="btn btn-danger btn-xs" onClick={() => handleDeactivate(t.id)}>Deactivate</button>
                       ) : (

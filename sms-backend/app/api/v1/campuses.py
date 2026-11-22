@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.fastapi_auth import get_current_user_id
-from app.fastapi_permissions import require_permission
+from app.fastapi_permissions import require_permission, require_any_permission
 from app.fastapi_db import get_db, get_cur
 from app.fastapi_campus import get_current_campus_id
 
@@ -52,14 +52,14 @@ def my_campus(user_id: int = Depends(get_current_user_id), campus_id=Depends(get
 
 
 @router.get("/")
-def list_campuses(user_id: int = Depends(require_permission("campuses.view")), db=Depends(get_db)):
+def list_campuses(user_id: int = Depends(require_permission("settings.campuses")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_list_campuses()")
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.put("/")
-def upsert_campus(body: CampusIn, user_id: int = Depends(require_permission("campuses.manage")), db=Depends(get_db)):
+def upsert_campus(body: CampusIn, user_id: int = Depends(require_permission("settings.campuses")), db=Depends(get_db)):
     """Creates a new campus (id omitted) or updates an existing one (id
     given). Cloning an existing campus's setup - beyond the basic fields
     here - is limited in this phase to what's actually per-campus so far
@@ -94,7 +94,7 @@ def list_governance(user_id: int = Depends(get_current_user_id), db=Depends(get_
 
 
 @router.put("/governance/{entity_key}")
-def update_governance(entity_key: str, body: GovernanceUpdateIn, user_id: int = Depends(require_permission("campuses.manage")), db=Depends(get_db)):
+def update_governance(entity_key: str, body: GovernanceUpdateIn, user_id: int = Depends(require_permission("settings.setting_governance")), db=Depends(get_db)):
     if body.mode not in ("global", "per_campus"):
         fail("mode must be 'global' or 'per_campus'.", 400)
     cur = get_cur(db)

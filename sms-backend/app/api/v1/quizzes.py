@@ -10,9 +10,11 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from app.fastapi_auth import get_current_user_id
-from app.fastapi_permissions import require_permission
+from app.fastapi_permissions import require_permission, require_any_permission
 from app.fastapi_db import get_db, get_cur as _get_cur
 from app.utils.processing_date import get_processing_datetime
+
+from app.utils.session_scope import keep_session, assert_current_session   # current session / history
 
 router = APIRouter()
 
@@ -65,7 +67,7 @@ class SubmitQuizIn(BaseModel):
 
 
 @router.post("/")
-def create_quiz(body: QuizCreateIn, user_id: int = Depends(require_permission("quiz.create")), db=Depends(get_db)):
+def create_quiz(body: QuizCreateIn, user_id: int = Depends(require_permission("academics.quiz_create")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT sp_get_teacher_id_by_user(%s) AS tid", (user_id,))
     row = cur.fetchone()
@@ -122,9 +124,9 @@ def create_quiz(body: QuizCreateIn, user_id: int = Depends(require_permission("q
 
 
 @router.get("/")
-def list_quizzes(
+def list_quizzes(academic_year_id: Optional[int] = Query(None), 
     class_id: Optional[int] = Query(None), subject_id: Optional[int] = Query(None),
-    user_id: int = Depends(require_permission("quiz.view")), db=Depends(get_db),
+    user_id: int = Depends(require_permission("academics.quiz_view")), db=Depends(get_db),
 ):
     cur = get_cur(db)
     cur.execute("SELECT sp_get_student_id_by_user(%s) AS sid", (user_id,))
@@ -143,11 +145,12 @@ def list_quizzes(
                 "percentage": float(r["my_percentage"] or 0),
                 "submitted_at": r["my_submitted_at"],
             }
+    rows = keep_session(cur, "quizzes", rows, academic_year_id)
     return ok(data=rows)
 
 
 @router.get("/my-quizzes")
-def my_quizzes(user_id: int = Depends(require_permission("quiz.create")), db=Depends(get_db)):
+def my_quizzes(academic_year_id: Optional[int] = Query(None), user_id: int = Depends(require_permission("academics.quiz_create")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT sp_get_teacher_id_by_user(%s) AS tid", (user_id,))
     row = cur.fetchone()
@@ -158,13 +161,14 @@ def my_quizzes(user_id: int = Depends(require_permission("quiz.create")), db=Dep
     now = get_processing_datetime(db).isoformat()
     for r in rows:
         r["is_expired"] = r["due_date"] < now
+    rows = keep_session(cur, "quizzes", rows, academic_year_id)
     return ok(data=rows)
 
 
 @router.get("/student-history")
 def student_quiz_history(
     student_id: Optional[int] = Query(None), before_date: Optional[str] = Query(None),
-    user_id: int = Depends(require_permission("quiz.view")), db=Depends(get_db),
+    user_id: int = Depends(require_permission("academics.quiz_view")), db=Depends(get_db),
 ):
     if not student_id:
         fail("student_id required", 400)
@@ -179,7 +183,7 @@ def student_quiz_history(
 
 
 @router.get("/{id}")
-def get_quiz(id: int, user_id: int = Depends(require_permission("quiz.view")), db=Depends(get_db)):
+def get_quiz(id: int, user_id: int = Depends(require_permission("academics.quiz_view")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_quiz_by_id(%s)", (id,))
     quiz = cur.fetchone()
@@ -217,9 +221,10 @@ def get_quiz(id: int, user_id: int = Depends(require_permission("quiz.view")), d
 
 
 @router.post("/{id}/submit")
-def submit_quiz(id: int, body: SubmitQuizIn, user_id: int = Depends(require_permission("quiz.attempt")), db=Depends(get_db)):
+def submit_quiz(id: int, body: SubmitQuizIn, user_id: int = Depends(require_permission("academics.quiz_attempt")), db=Depends(get_db)):
     import json
     cur = get_cur(db)
+    assert_current_session(cur, "quizzes", id)
     cur.execute("SELECT sp_get_student_id_by_user(%s) AS sid", (user_id,))
     row = cur.fetchone()
     if not row or not row["sid"]:
@@ -274,7 +279,7 @@ def submit_quiz(id: int, body: SubmitQuizIn, user_id: int = Depends(require_perm
 
 
 @router.get("/{id}/results")
-def quiz_results(id: int, user_id: int = Depends(require_permission("quiz.view")), db=Depends(get_db)):
+def quiz_results(id: int, user_id: int = Depends(require_permission("academics.quiz_view")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_quiz_by_id(%s)", (id,))
     quiz = cur.fetchone()
@@ -291,8 +296,9 @@ def quiz_results(id: int, user_id: int = Depends(require_permission("quiz.view")
 
 
 @router.delete("/{id}")
-def delete_quiz(id: int, user_id: int = Depends(require_permission("quiz.create")), db=Depends(get_db)):
+def delete_quiz(id: int, user_id: int = Depends(require_permission("academics.quiz_create")), db=Depends(get_db)):
     cur = get_cur(db)
+    assert_current_session(cur, "quizzes", id)
     cur.execute("SELECT sp_delete_quiz(%s)", (id,))
     db.commit()
     return ok(message="Quiz deleted.")

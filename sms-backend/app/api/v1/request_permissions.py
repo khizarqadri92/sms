@@ -36,15 +36,7 @@ def user_has_permission(db, user_id: int, code: str) -> bool:
     (via any of their roles), for use as a fallback before consulting the
     narrower request-permission scope."""
     cur = get_cur(db)
-    cur.execute(
-        "SELECT EXISTS("
-        "  SELECT 1 FROM role_permissions rp"
-        "  JOIN user_roles ur ON ur.role_id = rp.role_id"
-        "  JOIN permissions p ON p.id = rp.permission_id"
-        "  WHERE ur.user_id = %s AND p.code = %s"
-        ") AS has_perm",
-        (user_id, code)
-    )
+    cur.execute("SELECT fn_user_has_permission(%s, %s) AS has_perm", (user_id, code))
     row = cur.fetchone()
     return bool(row and row["has_perm"])
 

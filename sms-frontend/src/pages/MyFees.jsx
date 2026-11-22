@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import studentsApi from "../api/studentsApi";
+import { useAuth, effectiveRole } from "../auth/AuthContext";
 import financeApi  from "../api/financeApi";
 import InvoiceTimelineModal from "../components/InvoiceTimelineModal";
 import { useProcessingToday } from "../hooks/useProcessingToday";
@@ -48,6 +49,9 @@ export default function MyFees() {
   const [success,     setSuccess]     = useState("");
   const [tab,         setTab]         = useState("fees");
   const [timelineInvoiceId, setTimelineInvoiceId] = useState(null);
+  const { user } = useAuth();
+  const isStudent = effectiveRole(user) === "student";
+  const [children,    setChildren]    = useState([]);      // a parent's children (picker when more than one)
 
   useEffect(() => {
     const handler = e => {
@@ -59,14 +63,23 @@ export default function MyFees() {
 
   useEffect(() => { fetchMyFees(); }, []);
 
-  const fetchMyFees = async () => {
-    setLoading(true);
+  const fetchMyFees = async (chosenId) => {
+    setLoading(true); setError("");
     try {
-      const paramStudentId = searchParams.get("studentId");
-      let studentId = paramStudentId;
+      let studentId = chosenId || searchParams.get("studentId") || summary?.studentId;
       if (!studentId) {
-        const meRes = await studentsApi.getMe();
-        studentId = meRes.data.data?.id;
+        if (isStudent) {
+          const meRes = await studentsApi.getMe();                 // a student: their own record
+          studentId = meRes.data.data?.id;
+        } else {
+          const cr = await studentsApi.getMyChildren();            // a parent: their children
+          const kids = cr.data.data || [];
+          setChildren(kids);
+          studentId = kids[0]?.id;
+          if (!kids.length) { setError("No children are linked to your account yet."); setLoading(false); return; }
+        }
+      } else if (!isStudent && !children.length) {
+        studentsApi.getMyChildren().then(cr => setChildren(cr.data.data || [])).catch(() => {});
       }
       if (!studentId) { setError("Student profile not found."); setLoading(false); return; }
       const res = await studentsApi.getFees(studentId);
@@ -104,8 +117,18 @@ export default function MyFees() {
 
   return (
     <div>
-      <div className="page-header sv-gap16">
-        <h1 className="page-heading">My Fees</h1>
+      <div className="page-header sv-gap16" style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <h1 className="page-heading">{isStudent ? "My Fees" : "Fees"}</h1>
+        {!isStudent && children.length > 1 && (
+          <select className="form-control" style={{ maxWidth: 260 }} value={String(summary.studentId)}
+                  onChange={e => fetchMyFees(e.target.value)}>
+            {children.map(ch => (
+              <option key={ch.id} value={String(ch.id)}>
+                {ch.first_name} {ch.last_name}{ch.class_name ? ` - ${ch.class_name}${ch.class_section ? ` (${ch.class_section})` : ""}` : ""}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
       {success && <div className="alert alert-success">{success}</div>}

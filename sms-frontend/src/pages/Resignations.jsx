@@ -385,7 +385,7 @@ export default function Resignations() {
                 </div>
               )}
 
-              {viewing.status === "accepted" && can("hr.edit") && (
+              {viewing.status === "accepted" && can("hr.resignation_management") && (
                 <div className="res-section-box">
                   <div className="res-section-title">Clearance Checklist</div>
                   {(!viewing.clearance_items || viewing.clearance_items.length===0) ? (
@@ -515,7 +515,7 @@ export default function Resignations() {
                 </div>
               )}
 
-              {viewing.status === "cleared" && can("hr.edit") && (
+              {viewing.status === "cleared" && can("hr.resignation_management") && (
                 <div className="res-section-box">
                   <div className="res-section-title">Settlement</div>
                   {!viewing.settlement ? (
@@ -613,7 +613,7 @@ export default function Resignations() {
               {viewing.status === "settlement_reviewed" && viewing.settlement && (
                 <div className="res-section-box">
                   <div className="res-section-title">Finalize Settlement</div>
-                  {!can("payroll.manage") ? (
+                  {!can("payroll.payroll_approval", "hr.resignation_management") ? (
                     <div className="res-not-assigned">
                       This settlement is now with Finance for calculation and finalization.
                     </div>
@@ -719,7 +719,7 @@ export default function Resignations() {
               )}
 
               {viewing.status === "settled" && (
-                can("hr.edit") ? (
+                can("hr.resignation_management") ? (
                 <div className="res-section-box">
                   <div className="res-section-title">Finalize Exit</div>
                   <button className="btn btn-primary btn-sm res-btn-white" disabled={acting} onClick={completeExit}>

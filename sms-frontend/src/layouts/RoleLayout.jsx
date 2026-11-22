@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import workQueueApi from "../api/workQueueApi";
+import messagesApi from "../api/messagesApi";
 import AnnouncementTicker from '../components/AnnouncementTicker';
-import { NavLink, useLocation, useNavigate } from "react-router-dom";
+import { NavLink, useLocation, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
 import attendanceApi from "../api/attendanceApi";
@@ -10,554 +11,180 @@ import campusesApi from "../api/campusesApi";
 import { useTheme } from "../auth/ThemeContext";
 import "./RoleLayout.css";
 
-const NAV = {
-  superadmin: [
-    { label:"General",    cat:"General",    items:[
-      { label:"Dashboard", path:"/dashboard" },
-      { label:"Campuses", path:"/campuses", perm:"campuses.view" },
-      { label:"Setting Governance", path:"/setting-governance", perm:"campuses.manage" },
-      { label:"Work Queue", path:"/work-queue" },
-      { label:"My Leave",   path:"/staff-leave"  },
-      { label:"My Attendance", path:"/my-attendance" },
-      { label:"My Payslip", path:"/my-payslips" },
-      { label:"My Resignation", path:"/my-resignation" },
-      { label:"Department Attendance", path:"/my-department-attendance", requiresHod:true },
-      { label:"My Profile", path:"/my-profile"   },
-      { label:"Workflow Builder", path:"/workflow-builder" },
-      { label:"Report Permissions", path:"/report-permissions" },
-      { label:"Request Permissions", path:"/request-permissions" },
-      { label:"Calendar",  path:"/calendar"  },
-    ]},
-    { label:"People",     cat:"People",     items:[
-      { label:"Students",  path:"/students"  },
-      { label:"Teachers",  path:"/teachers"  },
-      { label:"Users",     path:"/users"     },
-    ]},
-    { label:"Management", cat:"Management", items:[
-      { label:"Academic", path:"/management/academic" },
-      { label:"HR", path:"/management/hr", perm:"hr.view" },
-      { label:"Library", path:"/library", perm:"library.view" },
-      { label:"Procurement", path:"/management/procurement", perm:"procurement.view" },
-      { label:"Finance", path:"/management/finance" },
-    ]},
-    { label:"Requests", cat:"Requests", items:[
-      { label:"Staff Leave Requests", path:"/hr/leave-requests", perm:"hr.view" },
-      { label:"Withdrawal", path:"/withdrawal"     },
-      { label:"Discipline", path:"/discipline"     },
-    ]},
-    { label:"Setup", cat:"Setup", items:[
-      { label:"Finance Setup", path:"/setup/finance", perm:"campuses.manage" },
-      { label:"HR Setup", path:"/setup/hr", perm:"campuses.manage" },
-      { label:"Library Setup", path:"/setup/library", perm:"campuses.manage" },
-      { label:"Procurement Setup", path:"/setup/procurement", perm:"procurement.manage" },
-      { label:"Academic Setup", path:"/setup/academic", perm:"campuses.manage" },
-    ]},
-    { label:"Reports",    cat:"Reports",    items:[
-      { label:"Employee Attendance", path:"/reports/employee-attendance", perm:"reports.employee_attendance" },
-      { label:"Attendance", path:"/admin-attendance", perm:"reports.attendance_hub" },
-      { label:"By Teacher", path:"/teacher-attendance-report", parent:"/admin-attendance", perm:"reports.attendance_hub" },
-      { label:"By Student", path:"/student-attendance-report", parent:"/admin-attendance", perm:"reports.attendance_hub" },
-      { label:"Employee Salaries", path:"/reports/employee-salaries", perm:"reports.employee_salaries" },
-      { label:"Expenditure Details", path:"/reports/expenditure-details", perm:"reports.expenditure" },
-      { label:"Fee Report", path:"/fee-report", perm:"reports.fee_report" },
-      { label:"Locked Students", path:"/locked-students", perm:"reports.locked_students" },
-    ]},
+// ONE menu for everyone: an item shows only when the user has a permission that opens it
+// (roles + acting roles + extra permissions, see Roles & Permissions). Built from the 12 former role menus.
+const MENU = [
+  { label:"General", cat:"General", items:[
+      { label:"Dashboard", path:"/dashboard", always:true },
+      { label:"Campuses", path:"/campuses", any:["settings.campuses"] },
+      { label:"Setting Governance", path:"/setting-governance", any:["settings.setting_governance"] },
+      { label:"Work Queue", path:"/work-queue", any:["workflows_reports.work_queue"] },
+      { label:"Messages", path:"/messages", any:["communication.message_my_child_teachers","communication.message_my_students_parents","communication.parent_messages_oversight"] },
+      { label:"Activity Stream", path:"/activity", any:["users_access.system_activity_stream","users_access.department_activity_stream"], orHod:true },
+      { label:"My Leave", path:"/staff-leave", any:["hr.leave_application"] },
+      { label:"My Attendance", path:"/my-attendance", any:["hr.my_attendance"] },
+      { label:"My Payslip", path:"/my-payslips", any:["payroll.my_payslips"] },
+      { label:"My Resignation", path:"/my-resignation", any:["hr.resignation_submission"] },
+      { label:"Department Attendance", path:"/my-department-attendance", any:["hr.my_attendance"], requiresHod:true },
+      { label:"Workflow Builder", path:"/workflow-builder", any:["workflows_reports.workflow_builder"] },
+      { label:"Report Permissions", path:"/report-permissions", any:["users_access.permission_management"] },
+      { label:"Request Permissions", path:"/request-permissions", any:["users_access.permission_management"] },
+      { label:"Calendar", path:"/calendar", any:["communication.calendar_view"] },
+      { label:"My Admissions", path:"/my-admissions", any:["admissions.my_admissions"] },
+      { label:"My Children", path:"/children", any:["students.my_children"] },
+      { label:"Timetable", path:"/timetable", any:["academics.timetable_view"] },
+  ]},
+  { label:"People", cat:"People", items:[
+      { label:"Students", path:"/students", any:["students.student_list_view"] },
+      { label:"Teachers", path:"/teachers", any:["hr.staff_list_view"] },
+      { label:"Users", path:"/users", any:["users_access.user_list_view"] },
+  ]},
+  { label:"Admissions", cat:"Admissions", items:[
+      { label:"Admissions Dashboard", path:"/admissions", any:["admissions.admission_dashboard_view"], end:true },
+      { label:"Applications", path:"/admissions/applications", any:["admissions.application_list_view"] },
+      { label:"Admission Tests", path:"/admissions/tests", any:["admissions.admission_test_view"] },
+      { label:"Interview Panels", path:"/admissions/panels", any:["admissions.interview_panel_setup","admissions.interview_schedule"] },
+      { label:"Admission Fees", path:"/admissions/fees", any:["admissions.admission_fee_view"] },
+      { label:"Admission Settings", path:"/admissions/settings", any:["admissions.admission_settings_view"] },
+  ]},
+  { label:"Academic", cat:"Academic", items:[
+      { label:"Academics", path:"/academics", any:["academics.class_view","academics.subject_view","academics.timetable_edit"] },
+      { label:"Syllabus", path:"/syllabus", any:["academics.syllabus_view"] },
+      { label:"Attendance", path:"/attendance", any:["attendance.attendance_view","attendance.attendance_marking","students.my_children","students.my_studies"] },
+      { label:"Gate Scan", path:"/gate-scan", any:["attendance.gate_scan"] },
+      { label:"Diary", path:"/diary", any:["academics.diary_view"] },
+      { label:"Exams", path:"/exams", any:["exams_results.exam_view"] },
+      { label:"Academic History", path:"/academic-history", any:["students.student_grades_tab","students.my_children","students.my_studies"] },
+      { label:"Promotions", path:"/promotions", any:["exams_results.promotion_view"] },
+      { label:"My Classes", path:"/classes", any:["academics.my_classes"] },
+      { label:"My Leaves", path:"/leaves", any:["hr.student_leave_application","students.my_studies"] },
+  ]},
+  { label:"Classroom", cat:"Classroom", items:[
+      { label:"Assignments", path:"/assignments", any:["academics.assignment_view"] },
+      { label:"Quizzes", path:"/quizzes", any:["academics.quiz_view"] },
+      { label:"Materials", path:"/materials", any:["academics.material_view"] },
+  ]},
+  { label:"Exams", cat:"Exams", items:[
+      { label:"Exam Schedule", path:"/datesheet-view", any:["exams_results.exam_view"] },
+      { label:"Exam Marks", path:"/exam-marks", any:["exams_results.marks_entry"] },
+      { label:"Class Results", path:"/class-results", any:["exams_results.marks_entry"] },
+      { label:"Marks History", path:"/marks-history", any:["exams_results.marks_entry"] },
+      { label:"Results", path:"/exam-results", any:["students.my_children","students.my_studies"] },
+  ]},
+  { label:"Management", cat:"Management", items:[
+      { label:"Academic", path:"/management/academic", any:["academics.session_management"], all:["settings.campuses"] },
+      { label:"HR", path:"/management/hr", any:["hr.staff_list_view"], all:["users_access.user_list_view"] },
+      { label:"Library", path:"/library", any:["library.book_search"], all:["users_access.user_list_view"] },
+      { label:"Procurement", path:"/management/procurement", any:["procurement_inventory.all_requisitions","procurement_inventory.purchase_orders_grn"], all:["users_access.user_list_view"] },
+      { label:"Finance", path:"/management/finance", any:["finance.finance_dashboard"], all:["users_access.user_list_view"] },
+      { label:"Academic", path:"/management/academic-admin", any:["academics.session_management","academics.class_management","academics.teacher_assignment"] },
+      { label:"Datesheet", path:"/datesheet", any:["exams_results.datesheet_edit"] },
+      { label:"Finance", path:"/finance", any:["finance.invoice_view","finance.payment_view","finance.finance_dashboard"] },
+      { label:"Vendor Invoices", path:"/procurement/vendor-invoices", any:["procurement_inventory.vendor_invoices"] },
+      { label:"Provident Fund", path:"/payroll/provident-fund", any:["payroll.provident_fund"] },
+      { label:"Income Tax", path:"/payroll/income-tax", any:["payroll.income_tax_all_staff"] },
+      { label:"Payroll Runs", path:"/payroll/runs", any:["payroll.payroll_run_view"] },
+      { label:"Staff Management", path:"/hr/staff", any:["hr.staff_list_view"] },
+      { label:"Leave Management", path:"/hr/leave", any:["hr.all_leave_requests"] },
+      { label:"Employee Attendance", path:"/hr/attendance", any:["hr.staff_attendance_view"] },
+      { label:"Catalog", path:"/library/catalog", any:["library.catalogue_management"] },
+      { label:"Issue/Return", path:"/library/issue-return", any:["library.book_issue_return"] },
+      { label:"Members", path:"/library/members", any:["library.library_members_settings"] },
+      { label:"Damaged Books", path:"/library/damaged", any:["library.catalogue_management"] },
+      { label:"Lost Books", path:"/library/lost", any:["library.catalogue_management"] },
+      { label:"Inventory", path:"/library/inventory", any:["library.catalogue_management"] },
+      { label:"Pending Fines", path:"/library/fines", any:["library.library_fines"] },
+      { label:"Fine History", path:"/library/fine-history", any:["library.library_fines"] },
+      { label:"Procurement", path:"/procurement", any:["procurement_inventory.all_requisitions"] },
+      { label:"Requisitions Pipeline", path:"/procurement/pipeline", any:["procurement_inventory.all_requisitions"] },
+      { label:"Purchase Orders", path:"/procurement/purchase-orders", any:["procurement_inventory.purchase_orders_grn"] },
+      { label:"Goods Receipt (GRN)", path:"/procurement/grn", any:["procurement_inventory.purchase_orders_grn"] },
+      { label:"Stock", path:"/procurement/stock", any:["procurement_inventory.stock"] },
+  ]},
+  { label:"Finance", cat:"Finance", items:[
+      { label:"My Fees", path:"/my-fees", any:["finance.fee_payment_online"] },
+  ]},
+  { label:"Requests", cat:"Requests", items:[
+      { label:"Staff Leave Requests", path:"/hr/leave-requests", any:["hr.all_leave_requests"] },
+      { label:"Withdrawal", path:"/withdrawal", any:["withdrawal.withdrawal_request","withdrawal.withdrawal_review","withdrawal.withdrawal_clearance","withdrawal.withdrawal_approval","withdrawal.all_withdrawal_requests"] },
+      { label:"Discipline", path:"/discipline", any:["hr.discipline_view","hr.discipline_reporting","hr.discipline_appeal"] },
+      { label:"Leave Requests", path:"/leave-approval", any:["hr.leave_recommendation","hr.leave_approval","hr.all_leave_requests"] },
+      { label:"Resignations", path:"/hr/resignations", any:["hr.resignation_management"] },
+  ]},
+  { label:"Purchase Requests", cat:"Purchase Requests", items:[
+      { label:"My Requisitions", path:"/procurement/my-requisitions", any:["procurement_inventory.requisition_create"] },
+      { label:"Pending Approvals", path:"/procurement/pending-approvals", any:["procurement_inventory.requisition_create"] },
+  ]},
+  { label:"Laboratory", cat:"Laboratory", items:[
+      { label:"Lab Dashboard", path:"/lab", end:true, any:["laboratory.lab_view","laboratory.lab_management","laboratory.own_lab_management","laboratory.lab_supervisor_assign"] },
+      { label:"Labs", path:"/lab/labs", any:["laboratory.lab_view","laboratory.lab_management","laboratory.own_lab_management","laboratory.lab_supervisor_assign"] },
+      { label:"Equipment Register", path:"/lab/equipment", any:["laboratory.equipment_view","laboratory.equipment_management","laboratory.equipment_transfer","laboratory.equipment_issue_return","laboratory.equipment_retire","laboratory.lab_management"] },
+      { label:"Issue & Return", path:"/lab/issues", any:["laboratory.equipment_issue_request","laboratory.equipment_issue_return","laboratory.equipment_view","laboratory.lab_management"] },
+      { label:"Consumables & Stock", path:"/lab/consumables", any:["laboratory.stock_view","laboratory.stock_receive","laboratory.stock_issue","laboratory.stock_transfer","laboratory.stock_adjust","laboratory.stock_dispose","laboratory.lab_management"] },
+      { label:"Stock Transactions", path:"/lab/stock-transactions", any:["laboratory.stock_view","laboratory.stock_receive","laboratory.stock_issue","laboratory.stock_transfer","laboratory.stock_adjust","laboratory.stock_dispose","laboratory.lab_management"] },
+      { label:"Lab Settings", path:"/lab/settings", any:["laboratory.settings"] },
+  ]},
+  { label:"Reports", cat:"Reports", items:[
+      { label:"Employee Attendance", path:"/reports/employee-attendance", any:["hr.employee_attendance_report"] },
+      { label:"Attendance", path:"/admin-attendance", any:["attendance.attendance_reports"] },
+      { label:"By Teacher", path:"/teacher-attendance-report", any:["attendance.attendance_reports"] },
+      { label:"By Student", path:"/student-attendance-report", any:["attendance.attendance_reports"] },
+      { label:"Employee Salaries", path:"/reports/employee-salaries", any:["payroll.salary_report"] },
+      { label:"Expenditure Details", path:"/reports/expenditure-details", any:["procurement_inventory.expenditure_report"] },
+      { label:"Fee Report", path:"/fee-report", any:["finance.fee_reports"] },
+      { label:"Locked Students", path:"/locked-students", any:["finance.locked_accounts_view"] },
+      { label:"General Reports", path:"/reports", any:["workflows_reports.reports_page"] },
+      { label:"Attendance Report", path:"/attendance-report", any:["attendance.attendance_marking"] },
+      { label:"Withdrawal History", path:"/withdrawal-history", any:["withdrawal.withdrawal_request"] },
+  ]},
+  { label:"Setup", cat:"Setup", items:[
+      { label:"Finance Setup", path:"/setup/finance", any:["finance.fee_setup_edit","finance.fee_setup_view"], all:["settings.campuses"] },
+      { label:"HR Setup", path:"/setup/hr", any:["hr.departments_designations_edit","hr.hr_policy_settings","payroll.payroll_setup_view"], all:["settings.campuses"] },
+      { label:"Library Setup", path:"/setup/library", any:["library.library_members_settings","library.catalogue_management"], all:["settings.campuses"] },
+      { label:"Procurement Setup", path:"/setup/procurement", any:["procurement_inventory.procurement_setup"], all:["settings.campuses"] },
+      { label:"Academic Setup", path:"/setup/academic", any:["academics.session_management"], all:["settings.campuses"] },
+      { label:"Leave Configuration", path:"/leave-setup", any:["hr.leave_setup"] },
+      { label:"Settings", path:"/settings", any:["settings.school_timing","settings.school_information"] },
+      { label:"Subject Schedule Setup", path:"/academic-setup", any:["academics.timetable_edit"] },
+      { label:"Teacher Assignment", path:"/teacher-assignment", any:["academics.teacher_assignment"] },
+      { label:"Fee Setup", path:"/finance/setup", any:["finance.fee_setup_view"] },
+      { label:"Salary Setup", path:"/payroll/setup", any:["payroll.payroll_setup_view"] },
+      { label:"Payroll Grades", path:"/payroll/grades", any:["payroll.payroll_setup_view"] },
+      { label:"Payroll Adjustments", path:"/payroll/adjustments", any:["payroll.payroll_adjustments"] },
+      { label:"Designation Grades", path:"/payroll/designation-grades", any:["payroll.payroll_setup_view"] },
+      { label:"Income Tax Slabs", path:"/payroll/tax-slabs", any:["payroll.payroll_setup_view"] },
+      { label:"HR Setup", path:"/hr/setup", any:["hr.departments_designations_edit"] },
+      { label:"Library Settings", path:"/library/settings", any:["library.library_members_settings"] },
+      { label:"Authors", path:"/library/authors", any:["library.catalogue_management"] },
+      { label:"Publishers", path:"/library/publishers", any:["library.catalogue_management"] },
+      { label:"Categories", path:"/library/categories", any:["library.catalogue_management"] },
+      { label:"Departments", path:"/procurement/departments", any:["procurement_inventory.procurement_setup"] },
+      { label:"Vendors", path:"/procurement/vendors", any:["procurement_inventory.procurement_setup"] },
+      { label:"Item Master", path:"/procurement/items", any:["procurement_inventory.procurement_setup"] },
+      { label:"Item Categories", path:"/procurement/item-categories", any:["procurement_inventory.procurement_setup"] },
+      { label:"Approval Rules", path:"/procurement/approval-rules", any:["procurement_inventory.procurement_setup"] },
+  ]},
+  { label:"System", cat:"System", items:[
+      { label:"Settings", path:"/settings-other", any:["settings.security_settings","settings.regional_format","settings.school_information"] },
+      { label:"Roles", path:"/roles", any:["users_access.role_management","users_access.role_assignment","users_access.permission_history"] },
+      { label:"Announcements", path:"/announcements", any:["communication.announcement_posting","communication.announcement_management"] },
+      { label:"Workflow Config", path:"/workflow-config", any:["workflows_reports.workflow_builder"] },
+      { label:"Notification Templates", path:"/notification-templates", any:["communication.notification_templates"] },
+  ]},
+];
+// when the first page is visible, the lighter version of the same page (second) is hidden
+const PREFER = [["/settings-other","/settings"], ["/management/academic","/management/academic-admin"], ["/management/finance","/finance"], ["/management/procurement","/procurement"], ["/library","/library/catalog"],
+  // department setups contain their individual setup pages
+  ["/setup/finance","/finance/setup"], ["/setup/hr","/hr/setup"], ["/setup/hr","/payroll/setup"], ["/setup/hr","/payroll/grades"], ["/setup/hr","/payroll/adjustments"], ["/setup/hr","/payroll/designation-grades"], ["/setup/hr","/payroll/tax-slabs"], ["/setup/library","/library/settings"], ["/setup/library","/library/authors"], ["/setup/library","/library/publishers"], ["/setup/library","/library/categories"], ["/setup/procurement","/procurement/departments"], ["/setup/procurement","/procurement/vendors"], ["/setup/procurement","/procurement/items"], ["/setup/procurement","/procurement/item-categories"], ["/setup/procurement","/procurement/approval-rules"], ["/setup/academic","/leave-setup"], ["/setup/academic","/academic-setup"], ["/setup/academic","/teacher-assignment"]];
+// Management: each department's own page (hub) and the pages that belong under it
+const MGMT_DEPTS = [
+  { hubs:["/management/academic", "/management/academic-admin"], pages:["/datesheet"] },
+  { hubs:["/management/hr"], pages:["/hr/staff", "/hr/leave", "/hr/attendance", "/payroll/runs", "/payroll/provident-fund", "/payroll/income-tax"] },
+  { hubs:["/management/finance"], pages:["/finance"] },
+  { hubs:["/management/procurement"], pages:["/procurement/pipeline", "/procurement/purchase-orders", "/procurement/grn", "/procurement/stock", "/procurement/vendor-invoices", "/procurement"] },
+  { hubs:["/library"], pages:["/library/catalog", "/library/issue-return", "/library/members", "/library/damaged", "/library/lost", "/library/inventory", "/library/fines", "/library/fine-history"] },
+];
 
-    { label:"System",     cat:"System",     items:[
-      { label:"Settings",         path:"/settings-other"       },
-      { label:"Roles",            path:"/roles"          },
-      { label:"Announcements",    path:"/announcements"  },
-            { label:"Workflow Config",  path:"/workflow-config" },
-      { label:"Notification Templates", path:"/notification-templates", perm:"settings.view" },
-    ]},
-    { label:"Purchase Requests", cat:"Purchase Requests", items:[
-      { label:"My Requisitions",    path:"/procurement/my-requisitions",     perm:null },
-      { label:"Pending Approvals",  path:"/procurement/pending-approvals",   perm:null },
-    ]},
-    { label:"Admissions", cat:"Admissions", items:[
-      { label:"Admissions Dashboard", path:"/admissions",          perm:"admission.view", end:true },
-      { label:"Applications",         path:"/admissions/applications", perm:"admission.view" },
-      { label:"Admission Tests",      path:"/admissions/tests",        perm:"admission.view" },
-      { label:"Interview Panels",     path:"/admissions/panels",       perm:"admission.view" },
-      { label:"Admission Fees",       path:"/admissions/fees",         perm:"admission.view" },
-      { label:"Admission Settings",   path:"/admissions/settings", perm:"admission.settings" },
-    ]},
-  ],
-  admin: [
-    { label:"General",    cat:"General",    items:[
-      { label:"Dashboard", path:"/dashboard" },
-      { label:"Work Queue", path:"/work-queue" },
-      { label:"My Leave",   path:"/staff-leave"  },
-      { label:"My Attendance", path:"/my-attendance" },
-      { label:"My Payslip", path:"/my-payslips" },
-      { label:"My Resignation", path:"/my-resignation" },
-      { label:"Department Attendance", path:"/my-department-attendance", requiresHod:true },
-      { label:"My Profile", path:"/my-profile"   },
-      { label:"Calendar",  path:"/calendar"  },
-    ]},
-    { label:"Reports",    cat:"Reports",    items:[
-      { label:"Employee Attendance", path:"/reports/employee-attendance", perm:"reports.employee_attendance" },
-      { label:"Attendance", path:"/admin-attendance", perm:"reports.attendance_hub" },
-      { label:"By Teacher", path:"/teacher-attendance-report", parent:"/admin-attendance", perm:"reports.attendance_hub" },
-      { label:"By Student", path:"/student-attendance-report", parent:"/admin-attendance", perm:"reports.attendance_hub" },
-      { label:"Employee Salaries", path:"/reports/employee-salaries", perm:"reports.employee_salaries" },
-      { label:"Expenditure Details", path:"/reports/expenditure-details", perm:"reports.expenditure" },
-      { label:"Fee Report", path:"/fee-report", perm:"reports.fee_report" },
-      { label:"Locked Students", path:"/locked-students", perm:"reports.locked_students" },
-      { label:"General Reports", path:"/reports" },
-    ]},
-    { label:"People",     cat:"People",     items:[
-      { label:"Students",  path:"/students"  },
-      { label:"Teachers",  path:"/teachers"  },
-      { label:"Users",     path:"/users", perm:"users.view" },
-    ]},
-    { label:"Management", cat:"Management", items:[
-      { label:"Academic", path:"/management/academic-admin" },
-      { label:"HR", path:"/management/hr", perm:"hr.view" },
-      { label:"Library", path:"/library", perm:"library.view" },
-      { label:"Procurement", path:"/management/procurement", perm:"procurement.view" },
-      { label:"Finance", path:"/management/finance" },
-    ]},
-    { label:"Requests", cat:"Requests", items:[
-      { label:"Withdrawal", path:"/withdrawal" },
-    ]},
-    { label:"Setup", cat:"Setup", items:[
-      { label:"Leave Configuration", path:"/leave-setup" },
-      { label:"Settings", path:"/settings", perm:"settings.view" },
-    ]},
-    { label:"System",     cat:"System",     items:[
-            { label:"Workflow Config",  path:"/workflow-config" },
-      { label:"Workflow Builder", path:"/workflow-builder", perm:"users.manage_roles" },
-      { label:"Announcements",    path:"/announcements"  },
-      { label:"Notification Templates", path:"/notification-templates", perm:"settings.view" },
-    ]},
-    { label:"Purchase Requests", cat:"Purchase Requests", items:[
-      { label:"My Requisitions",    path:"/procurement/my-requisitions",     perm:null },
-      { label:"Pending Approvals",  path:"/procurement/pending-approvals",   perm:null },
-    ]},
-    { label:"Admissions", cat:"Admissions", items:[
-      { label:"Admissions Dashboard", path:"/admissions",          perm:"admission.view", end:true },
-      { label:"Applications",         path:"/admissions/applications", perm:"admission.view" },
-      { label:"Admission Tests",      path:"/admissions/tests",        perm:"admission.view" },
-      { label:"Interview Panels",     path:"/admissions/panels",       perm:"admission.view" },
-      { label:"Admission Fees",       path:"/admissions/fees",         perm:"admission.view" },
-      { label:"Admission Settings",   path:"/admissions/settings", perm:"admission.settings" },
-    ]},
-  ],
-  principal: [
-    { label:"General",    cat:"General",    items:[
-      { label:"Dashboard",  path:"/dashboard"  },
-      { label:"Work Queue", path:"/work-queue" },
-      { label:"My Leave",   path:"/staff-leave"  },
-      { label:"My Attendance", path:"/my-attendance" },
-      { label:"My Payslip", path:"/my-payslips" },
-      { label:"My Resignation", path:"/my-resignation" },
-      { label:"Department Attendance", path:"/my-department-attendance", requiresHod:true },
-      { label:"My Profile", path:"/my-profile"   },
-      { label:"Calendar",   path:"/calendar"   },
-    ]},
-    { label:"Academic",   cat:"Academic",   items:[
-      { label:"Academics",      path:"/academics"      },
-      { label:"Syllabus",       path:"/syllabus"       },
-      { label:"Staff",          path:"/teachers"       },
-      { label:"Attendance",     path:"/attendance" },
-      { label:"Diary",          path:"/diary"          },
-      { label:"Exams",              path:"/exams"           },
-      { label:"Academic History", path:"/academic-history" },
-      { label:"Promotions", path:"/promotions" },
-    ]},
-    { label:"Requests", cat:"Requests", items:[
-      { label:"Leave Requests",     path:"/leave-approval"    },
-      { label:"Withdrawal",        path:"/withdrawal"      },
-      { label:"Discipline",         path:"/discipline"      },
-    ]},
-    { label:"Classroom",  cat:"Classroom",  items:[
-      { label:"Assignments", path:"/assignments" },
-      { label:"Quizzes",     path:"/quizzes"     },
-      { label:"Materials",   path:"/materials"   },
-    ]},
-    { label:"Reports",    cat:"Reports",    items:[
-      { label:"Attendance",  path:"/admin-attendance", perm:"reports.attendance_hub"          },
-      { label:"By Teacher", path:"/teacher-attendance-report", parent:"/admin-attendance", perm:"reports.attendance_hub" },
-      { label:"By Student", path:"/student-attendance-report", parent:"/admin-attendance", perm:"reports.attendance_hub" },
-      { label:"Announcements", path:"/announcements" },
-      { label:"Locked Students", path:"/locked-students", perm:"reports.locked_students" },
-      { label:"Fee Report", path:"/fee-report", perm:"reports.fee_report" },
-    ]},
-    { label:"Purchase Requests", cat:"Purchase Requests", items:[
-      { label:"My Requisitions",    path:"/procurement/my-requisitions",     perm:null },
-      { label:"Pending Approvals",  path:"/procurement/pending-approvals",   perm:null },
-    ]},
-    { label:"Admissions", cat:"Admissions", items:[
-      { label:"Admissions Dashboard", path:"/admissions",          perm:"admission.view", end:true },
-      { label:"Applications",         path:"/admissions/applications", perm:"admission.view" },
-      { label:"Admission Tests",      path:"/admissions/tests",        perm:"admission.view" },
-      { label:"Interview Panels",     path:"/admissions/panels",       perm:"admission.view" },
-      { label:"Admission Fees",       path:"/admissions/fees",         perm:"admission.view" },
-      { label:"Admission Settings",   path:"/admissions/settings", perm:"admission.settings" },
-    ]},
-  ],
-  academic_coordinator: [
-    { label:"General",    cat:"General",    items:[
-      { label:"Dashboard", path:"/dashboard" },
-      { label:"Work Queue", path:"/work-queue" },
-      { label:"My Profile", path:"/my-profile" },
-      { label:"My Leave",   path:"/staff-leave" },
-      { label:"My Attendance", path:"/my-attendance" },
-      { label:"My Payslip", path:"/my-payslips" },
-      { label:"My Resignation", path:"/my-resignation" },
-      { label:"Calendar",  path:"/calendar"  },
-    ]},
-    { label:"Management",   cat:"Management",   items:[
-      { label:"Academics",      path:"/academics"      },
-      { label:"Syllabus",       path:"/syllabus"       },
-      { label:"Diary",          path:"/diary"          },
-      { label:"Exams",          path:"/exams"          },
-      { label:"Academic History", path:"/academic-history" },
-      { label:"Promotions", path:"/promotions" },
-      { label:"Datesheet",       path:"/datesheet",     parent:"/exams" },
-    ]},
-    { label:"Requests", cat:"Requests", items:[
-      { label:"Leave Requests", path:"/leave-approval" },
-      { label:"Withdrawal",        path:"/withdrawal"      },
-      { label:"Discipline",         path:"/discipline"       },
-    ]},
-    { label:"Setup", cat:"Setup", items:[
-      { label:"Leave Configuration", path:"/leave-setup" },
-      { label:"Subject Schedule Setup", path:"/academic-setup" },
-      { label:"Teacher Assignment", path:"/teacher-assignment" },
-    ]},
-    { label:"Reports",    cat:"Reports",    items:[
-      { label:"Attendance",  path:"/admin-attendance"                                     },
-      { label:"By Class",   path:"/admin-attendance",          parent:"/admin-attendance"  },
-      { label:"By Teacher", path:"/teacher-attendance-report", parent:"/admin-attendance"  },
-      { label:"By Student", path:"/student-attendance-report", parent:"/admin-attendance", perm:"reports.attendance_hub"  },
-      { label:"Locked Students", path:"/locked-students", perm:"reports.locked_students" },
-      { label:"Fee Report", path:"/fee-report", perm:"reports.fee_report" },
-    ]},
-    { label:"Purchase Requests", cat:"Purchase Requests", items:[
-      { label:"My Requisitions",    path:"/procurement/my-requisitions",     perm:null },
-      { label:"Pending Approvals",  path:"/procurement/pending-approvals",   perm:null },
-    ]},
-    { label:"Admissions", cat:"Admissions", items:[
-      { label:"Admissions Dashboard", path:"/admissions",          perm:"admission.view", end:true },
-      { label:"Applications",         path:"/admissions/applications", perm:"admission.view" },
-      { label:"Admission Tests",      path:"/admissions/tests",        perm:"admission.view" },
-      { label:"Interview Panels",     path:"/admissions/panels",       perm:"admission.view" },
-      { label:"Admission Fees",       path:"/admissions/fees",         perm:"admission.view" },
-      { label:"Admission Settings",   path:"/admissions/settings", perm:"admission.settings" },
-    ]},
-  ],
-  teacher: [
-    { label:"General",    cat:"General",    items:[
-      { label:"Dashboard",  path:"/dashboard" },
-      { label:"Work Queue", path:"/work-queue" },
-      { label:"My Profile", path:"/my-profile" },
-      { label:"My Leave",   path:"/staff-leave" },
-      { label:"My Attendance", path:"/my-attendance" },
-      { label:"My Payslip", path:"/my-payslips" },
-      { label:"My Resignation", path:"/my-resignation" },
-      { label:"Department Attendance", path:"/my-department-attendance", requiresHod:true },
-      { label:"Calendar",   path:"/calendar"  },
-    ]},
-    { label:"Academic",   cat:"Academic",   items:[
-      { label:"My Classes",     path:"/classes"        },
-      { label:"Syllabus",       path:"/syllabus"       },
-      { label:"Attendance",     path:"/attendance"     },
-      { label:"Diary",          path:"/diary"          },
-    ]},
-    { label:"Requests", cat:"Requests", items:[
-      { label:"Leave Requests",     path:"/leave-approval"    },
-      { label:"Withdrawal",        path:"/withdrawal"      },
-      { label:"Discipline",         path:"/discipline"      },
-    ]},
-    { label:"Exams",      cat:"Exams",      items:[
-      { label:"Exams",              path:"/exams"                               },
-      { label:"Academic History", path:"/academic-history" },
-      { label:"Exam Schedule",       path:"/datesheet-view"                    },
-      { label:"Datesheet",          path:"/datesheet",     perm:"exam.manage"  },
-      { label:"Exam Marks",          path:"/exam-marks",   perm:"exam.marks"   },
-      { label:"Class Results",       path:"/class-results"                     },
-      { label:"Marks History",       path:"/marks-history"                     },
-    ]},
-    { label:"Classroom",  cat:"Classroom",  items:[
-      { label:"Assignments", path:"/assignments" },
-      { label:"Quizzes",     path:"/quizzes"     },
-      { label:"Materials",   path:"/materials"   },
-    ]},
-    { label:"Reports",    cat:"Reports",    items:[
-      { label:"Attendance Report", path:"/attendance-report" },
-      { label:"Fee Report", path:"/fee-report", perm:"reports.fee_report" },
-    ]},
-    { label:"Purchase Requests", cat:"Purchase Requests", items:[
-      { label:"My Requisitions",    path:"/procurement/my-requisitions",     perm:null },
-      { label:"Pending Approvals",  path:"/procurement/pending-approvals",   perm:null },
-    ]},
-  ],
-  finance_officer: [
-    { label:"General",    cat:"General",    items:[
-      { label:"Dashboard", path:"/dashboard" },
-      { label:"Work Queue", path:"/work-queue" },
-      { label:"My Leave",   path:"/staff-leave"  },
-      { label:"My Attendance", path:"/my-attendance" },
-      { label:"My Payslip", path:"/my-payslips" },
-      { label:"My Resignation", path:"/my-resignation" },
-      { label:"My Profile", path:"/my-profile"   },
-      { label:"Calendar",  path:"/calendar"  },
-    ]},
-    { label:"Management",    cat:"Management",    items:[
-      { label:"Finance",   path:"/finance"   },
-      { label:"Vendor Invoices", path:"/procurement/vendor-invoices" },
-      { label:"Provident Fund", path:"/payroll/provident-fund", perm:"payroll.pf.view_all" },
-      { label:"Income Tax", path:"/payroll/income-tax", perm:"payroll.income_tax.view_all" },
-      { label:"Payroll Runs", path:"/payroll/runs", perm:"payroll.edit" },
-      { label:"Department Attendance", path:"/my-department-attendance", requiresHod:true },
-    ]},
-    { label:"Requests", cat:"Requests", items:[
-      { label:"Withdrawal", path:"/withdrawal" },
-      { label:"Resignations", path:"/hr/resignations" },
-    ]},
-    { label:"Setup", cat:"Setup", items:[
-      { label:"Fee Setup", path:"/finance/setup" },
-      { label:"Salary Setup", path:"/payroll/setup", perm:"payroll.view" },
-      { label:"Payroll Grades", path:"/payroll/grades", parent:"/payroll/setup", noArrow:true, perm:"payroll.view" },
-      { label:"Payroll Adjustments", path:"/payroll/adjustments", parent:"/payroll/setup", noArrow:true, perm:"payroll.view" },
-      { label:"Designation Grades", path:"/payroll/designation-grades", parent:"/payroll/setup", noArrow:true, perm:"payroll.view" },
-      { label:"Income Tax Slabs", path:"/payroll/tax-slabs", parent:"/payroll/setup", noArrow:true, perm:"payroll.view" },
-    ]},
-    { label:"Reports",    cat:"Reports",    items:[
-      { label:"Employee Attendance", path:"/reports/employee-attendance", perm:"reports.employee_attendance" },
-      { label:"Attendance", path:"/admin-attendance", perm:"reports.attendance_hub" },
-      { label:"By Teacher", path:"/teacher-attendance-report", parent:"/admin-attendance", perm:"reports.attendance_hub" },
-      { label:"By Student", path:"/student-attendance-report", parent:"/admin-attendance", perm:"reports.attendance_hub" },
-      { label:"Employee Salaries", path:"/reports/employee-salaries", perm:"reports.employee_salaries" },
-      { label:"Expenditure Details", path:"/reports/expenditure-details", perm:"reports.expenditure" },
-      { label:"Fee Report", path:"/fee-report", perm:"reports.fee_report" },
-      { label:"Locked Students", path:"/locked-students", perm:"reports.locked_students" },
-    ]},
-    { label:"Purchase Requests", cat:"Purchase Requests", items:[
-      { label:"My Requisitions",    path:"/procurement/my-requisitions",     perm:null },
-      { label:"Pending Approvals",  path:"/procurement/pending-approvals",   perm:null },
-    ]},
-    { label:"Admissions", cat:"Admissions", items:[
-      { label:"Admissions Dashboard", path:"/admissions",          perm:"admission.view", end:true },
-      { label:"Applications",         path:"/admissions/applications", perm:"admission.view" },
-      { label:"Admission Tests",      path:"/admissions/tests",        perm:"admission.view" },
-      { label:"Interview Panels",     path:"/admissions/panels",       perm:"admission.view" },
-      { label:"Admission Fees",       path:"/admissions/fees",         perm:"admission.view" },
-      { label:"Admission Settings",   path:"/admissions/settings", perm:"admission.settings" },
-    ]},
-  ],
-  parent: [
-    { label:"General",    cat:"General",    items:[
-      { label:"Dashboard",   path:"/dashboard" },
-      { label:"My Admissions",  path:"/my-admissions" },
-      { label:"Work Queue", path:"/work-queue" },
-      { label:"Calendar",    path:"/calendar"  },
-      { label:"My Children", path:"/children"  },
-    ]},
-    { label:"Academic",   cat:"Academic",   items:[
-      { label:"Attendance",  path:"/attendance" },
-      { label:"Syllabus",    path:"/syllabus"   },
-      { label:"Diary",       path:"/diary"      },
-      { label:"My Leaves",   path:"/leaves"     },
-      { label:"Withdrawal",         path:"/withdrawal"         },
-      { label:"Discipline",         path:"/discipline"          },
-    ]},
-    { label:"Exams",      cat:"Exams",      items:[
-      { label:"Exams",              path:"/exams"            },
-      { label:"Exam Schedule",       path:"/datesheet-view"   },
-      { label:"Results",             path:"/exam-results"     },
-      { label:"Academic History", path:"/academic-history" },
-    ]},
-    { label:"Reports",    cat:"Reports",    items:[
-      { label:"Withdrawal History", path:"/withdrawal-history"  },
-      { label:"Fee Report", path:"/fee-report", perm:"reports.fee_report" },
-    ]},
-    { label:"Classroom",  cat:"Classroom",  items:[
-      { label:"Assignments", path:"/assignments" },
-      { label:"Quizzes",     path:"/quizzes"     },
-      { label:"Materials",   path:"/materials"   },
-    ]},
-  ],
-  hr: [
-    { label:"General",  cat:"General",  items:[
-      { label:"Dashboard",      path:"/dashboard",      perm:null           },
-      { label:"Work Queue", path:"/work-queue" },
-      { label:"My Leave",   path:"/staff-leave"  },
-      { label:"My Attendance", path:"/my-attendance" },
-      { label:"My Payslip", path:"/my-payslips" },
-      { label:"My Resignation", path:"/my-resignation" },
-      { label:"Department Attendance", path:"/my-department-attendance", requiresHod:true },
-      { label:"My Profile", path:"/my-profile"   },
-      { label:"Calendar",       path:"/calendar",       perm:"calendar.view"},
-    ]},
-    { label:"Management", cat:"Management", items:[
-      { label:"Staff Management",  path:"/hr/staff",       perm:"hr.view"        },
-      { label:"Leave Management",  path:"/hr/leave",       perm:"hr.view"        },
-      { label:"Employee Attendance", path:"/hr/attendance", perm:"hr.view" },
-      { label:"Payroll Setup", path:"/payroll/setup", perm:"payroll.view" },
-      { label:"Payroll Grades", path:"/payroll/grades", perm:"payroll.view" },
-      { label:"Payroll Adjustments", path:"/payroll/adjustments", perm:"payroll.view" },
-      { label:"Designation Grades", path:"/payroll/designation-grades", perm:"payroll.view" },
-      { label:"Income Tax Slabs", path:"/payroll/tax-slabs", perm:"payroll.view" },
-      { label:"Payroll Runs", path:"/payroll/runs", perm:"payroll.edit" },
-      { label:"Provident Fund", path:"/payroll/provident-fund", perm:"payroll.pf.view_all" },
-      { label:"Income Tax", path:"/payroll/income-tax", perm:"payroll.income_tax.view_all" },
-      { label:"Attendance",        path:"/attendance",     perm:"attendance.view"},
-    ]},
-    { label:"Requests", cat:"Requests", items:[
-      { label:"Leave Requests",   path:"/leave-approval", perm:"leave.view_all" },
-      { label:"Resignations", path:"/hr/resignations", perm:"hr.view" },
-    ]},
-    { label:"Reports",    cat:"Reports",    items:[
-      { label:"Employee Attendance", path:"/reports/employee-attendance", perm:"reports.employee_attendance" },
-      { label:"Attendance", path:"/admin-attendance", perm:"reports.attendance_hub" },
-      { label:"By Teacher", path:"/teacher-attendance-report", parent:"/admin-attendance", perm:"reports.attendance_hub" },
-      { label:"By Student", path:"/student-attendance-report", parent:"/admin-attendance", perm:"reports.attendance_hub" },
-      { label:"Employee Salaries", path:"/reports/employee-salaries", perm:"reports.employee_salaries" },
-      { label:"Expenditure Details", path:"/reports/expenditure-details", perm:"reports.expenditure" },
-      { label:"Fee Report", path:"/fee-report", perm:"reports.fee_report" },
-      { label:"Locked Students", path:"/locked-students", perm:"reports.locked_students" },
-    ]},
-    { label:"Setup",      cat:"Setup",      items:[
-      { label:"HR Setup",         path:"/hr/setup",       perm:"hr.designations"},
-    ]},
-    { label:"System",   cat:"System",   items:[
-      { label:"Settings",       path:"/settings",       perm:"settings.view"  },
-    ]},
-    { label:"Purchase Requests", cat:"Purchase Requests", items:[
-      { label:"My Requisitions",    path:"/procurement/my-requisitions",     perm:null },
-      { label:"Pending Approvals",  path:"/procurement/pending-approvals",   perm:null },
-    ]},
-  ],
-  librarian: [
-    { label:"General",  cat:"General",  items:[
-      { label:"Dashboard",  path:"/dashboard", perm:null             },
-      { label:"Work Queue", path:"/work-queue" },
-      { label:"My Leave",   path:"/staff-leave"  },
-      { label:"My Attendance", path:"/my-attendance" },
-      { label:"My Payslip", path:"/my-payslips" },
-      { label:"My Resignation", path:"/my-resignation" },
-      { label:"Department Attendance", path:"/my-department-attendance", requiresHod:true },
-      { label:"My Profile", path:"/my-profile"   },
-      { label:"Calendar",   path:"/calendar",  perm:"calendar.view"  },
-    ]},
-    { label:"Management",    cat:"Management",    items:[
-      { label:"Catalog",      path:"/library/catalog",     perm:"library.view" },
-      { label:"Issue/Return", path:"/library/issue-return", perm:"library.issue" },
-      { label:"Members",      path:"/library/members",     perm:"library.manage" },
-      { label:"Damaged Books", path:"/library/damaged",     perm:"library.manage" },
-      { label:"Lost Books",    path:"/library/lost",       perm:"library.manage" },
-      { label:"Inventory",     path:"/library/inventory",  perm:"library.manage" },
-      { label:"Pending Fines", path:"/library/fines",      perm:"library.issue" },
-      { label:"Fine History",  path:"/library/fine-history", perm:"library.issue" },
-      { label:"Students",     path:"/students",  perm:"students.view"  },
-    ]},
-    { label:"Requests", cat:"Requests", items:[
-      { label:"Withdrawal",   path:"/withdrawal", perm:"withdrawal.clear" },
-    ]},
-    { label:"Setup",      cat:"Setup",      items:[
-      { label:"Library Settings", path:"/library/settings",    perm:"library.manage" },
-      { label:"Authors",          path:"/library/authors",     perm:"library.manage" },
-      { label:"Publishers",       path:"/library/publishers",  perm:"library.manage" },
-      { label:"Categories",       path:"/library/categories",  perm:"library.manage" },
-    ]},
-    { label:"System",   cat:"System",   items:[
-      { label:"Settings",   path:"/settings",  perm:"settings.view"  },
-    ]},
-    { label:"Purchase Requests", cat:"Purchase Requests", items:[
-      { label:"My Requisitions",    path:"/procurement/my-requisitions",     perm:null },
-      { label:"Pending Approvals",  path:"/procurement/pending-approvals",   perm:null },
-    ]},
-  ],
-  procurement: [
-    { label:"General",      cat:"General",      items:[
-      { label:"Dashboard",    path:"/dashboard",    perm:null                  },
-      { label:"Work Queue", path:"/work-queue" },
-      { label:"My Leave",   path:"/staff-leave"  },
-      { label:"My Attendance", path:"/my-attendance" },
-      { label:"My Payslip", path:"/my-payslips" },
-      { label:"My Resignation", path:"/my-resignation" },
-      { label:"Department Attendance", path:"/my-department-attendance", requiresHod:true },
-      { label:"My Profile", path:"/my-profile"   },
-      { label:"Calendar",     path:"/calendar",     perm:"calendar.view"       },
-    ]},
-    { label:"Management",  cat:"Management",  items:[
-      { label:"Procurement",  path:"/procurement",  perm:"procurement.view"    },
-      { label:"Requisitions Pipeline", path:"/procurement/pipeline", perm:"procurement.view" },
-      { label:"Purchase Orders", path:"/procurement/purchase-orders", perm:"procurement.view" },
-      { label:"Goods Receipt (GRN)", path:"/procurement/grn", perm:"procurement.view" },
-      { label:"Stock", path:"/procurement/stock", perm:"procurement.view" },
-      { label:"Vendor Invoices", path:"/procurement/vendor-invoices", perm:"procurement.view" },
-    ]},
-    { label:"Setup",        cat:"Setup",        items:[
-      { label:"Departments",  path:"/procurement/departments", perm:"procurement.manage" },
-      { label:"Vendors",      path:"/procurement/vendors", perm:"procurement.view" },
-      { label:"Item Master",  path:"/procurement/items",   perm:"procurement.view" },
-      { label:"Item Categories", path:"/procurement/item-categories", perm:"procurement.manage" },
-      { label:"Approval Rules", path:"/procurement/approval-rules", perm:"procurement.manage" },
-    ]},
-    { label:"System",       cat:"System",       items:[
-      { label:"Settings",     path:"/settings",     perm:"settings.view"       },
-    ]},
-    { label:"Purchase Requests", cat:"Purchase Requests", items:[
-      { label:"My Requisitions",    path:"/procurement/my-requisitions",     perm:null },
-      { label:"Pending Approvals",  path:"/procurement/pending-approvals",   perm:null },
-    ]},
-  ],
-  student: [
-    { label:"General",    cat:"General",    items:[
-      { label:"Dashboard", path:"/dashboard" },
-      { label:"Work Queue", path:"/work-queue" },
-      { label:"Calendar",  path:"/calendar"  },
-      { label:"Timetable", path:"/timetable" },
-    ]},
-    { label:"Academic",   cat:"Academic",   items:[
-      { label:"Diary",        path:"/diary"       },
-      { label:"Syllabus",     path:"/syllabus"    },
-      { label:"Attendance",   path:"/attendance"  },
-      { label:"My Leaves",    path:"/leaves"      },
-    ]},
-    { label:"Exams",      cat:"Exams",      items:[
-      { label:"Exams",         path:"/exams"          },
-      { label:"Exam Schedule", path:"/datesheet-view"  },
-      { label:"My Results",    path:"/exam-results"   },
-      { label:"Academic History", path:"/academic-history" },
-    ]},
-    { label:"Classroom",  cat:"Classroom",  items:[
-      { label:"Assignments", path:"/assignments" },
-      { label:"Quizzes",     path:"/quizzes"     },
-      { label:"Materials",   path:"/materials"   },
-    ]},
-    { label:"Finance",    cat:"Finance",    items:[
-      { label:"My Fees",   path:"/my-fees"  },
-    ]},
-    { label:"Reports",    cat:"Reports",    items:[
-      { label:"Fee Report", path:"/fee-report", perm:"reports.fee_report" },
-    ]},
-  ],
-  admission_staff: [
-    { label:"General",  cat:"General",  items:[
-      { label:"Dashboard",      path:"/dashboard", perm:null },
-      { label:"Work Queue",     path:"/work-queue" },
-      { label:"My Leave",       path:"/staff-leave" },
-      { label:"My Attendance",  path:"/my-attendance" },
-      { label:"My Payslip",     path:"/my-payslips" },
-      { label:"My Resignation", path:"/my-resignation" },
-      { label:"My Profile",     path:"/my-profile" },
-      { label:"Calendar",       path:"/calendar", perm:"calendar.view" },
-    ]},
-    { label:"Admissions", cat:"Admissions", items:[
-      { label:"Admissions Dashboard", path:"/admissions",          perm:"admission.view", end:true },
-      { label:"Applications",         path:"/admissions/applications", perm:"admission.view" },
-      { label:"Admission Tests",      path:"/admissions/tests",        perm:"admission.view" },
-      { label:"Interview Panels",     path:"/admissions/panels",       perm:"admission.view" },
-      { label:"Admission Fees",       path:"/admissions/fees",         perm:"admission.view" },
-      { label:"Admission Settings",   path:"/admissions/settings", perm:"admission.settings" },
-    ]},
-  ],
-};
 const SUBNAV = {
   "/children": [
     { label:"Overview",    sub:"overview"    },
@@ -566,59 +193,59 @@ const SUBNAV = {
     { label:"Fees",        sub:"fees"        },
   ],
   "/students": [
-    { label:"All Students",   sub:"list"      },
-    { label:"Enroll Student", sub:"enroll"    },
+    { label:"All Students",   sub:"list", any:["students.student_list_view"] },
+    { label:"Enroll Student", sub:"enroll", any:["students.student_enrolment"] },
   ],
   "/teachers": [
-    { label:"All Teachers",   sub:"list"      },
-    { label:"Add Teacher",    sub:"add"       },
+    { label:"All Teachers",   sub:"list", any:["hr.staff_list_view"] },
+    { label:"Add Teacher",    sub:"add", any:["hr.staff_create"] },
   ],
   "/academics": [
-    { label:"Academic Years", sub:"years"     },
-    { label:"Classes",        sub:"classes"   },
-    { label:"Subjects",       sub:"subjects"  },
-    { label:"Timetable",      sub:"timetable" },
-    { label:"Class Overview",  sub:"overview"  },
+    { label:"Academic Years", sub:"years", any:["academics.session_view","academics.session_management"] },
+    { label:"Classes",        sub:"classes", any:["academics.class_view","academics.class_management"] },
+    { label:"Subjects",       sub:"subjects", any:["academics.subject_view","academics.subject_management"] },
+    { label:"Timetable",      sub:"timetable", any:["academics.timetable_view","academics.timetable_edit"] },
+    { label:"Class Overview",  sub:"overview", any:["academics.class_view"] },
   ],
   "/academics-other": [
-    { label:"Timetable",      sub:"timetable" },
-    { label:"Class Overview",  sub:"overview"  },
+    { label:"Timetable",      sub:"timetable", any:["academics.timetable_view"] },
+    { label:"Class Overview",  sub:"overview", any:["academics.class_view"] },
   ],
   "/users": [
-    { label:"All Users",      sub:"list"      },
-    { label:"Create User",    sub:"create"    },
+    { label:"All Users",      sub:"list", any:["users_access.user_list_view"] },
+    { label:"Create User",    sub:"create", any:["users_access.user_create"] },
   ],
   "/finance": [
-    { label:"Dashboard",        sub:"dashboard"  },
-    { label:"Invoices",         sub:"invoices"   },
-    { label:"Payments",         sub:"payments"   },
-    { label:"Discounts",        sub:"discounts"  },
-    { label:"Locked Accounts",   sub:"locked-accounts"   },
-    { label:"Charge Settlement", sub:"charge-settlement" },
+    { label:"Dashboard",        sub:"dashboard", any:["finance.finance_dashboard"] },
+    { label:"Invoices",         sub:"invoices", any:["finance.invoice_view","finance.invoice_generation"] },
+    { label:"Payments",         sub:"payments", any:["finance.payment_view","finance.payment_collection","finance.payment_verification"] },
+    { label:"Discounts",        sub:"discounts", any:["finance.discount_view","finance.discount_grant"] },
+    { label:"Locked Accounts",   sub:"locked-accounts", any:["finance.locked_accounts_view","finance.account_unlock"] },
+    { label:"Charge Settlement", sub:"charge-settlement", any:["finance.invoice_generation","finance.payment_collection"] },
   ],
   "/finance/setup": [
-    { label:"Auto-Generation",  sub:"fee-automation"  },
-    { label:"Charge Types",     sub:"charge-types"    },
-    { label:"Fee Types",        sub:"fee-types"       },
-    { label:"Class Fees",       sub:"class-fees"      },
-    { label:"Discount Config",  sub:"discount-config" },
-    { label:"Extra Charges",    sub:"charges"         },
+    { label:"Auto-Generation",  sub:"fee-automation", any:["finance.invoice_auto_generation_settings"] },
+    { label:"Charge Types",     sub:"charge-types", any:["finance.fee_setup_view","finance.fee_setup_edit"] },
+    { label:"Fee Types",        sub:"fee-types", any:["finance.fee_setup_view","finance.fee_setup_edit"] },
+    { label:"Class Fees",       sub:"class-fees", any:["finance.fee_setup_view","finance.fee_setup_edit"] },
+    { label:"Discount Config",  sub:"discount-config", any:["finance.discount_rules","finance.discount_view"] },
+    { label:"Extra Charges",    sub:"charges", any:["finance.fee_setup_view","finance.fee_setup_edit"] },
   ],
   "/settings": [
-    { label:"ID Formats",     sub:"id_formats"   },
-    { label:"School Info",    sub:"school_info"  },
-    { label:"Fee Settings",   sub:"fee_settings" },
-    { label:"School Timing",     sub:"school_timing"     },
-    { label:"Attendance Config", sub:"attendance_config" },
-    { label:"Account Settings",  sub:"account_settings"  },
-    { label:"Regional & Format", sub:"regional_format" },
+    { label:"ID Formats",     sub:"id_formats", any:["settings.school_information"] },
+    { label:"School Info",    sub:"school_info", any:["settings.school_information"] },
+    { label:"Fee Settings",   sub:"fee_settings", any:["finance.fee_reminders","finance.invoice_auto_generation_settings"] },
+    { label:"School Timing",     sub:"school_timing", any:["settings.school_timing"] },
+    { label:"Attendance Config", sub:"attendance_config", any:["attendance.attendance_settings"] },
+    { label:"Account Settings",  sub:"account_settings", any:["settings.security_settings"] },
+    { label:"Regional & Format", sub:"regional_format", any:["settings.regional_format"] },
   ],
   "/settings-other": [
-    { label:"ID Formats",     sub:"id_formats"   },
-    { label:"School Info",    sub:"school_info"  },
-    { label:"Fee Settings",   sub:"fee_settings" },
-    { label:"Account Settings",  sub:"account_settings"  },
-    { label:"Regional & Format", sub:"regional_format" },
+    { label:"ID Formats",     sub:"id_formats", any:["settings.school_information"] },
+    { label:"School Info",    sub:"school_info", any:["settings.school_information"] },
+    { label:"Fee Settings",   sub:"fee_settings", any:["finance.fee_reminders","finance.invoice_auto_generation_settings"] },
+    { label:"Account Settings",  sub:"account_settings", any:["settings.security_settings"] },
+    { label:"Regional & Format", sub:"regional_format", any:["settings.regional_format"] },
   ],
   "/my-fees": [
     { label:"My Fees",   sub:"fees"    },
@@ -632,12 +259,12 @@ const SUBNAV = {
     { label:"Activity",       sub:"activity"    },
   ],
   "/roles": [
-    { label:"Roles & Permissions", sub:"roles" },
+    { label:"Roles & Permissions", sub:"roles", any:["users_access.role_management","users_access.role_assignment","users_access.permission_history"] },
   ],
   "/exams": [
-    { label:"Exams",       path:"/exams",       perm:"exam.view",    end:true },
-    { label:"Datesheet",   path:"/datesheet",   perm:"exam.manage"            },
-    { label:"Exam Marks",  path:"/exam-marks",  perm:"exam.marks"             },
+    { label:"Exams",       path:"/exams",    end:true, any:["exams_results.exam_view"] },
+    { label:"Datesheet",   path:"/datesheet", any:["exams_results.datesheet_edit"] },
+    { label:"Exam Marks",  path:"/exam-marks", any:["exams_results.marks_entry"] },
   ],
 
   "/classes": [
@@ -669,6 +296,7 @@ export default function RoleLayout({ children }) {
   const [notifs, setNotifs]             = useState([]);
   const [unreadCount, setUnreadCount]   = useState(0);
   const [queueCount,  setQueueCount]    = useState(0);
+  const [msgUnread,   setMsgUnread]     = useState(0);       // parent-teacher messages not yet read
   const [showNotifs, setShowNotifs]     = useState(false);
   const bellRef                         = React.useRef(null);
 
@@ -678,16 +306,38 @@ export default function RoleLayout({ children }) {
   useEffect(() => {
     attendanceApi.getMyHodStatus().then(r => setIsHod(!!r.data.data.is_hod)).catch(() => {});
   }, []);
-  const rawNavGroups = NAV[role] || NAV.student;
-  const navGroups = rawNavGroups.map(g => ({
+  const allowed = item => (item.always || (item.any || []).some(c => userPerms.includes(c)) || (item.orHod && isHod))
+    && (item.all || []).every(c => userPerms.includes(c)) && (!item.requiresHod || isHod);
+  const visible = new Set(MENU.flatMap(g => g.items.filter(allowed).map(i => i.path)));
+  const hidden = new Set(PREFER.filter(([a]) => visible.has(a)).map(([, b]) => b));
+  const navGroups = MENU.map(g => ({
     ...g,
-    items: g.items.filter(item => (!item.perm || userPerms.includes(item.perm)) && (!item.requiresHod || isHod))
+    items: g.items.filter(item => allowed(item) && !hidden.has(item.path))
   })).filter(g => g.items.length > 0);
   const allNavItems = navGroups.flatMap(g => g.items);
 
+  // Management row: departments, then (after a divider) the pages of the department you are in
+  const here = location.pathname;
+  const deptOf = pth => MGMT_DEPTS.find(d => [...d.hubs, ...d.pages].includes(pth));
+  const activeMgmtDept = MGMT_DEPTS.find(d => [...d.hubs, ...d.pages].some(pth => here === pth || here.startsWith(pth + "/")));
+  const managementRow = items => {
+    const hubs = [], loose = [];
+    for (const d of MGMT_DEPTS) {
+      const hub = items.find(i => d.hubs.includes(i.path));
+      if (hub) hubs.push({ ...hub, deptActive: d === activeMgmtDept });
+      else loose.push(...items.filter(i => d.pages.includes(i.path)));            // no department page: show its pages directly
+    }
+    const other = items.filter(i => !deptOf(i.path));
+    const activeHasHub = activeMgmtDept && items.some(i => activeMgmtDept.hubs.includes(i.path));
+    const children = activeHasHub ? items.filter(i => activeMgmtDept.pages.includes(i.path))
+      .sort((a, b) => activeMgmtDept.pages.indexOf(a.path) - activeMgmtDept.pages.indexOf(b.path))      // department's own order
+      .map(i => ({ ...i, parent: true })) : [];
+    return [...hubs, ...other, ...loose, ...(children.length ? [{ divider: true, path: "__divider", label: "" }] : []), ...children];
+  };
+
   const currentPath  = "/" + location.pathname.split("/")[1];
   const fullPath = location.pathname;
-  const subnavItems  = (() => {
+  const subnavItemsAll  = (() => {
     if(SUBNAV[fullPath]) return SUBNAV[fullPath];
     // Check if fullPath appears as a path in any SUBNAV group's items
     const itemKey = Object.keys(SUBNAV).find(k =>
@@ -699,6 +349,8 @@ export default function RoleLayout({ children }) {
     if(prefixKey) return SUBNAV[prefixKey];
     return SUBNAV[currentPath] || [];
   })();
+  // each tab shows only when the user has a permission that opens it (tabs without "any" are personal / always shown)
+  const subnavItems = subnavItemsAll.filter(i => !i.any || i.any.some(code => userPerms.includes(code)));
 
   // Active category = group that contains the current path
   const activeCat = (navGroups.find(g => g.items.some(i => i.path === location.pathname)) || navGroups.find(g => g.items.some(i => i.path === currentPath)))?.cat || navGroups[0]?.cat;
@@ -732,6 +384,7 @@ export default function RoleLayout({ children }) {
   const fetchUnreadCount = () => {
     notificationsApi.getUnreadCount().then(res => setUnreadCount(res.data.data?.count || 0)).catch(() => {});
     workQueueApi.getCount().then(r => setQueueCount(r.data?.data?.count || 0)).catch(()=>{});
+    messagesApi.unreadCount().then(r => setMsgUnread(r.data?.data?.count || 0)).catch(()=>{});
   };
 
   const fetchNotifs = async () => {
@@ -858,6 +511,22 @@ export default function RoleLayout({ children }) {
                 </span>
               )}
             </button>
+            {/* Messages: unread parent-teacher messages (only for people who can use Messages) */}
+            {allNavItems.some(i => i.path === "/messages") && (
+              <button
+                onClick={() => navigate("/messages")}
+                title={msgUnread > 0 ? `${msgUnread} unread message${msgUnread === 1 ? "" : "s"}` : "Messages"}
+                aria-label={msgUnread > 0 ? `Messages, ${msgUnread} unread` : "Messages"}
+                style={{ background:"none", border:"none", cursor:"pointer", position:"relative", padding:"4px 6px", display:"flex", alignItems:"center", marginRight:4 }}
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFD700" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8v.5z"/></svg>
+                {msgUnread > 0 && (
+                  <span style={{ position:"absolute", top:-2, right:-2, background:"#ef4444", color:"#fff", borderRadius:"50%", fontSize:10, fontWeight:700, minWidth:16, height:16, display:"flex", alignItems:"center", justifyContent:"center", padding:"0 3px" }}>
+                    {msgUnread > 99 ? "99+" : msgUnread}
+                  </span>
+                )}
+              </button>
+            )}
             <button
               type="button"
               role="switch"
@@ -942,13 +611,13 @@ export default function RoleLayout({ children }) {
 
           {role === "superadmin" && <CampusSwitcher />}
           <div className="topnav-divider" />
-          <a href="/profile" style={{ textDecoration:"none", display:"flex", alignItems:"center", gap:8 }}>
+          <Link to="/profile" title="My Profile" aria-label="Open my profile" style={{ textDecoration:"none", display:"flex", alignItems:"center", gap:8 }}>
             <div className="topnav-avatar" style={{ background: theme?.primary || "#2563eb" }}>{initials}</div>
             <div>
               <div className="topnav-name">{user?.name}</div>
               <div className="topnav-role">{role.replace("_", " ")}</div>
             </div>
-          </a>
+          </Link>
           <div className="topnav-divider" />
           <button className="topnav-logout" onClick={logout}>Sign Out</button>
         </div>
@@ -961,19 +630,23 @@ export default function RoleLayout({ children }) {
             className={"ribbon-cat " + (selCat===g.cat ? "active" : "")}
             onClick={() => { setSelCat(g.cat); navigate((g.items.find(i => i.path === "/dashboard") || g.items[0]).path); }}>
             {g.cat}
+            {msgUnread > 0 && g.items.some(i => i.path === "/messages") && (
+              <span aria-label="Unread messages" style={{ display:"inline-block", width:7, height:7, borderRadius:"50%", background:"#ef4444", marginLeft:6, verticalAlign:"middle" }} />
+            )}
           </button>
         ))}
         <div style={{ flex:1 }} />
       </div>
                   {/* Ribbon row 2: items for active category */}
       <div className="ribbon-items">
-        {(activeGroup?.cat === "Setup" ? activeGroup.items.filter(item => {
+        {(activeGroup?.cat === "Management" ? managementRow(activeGroup.items) : activeGroup?.cat === "Setup" ? activeGroup.items.filter(item => {
           if (!item.parent) return true;
           if (location.pathname.startsWith("/payroll")) return item.path.startsWith("/payroll");
           if (location.pathname.startsWith("/finance")) return item.path.startsWith("/finance");
           return true;
         }) : activeGroup?.items || []).map(item => {
-          const isParentActive = item.end
+          if (item.divider) return <div key="mgmt-divider" className="ribbon-divider" />;
+          const isParentActive = item.deptActive ? true : item.end
             ? location.pathname !== item.path &&
               Array.isArray(SUBNAV[item.path]) &&
               SUBNAV[item.path].some(s => s.path === location.pathname)
@@ -982,6 +655,12 @@ export default function RoleLayout({ children }) {
             className={({ isActive }) => "ribbon-item" + (isActive || isParentActive ? " active" : "")}
             style={item.parent?{paddingLeft:8,fontSize:12,opacity:.85,borderLeft:"2px solid rgba(255,255,255,0.2)",marginLeft:4}:{}}>
             {item.parent&&!item.noArrow&&<span style={{marginRight:4,opacity:.6}}>&#8627;</span>}{item.label}
+            {item.path === "/messages" && msgUnread > 0 && (
+              <span aria-label={msgUnread + " unread messages"} style={{ marginLeft:6, minWidth:18, height:18, padding:"0 5px", boxSizing:"border-box", borderRadius:9,
+                background:"#ef4444", color:"#fff", fontSize:10, fontWeight:700, display:"inline-flex", alignItems:"center", justifyContent:"center" }}>
+                {msgUnread > 99 ? "99+" : msgUnread}
+              </span>
+            )}
           </NavLink>);
         })}
         {/* Page subnav if exists */}

@@ -126,7 +126,7 @@ export default function AdmissionFees() {
                   <tr key={p.id}>
                     <td>{fD(p.paid_at)} · {p.method.replace("_", " ")}{p.reference ? " · " + p.reference : ""}<div className="am-hint">{p.received_by_name || "Submitted by parent"}{p.rejected_reason ? " · " + p.rejected_reason : ""}</div></td>
                     <td>{rs(p.amount_paid)}</td>
-                    <td>{p.review_status === "pending" && can("finance.verify") ? (
+                    <td>{p.review_status === "pending" && can("admissions.admission_fee_verification") ? (
                       <span className="am-doc-actions">
                         {p.has_receipt && <button className="am-btn am-btn--sm" onClick={() => viewReceipt(p)}>View receipt</button>}
                         <button className="am-btn am-btn--sm am-btn--ok" disabled={busy} onClick={() => review(p, "verify")}>Verify</button>
@@ -136,7 +136,7 @@ export default function AdmissionFees() {
                 ))}</tbody>
               </table>
             )}
-            {can("finance.collect") && inv.status !== "paid" && ["fee_voucher_generated", "payment_partially_paid"].includes(inv.application_status) && (
+            {can("admissions.admission_fee_collection") && inv.status !== "paid" && ["fee_voucher_generated", "payment_partially_paid"].includes(inv.application_status) && (
               <div className="am-assess-form">
                 <div className="am-card-title" style={{ margin: 0, fontSize: 13 }}>Record payment at the counter</div>
                 <div className="am-grid">

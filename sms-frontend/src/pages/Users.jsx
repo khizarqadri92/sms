@@ -86,7 +86,7 @@ export default function Users() {
           <h1 className="page-heading">Users</h1>
           <span className="badge badge-primary">{total} total</span>
         </div>
-        {can("users.create") && <button className="btn btn-primary" onClick={() => setShowCreate(true)}>+ Create User</button>}
+        {can("users_access.user_create") && <button className="btn btn-primary" onClick={() => setShowCreate(true)}>+ Create User</button>}
       </div>
 
       <div className="toolbar">
@@ -169,7 +169,7 @@ export default function Users() {
                   <td style={{ fontSize:12, color:"#64748b" }}>{u.last_login_at ? formatDate(u.last_login_at) : "Never"}</td>
                   <td style={{ display:"flex", gap:6 }}>
                     <button className="btn btn-ghost btn-xs" onClick={() => setSelected(u)}>Assign Role</button>
-                    {can("users.delete") && (
+                    {can("users_access.user_deactivate") && (
                       u.is_active ? (
                         <button className="btn btn-danger btn-xs" onClick={() => handleDeactivate(u.id)}>Deactivate</button>
                       ) : (

@@ -56,6 +56,9 @@ export default function MyAttendance() {
   const [processingToday, setProcessingToday] = useState(null);
   const [toggling, setToggling] = useState(false);
   const [toggleMsg, setToggleMsg] = useState(null);
+  // HR decides whether employees may clock in / out from this page
+  const [selfAllowed, setSelfAllowed] = useState(true);
+  useEffect(() => { attendanceApi.getMyOptions().then(r => setSelfAllowed(r.data.data?.self_service_allowed !== false)).catch(() => {}); }, []);
   const [flash, setFlash]       = useState(null);
   const now = useProcessingNow();
   const [monthlyStatus, setMonthlyStatus] = useState([]);
@@ -244,6 +247,11 @@ export default function MyAttendance() {
             Since {fmtTime(openSession.clock_in_at)} &middot; {formatDuration(now - new Date(openSession.clock_in_at))} so far
           </div>
         )}
+        {!selfAllowed ? (
+          <div className="ma-toggle-msg" style={{ "--msg-bg": "var(--bg-info-soft, #EFF6FF)", "--msg-color": "#1E40AF" }}>
+            Clock in and out using the card reader or the biometric device - HR has turned off clocking in from this page.
+          </div>
+        ) : (
         <button
           className="ma-toggle-btn"
           onClick={handleToggle}
@@ -255,6 +263,7 @@ export default function MyAttendance() {
         >
           {toggling ? "Please wait..." : isClockedIn ? "Clock Out" : "Clock In"}
         </button>
+        )}
         {toggleMsg && (
           <div className="ma-toggle-msg" style={{
             "--msg-bg": toggleMsg.type === "success" ? "var(--bg-success-soft)" : "var(--bg-danger-soft)",

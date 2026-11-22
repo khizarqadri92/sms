@@ -11,10 +11,11 @@ import "./WorkQueue.css";
 
 const MODULE_ICONS = {
   leaves: "📅", procurement: "📦", finance: "💰",
-  withdrawal: "🚪", discipline: "⚠️", exams: "📝", default: "📋",
+  withdrawal: "🚪", discipline: "⚠️", exams: "📝", admissions: "🎓", default: "📋",
 };
 
 const ENTITY_TYPE_LABELS = {
+  admission_application: "Admission Application",
   leave_application: "Leave Request",
   purchase_requisition: "Purchase Requisition",
   vendor_invoice: "Vendor Invoice",
@@ -112,6 +113,8 @@ export default function WorkQueue() {
   const getColor = (item) => colorMap[item.entity_status] || colorMap[item.action_required] || DEFAULT_COLOR;
 
   const openItem = (item) => {
+    // admissions: the approval steps (Recommend / Approve / Return ...) are done on the application's own page
+    if (item.module === "admissions") { navigate(`/admissions/applications/${item.entity_id}#am-approval`); return; }
     if (item.module === "withdrawal") { setWithdrawalReqId(item.entity_id); setWithdrawalWqItem(item); }
     else if (item.module === "discipline") { setDisciplineCaseId(item.entity_id); }
     else { setActionItem(item); }
@@ -145,7 +148,7 @@ export default function WorkQueue() {
           <div className="wq-subtitle">All pending actions across the system</div>
         </div>
         <div className="wq-header-actions">
-          {can("users.manage_roles") && (
+          {can("workflows_reports.work_queue_all") && (
             <button className="btn btn-ghost btn-sm" onClick={()=>setColorCfg(!showColorCfg)}>🎨 Color Config</button>
           )}
           <label className="wq-autorefresh-label">
@@ -158,7 +161,7 @@ export default function WorkQueue() {
       {flash && <div className={`alert alert-${flash.type} wq-mb16`}>{flash.msg}</div>}
 
       {/* Color Config Panel */}
-      {showColorCfg && can("users.manage_roles") && (
+      {showColorCfg && can("workflows_reports.work_queue_all") && (
         <div className="section-card wq-mb20">
           <div className="section-card-header"><span className="section-card-title">Status Color Configuration</span></div>
           <div className="wq-cfg-list">
@@ -261,7 +264,7 @@ export default function WorkQueue() {
             return (
               <div key={item.id}
                 onClick={() => openItem(item)}
-                className="wq-table-row"
+                className={"wq-table-row" + (item.module === "admissions" ? " wq-row-admission" : "")}
                 style={{
                   "--row-bg": isDark ? "var(--bg-card)" : c.bg_color,
                   "--row-border": isDark ? "1px solid var(--border-color)" : `1px solid ${c.border_color}`,
@@ -278,6 +281,7 @@ export default function WorkQueue() {
                   )}
                   <div className="wq-item-title">
                     {item.title}
+                    {item.module === "admissions" && <span className="wq-admission-tag">ADMISSION</span>}
                     {item.is_overdue && <span className="wq-overdue-badge">OVERDUE</span>}
                   </div>
                   {item.description && <div className="wq-item-desc">{item.description}</div>}

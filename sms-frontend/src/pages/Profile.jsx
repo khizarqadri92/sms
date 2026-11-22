@@ -5,6 +5,8 @@ import { useTheme, THEMES } from "../auth/ThemeContext";
 import { useProcessingToday } from "../hooks/useProcessingToday";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
 import "./Profile.css";
+import MyProfile from "./MyProfile";
+import hrApi from "../api/hrApi";
 
 const ROLE_COLORS = {
   superadmin:           { bg:"#fef2f2", color:"#dc2626", border:"#fecaca" },
@@ -26,6 +28,10 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [toast,   setToast]   = useState({ msg:"", type:"success" });
   const [sub,     setSub]     = useState("info");
+  const [hr,      setHr]      = useState(null);      // employees: designation, employee code, department, joining date
+  const [hod,     setHod]     = useState(null);      // head of department badge
+  const [photoUrl, setPhotoUrl] = useState(null);
+  const [photoUploading, setPhotoUploading] = useState(false);
 
   useEffect(() => {
     const handler = (e) => {
@@ -34,6 +40,20 @@ export default function Profile() {
     };
     window.addEventListener("subnav-change", handler);
     return () => window.removeEventListener("subnav-change", handler);
+  }, []);
+
+  useEffect(() => {
+    // employees only - parents / students never get an HR staff record
+    if ((user?.roles || []).some(r => !["parent", "student"].includes(r))) {
+      hrApi.getMyProfile().then(r => {
+        const p = r.data?.data || null; setHr(p);
+        if (p?.id) hrApi.checkIsHead(p.id).then(h => {
+          const d = h.data?.data;
+          setHod(d?.is_head ? { department_name: d?.department?.department_name || p.department_name } : null);
+        }).catch(() => {});
+      }).catch(() => {});
+      hrApi.getMyPhoto().then(r => setPhotoUrl(r.data?.data?.photo_url || null)).catch(() => {});
+    }
   }, []);
 
   useEffect(() => {
@@ -63,6 +83,11 @@ export default function Profile() {
   if (!profile) return <div className="empty-state">Profile not found.</div>;
 
   const initials = ((profile.first_name?.[0] || "") + (profile.last_name?.[0] || "")).toUpperCase();
+  // employees (any role other than parent / student) see the full My Profile here; parents and students keep the simple form
+  const isEmployee = (profile.roles || user?.roles || []).some(r => !["parent", "student"].includes(r));
+  const designation = hr && (hr.designation_name || hr.designation || hr.designation_title || hr.job_title);
+  const empCode     = hr && (hr.employee_code || hr.emp_code || hr.employee_no || hr.staff_code);
+  const department  = hr && (hr.department_name || hr.department);
   const role     = profile.roles?.[0] || "user";
   const roleStyle = ROLE_COLORS[role] || ROLE_COLORS.student;
 
@@ -79,8 +104,27 @@ export default function Profile() {
       <div className="profile-layout">
         <div className="profile-card">
           <div className="prof-avatar-circle">
-            <div className="prof-avatar" style={{ "--avatar-gradient": "linear-gradient(135deg, " + (theme?.primary || "#2563eb") + ", " + (theme?.primaryDark || "#1d4ed8") + ")" }}>
-              {initials}
+            <div style={{ position: "relative", display: "inline-block" }}>
+              {photoUrl
+                ? <img src={"http://localhost:5000" + photoUrl} alt="Profile" className="prof-avatar" style={{ objectFit: "cover", padding: 0 }} />
+                : <div className="prof-avatar" style={{ "--avatar-gradient": "linear-gradient(135deg, " + (theme?.primary || "#2563eb") + ", " + (theme?.primaryDark || "#1d4ed8") + ")" }}>
+                    {initials}
+                  </div>}
+              {isEmployee && (
+                <label title="Change photo" aria-label="Change photo"
+                       style={{ position: "absolute", bottom: 2, right: 2, width: 26, height: 26, borderRadius: "50%", display: "flex", alignItems: "center",
+                                justifyContent: "center", cursor: "pointer", fontSize: 13, background: "var(--bg-card, #fff)", border: "1px solid var(--border-color, #e5e7eb)",
+                                boxShadow: "0 1px 4px rgba(0,0,0,.15)" }}>
+                  {photoUploading ? "⏳" : "📷"}
+                  <input type="file" accept="image/*" style={{ display: "none" }} onChange={async e => {
+                    const f = e.target.files[0]; if (!f) return;
+                    setPhotoUploading(true);
+                    try { const fd = new FormData(); fd.append("file", f); const r = await hrApi.uploadMyPhoto(fd); setPhotoUrl(r.data.data.photo_url); showToast("Photo updated."); }
+                    catch { showToast("Photo upload failed.", "error"); }
+                    finally { setPhotoUploading(false); e.target.value = ""; }
+                  }} />
+                </label>
+              )}
             </div>
             <div className="prof-name">
               {profile.first_name} {profile.last_name}
@@ -91,10 +135,18 @@ export default function Profile() {
                 {role.replace("_"," ")}
               </span>
             </div>
+            {hod && <div style={{ marginTop: 8 }}><span className="prof-hod-badge" style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20,
+              background: "var(--bg-warning-soft, #fffbeb)", color: "var(--text-warning-soft, #92400e)", border: "1px solid var(--border-warning-soft, #fde68a)" }}>
+              ⭐ HOD{hod.department_name ? " · " + hod.department_name : ""}</span></div>}
+            {designation && <div className="prof-designation" style={{ marginTop: 8, fontSize: 13.5, fontWeight: 600, color: "var(--text-primary)" }}>{designation}</div>}
+            {empCode && <div className="prof-emp-code" style={{ marginTop: 2, fontSize: 12.5, color: "var(--text-secondary)", letterSpacing: ".02em" }}>{empCode}</div>}
           </div>
 
           <div className="prof-details-section">
             {[
+              ...(isEmployee ? [["Employee Code", empCode || "N/A"], ["Designation", designation || "N/A"], ["Department", department || "N/A"],
+                                ["Joined", hr?.joining_date ? formatDate(hr.joining_date) : "N/A"],
+                                ["Employment", (hr?.status || "active").replace(/_/g, " ").replace(/\b\w/g, ch => ch.toUpperCase())]] : []),
               ["Email",      profile.email          || "N/A"],
               ["Phone",      profile.phone          || "N/A"],
               ["Verified",   profile.is_verified    ? "Yes" : "No"],
@@ -131,7 +183,13 @@ export default function Profile() {
         </div>
 
         <div>
-          {sub === "info"     && <EditInfoTab     profile={profile} onSaved={() => { fetchProfile(); showToast("Profile updated successfully."); }} />}
+          {sub === "info" && isEmployee && (
+            <div className="prof-embedded-myprofile">
+              <style>{`.prof-embedded-myprofile .mp-header-card { display: none; } .prof-embedded-myprofile .mp-page { padding: 0; }`}</style>
+              <MyProfile />
+            </div>
+          )}
+          {sub === "info" && !isEmployee && <EditInfoTab profile={profile} onSaved={() => { fetchProfile(); showToast("Profile updated successfully."); }} />}
           {sub === "password" && <ChangePassTab   onSaved={() => showToast("Password changed. Please login again.")} onLogout={logout} />}
           {sub === "activity" && <ActivityTab     profile={profile} />}
           {sub === "theme"     && <ThemeTab     themeKey={themeKey} setTheme={setTheme} />}

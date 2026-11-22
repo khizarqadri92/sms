@@ -224,7 +224,7 @@ export default function PayrollRuns() {
         </div>
       )}
 
-      {can("payroll.create_run") && (
+      {can("payroll.payroll_run_create") && (
         <div className="pr-create-row">
           <div>
             <label className="pr-field-label">Month</label>
@@ -349,12 +349,12 @@ export default function PayrollRuns() {
                 <div className="pr-released-note">
                   <span>Released for salary transfer. This run is now permanently frozen.</span>
                   <div className="pr-released-actions">
-                    {can("payroll.send_slips") && (
+                    {can("payroll.payslip_sending") && (
                       <button className="btn btn-ghost btn-sm pr-send-slips-btn" onClick={() => sendAllSlips(viewingRun.id)}>
                         Send Salary Slip to All Employees
                       </button>
                     )}
-                    {can("payroll.manage") && (
+                    {can("payroll.payroll_run_view") && (
                       <button className="btn btn-primary btn-sm pr-download-btn" onClick={() => downloadPayroll(viewingRun.id)}>
                         Download Payroll
                       </button>

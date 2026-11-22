@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useAuth } from "../auth/AuthContext";
+import { useAuth, effectiveRole } from "../auth/AuthContext";
 import assignmentsApi from "../api/assignmentsApi";
 import diaryApi from "../api/diaryApi";
 import DatePicker from "../components/DatePicker";
@@ -44,7 +44,7 @@ async function submitAssignmentWithFile(id, file) {
 
 export default function Assignments() {
   const { user } = useAuth();
-  const role = user?.roles?.[0];
+  const role = effectiveRole(user);
   if (role === "student") return <StudentAssignments />;
   if (role === "parent")  return <ParentAssignments />;
   if (role === "principal" || role === "admin" || role === "superadmin" || role === "academic_coordinator")

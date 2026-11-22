@@ -129,10 +129,31 @@ def _compute_is_late_for_staff(db, staff_id, clock_in_dt):
     return _is_late(clock_in_dt, start_time, grace_minutes)
 
 
+# --- EMPLOYEE ATTENDANCE METHODS (HR): RFID / Biometric on-off + self clock-in from the employee's own page ---
+def _capture_settings(cur, campus_id):
+    try:
+        cur.execute("SAVEPOINT staff_capture")
+        cur.execute("""SELECT rfid_enabled, biometric_enabled, self_service_allowed FROM staff_attendance_capture_settings
+                       WHERE campus_id = %s OR campus_id IS NULL ORDER BY campus_id NULLS LAST LIMIT 1""", (campus_id,))
+        r = cur.fetchone()
+        cur.execute("RELEASE SAVEPOINT staff_capture")
+        if r:
+            return dict(r)
+    except Exception:
+        cur.execute("ROLLBACK TO SAVEPOINT staff_capture")          # migration not run yet: today's behaviour
+    return {"rfid_enabled": True, "biometric_enabled": False, "self_service_allowed": True}
+
+
+def _capture_settings_for_staff(db, staff_id):
+    return _capture_settings(get_cur(db), _get_campus_id_for_staff(db, staff_id))
+
+
 # --- SELF-SERVICE (employee own clock in/out) ---
 @router.post("/my/toggle")
 def my_toggle(user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
     staff_id = _get_staff_id_for_user(db, user_id)
+    if not _capture_settings_for_staff(db, staff_id)["self_service_allowed"]:
+        fail("Clocking in or out from your own page is turned off by HR. Please use the card reader or biometric device.", 403)
     is_late_value = _compute_is_late_for_staff(db, staff_id, get_processing_datetime(db))
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_toggle_staff_attendance(%s,%s,%s,%s)", (staff_id, "web", user_id, is_late_value))
@@ -213,6 +234,8 @@ def rfid_swipe(body: RfidSwipeIn, _=Depends(verify_device_key), db=Depends(get_d
     srow = cur.fetchone()
     if not srow:
         fail("Card not recognized or inactive.", 404)
+    if not _capture_settings_for_staff(db, srow["staff_id"])["rfid_enabled"]:
+        fail("RFID attendance for employees is turned off by HR.", 409)
     is_late_value = _compute_is_late_for_staff(db, srow["staff_id"], get_processing_datetime(db))
     cur.execute("SELECT * FROM sp_toggle_staff_attendance(%s,%s,%s,%s)", (srow["staff_id"], "rfid", None, is_late_value))
     row = dict(cur.fetchone())
@@ -674,3 +697,142 @@ def auto_close_open_sessions(user_id: int = Depends(require_permission("hr.manag
     row = cur.fetchone()
     db.commit()
     return ok(data={"closed_count": row["closed_count"]}, message=str(row["closed_count"]) + " forgotten session(s) auto-closed.")
+
+
+# --- EMPLOYEE ATTENDANCE METHODS: settings (HR), the employee's options, biometric numbers, device scans ---
+@router.get("/my/options")
+def my_options(user_id: int = Depends(get_current_user_id), db=Depends(get_db)):
+    """What the employee's own page may show (the Clock In / Clock Out button only when HR allows it)."""
+    cur = get_cur(db)
+    cur.execute("SELECT id, campus_id FROM staff WHERE user_id = %s ORDER BY id DESC LIMIT 1", (user_id,))
+    st = cur.fetchone()
+    s = _capture_settings(cur, st["campus_id"] if st else None)
+    return ok(data={**s, "is_staff": bool(st)})
+
+
+@router.get("/capture-settings")
+def get_capture_settings(user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db),
+                         campus_id: Optional[int] = Depends(governed_settings_campus_id("attendance"))):
+    cur = get_cur(db)
+    return ok(data={**_capture_settings(cur, campus_id), "scope": "campus" if campus_id is not None else "school-wide default"})
+
+
+class CaptureSettingsIn(BaseModel):
+    rfid_enabled: bool = True
+    biometric_enabled: bool = False
+    self_service_allowed: bool = True
+
+
+@router.put("/capture-settings")
+def update_capture_settings(body: CaptureSettingsIn, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db),
+                            campus_id: Optional[int] = Depends(governed_settings_campus_id_for_write("attendance"))):
+    if not (body.rfid_enabled or body.biometric_enabled or body.self_service_allowed):
+        fail("Keep at least one way for employees to record attendance (RFID, biometric or their own page).")
+    cur = get_cur(db)
+    vals = (body.rfid_enabled, body.biometric_enabled, body.self_service_allowed, user_id)
+    if campus_id is None:
+        cur.execute("""UPDATE staff_attendance_capture_settings SET rfid_enabled=%s, biometric_enabled=%s, self_service_allowed=%s,
+                       updated_by=%s, updated_at=now() WHERE campus_id IS NULL""", vals)
+    else:
+        cur.execute("""INSERT INTO staff_attendance_capture_settings (rfid_enabled, biometric_enabled, self_service_allowed, updated_by, campus_id)
+                       VALUES (%s,%s,%s,%s,%s) ON CONFLICT (campus_id) DO UPDATE SET rfid_enabled=EXCLUDED.rfid_enabled,
+                       biometric_enabled=EXCLUDED.biometric_enabled, self_service_allowed=EXCLUDED.self_service_allowed,
+                       updated_by=EXCLUDED.updated_by, updated_at=now()""", vals + (campus_id,))
+    db.commit()
+    return ok(message="Employee attendance methods saved.")
+
+
+@router.get("/biometric-ids")
+def list_biometric_ids(user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db),
+                       campus_id: Optional[int] = Depends(get_current_campus_id)):
+    cur = get_cur(db)
+    cur.execute("""SELECT s.id AS staff_id, s.first_name || ' ' || s.last_name AS name, s.employee_code, d.name AS department,
+                          b.id, b.identifier, b.assigned_at
+                   FROM staff s LEFT JOIN departments d ON d.id = s.department_id
+                   LEFT JOIN staff_biometric_ids b ON b.staff_id = s.id AND b.is_active
+                   WHERE COALESCE(s.status, 'active') = 'active' AND (%s::int IS NULL OR s.campus_id = %s)
+                   ORDER BY s.first_name, s.last_name""", (campus_id, campus_id))
+    rows = []
+    for r in cur.fetchall():
+        d = dict(r); d["assigned_at"] = d["assigned_at"].isoformat() if d["assigned_at"] else None; rows.append(d)
+    return ok(data=rows)
+
+
+class BiometricIdIn(BaseModel):
+    staff_id: int
+    identifier: str
+
+
+@router.post("/biometric-ids")
+def assign_biometric_id(body: BiometricIdIn, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db)):
+    ident = (body.identifier or "").strip()
+    if not ident:
+        fail("Enter the employee's user number from the biometric terminal.")
+    cur = get_cur(db)
+    cur.execute("""SELECT b.staff_id, s.first_name || ' ' || s.last_name AS name FROM staff_biometric_ids b JOIN staff s ON s.id = b.staff_id
+                   WHERE lower(b.identifier) = lower(%s) AND b.is_active""", (ident,))
+    other = cur.fetchone()
+    if other and other["staff_id"] != body.staff_id:
+        fail(f"User number {ident} already belongs to {other['name']}.", 409)
+    if other:
+        return ok(message="Already assigned to this employee.")
+    try:                                                 # terminals are shared with students: numbers must not clash
+        cur.execute("SAVEPOINT student_ids")
+        cur.execute("""SELECT st.first_name || ' ' || st.last_name AS name FROM student_attendance_ids i JOIN students st ON st.id = i.student_id
+                       WHERE i.kind = 'biometric' AND lower(i.identifier) = lower(%s) AND i.is_active""", (ident,))
+        clash = cur.fetchone()
+        cur.execute("RELEASE SAVEPOINT student_ids")
+    except Exception:
+        cur.execute("ROLLBACK TO SAVEPOINT student_ids"); clash = None
+    if clash:
+        fail(f"User number {ident} is already used by the student {clash['name']} on the terminals.", 409)
+    cur.execute("""UPDATE staff_biometric_ids SET is_active=FALSE, deactivated_at=now(), deactivated_by=%s, reason='Replaced'
+                   WHERE staff_id=%s AND is_active""", (user_id, body.staff_id))
+    replaced = cur.rowcount
+    cur.execute("INSERT INTO staff_biometric_ids (staff_id, identifier, assigned_by) VALUES (%s,%s,%s)", (body.staff_id, ident, user_id))
+    db.commit()
+    return ok(message="Biometric number " + ("replaced." if replaced else "assigned."))
+
+
+@router.delete("/biometric-ids/{bid}")
+def remove_biometric_id(bid: int, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db)):
+    cur = get_cur(db)
+    cur.execute("""UPDATE staff_biometric_ids SET is_active=FALSE, deactivated_at=now(), deactivated_by=%s, reason='Removed'
+                   WHERE id=%s AND is_active""", (user_id, bid))
+    if not cur.rowcount:
+        fail("Not found.", 404)
+    db.commit()
+    return ok(message="Removed. The number no longer clocks this employee in.")
+
+
+def staff_device_scan(cur, db, kind, identifier, scanned_at):
+    """
+    Called by the attendance devices (shared with students) when a scan isn't a student's.
+    None = not an employee either. Otherwise clocks the employee in / out like an RFID swipe.
+    """
+    if kind == "biometric":
+        cur.execute("""SELECT s.id, s.first_name || ' ' || s.last_name AS name FROM staff_biometric_ids b JOIN staff s ON s.id = b.staff_id
+                       WHERE lower(b.identifier) = lower(%s) AND b.is_active""", (identifier,))
+    else:
+        cur.execute("""SELECT s.id, s.first_name || ' ' || s.last_name AS name FROM staff_rfid_cards rc JOIN staff s ON s.id = rc.staff_id
+                       WHERE lower(rc.card_uid) = lower(%s) AND rc.is_active""", (identifier,))
+    st = cur.fetchone()
+    if not st:
+        return None
+    out = {"staff": {"id": st["id"], "name": st["name"]}}
+    s = _capture_settings(cur, _get_campus_id_for_staff(db, st["id"]))
+    if not s["biometric_enabled" if kind == "biometric" else "rfid_enabled"]:
+        out["result"] = "method_off"; return out
+    # a quick second scan is a double tap, not a clock-out (scan log times are all device-local, so they compare like with like)
+    cur.execute("""SELECT 1 FROM attendance_scans WHERE staff_id = %s AND result IN ('staff_in', 'staff_out')
+                   AND scanned_at > %s - interval '2 minutes'""", (st["id"], scanned_at))
+    if cur.fetchone():
+        out["result"] = "duplicate"; return out
+    is_late_value = _compute_is_late_for_staff(db, st["id"], get_processing_datetime(db))     # exactly as the RFID swipe does
+    cur.execute("SELECT * FROM sp_toggle_staff_attendance(%s,%s,%s,%s)", (st["id"], kind, None, is_late_value))
+    row = dict(cur.fetchone())
+    if row.get("error_msg"):
+        out["result"] = "staff_error"; out["message"] = row["error_msg"]; return out
+    out["result"] = "staff_in" if row["action"] == "clock_in" else "staff_out"
+    out["is_late"] = bool(is_late_value) if row["action"] == "clock_in" else None
+    return out

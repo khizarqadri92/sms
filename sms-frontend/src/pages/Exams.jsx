@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../auth/AuthContext";
+import { useAuth, effectiveRole } from "../auth/AuthContext";
 import { examsApi } from "../api/examsApi";
 import academicsApi from "../api/academicsApi";
 import DatePicker from "../components/DatePicker";
@@ -32,11 +32,11 @@ const Badge = ({styles, value}) => {
 export default function Exams() {
   const { user, can } = useAuth();
   const navigate = useNavigate();
-  const role = user?.roles?.[0] || "";
-  const canManage  = can("exam.manage");
-  const canApprove = can("exam.approve");
-  const canMarks   = can("exam.marks");
-  const isViewOnly = ["teacher","parent","student"].includes(role);
+  const role = effectiveRole(user) || "";
+  const canManage  = can("exams_results.exam_management", "exams_results.datesheet_edit");
+  const canApprove = can("exams_results.result_approval");
+  const canMarks   = can("exams_results.marks_entry");
+  const isViewOnly = !canManage && !canApprove;        // no exam management / approval permission
 
   const [list,         setList]         = useState([]);
   const [loading,      setLoading]      = useState(false);

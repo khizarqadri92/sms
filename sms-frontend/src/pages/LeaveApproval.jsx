@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import workflowApi from "../api/workflowApi";
 import { leavesApi } from "../api/leavesApi";
-import { useAuth } from "../auth/AuthContext";
+import { useAuth, effectiveRole } from "../auth/AuthContext";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
 import "./LeaveApproval.css";
 
@@ -25,7 +25,7 @@ export default function LeaveApproval() {
   const roles        = user?.roles || [];
   const canRecommend = perms.includes("leave.recommend");
   const canApprove   = perms.includes("leave.approve");
-  const userRole     = roles[0] || "";
+  const userRole     = effectiveRole(user) || "";
 
   const canApproveLeave = (lr) => {
     if (canApprove) return true;

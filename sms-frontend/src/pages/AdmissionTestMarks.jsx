@@ -15,7 +15,7 @@ export default function AdmissionTestMarks() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { can } = useAuth();
-  const staff = can("admission.view");
+  const staff = can("admissions.admission_test_view");
   const [d, setD] = useState(null);
   const [rows, setRows] = useState({});
   const [flash, setFlash] = useState(null);
@@ -46,7 +46,7 @@ export default function AdmissionTestMarks() {
 
   if (!d) return <div className="am-page">{flash && <div className={"am-flash am-flash--" + flash.type}>{flash.msg}</div>}<div className="am-card am-hint">Loading...</div></div>;
   const subs = d.session.subjects;
-  const canMark = can("admission.assess") || d.can_mark;          // admission staff, or this test's examiner
+  const canMark = can("admissions.admission_test_marks_entry") || d.can_mark;   // Admission test marks entry, or this test's examiner
   const pending = d.candidates.filter(c => !c.result).length;
   return (
     <div className="am-page">

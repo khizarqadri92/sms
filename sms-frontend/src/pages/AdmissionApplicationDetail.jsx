@@ -47,7 +47,7 @@ export default function AdmissionApplicationDetail() {
   const act = async (x) => {
     let remarks = null, override = false;
     if (x.blocked) {
-      if (!can("admission.decide")) { notify("error", x.blocked); return; }
+      if (!can("admissions.admission_rule_override")) { notify("error", x.blocked); return; }
       if (!window.confirm(x.blocked + "\n\nOverride and continue anyway? This is recorded.")) return;
       override = true;
     }
@@ -116,11 +116,17 @@ export default function AdmissionApplicationDetail() {
     } catch (e) { notify("error", "Could not open the document."); }
   };
 
+  // opened from the work queue (…#am-approval): go straight to the approval card (before any early return: hook rules)
+  useEffect(() => {
+    if (window.location.hash === "#am-approval" && d?.approval)
+      setTimeout(() => document.getElementById("am-approval")?.scrollIntoView({ behavior: "smooth", block: "start" }), 150);
+  }, [d?.approval]);
+
   if (!d) return <div className="am-page">{flash && <div className={"am-flash am-flash--" + flash.type}>{flash.msg}</div>}<div className="am-card am-hint">Loading...</div></div>;
   const a = d.application;
   const pg = a.primary_guardian;
   const docOptions = [...new Set([...d.missing_documents, ...d.documents.map(x => x.document_name)])];
-  const canReview = can("admission.verify") && REVIEW_STAGES.includes(a.status);
+  const canReview = can("admissions.document_verification") && REVIEW_STAGES.includes(a.status);
   const actionOf = name => d.actions.find(x => x.action === name);
   const ready = x => x && (!x.blocked || /schedule first/i.test(x.blocked));   // usable now (the card creates the schedule)
   const nextUp = ready(actionOf("record_test"))        ? { text: "The admission test is scheduled. Next: enter the test marks.", target: "am-test", label: "Enter marks" }
@@ -136,15 +142,15 @@ export default function AdmissionApplicationDetail() {
     <div className="am-page">
       <div className="am-head">
         <div>
-          {can("admission.view") ? <button className="am-btn am-btn--sm" onClick={() => navigate("/admissions/applications")}>&larr; Applications</button>
+          {can("admissions.application_list_view") ? <button className="am-btn am-btn--sm" onClick={() => navigate("/admissions/applications")}>&larr; Applications</button>
             : <span className="am-status am-status--info">{a.my_assignment?.panel ? "You are on the interview panel" : "You are the examiner"}</span>}
           <div className="am-title" style={{ marginTop: 8 }}>{a.student_first_name} {a.student_last_name}</div>
           <div className="am-sub">{a.application_no} · {a.class_name} · {a.session} · {a.campus}</div>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <span className={"am-status am-status--" + statusTone(a.status)}>{a.status_label}{a.waiting_list_position ? " #" + a.waiting_list_position : ""}</span>
-          {can("admission.view") && <button className="am-btn" onClick={() => openPdf(() => admissionsApi.formPdf(id), "Could not open the application PDF.")}>Application (PDF)</button>}
-          {a.editable && can("admission.edit") && <button className="am-btn" onClick={() => navigate("/admissions/applications/" + id + "/edit")}>Edit details</button>}
+          {can("admissions.application_pdf") && <button className="am-btn" onClick={() => openPdf(() => admissionsApi.formPdf(id), "Could not open the application PDF.")}>Application (PDF)</button>}
+          {a.editable && can("admissions.application_edit") && <button className="am-btn" onClick={() => navigate("/admissions/applications/" + id + "/edit")}>Edit details</button>}
         </div>
       </div>
       {flash && <div className={"am-flash am-flash--" + flash.type}>{flash.msg}</div>}
@@ -178,7 +184,7 @@ export default function AdmissionApplicationDetail() {
               <KV label="Admission messages to" value={a.notify_contact.replace("_", " ")} />
               <KV label="Parent account" value={a.parent_account ? a.parent_account.name + (a.parent_account.login_phone ? " · " + a.parent_account.login_phone : "") : "Not linked yet"} />
             </div>
-            {!a.parent_user_id && can("admission.edit") && !["rejected", "withdrawn"].includes(a.status) && (
+            {!a.parent_user_id && can("admissions.parent_login_creation") && !["rejected", "withdrawn"].includes(a.status) && (
               <button className="am-btn am-btn--sm" style={{ marginTop: 10 }} disabled={busy} onClick={createParentLogin}>Create parent login</button>
             )}
             {parentLogin && (
@@ -218,7 +224,7 @@ export default function AdmissionApplicationDetail() {
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <span className={"am-status am-status--" + ({ verified: "good", rejected: "bad", resubmission_required: "warn" }[doc.status] || "")}>{doc.status.replace("_", " ")}</span>
                   <button className="am-btn am-btn--sm" onClick={() => download(doc)}>Open</button>
-                  {a.status === "draft" && can("admission.verify") && <span className="am-hint">Submit the application to review documents</span>}
+                  {a.status === "draft" && can("admissions.document_verification") && <span className="am-hint">Submit the application to review documents</span>}
                   {canReview && (
                     <span className="am-doc-actions">
                       {doc.status !== "verified" && <button className="am-btn am-btn--sm am-btn--ok" disabled={busy} onClick={() => review(doc, "verified")}>Verify</button>}
@@ -230,7 +236,7 @@ export default function AdmissionApplicationDetail() {
               </div>
             ))}
             {d.missing_documents.map(m => <div className="am-doc" key={m}><div><b>{m}</b><div className="am-hint">Not uploaded yet</div></div><span className="am-status am-status--warn">missing</span></div>)}
-            {can("admission.edit") && !["admission_completed", "rejected", "withdrawn"].includes(a.status) && (
+            {can("admissions.document_upload") && !["admission_completed", "rejected", "withdrawn"].includes(a.status) && (
               <div className="am-filters" style={{ marginTop: 12 }}>
                 <label className="am-field">Document
                   <input className="am-input" list="am-doc-names" value={upName} onChange={e => setUpName(e.target.value)} placeholder="Choose or type" />
@@ -243,7 +249,7 @@ export default function AdmissionApplicationDetail() {
               </div>
             )}
           </div>
-          <RegisterCard app={a} canRegister={can("admission.register")} notify={notify} reload={load} />
+          <RegisterCard app={a} canRegister={can("admissions.student_registration")} notify={notify} reload={load} />
           {a.fee_invoice_id && (
             <div className="am-card">
               <div className="am-card-title">Admission fee</div>
@@ -263,7 +269,7 @@ export default function AdmissionApplicationDetail() {
 
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {d.approval && (
-            <div className="am-card">
+            <div className="am-card" id="am-approval">
               <div className="am-card-title">Approval <span className="am-muted">· {d.approval.workflow}</span>
                 {d.approval.status !== "active" && <span className={"am-status am-status--" + ({ completed: "good", rejected: "bad" }[d.approval.status] || "")}>{d.approval.status}</span>}
               </div>

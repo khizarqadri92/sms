@@ -11,9 +11,11 @@ from pydantic import BaseModel
 
 from app.fastapi_auth import get_current_user_id, get_jwt_claims
 from app.fastapi_campus import get_current_campus_id, enforce_same_campus
-from app.fastapi_permissions import require_permission
+from app.fastapi_permissions import require_permission, require_any_permission
 from app.fastapi_db import get_db, get_cur as _get_cur
 from app.utils.processing_date import get_processing_date
+
+from app.utils.session_scope import keep_session   # current session / history
 
 router = APIRouter()
 
@@ -94,8 +96,9 @@ class RemindPublishIn(BaseModel):
 
 @router.get("/")
 def get_diary(
+    academic_year_id: Optional[int] = Query(None),
     date: Optional[str] = Query(None), class_id: Optional[int] = Query(None),
-    user_id: int = Depends(require_permission("diary.view")), db=Depends(get_db),
+    user_id: int = Depends(require_permission("academics.diary_view")), db=Depends(get_db),
     claims: dict = Depends(get_jwt_claims), campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
     cur = get_cur(db)
@@ -108,6 +111,7 @@ def get_diary(
 
     cur.execute("SELECT * FROM sp_list_diary_entries(%s, %s)", (class_id, date))
     entries = [dict(r) for r in cur.fetchall()]
+    entries = keep_session(cur, "daily_diary", entries, academic_year_id)   # this session (or a past one, as history)
     if not class_id:
         # no class given: only this campus's classes
         allowed = _campus_class_ids(cur, campus_id)
@@ -121,7 +125,7 @@ def get_diary(
 
 
 @router.post("/entry")
-def save_entry(body: SaveEntryIn, user_id: int = Depends(require_permission("diary.create")), db=Depends(get_db),
+def save_entry(body: SaveEntryIn, user_id: int = Depends(require_permission("academics.diary_writing")), db=Depends(get_db),
                campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     enforce_same_campus(_class_campus(cur, body.class_id), campus_id)
@@ -147,7 +151,7 @@ def save_entry(body: SaveEntryIn, user_id: int = Depends(require_permission("dia
 
 
 @router.post("/publish")
-def publish_diary(body: PublishIn, user_id: int = Depends(require_permission("diary.publish")), db=Depends(get_db),
+def publish_diary(body: PublishIn, user_id: int = Depends(require_permission("academics.diary_publishing")), db=Depends(get_db),
                   campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     enforce_same_campus(_class_campus(cur, body.class_id), campus_id)
@@ -190,7 +194,7 @@ def publish_diary(body: PublishIn, user_id: int = Depends(require_permission("di
 @router.get("/status")
 def diary_status(
     class_id: Optional[int] = Query(None), date: Optional[str] = Query(None),
-    user_id: int = Depends(require_permission("diary.view")), db=Depends(get_db),
+    user_id: int = Depends(require_permission("academics.diary_view")), db=Depends(get_db),
     claims: dict = Depends(get_jwt_claims), campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
     if not class_id or not date:
@@ -205,7 +209,7 @@ def diary_status(
 
 
 @router.post("/remind")
-def send_reminder(body: RemindIn, user_id: int = Depends(require_permission("diary.publish")), db=Depends(get_db),
+def send_reminder(body: RemindIn, user_id: int = Depends(require_permission("academics.diary_publishing")), db=Depends(get_db),
                   campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     enforce_same_campus(_class_campus(cur, body.class_id), campus_id)
@@ -225,14 +229,14 @@ def send_reminder(body: RemindIn, user_id: int = Depends(require_permission("dia
 
 
 @router.get("/my-classes")
-def my_classes(user_id: int = Depends(require_permission("diary.create")), db=Depends(get_db)):
+def my_classes(user_id: int = Depends(require_permission("academics.diary_writing")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_my_classes(%s)", (user_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 
 @router.get("/my-subjects")
-def my_subjects(class_id: Optional[int] = Query(None), user_id: int = Depends(require_permission("diary.create")), db=Depends(get_db)):
+def my_subjects(class_id: Optional[int] = Query(None), user_id: int = Depends(require_permission("academics.diary_writing")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT sp_get_teacher_id_by_user(%s) AS tid", (user_id,))
     row = cur.fetchone()
@@ -255,7 +259,7 @@ def my_subjects(class_id: Optional[int] = Query(None), user_id: int = Depends(re
 
 
 @router.get("/student")
-def student_diary(date: Optional[str] = Query(None), user_id: int = Depends(require_permission("diary.view")), db=Depends(get_db)):
+def student_diary(date: Optional[str] = Query(None), user_id: int = Depends(require_permission("academics.diary_view")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT sp_get_student_class(%s) AS cid", (user_id,))
     row = cur.fetchone()
@@ -283,7 +287,7 @@ def student_diary(date: Optional[str] = Query(None), user_id: int = Depends(requ
 
 
 @router.get("/all-status")
-def all_classes_status(date: Optional[str] = Query(None), user_id: int = Depends(require_permission("diary.view")), db=Depends(get_db),
+def all_classes_status(date: Optional[str] = Query(None), user_id: int = Depends(require_permission("academics.diary_view")), db=Depends(get_db),
                        campus_id: Optional[int] = Depends(get_current_campus_id)):
     query_date = date or get_processing_date(db).strftime("%Y-%m-%d")
     cur = get_cur(db)
@@ -299,7 +303,7 @@ def all_classes_status(date: Optional[str] = Query(None), user_id: int = Depends
 
 
 @router.post("/remind-publish")
-def remind_publish(body: RemindPublishIn, user_id: int = Depends(require_permission("diary.view")), db=Depends(get_db),
+def remind_publish(body: RemindPublishIn, user_id: int = Depends(require_permission("academics.diary_view")), db=Depends(get_db),
                    campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("SELECT campus_id FROM users WHERE id=%s", (body.incharge_user_id,))

@@ -14,6 +14,7 @@ import MyClasses        from "./pages/MyClasses";
 import Attendance       from "./pages/Attendance";
 import Users            from "./pages/Users";
 import Roles            from "./pages/Roles";
+import AccessControl from "./pages/AccessControl";
 import Forbidden        from "./pages/Forbidden";
 import Academics       from "./pages/Academics";
 import HRManagementHub from "./pages/HRManagementHub";
@@ -115,6 +116,11 @@ import PendingApprovals      from "./pages/PendingApprovals";
 import ProcurementRequisitions from "./pages/ProcurementRequisitions";
 import PurchaseOrders        from "./pages/PurchaseOrders";
 import ProcurementDashboard from "./pages/ProcurementDashboard";
+import Messages from "./pages/Messages";
+import ActivityStream from "./pages/ActivityStream";
+import AttendanceCapture, { GateScan } from "./pages/AttendanceCapture";
+import { LabDashboard, LabsPage, LabSettingsPage } from "./pages/Laboratory";
+import { EquipmentPage, IssuesPage, ConsumablesPage, StockLedgerPage } from "./pages/LabInventory";
 import WorkQueue from "./pages/WorkQueue";
 import WorkflowBuilder from "./pages/WorkflowBuilder";
 import ReportPermissions from "./pages/ReportPermissions";
@@ -202,7 +208,7 @@ export default function App() {
           }/>
           <Route path="/roles" element={
             <PrivateRoute permission="roles.view">
-              <RoleLayout><Roles /></RoleLayout>
+              <RoleLayout><AccessControl /></RoleLayout>
             </PrivateRoute>
           }/>
 
@@ -383,6 +389,17 @@ export default function App() {
               <Route path="/report-permissions" element={<PrivateRoute permission="users.manage_roles"><RoleLayout><ReportPermissions /></RoleLayout></PrivateRoute>} />
               <Route path="/request-permissions" element={<PrivateRoute permission="users.manage_roles"><RoleLayout><RequestPermissions /></RoleLayout></PrivateRoute>} />
           <Route path="/work-queue" element={<PrivateRoute><RoleLayout><WorkQueue /></RoleLayout></PrivateRoute>} />
+          <Route path="/lab/equipment" element={<PrivateRoute><RoleLayout><EquipmentPage /></RoleLayout></PrivateRoute>} />
+          <Route path="/lab/issues" element={<PrivateRoute><RoleLayout><IssuesPage /></RoleLayout></PrivateRoute>} />
+          <Route path="/lab/consumables" element={<PrivateRoute><RoleLayout><ConsumablesPage /></RoleLayout></PrivateRoute>} />
+          <Route path="/lab/stock-transactions" element={<PrivateRoute><RoleLayout><StockLedgerPage /></RoleLayout></PrivateRoute>} />
+          <Route path="/lab" element={<PrivateRoute><RoleLayout><LabDashboard /></RoleLayout></PrivateRoute>} />
+          <Route path="/lab/labs" element={<PrivateRoute><RoleLayout><LabsPage /></RoleLayout></PrivateRoute>} />
+          <Route path="/lab/settings" element={<PrivateRoute><RoleLayout><LabSettingsPage /></RoleLayout></PrivateRoute>} />
+          <Route path="/attendance-capture" element={<PrivateRoute><RoleLayout><AttendanceCapture /></RoleLayout></PrivateRoute>} />
+          <Route path="/gate-scan" element={<PrivateRoute><RoleLayout><GateScan /></RoleLayout></PrivateRoute>} />
+          <Route path="/activity" element={<PrivateRoute><RoleLayout><ActivityStream /></RoleLayout></PrivateRoute>} />
+          <Route path="/messages" element={<PrivateRoute><RoleLayout><Messages /></RoleLayout></PrivateRoute>} />
           <Route path="/procurement"    element={<PrivateRoute><RoleLayout><ProcurementDashboard /></RoleLayout></PrivateRoute>} />
           <Route path="/leave-approval" element={<PrivateRoute><RoleLayout><LeaveApproval /></RoleLayout></PrivateRoute>} />
           <Route path="/leave-setup"    element={<PrivateRoute><RoleLayout><LeaveSetup /></RoleLayout></PrivateRoute>} />

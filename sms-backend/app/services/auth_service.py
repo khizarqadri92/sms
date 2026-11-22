@@ -88,7 +88,7 @@ class AuthService:
         Shared final step of a successful login, whether that login completed
         in one step (no 2FA) or two (password, then a verified TOTP code).
         """
-        rbac = self._users.get_user_roles_and_permissions(user["id"])
+        rbac = self._effective(user["id"])
         self._users.update_last_login(user["id"])
 
         identity = str(user["id"])
@@ -125,6 +125,14 @@ class AuthService:
                 "must_change_password": must_change,
             }
         }
+
+    def _effective(self, user_id: int) -> Dict:
+        """Roles (own first, acting after) and permissions valid today: roles + acting roles + extra permissions."""
+        from app.db.connection import get_db
+        import psycopg2.extras
+        from app.utils.access import effective_permissions, effective_roles
+        cur = get_db().cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        return {"roles": effective_roles(cur, user_id), "permissions": effective_permissions(cur, user_id)}
 
     def must_change_password(self, user_id: int) -> bool:
         from app.db.connection import get_db

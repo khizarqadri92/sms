@@ -6,7 +6,7 @@ import { useGovernanceMode } from "../hooks/useGovernanceMode";
 export default function NotificationTemplates() {
   const { can } = useAuth();
   const { isGlobalLocked } = useGovernanceMode("notification_templates");
-  const canManage = can("settings.manage") && !isGlobalLocked;
+  const canManage = can("communication.notification_templates") && !isGlobalLocked;
   const [templates, setTemplates] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedKey, setSelectedKey] = useState("");

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from app.fastapi_auth import get_current_user_id
-from app.fastapi_permissions import require_permission
+from app.fastapi_permissions import require_permission, require_any_permission
 from app.fastapi_db import get_db, get_cur as _get_cur
 from app.utils.processing_date import get_processing_datetime, get_processing_date
 from app.fastapi_campus import get_current_campus_id
@@ -117,13 +117,13 @@ class EmergencyContactIn(BaseModel):
 
 # ─── DEPARTMENTS ─────────────────────────────────────────────────
 @router.get("/departments")
-def list_departments(user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("sub_departments"))):
+def list_departments(user_id: int = Depends(require_any_permission("hr.all_leave_requests", "hr.attendance_correction_approval", "hr.departments_designations_edit", "hr.departments_designations_view", "hr.discipline_appeal", "hr.discipline_committee_hearings", "hr.discipline_decision", "hr.discipline_reporting", "hr.discipline_review", "hr.discipline_view", "hr.employee_attendance_report", "hr.hr_policy_settings", "hr.leave_application", "hr.leave_approval", "hr.leave_recommendation", "hr.leave_setup", "hr.my_attendance", "hr.my_hr_profile", "hr.resignation_management", "hr.resignation_submission", "hr.staff_attendance_setup", "hr.staff_attendance_view", "hr.staff_contact_details", "hr.staff_create", "hr.staff_deactivate", "hr.staff_documents", "hr.staff_edit", "hr.staff_import_export", "hr.staff_list_view", "hr.student_leave_application")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("sub_departments"))):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_departments(%s)", (campus_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 @router.get("/departments/{dept_id}/allowed-roles")
-def get_allowed_roles(dept_id: int, user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def get_allowed_roles(dept_id: int, user_id: int = Depends(require_any_permission("hr.all_leave_requests", "hr.attendance_correction_approval", "hr.departments_designations_edit", "hr.departments_designations_view", "hr.discipline_appeal", "hr.discipline_committee_hearings", "hr.discipline_decision", "hr.discipline_reporting", "hr.discipline_review", "hr.discipline_view", "hr.employee_attendance_report", "hr.hr_policy_settings", "hr.leave_application", "hr.leave_approval", "hr.leave_recommendation", "hr.leave_setup", "hr.my_attendance", "hr.my_hr_profile", "hr.resignation_management", "hr.resignation_submission", "hr.staff_attendance_setup", "hr.staff_attendance_view", "hr.staff_contact_details", "hr.staff_create", "hr.staff_deactivate", "hr.staff_documents", "hr.staff_edit", "hr.staff_import_export", "hr.staff_list_view", "hr.student_leave_application")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("SELECT parent_id, campus_id FROM departments WHERE id=%s", (dept_id,))
     row = cur.fetchone()
@@ -138,7 +138,7 @@ class DepartmentIn(BaseModel):
     is_parent: Optional[bool] = False
 
 @router.post("/departments")
-def create_department(body: DepartmentIn, user_id: int = Depends(require_permission("hr.designations")), db=Depends(get_db), raw_campus_id: Optional[int] = Depends(get_current_campus_id)):
+def create_department(body: DepartmentIn, user_id: int = Depends(require_permission("hr.departments_designations_edit")), db=Depends(get_db), raw_campus_id: Optional[int] = Depends(get_current_campus_id)):
     _own_cid = _own_campus_id(get_cur(db), user_id)
     if not body.parent_id and _own_cid is not None:
         fail("Top-level departments are managed centrally by the superadmin.", 403)
@@ -169,7 +169,7 @@ def create_department(body: DepartmentIn, user_id: int = Depends(require_permiss
     return ok(message="Department created.")
 
 @router.put("/departments/{dept_id}")
-def update_department(dept_id: int, body: DepartmentIn, user_id: int = Depends(require_permission("hr.designations")), db=Depends(get_db), raw_campus_id: Optional[int] = Depends(get_current_campus_id)):
+def update_department(dept_id: int, body: DepartmentIn, user_id: int = Depends(require_permission("hr.departments_designations_edit")), db=Depends(get_db), raw_campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_department_write_access(cur, dept_id, raw_campus_id, _own_campus_id(cur, user_id))
     cur.execute("UPDATE departments SET name=%s WHERE id=%s", (body.name, dept_id))
@@ -177,7 +177,7 @@ def update_department(dept_id: int, body: DepartmentIn, user_id: int = Depends(r
     return ok(message="Department updated.")
 
 @router.delete("/departments/{dept_id}")
-def delete_department(dept_id: int, user_id: int = Depends(require_permission("hr.designations")), db=Depends(get_db), raw_campus_id: Optional[int] = Depends(get_current_campus_id)):
+def delete_department(dept_id: int, user_id: int = Depends(require_permission("hr.departments_designations_edit")), db=Depends(get_db), raw_campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_department_write_access(cur, dept_id, raw_campus_id, _own_campus_id(cur, user_id))
     cur.execute("SELECT COUNT(*) AS cnt FROM departments WHERE parent_id=%s AND is_active=true", (dept_id,))
@@ -188,13 +188,13 @@ def delete_department(dept_id: int, user_id: int = Depends(require_permission("h
 
 # ─── DESIGNATIONS ────────────────────────────────────────────────
 @router.get("/designations")
-def list_designations(user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("designations"))):
+def list_designations(user_id: int = Depends(require_any_permission("hr.all_leave_requests", "hr.attendance_correction_approval", "hr.departments_designations_edit", "hr.departments_designations_view", "hr.discipline_appeal", "hr.discipline_committee_hearings", "hr.discipline_decision", "hr.discipline_reporting", "hr.discipline_review", "hr.discipline_view", "hr.employee_attendance_report", "hr.hr_policy_settings", "hr.leave_application", "hr.leave_approval", "hr.leave_recommendation", "hr.leave_setup", "hr.my_attendance", "hr.my_hr_profile", "hr.resignation_management", "hr.resignation_submission", "hr.staff_attendance_setup", "hr.staff_attendance_view", "hr.staff_contact_details", "hr.staff_create", "hr.staff_deactivate", "hr.staff_documents", "hr.staff_edit", "hr.staff_import_export", "hr.staff_list_view", "hr.student_leave_application")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("designations"))):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_designations(%s)", (campus_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 @router.post("/designations")
-def create_designation(body: DesignationIn, user_id: int = Depends(require_permission("hr.designations")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("designations"))):
+def create_designation(body: DesignationIn, user_id: int = Depends(require_permission("hr.departments_designations_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("designations"))):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_create_designation(%s,%s,%s)", (body.name, body.department_id, campus_id))
     result = cur.fetchone()
@@ -204,7 +204,7 @@ def create_designation(body: DesignationIn, user_id: int = Depends(require_permi
     return ok(data={"id": result["id"]}, message="Designation created.")
 
 @router.put("/designations/{des_id}")
-def update_designation(des_id: int, body: DesignationIn, user_id: int = Depends(require_permission("hr.designations")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("designations"))):
+def update_designation(des_id: int, body: DesignationIn, user_id: int = Depends(require_permission("hr.departments_designations_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("designations"))):
     cur = get_cur(db)
     cur.execute("SELECT campus_id FROM designations WHERE id=%s", (des_id,))
     _row = cur.fetchone()
@@ -214,7 +214,7 @@ def update_designation(des_id: int, body: DesignationIn, user_id: int = Depends(
     return ok(message="Designation updated.")
 
 @router.delete("/designations/{des_id}")
-def delete_designation(des_id: int, user_id: int = Depends(require_permission("hr.designations")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("designations"))):
+def delete_designation(des_id: int, user_id: int = Depends(require_permission("hr.departments_designations_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("designations"))):
     cur = get_cur(db)
     cur.execute("SELECT campus_id FROM designations WHERE id=%s", (des_id,))
     _row = cur.fetchone()
@@ -230,7 +230,7 @@ def list_staff(
     status: Optional[str] = None,
     employment_type: Optional[str] = None,
     search: Optional[str] = None,
-    user_id: int = Depends(require_permission("hr.view")),
+    user_id: int = Depends(require_any_permission("hr.all_leave_requests", "hr.attendance_correction_approval", "hr.departments_designations_edit", "hr.departments_designations_view", "hr.discipline_appeal", "hr.discipline_committee_hearings", "hr.discipline_decision", "hr.discipline_reporting", "hr.discipline_review", "hr.discipline_view", "hr.employee_attendance_report", "hr.hr_policy_settings", "hr.leave_application", "hr.leave_approval", "hr.leave_recommendation", "hr.leave_setup", "hr.my_attendance", "hr.my_hr_profile", "hr.resignation_management", "hr.resignation_submission", "hr.staff_attendance_setup", "hr.staff_attendance_view", "hr.staff_contact_details", "hr.staff_create", "hr.staff_deactivate", "hr.staff_documents", "hr.staff_edit", "hr.staff_import_export", "hr.staff_list_view", "hr.student_leave_application")),
     db=Depends(get_db),
     campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
@@ -240,7 +240,7 @@ def list_staff(
     return ok(data=[fmt(r) for r in cur.fetchall()])
 
 @router.get("/staff/{staff_id}")
-def get_staff(staff_id: int, user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def get_staff(staff_id: int, user_id: int = Depends(require_any_permission("hr.all_leave_requests", "hr.attendance_correction_approval", "hr.departments_designations_edit", "hr.departments_designations_view", "hr.discipline_appeal", "hr.discipline_committee_hearings", "hr.discipline_decision", "hr.discipline_reporting", "hr.discipline_review", "hr.discipline_view", "hr.employee_attendance_report", "hr.hr_policy_settings", "hr.leave_application", "hr.leave_approval", "hr.leave_recommendation", "hr.leave_setup", "hr.my_attendance", "hr.my_hr_profile", "hr.resignation_management", "hr.resignation_submission", "hr.staff_attendance_setup", "hr.staff_attendance_view", "hr.staff_contact_details", "hr.staff_create", "hr.staff_deactivate", "hr.staff_documents", "hr.staff_edit", "hr.staff_import_export", "hr.staff_list_view", "hr.student_leave_application")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_staff_campus(cur, staff_id, campus_id)
     cur.execute("SELECT * FROM sp_get_staff_detail(%s)", (staff_id,))
@@ -254,7 +254,7 @@ def get_staff(staff_id: int, user_id: int = Depends(require_permission("hr.view"
     return ok(data=result)
 
 @router.post("/staff")
-def create_staff(body: StaffIn, user_id: int = Depends(require_permission("hr.create")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def create_staff(body: StaffIn, user_id: int = Depends(require_permission("hr.staff_create")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     if campus_id is None:
         fail("No campus context - please select a campus before adding a staff record.", 400)
     cur = get_cur(db)
@@ -269,7 +269,7 @@ def create_staff(body: StaffIn, user_id: int = Depends(require_permission("hr.cr
     return ok(data={"id": result["id"]}, message="Staff record created.")
 
 @router.put("/staff/{staff_id}")
-def update_staff(staff_id: int, body: StaffIn, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def update_staff(staff_id: int, body: StaffIn, user_id: int = Depends(require_permission("hr.staff_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_staff_campus(cur, staff_id, campus_id)
     cur.execute("SELECT * FROM sp_update_staff(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
@@ -283,7 +283,7 @@ def update_staff(staff_id: int, body: StaffIn, user_id: int = Depends(require_pe
     return ok(message="Staff record updated.")
 
 @router.patch("/staff/{staff_id}/status")
-def update_staff_status(staff_id: int, status: str, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def update_staff_status(staff_id: int, status: str, user_id: int = Depends(require_permission("hr.staff_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_staff_campus(cur, staff_id, campus_id)
     cur.execute("SELECT * FROM sp_update_staff_status(%s,%s)", (staff_id, status))
@@ -293,7 +293,7 @@ def update_staff_status(staff_id: int, status: str, user_id: int = Depends(requi
     return ok(message=f"Status updated to {status}.")
 
 @router.delete("/staff/{staff_id}")
-def delete_staff(staff_id: int, user_id: int = Depends(require_permission("hr.delete")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def delete_staff(staff_id: int, user_id: int = Depends(require_permission("hr.staff_deactivate")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_staff_campus(cur, staff_id, campus_id)
     cur.execute("DELETE FROM staff WHERE id=%s", (staff_id,))
@@ -303,7 +303,7 @@ def delete_staff(staff_id: int, user_id: int = Depends(require_permission("hr.de
 # ─── EMERGENCY CONTACTS ──────────────────────────────────────────
 @router.post("/staff/{staff_id}/emergency-contacts")
 def add_emergency_contact(staff_id: int, body: EmergencyContactIn,
-    user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+    user_id: int = Depends(require_permission("hr.staff_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_staff_campus(cur, staff_id, campus_id)
     cur.execute("SELECT sp_add_emergency_contact(%s,%s,%s,%s,%s) AS id",
@@ -314,7 +314,7 @@ def add_emergency_contact(staff_id: int, body: EmergencyContactIn,
 
 @router.delete("/staff/{staff_id}/emergency-contacts/{contact_id}")
 def delete_emergency_contact(staff_id: int, contact_id: int,
-    user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+    user_id: int = Depends(require_permission("hr.staff_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_staff_campus(cur, staff_id, campus_id)
     cur.execute("DELETE FROM staff_emergency_contacts WHERE id=%s AND staff_id=%s", (contact_id, staff_id))
@@ -326,7 +326,7 @@ def delete_emergency_contact(staff_id: int, contact_id: int,
 def upload_document(staff_id: int,
     doc_type: str = Form(...), doc_name: str = Form(...),
     file: UploadFile = File(...),
-    user_id: int = Depends(require_permission("hr.documents")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+    user_id: int = Depends(require_permission("hr.staff_documents")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     _check_staff_campus(get_cur(db), staff_id, campus_id)
     upload_dir = f"uploads/hr/staff/{staff_id}"
     os.makedirs(upload_dir, exist_ok=True)
@@ -345,7 +345,7 @@ def upload_document(staff_id: int,
 
 @router.delete("/staff/{staff_id}/documents/{doc_id}")
 def delete_document(staff_id: int, doc_id: int,
-    user_id: int = Depends(require_permission("hr.documents")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+    user_id: int = Depends(require_permission("hr.staff_documents")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_staff_campus(cur, staff_id, campus_id)
     cur.execute("SELECT file_path FROM staff_documents WHERE id=%s AND staff_id=%s", (doc_id, staff_id))
@@ -358,7 +358,7 @@ def delete_document(staff_id: int, doc_id: int,
 
 # ??? GENERATE EMPLOYEE CODE ??????????????????????????????????????
 @router.get("/generate-employee-code")
-def generate_employee_code(role_id: int, user_id: int = Depends(require_permission("hr.create")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def generate_employee_code(role_id: int, user_id: int = Depends(require_permission("hr.staff_create")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("SELECT sp_generate_employee_code(%s, %s) AS code", (role_id, campus_id))
     row = cur.fetchone()
@@ -368,7 +368,7 @@ def generate_employee_code(role_id: int, user_id: int = Depends(require_permissi
 
 # ??? DEPARTMENT ROLES (for cascading dropdowns) ??????????????????
 @router.get("/departments/{dept_id}/roles")
-def get_roles_by_dept(dept_id: int, user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def get_roles_by_dept(dept_id: int, user_id: int = Depends(require_any_permission("hr.all_leave_requests", "hr.attendance_correction_approval", "hr.departments_designations_edit", "hr.departments_designations_view", "hr.discipline_appeal", "hr.discipline_committee_hearings", "hr.discipline_decision", "hr.discipline_reporting", "hr.discipline_review", "hr.discipline_view", "hr.employee_attendance_report", "hr.hr_policy_settings", "hr.leave_application", "hr.leave_approval", "hr.leave_recommendation", "hr.leave_setup", "hr.my_attendance", "hr.my_hr_profile", "hr.resignation_management", "hr.resignation_submission", "hr.staff_attendance_setup", "hr.staff_attendance_view", "hr.staff_contact_details", "hr.staff_create", "hr.staff_deactivate", "hr.staff_documents", "hr.staff_edit", "hr.staff_import_export", "hr.staff_list_view", "hr.student_leave_application")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("SELECT campus_id FROM departments WHERE id=%s", (dept_id,))
     _row = cur.fetchone()
@@ -377,7 +377,7 @@ def get_roles_by_dept(dept_id: int, user_id: int = Depends(require_permission("h
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 @router.get("/departments/{dept_id}/designations")
-def get_designations_by_dept(dept_id: int, user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def get_designations_by_dept(dept_id: int, user_id: int = Depends(require_any_permission("hr.all_leave_requests", "hr.attendance_correction_approval", "hr.departments_designations_edit", "hr.departments_designations_view", "hr.discipline_appeal", "hr.discipline_committee_hearings", "hr.discipline_decision", "hr.discipline_reporting", "hr.discipline_review", "hr.discipline_view", "hr.employee_attendance_report", "hr.hr_policy_settings", "hr.leave_application", "hr.leave_approval", "hr.leave_recommendation", "hr.leave_setup", "hr.my_attendance", "hr.my_hr_profile", "hr.resignation_management", "hr.resignation_submission", "hr.staff_attendance_setup", "hr.staff_attendance_view", "hr.staff_contact_details", "hr.staff_create", "hr.staff_deactivate", "hr.staff_documents", "hr.staff_edit", "hr.staff_import_export", "hr.staff_list_view", "hr.student_leave_application")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("SELECT campus_id FROM departments WHERE id=%s", (dept_id,))
     _row = cur.fetchone()
@@ -391,7 +391,7 @@ def get_all_staff(
     department_id: Optional[int] = None,
     role_id: Optional[int] = None,
     search: Optional[str] = None,
-    user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db),
+    user_id: int = Depends(require_any_permission("hr.all_leave_requests", "hr.attendance_correction_approval", "hr.departments_designations_edit", "hr.departments_designations_view", "hr.discipline_appeal", "hr.discipline_committee_hearings", "hr.discipline_decision", "hr.discipline_reporting", "hr.discipline_review", "hr.discipline_view", "hr.employee_attendance_report", "hr.hr_policy_settings", "hr.leave_application", "hr.leave_approval", "hr.leave_recommendation", "hr.leave_setup", "hr.my_attendance", "hr.my_hr_profile", "hr.resignation_management", "hr.resignation_submission", "hr.staff_attendance_setup", "hr.staff_attendance_view", "hr.staff_contact_details", "hr.staff_create", "hr.staff_deactivate", "hr.staff_documents", "hr.staff_edit", "hr.staff_import_export", "hr.staff_list_view", "hr.student_leave_application")), db=Depends(get_db),
     campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_all_staff(%s,%s,%s,%s)", (department_id, role_id, search, campus_id))
@@ -415,7 +415,7 @@ class CreateStaffIn(BaseModel):
     date_of_birth: Optional[str] = None
 
 @router.post("/all-staff")
-def create_staff_full(body: CreateStaffIn, user_id: int = Depends(require_permission("hr.create")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def create_staff_full(body: CreateStaffIn, user_id: int = Depends(require_permission("hr.staff_create")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     if campus_id is None:
         fail("No campus context - please select a campus before creating a staff record.", 400)
     import bcrypt
@@ -435,7 +435,7 @@ def create_staff_full(body: CreateStaffIn, user_id: int = Depends(require_permis
 
 # ??? HR SETUP (department_roles management) ???????????????????????
 @router.get("/setup/department-roles")
-def get_dept_roles(user_id: int = Depends(require_permission("hr.designations")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def get_dept_roles(user_id: int = Depends(require_permission("hr.departments_designations_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("""SELECT dr.id, d.id AS department_id, d.name AS department_name,
         r.id AS role_id, r.name AS role_name
@@ -447,7 +447,7 @@ def get_dept_roles(user_id: int = Depends(require_permission("hr.designations"))
 
 @router.post("/setup/department-roles")
 def add_dept_role(department_id: int, role_id: int,
-    user_id: int = Depends(require_permission("hr.designations")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+    user_id: int = Depends(require_permission("hr.departments_designations_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("SELECT campus_id FROM departments WHERE id=%s", (department_id,))
     _row = cur.fetchone()
@@ -459,7 +459,7 @@ def add_dept_role(department_id: int, role_id: int,
 
 @router.delete("/setup/department-roles/{dr_id}")
 def remove_dept_role(dr_id: int,
-    user_id: int = Depends(require_permission("hr.designations")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+    user_id: int = Depends(require_permission("hr.departments_designations_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("SELECT d.campus_id FROM department_roles dr JOIN departments d ON d.id=dr.department_id WHERE dr.id=%s", (dr_id,))
     _row = cur.fetchone()
@@ -469,7 +469,7 @@ def remove_dept_role(dr_id: int,
     return ok(message="Mapping removed.")
 
 @router.get("/setup/all-roles")
-def get_all_roles(user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db)):
+def get_all_roles(user_id: int = Depends(require_any_permission("hr.all_leave_requests", "hr.attendance_correction_approval", "hr.departments_designations_edit", "hr.departments_designations_view", "hr.discipline_appeal", "hr.discipline_committee_hearings", "hr.discipline_decision", "hr.discipline_reporting", "hr.discipline_review", "hr.discipline_view", "hr.employee_attendance_report", "hr.hr_policy_settings", "hr.leave_application", "hr.leave_approval", "hr.leave_recommendation", "hr.leave_setup", "hr.my_attendance", "hr.my_hr_profile", "hr.resignation_management", "hr.resignation_submission", "hr.staff_attendance_setup", "hr.staff_attendance_view", "hr.staff_contact_details", "hr.staff_create", "hr.staff_deactivate", "hr.staff_documents", "hr.staff_edit", "hr.staff_import_export", "hr.staff_list_view", "hr.student_leave_application")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT id, name FROM roles WHERE name NOT IN ('student','parent') ORDER BY name")
     return ok(data=[dict(r) for r in cur.fetchall()])
@@ -523,7 +523,7 @@ def get_or_create_staff(db, user_id):
 
 # Get or create staff from user_id and return full profile
 @router.get("/profile/by-user/{p_user_id}")
-def get_profile_by_user(p_user_id: int, user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def get_profile_by_user(p_user_id: int, user_id: int = Depends(require_any_permission("hr.all_leave_requests", "hr.attendance_correction_approval", "hr.departments_designations_edit", "hr.departments_designations_view", "hr.discipline_appeal", "hr.discipline_committee_hearings", "hr.discipline_decision", "hr.discipline_reporting", "hr.discipline_review", "hr.discipline_view", "hr.employee_attendance_report", "hr.hr_policy_settings", "hr.leave_application", "hr.leave_approval", "hr.leave_recommendation", "hr.leave_setup", "hr.my_attendance", "hr.my_hr_profile", "hr.resignation_management", "hr.resignation_submission", "hr.staff_attendance_setup", "hr.staff_attendance_view", "hr.staff_contact_details", "hr.staff_create", "hr.staff_deactivate", "hr.staff_documents", "hr.staff_edit", "hr.staff_import_export", "hr.staff_list_view", "hr.student_leave_application")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("SELECT campus_id FROM users WHERE id=%s", (p_user_id,))
     _row = cur.fetchone()
@@ -550,7 +550,7 @@ def get_profile_by_user(p_user_id: int, user_id: int = Depends(require_permissio
 # HR uploads photo for any staff
 @router.post("/staff/{staff_id}/photo")
 def upload_staff_photo(staff_id: int, file: UploadFile = File(...),
-    user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+    user_id: int = Depends(require_permission("hr.staff_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     _check_staff_campus(get_cur(db), staff_id, campus_id)
     allowed = {".jpg",".jpeg",".png",".webp"}
     ext = os.path.splitext(file.filename)[1].lower()
@@ -568,7 +568,7 @@ def upload_staff_photo(staff_id: int, file: UploadFile = File(...),
 
 # HR manages any staff education
 @router.post("/staff/{staff_id}/education")
-def add_staff_education(staff_id: int, body: EducationIn, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def add_staff_education(staff_id: int, body: EducationIn, user_id: int = Depends(require_permission("hr.staff_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_staff_campus(cur, staff_id, campus_id)
     cur.execute("SELECT sp_add_education(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) AS id",
@@ -580,7 +580,7 @@ def add_staff_education(staff_id: int, body: EducationIn, user_id: int = Depends
     return ok(data={"id": new_id}, message="Education added.")
 
 @router.put("/staff/{staff_id}/education/{edu_id}")
-def update_staff_education(staff_id: int, edu_id: int, body: EducationIn, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def update_staff_education(staff_id: int, edu_id: int, body: EducationIn, user_id: int = Depends(require_permission("hr.staff_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_staff_campus(cur, staff_id, campus_id)
     cur.execute("SELECT sp_update_education(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
@@ -591,7 +591,7 @@ def update_staff_education(staff_id: int, edu_id: int, body: EducationIn, user_i
     return ok(message="Education updated.")
 
 @router.delete("/staff/{staff_id}/education/{edu_id}")
-def delete_staff_education(staff_id: int, edu_id: int, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def delete_staff_education(staff_id: int, edu_id: int, user_id: int = Depends(require_permission("hr.staff_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_staff_campus(cur, staff_id, campus_id)
     cur.execute("SELECT sp_delete_education(%s,%s)", (edu_id, staff_id))
@@ -600,7 +600,7 @@ def delete_staff_education(staff_id: int, edu_id: int, user_id: int = Depends(re
 
 # HR manages any staff experience
 @router.post("/staff/{staff_id}/experience")
-def add_staff_experience(staff_id: int, body: ExperienceIn, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def add_staff_experience(staff_id: int, body: ExperienceIn, user_id: int = Depends(require_permission("hr.staff_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_staff_campus(cur, staff_id, campus_id)
     cur.execute("SELECT sp_add_experience(%s,%s,%s,%s,%s,%s,%s) AS id",
@@ -611,7 +611,7 @@ def add_staff_experience(staff_id: int, body: ExperienceIn, user_id: int = Depen
     return ok(data={"id": new_id}, message="Experience added.")
 
 @router.put("/staff/{staff_id}/experience/{exp_id}")
-def update_staff_experience(staff_id: int, exp_id: int, body: ExperienceIn, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def update_staff_experience(staff_id: int, exp_id: int, body: ExperienceIn, user_id: int = Depends(require_permission("hr.staff_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_staff_campus(cur, staff_id, campus_id)
     cur.execute("SELECT sp_update_experience(%s,%s,%s,%s,%s,%s,%s,%s)",
@@ -621,7 +621,7 @@ def update_staff_experience(staff_id: int, exp_id: int, body: ExperienceIn, user
     return ok(message="Experience updated.")
 
 @router.delete("/staff/{staff_id}/experience/{exp_id}")
-def delete_staff_experience(staff_id: int, exp_id: int, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def delete_staff_experience(staff_id: int, exp_id: int, user_id: int = Depends(require_permission("hr.staff_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_staff_campus(cur, staff_id, campus_id)
     cur.execute("SELECT sp_delete_experience(%s,%s)", (exp_id, staff_id))
@@ -630,7 +630,7 @@ def delete_staff_experience(staff_id: int, exp_id: int, user_id: int = Depends(r
 
 # Full profile
 @router.get("/profile/{staff_id}")
-def get_profile(staff_id: int, user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def get_profile(staff_id: int, user_id: int = Depends(require_any_permission("hr.all_leave_requests", "hr.attendance_correction_approval", "hr.departments_designations_edit", "hr.departments_designations_view", "hr.discipline_appeal", "hr.discipline_committee_hearings", "hr.discipline_decision", "hr.discipline_reporting", "hr.discipline_review", "hr.discipline_view", "hr.employee_attendance_report", "hr.hr_policy_settings", "hr.leave_application", "hr.leave_approval", "hr.leave_recommendation", "hr.leave_setup", "hr.my_attendance", "hr.my_hr_profile", "hr.resignation_management", "hr.resignation_submission", "hr.staff_attendance_setup", "hr.staff_attendance_view", "hr.staff_contact_details", "hr.staff_create", "hr.staff_deactivate", "hr.staff_documents", "hr.staff_edit", "hr.staff_import_export", "hr.staff_list_view", "hr.student_leave_application")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_staff_campus(cur, staff_id, campus_id)
     cur.execute("SELECT * FROM sp_get_staff_profile(%s)", (staff_id,))
@@ -890,13 +890,13 @@ class LeaveReviewIn(BaseModel):
     review_note: Optional[str] = None
 
 @router.get("/leave/types")
-def get_staff_leave_types(user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("staff_leave_types"))):
+def get_staff_leave_types(user_id: int = Depends(require_any_permission("hr.all_leave_requests", "hr.attendance_correction_approval", "hr.departments_designations_edit", "hr.departments_designations_view", "hr.discipline_appeal", "hr.discipline_committee_hearings", "hr.discipline_decision", "hr.discipline_reporting", "hr.discipline_review", "hr.discipline_view", "hr.employee_attendance_report", "hr.hr_policy_settings", "hr.leave_application", "hr.leave_approval", "hr.leave_recommendation", "hr.leave_setup", "hr.my_attendance", "hr.my_hr_profile", "hr.resignation_management", "hr.resignation_submission", "hr.staff_attendance_setup", "hr.staff_attendance_view", "hr.staff_contact_details", "hr.staff_create", "hr.staff_deactivate", "hr.staff_documents", "hr.staff_edit", "hr.staff_import_export", "hr.staff_list_view", "hr.student_leave_application")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("staff_leave_types"))):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_staff_leave_types(%s)", (campus_id,))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 @router.post("/leave/types")
-def create_leave_type(body: LeaveTypeIn, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("staff_leave_types"))):
+def create_leave_type(body: LeaveTypeIn, user_id: int = Depends(require_permission("hr.staff_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("staff_leave_types"))):
     cur = get_cur(db)
     cur.execute("INSERT INTO leave_types(name, max_days_per_year, certificate_required, is_active, is_encashable, created_at, campus_id) VALUES(%s,%s,%s,%s,%s,%s,%s) RETURNING id",
         (body.name, body.max_days_per_year, body.certificate_required, body.is_active, body.is_encashable, get_processing_datetime(db), campus_id))
@@ -905,7 +905,7 @@ def create_leave_type(body: LeaveTypeIn, user_id: int = Depends(require_permissi
     return ok(data={"id": new_id}, message="Leave type created.")
 
 @router.put("/leave/types/{lt_id}")
-def update_leave_type(lt_id: int, body: LeaveTypeIn, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("staff_leave_types"))):
+def update_leave_type(lt_id: int, body: LeaveTypeIn, user_id: int = Depends(require_permission("hr.staff_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("staff_leave_types"))):
     cur = get_cur(db)
     cur.execute("SELECT campus_id FROM leave_types WHERE id=%s", (lt_id,))
     _row = cur.fetchone()
@@ -916,7 +916,7 @@ def update_leave_type(lt_id: int, body: LeaveTypeIn, user_id: int = Depends(requ
     return ok(message="Leave type updated.")
 
 @router.delete("/leave/types/{lt_id}")
-def delete_leave_type(lt_id: int, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("staff_leave_types"))):
+def delete_leave_type(lt_id: int, user_id: int = Depends(require_permission("hr.staff_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("staff_leave_types"))):
     cur = get_cur(db)
     cur.execute("SELECT campus_id FROM leave_types WHERE id=%s", (lt_id,))
     _row = cur.fetchone()
@@ -926,13 +926,13 @@ def delete_leave_type(lt_id: int, user_id: int = Depends(require_permission("hr.
     return ok(message="Leave type deactivated.")
 
 @router.get("/leave/policies")
-def get_leave_policies(leave_type_id: Optional[int] = None, user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("staff_leave_policies"))):
+def get_leave_policies(leave_type_id: Optional[int] = None, user_id: int = Depends(require_any_permission("hr.all_leave_requests", "hr.attendance_correction_approval", "hr.departments_designations_edit", "hr.departments_designations_view", "hr.discipline_appeal", "hr.discipline_committee_hearings", "hr.discipline_decision", "hr.discipline_reporting", "hr.discipline_review", "hr.discipline_view", "hr.employee_attendance_report", "hr.hr_policy_settings", "hr.leave_application", "hr.leave_approval", "hr.leave_recommendation", "hr.leave_setup", "hr.my_attendance", "hr.my_hr_profile", "hr.resignation_management", "hr.resignation_submission", "hr.staff_attendance_setup", "hr.staff_attendance_view", "hr.staff_contact_details", "hr.staff_create", "hr.staff_deactivate", "hr.staff_documents", "hr.staff_edit", "hr.staff_import_export", "hr.staff_list_view", "hr.student_leave_application")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("staff_leave_policies"))):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_staff_leave_policies(%s, %s)", (leave_type_id, campus_id))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 @router.post("/leave/policies")
-def create_leave_policy(body: LeavePolicyIn, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("staff_leave_policies"))):
+def create_leave_policy(body: LeavePolicyIn, user_id: int = Depends(require_permission("hr.staff_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("staff_leave_policies"))):
     cur = get_cur(db)
     cur.execute("""INSERT INTO staff_leave_policies(leave_type_id, role_id, department_id,
         days_per_year, carry_forward, is_paid, applies_to, gender, effective_from, created_at, campus_id)
@@ -947,7 +947,7 @@ def create_leave_policy(body: LeavePolicyIn, user_id: int = Depends(require_perm
     return ok(data={"id": new_id}, message="Leave policy saved.")
 
 @router.delete("/leave/policies/{policy_id}")
-def delete_leave_policy(policy_id: int, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("staff_leave_policies"))):
+def delete_leave_policy(policy_id: int, user_id: int = Depends(require_permission("hr.staff_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("staff_leave_policies"))):
     cur = get_cur(db)
     _check_leave_policy_campus(cur, policy_id, campus_id)
     cur.execute("DELETE FROM staff_leave_policies WHERE id=%s", (policy_id,))
@@ -955,13 +955,13 @@ def delete_leave_policy(policy_id: int, user_id: int = Depends(require_permissio
     return ok(message="Policy removed.")
 
 @router.get("/leave/balances")
-def get_leave_balances(year: Optional[int] = None, user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def get_leave_balances(year: Optional[int] = None, user_id: int = Depends(require_any_permission("hr.all_leave_requests", "hr.attendance_correction_approval", "hr.departments_designations_edit", "hr.departments_designations_view", "hr.discipline_appeal", "hr.discipline_committee_hearings", "hr.discipline_decision", "hr.discipline_reporting", "hr.discipline_review", "hr.discipline_view", "hr.employee_attendance_report", "hr.hr_policy_settings", "hr.leave_application", "hr.leave_approval", "hr.leave_recommendation", "hr.leave_setup", "hr.my_attendance", "hr.my_hr_profile", "hr.resignation_management", "hr.resignation_submission", "hr.staff_attendance_setup", "hr.staff_attendance_view", "hr.staff_contact_details", "hr.staff_create", "hr.staff_deactivate", "hr.staff_documents", "hr.staff_edit", "hr.staff_import_export", "hr.staff_list_view", "hr.student_leave_application")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_staff_leave_balances(%s, %s)", (year, campus_id))
     return ok(data=[fmt(r) for r in cur.fetchall()])
 
 @router.post("/leave/balances/init")
-def init_leave_balances(year: int, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db)):
+def init_leave_balances(year: int, user_id: int = Depends(require_permission("hr.staff_edit")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_init_staff_leave_balances(%s)", (year,))
     result = cur.fetchone()
@@ -969,7 +969,7 @@ def init_leave_balances(year: int, user_id: int = Depends(require_permission("hr
     return ok(data=dict(result), message=f"Initialized {result['initialized']} leave balances for {year}.")
 
 @router.patch("/leave/balances/{balance_id}")
-def adjust_leave_balance(balance_id: int, total_days: int, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def adjust_leave_balance(balance_id: int, total_days: int, user_id: int = Depends(require_permission("hr.staff_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_leave_balance_campus(cur, balance_id, campus_id)
     cur.execute("UPDATE staff_leave_balances SET total_days=%s, updated_at=%s WHERE id=%s", (total_days, get_processing_datetime(db), balance_id))
@@ -978,14 +978,14 @@ def adjust_leave_balance(balance_id: int, total_days: int, user_id: int = Depend
 
 @router.get("/leave/requests")
 def get_leave_requests(status: Optional[str] = None, year: Optional[int] = None,
-    user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+    user_id: int = Depends(require_any_permission("hr.all_leave_requests", "hr.attendance_correction_approval", "hr.departments_designations_edit", "hr.departments_designations_view", "hr.discipline_appeal", "hr.discipline_committee_hearings", "hr.discipline_decision", "hr.discipline_reporting", "hr.discipline_review", "hr.discipline_view", "hr.employee_attendance_report", "hr.hr_policy_settings", "hr.leave_application", "hr.leave_approval", "hr.leave_recommendation", "hr.leave_setup", "hr.my_attendance", "hr.my_hr_profile", "hr.resignation_management", "hr.resignation_submission", "hr.staff_attendance_setup", "hr.staff_attendance_view", "hr.staff_contact_details", "hr.staff_create", "hr.staff_deactivate", "hr.staff_documents", "hr.staff_edit", "hr.staff_import_export", "hr.staff_list_view", "hr.student_leave_application")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_staff_leave_requests(%s,%s,%s)", (status, year, campus_id))
     return ok(data=[fmt(r) for r in cur.fetchall()])
 
 @router.patch("/leave/requests/{req_id}/review")
 def review_leave_request(req_id: int, body: LeaveReviewIn,
-    user_id: int = Depends(require_permission("hr.approve")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+    user_id: int = Depends(require_permission("hr.leave_approval")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     if body.status not in ("approved","rejected"):
         fail("Status must be approved or rejected", 400)
     cur = get_cur(db)
@@ -1019,13 +1019,13 @@ class CertificateTypeIn(BaseModel):
     is_active: Optional[bool] = True
 
 @router.get("/leave/certificate-types")
-def list_certificate_types(user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("leave_certificate_types"))):
+def list_certificate_types(user_id: int = Depends(require_any_permission("hr.all_leave_requests", "hr.attendance_correction_approval", "hr.departments_designations_edit", "hr.departments_designations_view", "hr.discipline_appeal", "hr.discipline_committee_hearings", "hr.discipline_decision", "hr.discipline_reporting", "hr.discipline_review", "hr.discipline_view", "hr.employee_attendance_report", "hr.hr_policy_settings", "hr.leave_application", "hr.leave_approval", "hr.leave_recommendation", "hr.leave_setup", "hr.my_attendance", "hr.my_hr_profile", "hr.resignation_management", "hr.resignation_submission", "hr.staff_attendance_setup", "hr.staff_attendance_view", "hr.staff_contact_details", "hr.staff_create", "hr.staff_deactivate", "hr.staff_documents", "hr.staff_edit", "hr.staff_import_export", "hr.staff_list_view", "hr.student_leave_application")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("leave_certificate_types"))):
     cur = get_cur(db)
     cur.execute("SELECT * FROM leave_certificate_types WHERE is_active=true AND (%s IS NULL OR campus_id IS NULL OR campus_id = %s) ORDER BY name", (campus_id, campus_id))
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 @router.post("/leave/certificate-types")
-def create_certificate_type(body: CertificateTypeIn, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("leave_certificate_types"))):
+def create_certificate_type(body: CertificateTypeIn, user_id: int = Depends(require_permission("hr.staff_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("leave_certificate_types"))):
     cur = get_cur(db)
     cur.execute("""INSERT INTO leave_certificate_types(name, description, is_active, campus_id)
         VALUES(%s,%s,%s,%s)
@@ -1037,7 +1037,7 @@ def create_certificate_type(body: CertificateTypeIn, user_id: int = Depends(requ
     return ok(data={"id": row["id"]}, message="Certificate type saved.")
 
 @router.delete("/leave/certificate-types/{ct_id}")
-def delete_certificate_type(ct_id: int, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("leave_certificate_types"))):
+def delete_certificate_type(ct_id: int, user_id: int = Depends(require_permission("hr.staff_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("leave_certificate_types"))):
     cur = get_cur(db)
     cur.execute("SELECT campus_id FROM leave_certificate_types WHERE id=%s", (ct_id,))
     _row = cur.fetchone()
@@ -1056,13 +1056,13 @@ class HRPolicySettingsIn(BaseModel):
     resignation_withdrawal_max_step: int = 3
 
 @router.get("/policy-settings")
-def get_policy_settings(user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(governed_settings_campus_id("hr_policy_settings"))):
+def get_policy_settings(user_id: int = Depends(require_any_permission("hr.all_leave_requests", "hr.attendance_correction_approval", "hr.departments_designations_edit", "hr.departments_designations_view", "hr.discipline_appeal", "hr.discipline_committee_hearings", "hr.discipline_decision", "hr.discipline_reporting", "hr.discipline_review", "hr.discipline_view", "hr.employee_attendance_report", "hr.hr_policy_settings", "hr.leave_application", "hr.leave_approval", "hr.leave_recommendation", "hr.leave_setup", "hr.my_attendance", "hr.my_hr_profile", "hr.resignation_management", "hr.resignation_submission", "hr.staff_attendance_setup", "hr.staff_attendance_view", "hr.staff_contact_details", "hr.staff_create", "hr.staff_deactivate", "hr.staff_documents", "hr.staff_edit", "hr.staff_import_export", "hr.staff_list_view", "hr.student_leave_application")), db=Depends(get_db), campus_id: Optional[int] = Depends(governed_settings_campus_id("hr_policy_settings"))):
     cur = get_cur(db)
     cur.execute("SELECT * FROM hr_policy_settings WHERE campus_id = %s OR campus_id IS NULL ORDER BY campus_id NULLS LAST LIMIT 1", (campus_id,))
     return ok(data=dict(cur.fetchone()))
 
 @router.put("/policy-settings")
-def update_policy_settings(body: HRPolicySettingsIn, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(governed_settings_campus_id_for_write("hr_policy_settings"))):
+def update_policy_settings(body: HRPolicySettingsIn, user_id: int = Depends(require_permission("hr.staff_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(governed_settings_campus_id_for_write("hr_policy_settings"))):
     cur = get_cur(db)
     cur.execute("""INSERT INTO hr_policy_settings (probation_duration_days, notice_period_duration_days,
         resignation_withdrawal_allowed, resignation_withdrawal_max_step, campus_id)
@@ -1085,7 +1085,7 @@ class ValidationRuleIn(BaseModel):
     is_active: Optional[bool] = True
 
 @router.get("/leave/validation-rules")
-def list_validation_rules(user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("leave_validation_rules"))):
+def list_validation_rules(user_id: int = Depends(require_any_permission("hr.all_leave_requests", "hr.attendance_correction_approval", "hr.departments_designations_edit", "hr.departments_designations_view", "hr.discipline_appeal", "hr.discipline_committee_hearings", "hr.discipline_decision", "hr.discipline_reporting", "hr.discipline_review", "hr.discipline_view", "hr.employee_attendance_report", "hr.hr_policy_settings", "hr.leave_application", "hr.leave_approval", "hr.leave_recommendation", "hr.leave_setup", "hr.my_attendance", "hr.my_hr_profile", "hr.resignation_management", "hr.resignation_submission", "hr.staff_attendance_setup", "hr.staff_attendance_view", "hr.staff_contact_details", "hr.staff_create", "hr.staff_deactivate", "hr.staff_documents", "hr.staff_edit", "hr.staff_import_export", "hr.staff_list_view", "hr.student_leave_application")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id("leave_validation_rules"))):
     cur = get_cur(db)
     cur.execute("""SELECT vr.*, lt.name AS leave_type_name
         FROM leave_validation_rules vr
@@ -1095,7 +1095,7 @@ def list_validation_rules(user_id: int = Depends(require_permission("hr.view")),
     return ok(data=[dict(r) for r in cur.fetchall()])
 
 @router.post("/leave/validation-rules")
-def create_validation_rule(body: ValidationRuleIn, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("leave_validation_rules"))):
+def create_validation_rule(body: ValidationRuleIn, user_id: int = Depends(require_permission("hr.staff_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("leave_validation_rules"))):
     if body.rule_type not in RULE_TYPES:
         allowed = ", ".join(RULE_TYPES)
         fail(f"Unknown rule type. Must be one of: {allowed}", 400)
@@ -1109,7 +1109,7 @@ def create_validation_rule(body: ValidationRuleIn, user_id: int = Depends(requir
     return ok(data={"id": new_id}, message="Rule created.")
 
 @router.delete("/leave/validation-rules/{rule_id}")
-def delete_validation_rule(rule_id: int, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("leave_validation_rules"))):
+def delete_validation_rule(rule_id: int, user_id: int = Depends(require_permission("hr.staff_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(catalog_campus_id_for_write("leave_validation_rules"))):
     cur = get_cur(db)
     cur.execute("SELECT campus_id FROM leave_validation_rules WHERE id=%s", (rule_id,))
     _row = cur.fetchone()
@@ -1518,7 +1518,7 @@ def check_is_head(staff_id: int, user_id: int = Depends(get_current_user_id), db
 # ??? UPDATE STAFF ROLE ???????????????????????????????????????????
 @router.patch("/staff/{staff_id}/role")
 def update_staff_role(staff_id: int, role_id: int,
-    user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+    user_id: int = Depends(require_permission("hr.staff_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_staff_campus(cur, staff_id, campus_id)
     cur.execute("SELECT user_id FROM staff WHERE id=%s", (staff_id,))
@@ -1557,7 +1557,7 @@ def check_is_head(staff_id: int, user_id: int = Depends(get_current_user_id), db
 # ??? UPDATE STAFF ROLE ???????????????????????????????????????????
 @router.patch("/staff/{staff_id}/role")
 def update_staff_role(staff_id: int, role_id: int,
-    user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+    user_id: int = Depends(require_permission("hr.staff_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_staff_campus(cur, staff_id, campus_id)
     cur.execute("SELECT user_id FROM staff WHERE id=%s", (staff_id,))
@@ -1574,7 +1574,7 @@ def update_staff_role(staff_id: int, role_id: int,
 
 # ??? GENERATE EMPLOYEE CODE FOR EXISTING STAFF ??????????????????
 @router.post("/staff/{staff_id}/generate-code")
-def generate_staff_code(staff_id: int, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def generate_staff_code(staff_id: int, user_id: int = Depends(require_permission("hr.staff_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_staff_campus(cur, staff_id, campus_id)
     # Get user_id for this staff
@@ -1602,7 +1602,7 @@ def generate_staff_code(staff_id: int, user_id: int = Depends(require_permission
 # ??? DEPARTMENT HEAD ?????????????????????????????????????????????
 
 @router.post("/staff/{staff_id}/set-head")
-def set_department_head(staff_id: int, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def set_department_head(staff_id: int, user_id: int = Depends(require_permission("hr.staff_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_staff_campus(cur, staff_id, campus_id)
     # Get user_id and department_id from staff record
@@ -1625,7 +1625,7 @@ def set_department_head(staff_id: int, user_id: int = Depends(require_permission
     return ok(message="Department Head assigned successfully.")
 
 @router.delete("/staff/{staff_id}/remove-head")
-def remove_department_head(staff_id: int, user_id: int = Depends(require_permission("hr.edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def remove_department_head(staff_id: int, user_id: int = Depends(require_permission("hr.staff_edit")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     _check_staff_campus(cur, staff_id, campus_id)
     cur.execute("SELECT user_id, department_id FROM staff WHERE id=%s", (staff_id,))
@@ -1636,7 +1636,7 @@ def remove_department_head(staff_id: int, user_id: int = Depends(require_permiss
     return ok(message="Department Head removed.")
 
 @router.get("/departments/{dept_id}/head")
-def get_department_head(dept_id: int, user_id: int = Depends(require_permission("hr.view")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
+def get_department_head(dept_id: int, user_id: int = Depends(require_any_permission("hr.all_leave_requests", "hr.attendance_correction_approval", "hr.departments_designations_edit", "hr.departments_designations_view", "hr.discipline_appeal", "hr.discipline_committee_hearings", "hr.discipline_decision", "hr.discipline_reporting", "hr.discipline_review", "hr.discipline_view", "hr.employee_attendance_report", "hr.hr_policy_settings", "hr.leave_application", "hr.leave_approval", "hr.leave_recommendation", "hr.leave_setup", "hr.my_attendance", "hr.my_hr_profile", "hr.resignation_management", "hr.resignation_submission", "hr.staff_attendance_setup", "hr.staff_attendance_view", "hr.staff_contact_details", "hr.staff_create", "hr.staff_deactivate", "hr.staff_documents", "hr.staff_edit", "hr.staff_import_export", "hr.staff_list_view", "hr.student_leave_application")), db=Depends(get_db), campus_id: Optional[int] = Depends(get_current_campus_id)):
     cur = get_cur(db)
     cur.execute("SELECT campus_id FROM departments WHERE id=%s", (dept_id,))
     _drow = cur.fetchone()

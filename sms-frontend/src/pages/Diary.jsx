@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useAuth } from "../auth/AuthContext";
+import { useAuth, effectiveRole } from "../auth/AuthContext";
 import diaryApi from "../api/diaryApi";
 import academicsApi from "../api/academicsApi";
 import { useProcessingToday } from "../hooks/useProcessingToday";
@@ -11,7 +11,7 @@ const today = () => new Date().toISOString().split("T")[0];
 
 export default function Diary() {
   const { user } = useAuth();
-  const role = user?.roles?.[0];
+  const role = effectiveRole(user);
   if (role === "student") return <StudentDiary />;
   if (role === "parent")  return <ParentDiary />;
   if (role === "principal" || role === "admin" || role === "superadmin" || role === "academic_coordinator") return <PrincipalDiary />;

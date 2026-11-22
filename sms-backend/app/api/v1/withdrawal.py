@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from app.fastapi_auth import get_current_user_id, get_jwt_claims
-from app.fastapi_permissions import require_permission
+from app.fastapi_permissions import require_permission, require_any_permission
 from app.fastapi_campus import get_current_campus_id
 from app.fastapi_db import get_db, get_cur as _get_cur
 from app.utils.processing_date import get_processing_datetime
@@ -199,7 +199,8 @@ def list_withdrawals(
     claims: dict = Depends(get_jwt_claims), db=Depends(get_db),
     campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
-    perms = claims.get("permissions", [])
+    from app.utils.access import effective_permissions as _eff   # live: roles + acting roles + extra permissions
+    perms = _eff(get_cur(db), user_id)
     roles = claims.get("roles", [])
     if not has_perm(perms, ALLOWED_PERMS):
         # Allow if assigned to active workflow step for this request
@@ -208,10 +209,9 @@ def list_withdrawals(
             SELECT 1 FROM workflow_step_instances wsi
             JOIN workflow_instances wi ON wi.id=wsi.instance_id
             WHERE wi.module='withdrawal' AND wi.entity_type='withdrawal_request'
-              AND wi.entity_id=%s
               AND (wsi.assigned_to_id=%s OR wsi.assigned_role=ANY(%s::varchar[]))
             LIMIT 1
-        """, (req_id, user_id, roles))
+        """, (user_id, roles))     # the list: assigned to the approval step of ANY withdrawal request
         if not _wc.fetchone():
             fail("Permission denied", 403)
 
@@ -258,7 +258,8 @@ def student_books(student_id: int, user_id: int = Depends(get_current_user_id), 
 
 @router.get("/{req_id}")
 def get_withdrawal(req_id: int, user_id: int = Depends(get_current_user_id), claims: dict = Depends(get_jwt_claims), db=Depends(get_db)):
-    perms = claims.get("permissions", [])
+    from app.utils.access import effective_permissions as _eff   # live: roles + acting roles + extra permissions
+    perms = _eff(get_cur(db), user_id)
     roles = claims.get("roles", [])
     if not has_perm(perms, ALLOWED_PERMS):
         # Allow if assigned to active workflow step for this request
@@ -292,7 +293,7 @@ def get_withdrawal(req_id: int, user_id: int = Depends(get_current_user_id), cla
 def apply_withdrawal(
     student_id: Optional[Any] = Form(None), reason: Optional[str] = Form(""),
     effective_date: Optional[str] = Form(None), document: Optional[UploadFile] = File(None),
-    user_id: int = Depends(require_permission("withdrawal.apply")),
+    user_id: int = Depends(require_permission("withdrawal.withdrawal_request")),
     claims: dict = Depends(get_jwt_claims), db=Depends(get_db),
 ):
     roles = claims.get("roles", [])
@@ -402,7 +403,7 @@ def review_withdrawal(req_id: int, body: ReviewIn, user_id: int = Depends(get_cu
             cur.execute("SELECT * FROM sp_get_withdrawal_requester(%s)", (req_id,))
             row = cur.fetchone()
             if row:
-                dept_label = department.replace("_", " ").title()
+                dept_label = ", ".join(d.replace("_", " ").title() for d in (body.departments or [])) or "Review"
                 note_preview = (body.note or "")[:120]
                 with _main.flask_app.app_context():
                     _t, _b = render_templated_notification("withdrawal_clearance_issue", {"dept_label": dept_label, "note": note_preview},
@@ -650,7 +651,7 @@ def step_require_action(req_id: int, body: RequireActionIn, user_id: int = Depen
     return ok(message="Action request sent to parent.")
 
 @router.post("/{req_id}/require")
-def require_action(req_id: int, body: RequireActionIn, user_id: int = Depends(require_permission("withdrawal.clear")), claims: dict = Depends(get_jwt_claims), db=Depends(get_db)):
+def require_action(req_id: int, body: RequireActionIn, user_id: int = Depends(require_permission("withdrawal.withdrawal_clearance")), claims: dict = Depends(get_jwt_claims), db=Depends(get_db)):
     note = (body.note or "").strip()
     if not note:
         fail("Note is required", 400)
@@ -685,7 +686,8 @@ def require_action(req_id: int, body: RequireActionIn, user_id: int = Depends(re
 
 @router.get("/{req_id}/conduct")
 def get_conduct(req_id: int, user_id: int = Depends(get_current_user_id), claims: dict = Depends(get_jwt_claims), db=Depends(get_db)):
-    perms = claims.get("permissions", [])
+    from app.utils.access import effective_permissions as _eff   # live: roles + acting roles + extra permissions
+    perms = _eff(get_cur(db), user_id)
     allowed = {"withdrawal.view_all", "withdrawal.review", "withdrawal.approve", "attendance.view", "withdrawal.view_own", "withdrawal.clear"}
     if not has_perm(perms, allowed):
         fail("Permission denied", 403)
@@ -749,7 +751,7 @@ def submit_conduct(req_id: int, body: ConductIn, user_id: int = Depends(get_curr
 
 
 @router.post("/{req_id}/finalize")
-def finalize_withdrawal(req_id: int, body: ActionIn, user_id: int = Depends(require_permission("withdrawal.review")), db=Depends(get_db)):
+def finalize_withdrawal(req_id: int, body: ActionIn, user_id: int = Depends(require_permission("withdrawal.withdrawal_review")), db=Depends(get_db)):
     if body.action not in ("approve", "reject"):
         fail("action must be approve or reject", 400)
     cur = get_cur(db)
@@ -788,7 +790,8 @@ def finalize_withdrawal(req_id: int, body: ActionIn, user_id: int = Depends(requ
 
 @router.get("/{req_id}/tc")
 def get_tc(req_id: int, user_id: int = Depends(get_current_user_id), claims: dict = Depends(get_jwt_claims), db=Depends(get_db)):
-    perms = claims.get("permissions", [])
+    from app.utils.access import effective_permissions as _eff   # live: roles + acting roles + extra permissions
+    perms = _eff(get_cur(db), user_id)
     allowed = {"withdrawal.view_own", "withdrawal.view_all", "withdrawal.review", "withdrawal.approve"}
     if not has_perm(perms, allowed):
         fail("Permission denied", 403)
@@ -917,7 +920,8 @@ def action_waiver(waiver_id: int, body: WaiverActionIn, user_id: int = Depends(g
     authority_role = cur.fetchone()["role"] or "principal"
     roles = claims.get("roles", [])
     role = roles[0] if roles else ""
-    perms = claims.get("permissions", [])
+    from app.utils.access import effective_permissions as _eff   # live: roles + acting roles + extra permissions
+    perms = _eff(get_cur(db), user_id)
     if role != authority_role and "settings.manage" not in perms:
         fail("You are not authorized to action waiver requests", 403)
     if body.action == "approve":
@@ -974,7 +978,7 @@ def paid_notification(req_id: int, user_id: int = Depends(get_current_user_id), 
 
 
 @router.post("/waivers/{waiver_id}/forward")
-def forward_waiver(waiver_id: int, body: ActionIn, user_id: int = Depends(require_permission("withdrawal.clear")), db=Depends(get_db)):
+def forward_waiver(waiver_id: int, body: ActionIn, user_id: int = Depends(require_permission("withdrawal.withdrawal_clearance")), db=Depends(get_db)):
     """Finance officer forwards a parent waiver request to the authority for approval."""
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_waiver_request(%s)", (waiver_id,))
@@ -1004,7 +1008,7 @@ def forward_waiver(waiver_id: int, body: ActionIn, user_id: int = Depends(requir
 
 
 @router.post("/waivers/{waiver_id}/generate-invoice")
-def generate_waiver_invoice(waiver_id: int, user_id: int = Depends(require_permission("withdrawal.clear")), db=Depends(get_db)):
+def generate_waiver_invoice(waiver_id: int, user_id: int = Depends(require_permission("withdrawal.withdrawal_clearance")), db=Depends(get_db)):
     """Finance generates the replacement invoice after a partial waiver approval."""
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_waiver_request(%s)", (waiver_id,))
@@ -1024,7 +1028,8 @@ def generate_waiver_invoice(waiver_id: int, user_id: int = Depends(require_permi
     return ok(data={"invoice_id": new_inv_id}, message="New invoice generated successfully.")
 
 def download_document(req_id: int, doc_id: int, user_id: int = Depends(get_current_user_id), claims: dict = Depends(get_jwt_claims), db=Depends(get_db)):
-    perms = claims.get("permissions", [])
+    from app.utils.access import effective_permissions as _eff   # live: roles + acting roles + extra permissions
+    perms = _eff(get_cur(db), user_id)
     roles = claims.get("roles", [])
     if not has_perm(perms, ALLOWED_PERMS):
         # Allow if assigned to active workflow step for this request

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import attendanceApi from "../api/attendanceApi";
+import { StaffMethodsCard, StaffBiometricTab } from "./StaffAttendanceMethods";
 import hrApi from "../api/hrApi";
 import settingsApi from "../api/settingsApi";
 import processingDateApi from "../api/processingDateApi";
@@ -56,10 +57,11 @@ function toDatetimeLocal(iso) {
 }
 
 const TABS = ["live", "rfid", "settings", "schedule"];
-const TAB_LABELS = { live: "Live Status", rfid: "RFID Cards", settings: "Settings", schedule: "Schedule" };
+const TAB_LABELS = { live: "Live Status", rfid: "RFID Cards", biometric: "Biometric", settings: "Settings", schedule: "Schedule" };
 
 export default function AttendanceDashboard({ visibleTabs } = {}) {
-  const TABS_SHOWN = visibleTabs || TABS;
+  // Biometric sits next to RFID Cards wherever that tab is shown
+  const TABS_SHOWN = (visibleTabs || TABS).flatMap(t => t === "rfid" && !(visibleTabs || []).includes("biometric") ? ["rfid", "biometric"] : [t]);
   const { formatDate, formatTime } = useRegionalSettings();
   const { isGlobalLocked: attendanceSettingsLocked } = useGovernanceMode("attendance");
   const { isGlobalLocked: thresholdsLocked } = useGovernanceMode("attendance_thresholds");
@@ -554,6 +556,10 @@ export default function AttendanceDashboard({ visibleTabs } = {}) {
           </div>
         </div>
       )}
+
+      {tab === "biometric" && <StaffBiometricTab />}
+
+      {tab === "settings" && <StaffMethodsCard locked={attendanceSettingsLocked} />}
 
       {tab === "settings" && (
         <div className="ad-settings-card">

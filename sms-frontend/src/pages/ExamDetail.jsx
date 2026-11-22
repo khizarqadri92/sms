@@ -444,11 +444,11 @@ export default function ExamDetail() {
   const activeTab = searchParams.get("tab") || "overview";
   const setTab = (t) => setSearchParams({tab:t});
 
-  const canManage  = can("exam.manage");
-  const canApprove = can("exam.approve");
-  const canMarks   = can("exam.marks");
-  const canCompile = can("exam.compile");
-  const canPublish = can("exam.publish");
+  const canManage  = can("exams_results.exam_management", "exams_results.datesheet_edit");
+  const canApprove = can("exams_results.result_approval");
+  const canMarks   = can("exams_results.marks_entry");
+  const canCompile = can("exams_results.result_compilation");
+  const canPublish = can("exams_results.result_publishing");
 
   const [detail,  setDetail]  = useState(null);
   const [loading, setLoading] = useState(true);

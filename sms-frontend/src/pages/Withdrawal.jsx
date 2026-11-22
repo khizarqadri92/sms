@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../auth/AuthContext";
+import { useAuth, effectiveRole } from "../auth/AuthContext";
 import { withdrawalApi } from "../api/withdrawalApi";
 import workQueueApi from "../api/workQueueApi";
 import { useProcessingToday } from "../hooks/useProcessingToday";
@@ -41,9 +41,9 @@ export default function Withdrawal() {
   const { formatDate } = useRegionalSettings();
   const fmtDate = (d) => d ? formatDate(d) : "-";
   const { user, can } = useAuth();
-  const role    = user?.roles?.[0] || "";
-  const canApply   = can("withdrawal.apply");
-  const canReview  = can("withdrawal.review");
+  const role    = effectiveRole(user) || "";
+  const canApply   = can("withdrawal.withdrawal_request");
+  const canReview  = can("withdrawal.withdrawal_review");
   const [wfStep, setWfStep]   = useState(null);
   const [wfSteps, setWfSteps] = useState([]);
   const [wfStatus, setWfStatus] = useState(null);
@@ -81,8 +81,8 @@ export default function Withdrawal() {
       setWfStep(pending || null);
     } catch { setWfStep(null); setWfExists(false); setWfDone(false); }
   };
-  const canClear   = can("withdrawal.clear");
-  const canApprove = can("withdrawal.approve");
+  const canClear   = can("withdrawal.withdrawal_clearance");
+  const canApprove = can("withdrawal.withdrawal_approval");
 
   const [list,           setList]           = useState([]);
   const [detail,         setDetail]         = useState(null);

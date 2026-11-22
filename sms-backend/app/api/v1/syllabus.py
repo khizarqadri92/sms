@@ -14,7 +14,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from app.fastapi_auth import get_current_user_id, get_jwt_claims
-from app.fastapi_permissions import require_permission
+from app.fastapi_permissions import require_permission, require_any_permission
 from app.fastapi_db import get_db, get_cur as _get_cur
 from app.fastapi_campus import get_current_campus_id
 
@@ -34,6 +34,16 @@ def fail(message: str, status_code: int = 400, details=None):
 
 def ok(data=None, message="Success"):
     return {"status": "success", "message": message, "data": data}
+
+
+def _guard_current_session(cur, sid):
+    """Progress can only be recorded on the CURRENT session's syllabus; past sessions are history."""
+    cur.execute("""SELECT sy.academic_year_id, c.academic_year_id AS class_year, ay.is_active
+                   FROM syllabus sy JOIN classes c ON c.id = sy.class_id LEFT JOIN academic_years ay ON ay.id = sy.academic_year_id
+                   WHERE sy.id = %s""", (sid,))
+    r = cur.fetchone()
+    if r and (r["academic_year_id"] != r["class_year"] or r["is_active"] is False):
+        fail("This syllabus belongs to a past session and is kept as read-only history.", 409)
 
 
 def _active_year(cur, campus_id):
@@ -77,15 +87,17 @@ class MarkTopicIn(BaseModel):
 def list_syllabus(
     class_id: Optional[int] = Query(None), subject_id: Optional[int] = Query(None),
     academic_year_id: Optional[int] = Query(None), student_id: Optional[int] = Query(None),
-    user_id: int = Depends(require_permission("syllabus.view")), db=Depends(get_db),
+    user_id: int = Depends(require_permission("academics.syllabus_view")), db=Depends(get_db),
     claims: dict = Depends(get_jwt_claims), campus_id: Optional[int] = Depends(get_current_campus_id),
 ):
     roles = claims.get("roles", [])
-    perms = claims.get("permissions", [])
+    from app.utils.access import effective_permissions as _eff   # live: roles + acting roles + extra permissions
+    perms = _eff(get_cur(db), user_id)
     role = roles[0] if roles else ""
     has_manage = "syllabus.manage" in perms
 
     cur = get_cur(db)
+    explicit_year = academic_year_id is not None          # a past session asked for on purpose = history
     if academic_year_id is None:
         # only this session's syllabus and progress; past sessions stay as history
         if not campus_id and student_id:
@@ -100,13 +112,18 @@ def list_syllabus(
         (user_id, role, has_manage, class_id, subject_id, academic_year_id, student_id)
     )
     rows = [dict(r) for r in cur.fetchall()]
+    if not explicit_year:
+        # e.g. superadmin on "All campuses": no single campus session to pick - show the active session(s) only
+        cur.execute("SELECT id FROM academic_years WHERE is_active")
+        active = {r["id"] for r in cur.fetchall()}
+        rows = [r for r in rows if r.get("academic_year_id") in active]
     for r in rows:
         r["created_at"] = str(r["created_at"])
     return ok(data=rows)
 
 
 @router.get("/{sid}")
-def get_syllabus(sid: int, user_id: int = Depends(require_permission("syllabus.view")), db=Depends(get_db)):
+def get_syllabus(sid: int, user_id: int = Depends(require_permission("academics.syllabus_view")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_syllabus_by_id(%s)", (sid,))
     row = cur.fetchone()
@@ -128,7 +145,7 @@ def get_syllabus(sid: int, user_id: int = Depends(require_permission("syllabus.v
 
 
 @router.post("/")
-def create_syllabus(body: SyllabusCreateIn, user_id: int = Depends(require_permission("syllabus.manage")), db=Depends(get_db)):
+def create_syllabus(body: SyllabusCreateIn, user_id: int = Depends(require_permission("academics.syllabus_edit")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT campus_id FROM classes WHERE id=%s", (body.class_id,))
     _cls = cur.fetchone()
@@ -158,7 +175,7 @@ def create_syllabus(body: SyllabusCreateIn, user_id: int = Depends(require_permi
 
 
 @router.put("/{sid}")
-def update_syllabus(sid: int, body: SyllabusUpdateIn, user_id: int = Depends(require_permission("syllabus.manage")), db=Depends(get_db)):
+def update_syllabus(sid: int, body: SyllabusUpdateIn, user_id: int = Depends(require_permission("academics.syllabus_edit")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT sp_get_syllabus_by_id(%s)", (sid,))
     if not cur.fetchone():
@@ -169,7 +186,7 @@ def update_syllabus(sid: int, body: SyllabusUpdateIn, user_id: int = Depends(req
 
 
 @router.delete("/{sid}")
-def delete_syllabus(sid: int, user_id: int = Depends(require_permission("syllabus.manage")), db=Depends(get_db)):
+def delete_syllabus(sid: int, user_id: int = Depends(require_permission("academics.syllabus_edit")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_syllabus_by_id(%s)", (sid,))
     if not cur.fetchone():
@@ -180,7 +197,7 @@ def delete_syllabus(sid: int, user_id: int = Depends(require_permission("syllabu
 
 
 @router.post("/{sid}/topics")
-def add_topic(sid: int, body: TopicIn, user_id: int = Depends(require_permission("syllabus.manage")), db=Depends(get_db)):
+def add_topic(sid: int, body: TopicIn, user_id: int = Depends(require_permission("academics.syllabus_edit")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_syllabus_by_id(%s)", (sid,))
     if not cur.fetchone():
@@ -200,7 +217,7 @@ def add_topic(sid: int, body: TopicIn, user_id: int = Depends(require_permission
 
 
 @router.put("/{sid}/topics/{tid}")
-def update_topic(sid: int, tid: int, body: TopicIn, user_id: int = Depends(require_permission("syllabus.manage")), db=Depends(get_db)):
+def update_topic(sid: int, tid: int, body: TopicIn, user_id: int = Depends(require_permission("academics.syllabus_edit")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute(
         "SELECT sp_update_syllabus_topic(%s,%s,%s,%s,%s,%s,%s)",
@@ -211,7 +228,7 @@ def update_topic(sid: int, tid: int, body: TopicIn, user_id: int = Depends(requi
 
 
 @router.delete("/{sid}/topics/{tid}")
-def delete_topic(sid: int, tid: int, user_id: int = Depends(require_permission("syllabus.manage")), db=Depends(get_db)):
+def delete_topic(sid: int, tid: int, user_id: int = Depends(require_permission("academics.syllabus_edit")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT sp_delete_syllabus_topic(%s, %s)", (tid, sid))
     db.commit()
@@ -221,13 +238,14 @@ def delete_topic(sid: int, tid: int, user_id: int = Depends(require_permission("
 @router.post("/{sid}/topics/{tid}/mark")
 def mark_topic(
     sid: int, tid: int, body: MarkTopicIn,
-    user_id: int = Depends(require_permission("syllabus.mark")), db=Depends(get_db),
+    user_id: int = Depends(require_permission("academics.syllabus_progress_marking")), db=Depends(get_db),
     claims: dict = Depends(get_jwt_claims),
 ):
     roles = claims.get("roles", [])
     role = roles[0] if roles else ""
 
     cur = get_cur(db)
+    _guard_current_session(cur, sid)
     cur.execute("SELECT sp_check_syllabus_topic_exists(%s, %s) AS exists", (tid, sid))
     if not cur.fetchone()["exists"]:
         fail("Topic not found", 404)
@@ -277,9 +295,10 @@ def mark_topic(
 @router.post("/{sid}/topics/{tid}/attach")
 def attach_file(
     sid: int, tid: int, file: UploadFile = File(...),
-    user_id: int = Depends(require_permission("syllabus.manage")), db=Depends(get_db),
+    user_id: int = Depends(require_permission("academics.syllabus_edit")), db=Depends(get_db),
 ):
     cur = get_cur(db)
+    _guard_current_session(cur, sid)
     cur.execute("SELECT sp_check_syllabus_topic_exists(%s, %s) AS exists", (tid, sid))
     if not cur.fetchone()["exists"]:
         fail("Topic not found", 404)
@@ -302,7 +321,7 @@ def attach_file(
 
 
 @router.delete("/{sid}/topics/{tid}/attach/{aid}")
-def delete_attachment(sid: int, tid: int, aid: int, user_id: int = Depends(require_permission("syllabus.manage")), db=Depends(get_db)):
+def delete_attachment(sid: int, tid: int, aid: int, user_id: int = Depends(require_permission("academics.syllabus_edit")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_syllabus_attachment(%s, %s)", (aid, tid))
     row = cur.fetchone()
@@ -320,7 +339,7 @@ def delete_attachment(sid: int, tid: int, aid: int, user_id: int = Depends(requi
 
 
 @router.get("/{sid}/topics/{tid}/attach/{aid}")
-def download_attachment(sid: int, tid: int, aid: int, user_id: int = Depends(require_permission("syllabus.view")), db=Depends(get_db)):
+def download_attachment(sid: int, tid: int, aid: int, user_id: int = Depends(require_permission("academics.syllabus_view")), db=Depends(get_db)):
     cur = get_cur(db)
     cur.execute("SELECT * FROM sp_get_syllabus_attachment(%s, %s)", (aid, tid))
     row = cur.fetchone()

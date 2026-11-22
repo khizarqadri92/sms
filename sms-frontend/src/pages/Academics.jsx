@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuth } from "../auth/AuthContext";
 import { useGovernanceMode } from "../hooks/useGovernanceMode";
 import academicsApi from "../api/academicsApi";
+import client from "../api/client";
 import teachersApi  from "../api/teachersApi";
 import settingsApi from "../api/settingsApi";
 import { useRegionalSettings } from "../context/RegionalSettingsContext";
@@ -51,7 +52,7 @@ function YearsTab() {
   const { formatDate } = useRegionalSettings();
   const { can } = useAuth();
   const { isGlobalLocked } = useGovernanceMode("academic_years");
-  const canManage = can("academics.manage") && !isGlobalLocked;
+  const canManage = can("academics.session_management") && !isGlobalLocked;
   const [years,    setYears]    = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -188,7 +189,7 @@ function YearsTab() {
 function ClassesTab() {
   const { can } = useAuth();
   const { isGlobalLocked } = useGovernanceMode("classes");
-  const canManage = can("classes.manage") && !isGlobalLocked;
+  const canManage = can("academics.class_management") && !isGlobalLocked;
   const [classes,  setClasses]  = useState([]);
   const [years,    setYears]    = useState([]);
   const [loading,  setLoading]  = useState(true);
@@ -365,7 +366,7 @@ function ClassesTab() {
 function SubjectsTab() {
   const { can } = useAuth();
   const { isGlobalLocked } = useGovernanceMode("subjects");
-  const canManage = can("subjects.manage") && !isGlobalLocked;
+  const canManage = can("academics.subject_management") && !isGlobalLocked;
   const [subjects, setSubjects] = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -549,6 +550,8 @@ function TimetableTab() {
   const [saving,    setSaving]    = useState(false);
   const [success,   setSuccess]   = useState("");
   const [error,     setError]     = useState("");
+  const [showHistory, setShowHistory] = useState(false);
+  const [copying,     setCopying]     = useState(false);
 
   useEffect(() => { fetchMeta(); }, []);
   useEffect(() => { fetchSlots(); }, [classId]);
@@ -590,6 +593,18 @@ function TimetableTab() {
       setSlots(res.data.data || []);
     } catch {}
     finally { setLoading(false); }
+  };
+
+  // last session's timetable (saved when the session ended) -> empty timetables of this session
+  const copyPrevious = async () => {
+    if (!window.confirm(classId ? "Copy last session's timetable into this class? (Only if its timetable is empty.)"
+                                : "Copy last session's timetable into every class whose timetable is still empty?")) return;
+    setCopying(true); setError(""); setSuccess("");
+    try {
+      const r = await client.post("/academics/timetable/copy-previous", { class_id: classId ? Number(classId) : null });
+      setSuccess(r.data.message); fetchSlots();
+    } catch (e) { setError(e.response?.data?.message || e.response?.data?.detail?.message || "Couldn't copy the timetable."); }
+    finally { setCopying(false); }
   };
 
   const handleCreate = async e => {
@@ -635,7 +650,15 @@ function TimetableTab() {
     <div>
       <div className="page-header aca-tab-header">
         <h2 className="aca-tab-title">Timetable</h2>
-        {can("timetable.manage") && (
+        <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+          <button className="btn btn-secondary" onClick={() => setShowHistory(true)}>Previous sessions</button>
+          {can("academics.timetable_edit") && (
+            <button className="btn btn-secondary" disabled={copying} onClick={copyPrevious}>
+              {copying ? "Copying..." : "Copy last session's timetable"}
+            </button>
+          )}
+        </div>
+        {can("academics.timetable_edit") && (
           <div style={{ display:"flex", gap:8 }}>
             <button className="btn btn-secondary" onClick={() => { setShowAI(!showAI); setAIResult(null); setAIError(""); }}>
               {showAI ? "Close AI" : "Generate with AI"}
@@ -647,6 +670,7 @@ function TimetableTab() {
         )}
       </div>
 
+      {showHistory && <SetupHistoryModal classes={classes} initialClassId={classId} onClose={() => setShowHistory(false)} />}
       {success && <div className="alert alert-success">{success}</div>}
       {error   && <div className="alert alert-error">{error}</div>}
 
@@ -835,7 +859,7 @@ function TimetableTab() {
                                     <div style={{ fontWeight:600, fontSize:10, color:subjColorMap[s.subject_id]?.text||"var(--text-heading)" }}>{s.subject_name}</div>
                                     <div style={{ fontSize:9, color:"var(--color-text-secondary)" }}>{s.teacher_name}</div>
                                     <div style={{ fontSize:9, color:"var(--text-muted)" }}>{s.start_time ? s.start_time.slice(0,5) : ""}–{s.end_time ? s.end_time.slice(0,5) : ""}</div>
-                                    {can("timetable.manage") && <button onClick={() => handleDelete(s.id)} style={{ background:"none", border:"none", color:"#dc2626", cursor:"pointer", fontSize:10, padding:0 }}>×</button>}
+                                    {can("academics.timetable_edit") && <button onClick={() => handleDelete(s.id)} style={{ background:"none", border:"none", color:"#dc2626", cursor:"pointer", fontSize:10, padding:0 }}>×</button>}
                                   </div>
                                 ))
                               }
@@ -850,7 +874,7 @@ function TimetableTab() {
                                   <div style={{ background:subjColorMap[s.subject_id]?.bg||"var(--bg-hover)", borderLeft:"2px solid "+(subjColorMap[s.subject_id]?.border||"#2563eb"), borderRadius:4, padding:"3px 5px" }}>
                                     <div style={{ fontWeight:600, fontSize:10, color:subjColorMap[s.subject_id]?.text||"var(--text-heading)" }}>{s.subject_name}</div>
                                     <div style={{ fontSize:9, color:"var(--color-text-secondary)" }}>{s.teacher_name}</div>
-                                    {can("timetable.manage") && <button onClick={() => handleDelete(s.id)} style={{ background:"none", border:"none", color:"#dc2626", cursor:"pointer", fontSize:10, padding:0 }}>×</button>}
+                                    {can("academics.timetable_edit") && <button onClick={() => handleDelete(s.id)} style={{ background:"none", border:"none", color:"#dc2626", cursor:"pointer", fontSize:10, padding:0 }}>×</button>}
                                   </div>
                                 ) : <div style={{ color:"var(--text-muted)", textAlign:"center", fontSize:10 }}>—</div>}
                               </td>
@@ -873,7 +897,7 @@ function TimetableTab() {
 
 export function ClassDetail({ classItem, onClose, isGlobalLocked }) {
   const { can } = useAuth();
-  const canManage = can("classes.manage") && !isGlobalLocked;
+  const canManage = can("academics.class_management") && !isGlobalLocked;
   const [classTeachers,  setClassTeachers]  = useState([]);
   const [allTeachers,    setAllTeachers]    = useState([]);
   const [classSubjects,  setClassSubjects]  = useState([]);
@@ -973,7 +997,7 @@ export function ClassDetail({ classItem, onClose, isGlobalLocked }) {
                   {subjects.map(t => (
                     <div key={t.teacher_id} style={{ display:"flex", justifyContent:"space-between", alignItems:"center", padding:"8px 12px", background:"var(--bg-hover)", borderRadius:6, marginBottom:4 }}>
                       <div>
-                        <span style={{ fontWeight:600, fontSize:12 }}>{t.teacher_name}</span>
+                        <span style={{ fontWeight:600, fontSize:12 }}>{t.teacher_name}{t.className}</span>
                         <span style={{ fontSize:11, color:"var(--text-secondary)", marginLeft:8 }}>{t.employee_no}</span>
                         {t.subject_names && <span style={{ fontSize:11, color:"#2563eb", marginLeft:8 }}>{t.subject_names}</span>}
                       </div>
@@ -1020,7 +1044,7 @@ export function ClassDetail({ classItem, onClose, isGlobalLocked }) {
 
 function ClassSubjectsModal({ classItem, onClose, isGlobalLocked }) {
   const { can } = useAuth();
-  const canManage = can("classes.manage") && !isGlobalLocked;
+  const canManage = can("academics.class_management") && !isGlobalLocked;
   const [classSubjects, setClassSubjects] = useState([]);
   const [allSubjects,   setAllSubjects]   = useState([]);
   const [selSubject,    setSelSubject]     = useState("");
@@ -1097,6 +1121,72 @@ function ClassSubjectsModal({ classItem, onClose, isGlobalLocked }) {
               )}
             </>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* Past sessions' class set-up, saved when each session ended: read-only history */
+function SetupHistoryModal({ classes, initialClassId, onClose }) {
+  const [sessions, setSessions] = useState(null);
+  const [yearId, setYearId] = useState("");
+  const [clsId, setClsId] = useState(initialClassId || "");
+  const [rows, setRows] = useState(null);
+  const DAY = { 1: "Monday", 2: "Tuesday", 3: "Wednesday", 4: "Thursday", 5: "Friday", 6: "Saturday", 7: "Sunday" };
+  useEffect(() => {
+    client.get("/academics/setup-history").then(r => {
+      const s = r.data.data || []; setSessions(s); if (s.length) setYearId(String(s[0].academic_year_id));
+    }).catch(() => setSessions([]));
+  }, []);
+  useEffect(() => {
+    if (!yearId) { setRows(null); return; }
+    client.get("/academics/setup-history", { params: { academic_year_id: yearId, class_id: clsId || undefined } })
+      .then(r => setRows(r.data.data || [])).catch(() => setRows([]));
+  }, [yearId, clsId]);
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 900, width: "95%" }} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <span className="modal-title">Previous sessions - class set-up (read-only)</span>
+          <button className="modal-close" onClick={onClose}>&#10005;</button>
+        </div>
+        <div className="modal-body" style={{ maxHeight: "70vh", overflowY: "auto" }}>
+          {sessions === null && <p>Loading...</p>}
+          {sessions && !sessions.length && <p>No previous session has been saved yet. A session's timetable and teachers are saved here when the next session starts.</p>}
+          {sessions && sessions.length > 0 && (
+            <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+              <select className="form-control" style={{ maxWidth: 240 }} value={yearId} onChange={e => setYearId(e.target.value)}>
+                {sessions.map(s => <option key={s.academic_year_id} value={s.academic_year_id}>{s.session} ({s.classes} classes)</option>)}
+              </select>
+              <select className="form-control" style={{ maxWidth: 240 }} value={clsId} onChange={e => setClsId(e.target.value)}>
+                <option value="">All classes</option>
+                {classes.map(c => <option key={c.id} value={c.id}>{c.name}{c.section ? ` (${c.section})` : ""}</option>)}
+              </select>
+            </div>
+          )}
+          {rows && rows.length === 0 && yearId && <p>Nothing saved for this class in that session.</p>}
+          {rows && rows.map(h => (
+            <div key={h.id} className="section-card" style={{ marginBottom: 14 }}>
+              <div className="section-card-header"><span className="section-card-title">{h.class_label} - {h.session}</span></div>
+              <div style={{ padding: "8px 14px" }}>
+                <div style={{ fontSize: 13, marginBottom: 8 }}>
+                  <b>Class teacher(s):</b> {(h.class_teachers || []).map(t => t.teacher).filter(Boolean).join(", ") || "-"}
+                </div>
+                {(h.timetable || []).length === 0 ? <div style={{ fontSize: 13, color: "var(--dm-soft, #64748b)" }}>No timetable was saved.</div> : (
+                  <div style={{ overflowX: "auto" }}>
+                    <table className="data-table" style={{ width: "100%" }}>
+                      <thead><tr><th>Day</th><th>Time</th><th>Subject</th><th>Teacher</th><th>Room</th></tr></thead>
+                      <tbody>{h.timetable.map((t, i) => (
+                        <tr key={i}><td>{DAY[t.day_of_week] || t.day_of_week}</td><td>{(t.start_time || "").slice(0, 5)} - {(t.end_time || "").slice(0, 5)}</td>
+                          <td>{t.subject || "-"}</td><td>{t.teacher || "-"}</td><td>{t.room_number || "-"}</td></tr>
+                      ))}</tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

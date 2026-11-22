@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useAuth } from "../auth/AuthContext";
+import { useAuth, effectiveRole } from "../auth/AuthContext";
 import { syllabusApi } from "../api/syllabusApi";
 import academicsApi from "../api/academicsApi";
 import DatePicker from "../components/DatePicker";
@@ -15,9 +15,9 @@ export default function Syllabus() {
   const { formatDate } = useRegionalSettings();
   const { user, can } = useAuth();
   const roles     = user?.roles || [];
-  const role      = roles[0] || "";
-  const canManage = can("syllabus.manage");
-  const canMark   = can("syllabus.mark");
+  const role      = effectiveRole(user) || "";
+  const canManage = can("academics.syllabus_edit");
+  const canMark   = can("academics.syllabus_progress_marking");
 
   const [list, setList]           = useState([]);
   const [classes, setClasses]     = useState([]);
